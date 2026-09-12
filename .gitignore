@@ -1,0 +1,21 @@
+# Node
+mobile/node_modules/
+mobile/.expo/
+mobile/dist/
+mobile/.turbo/
+
+# Java / Maven
+api/target/
+api/.mvn/wrapper/*.jar
+api/.mvn/wrapper/maven-wrapper.properties
+
+# Docker
+*.log
+
+# Editor
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db

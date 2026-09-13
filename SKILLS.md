@@ -22,14 +22,16 @@ Note: the project scaffold and local config are in place. The Docker Desktop eng
 **Goal:** the basic habit loop works end to end, no streaming, no insights yet.
 
 - [ ] Firebase Auth wired up (sign up, login, logout)
-- [ ] `habits` table + CRUD API (create, edit, archive)
-- [ ] `check_ins` table + log/undo check-in API
-- [ ] Cadence types (daily / weekly / monthly) stored and enforced in UI
-- [ ] Mobile: habit list screen, add/edit habit screen, check-in tap interaction
+- [x] `habits` table + CRUD API (create, edit, archive)
+- [x] `check_ins` table + log/undo check-in API
+- [x] Cadence types (daily / weekly / monthly) stored and accepted in UI
+- [x] Mobile: habit list screen, add habit flow, check-in tap interaction
 - [ ] Mobile: calendar grid view per habit (mirrors the paper tracker layout — days across, habits down)
-- [ ] Streak calculation (current + longest), non-punitive empty state for missed days
+- [x] Streak calculation (current streak displayed from check-ins), non-punitive empty state for missed days
 
 **Exit criteria:** you can create a habit, check it in daily for a week, see a streak number, and see it on a grid.
+
+Current implementation status: habit CRUD + check-ins are live locally against Postgres, and the Expo web UI can add habits and log check-ins. Firebase auth and the calendar grid remain pending for full Phase 1 completion.
 
 ---
 

@@ -6,8 +6,8 @@ A habit tracker that goes beyond checkmarks — it finds the patterns between yo
 
 Most habit trackers are glorified checklists: log a habit, get a streak number, feel guilty when it breaks. Habituate is built around three ideas that most trackers skip:
 
-1. **Correlation over checkmarks.** A real-time engine surfaces relationships between your habits (e.g. "you're 3x more likely to hit your step goal on days you read first").
-2. **Shared accountability.** Habits can be tracked solo or as a group — Snapchat-style streaks, but for things that actually matter.
+1. **Correlation over checkmarks.** A real-time engine surfaces relationships between your habits (e.g. "you complete Morning Walk 90% of the time on days you also complete Morning Coffee"), framed honestly as conditional probability — never as a causal claim.
+2. **Shared accountability.** Habits can be tracked solo or as a group — Snapchat-style streaks, but for things that actually matter, with a visible rule for what keeps the streak alive.
 3. **Anti-guilt design.** No red X's for missed days. Trend framing over perfection framing. Streak freezes instead of all-or-nothing pressure.
 
 ## Features
@@ -19,19 +19,21 @@ Most habit trackers are glorified checklists: log a habit, get a streak number, 
 - Calendar grid view per habit
 - Push reminders
 
-### Insights engine
-- Real-time pairwise habit correlation (Kafka + Flink)
+### Insights
+- Weekly/monthly/yearly consistency view (completion ring, trend delta)
+- "Pattern detected" cards: pairwise habit correlation shown as a directional relationship (Habit A → Habit B) with a match percentage and plain-language description
+- Correlation copy is always phrased as conditional frequency ("X% of the time"), never as causation
+- Evidence-based nudge attached to each pattern, suggesting a concrete action based on the detected relationship
 - Streak-risk prediction
-- Weekly digest of patterns
 
 ### Goals
 - Freeform weekly/monthly goals, independent of a single habit
 - Progress tracking toward monthly targets
 
-### Social
-- Friends and groups
-- Shared habits with group streaks (all-members or any-member rules)
-- Group activity feed
+### Community (social)
+- **Shared Habits** — a habit tracked jointly by 2+ people, with its own group streak, a visible streak rule (all members / any member), and a distinct visual state for "streak at risk" vs. "safe" vs. "frozen" (grace token used)
+- **Challenges** — separate from Shared Habits; a time-boxed, multi-person goal with its own progress bar, not tied to daily streak mechanics
+- Friend activity feed
 
 ### Habituate Wrapped
 - Monthly and annual auto-generated recap
@@ -90,4 +92,4 @@ See `SKILLS.md` for the phased build plan — start there, work top to bottom.
 
 ## Status
 
-Early build. Core tracking in progress.
+Early build. Core tracking in progress. Insights and Community screen designs finalized (v1) — see `CLAUDE.md` for UI conventions.

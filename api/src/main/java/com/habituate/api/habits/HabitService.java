@@ -5,6 +5,7 @@ import com.habituate.api.checkins.CheckInRepository;
 import com.habituate.api.checkins.CheckInRequest;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
@@ -22,6 +23,10 @@ public class HabitService {
 
     public List<Habit> listHabits(String userId) {
         return habitRepository.findByUserIdAndArchivedFalseOrderByCreatedAtDesc(userId);
+    }
+
+    public List<Habit> listArchivedHabits(String userId) {
+        return habitRepository.findByUserIdAndArchivedTrueOrderByUpdatedAtDesc(userId);
     }
 
     public Habit createHabit(String userId, CreateHabitRequest request) {
@@ -61,7 +66,24 @@ public class HabitService {
         return habitRepository.save(habit);
     }
 
-    public Habit archiveHabit(String userId, Long habitId) {
+    public Habit setArchived(String userId, Long habitId, boolean archived) {
+        Habit habit = requireOwnedHabit(userId, habitId);
+        habit.setArchived(archived);
+        return habitRepository.save(habit);
+    }
+
+    /**
+     * Hard delete. Archiving is the reversible option; this one is not, so the
+     * habit's check-in history goes with it rather than being orphaned.
+     */
+    @Transactional
+    public void deleteHabit(String userId, Long habitId) {
+        Habit habit = requireOwnedHabit(userId, habitId);
+        checkInRepository.deleteByHabitId(habit.getId());
+        habitRepository.delete(habit);
+    }
+
+    private Habit requireOwnedHabit(String userId, Long habitId) {
         Habit habit = habitRepository.findById(habitId)
                 .orElseThrow(() -> new EntityNotFoundException("Habit not found: " + habitId));
 
@@ -69,8 +91,7 @@ public class HabitService {
             throw new IllegalArgumentException("Habit does not belong to user: " + userId);
         }
 
-        habit.setArchived(true);
-        return habitRepository.save(habit);
+        return habit;
     }
 
     public List<CheckIn> listCheckIns(String userId, Long habitId) {

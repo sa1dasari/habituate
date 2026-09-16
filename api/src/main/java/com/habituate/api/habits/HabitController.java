@@ -29,8 +29,15 @@ public class HabitController {
     }
 
     @GetMapping("/habits")
-    public List<HabitResponse> listHabits(@RequestParam(defaultValue = "demo-user") String userId) {
-        return habitService.listHabits(userId).stream()
+    public List<HabitResponse> listHabits(
+            @RequestParam(defaultValue = "demo-user") String userId,
+            @RequestParam(defaultValue = "false") boolean archived) {
+
+        List<Habit> habits = archived
+                ? habitService.listArchivedHabits(userId)
+                : habitService.listHabits(userId);
+
+        return habits.stream()
                 .map(HabitResponse::from)
                 .toList();
     }
@@ -51,10 +58,11 @@ public class HabitController {
         return HabitResponse.from(habitService.updateHabit(userId, habitId, request));
     }
 
+    /** Permanent — removes the habit and its check-ins. Archiving is PUT with {"archived": true}. */
     @DeleteMapping("/habits/{habitId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void archiveHabit(@RequestParam(defaultValue = "demo-user") String userId, @PathVariable Long habitId) {
-        habitService.archiveHabit(userId, habitId);
+    public void deleteHabit(@RequestParam(defaultValue = "demo-user") String userId, @PathVariable Long habitId) {
+        habitService.deleteHabit(userId, habitId);
     }
 
     @GetMapping("/habits/{habitId}/check-ins")

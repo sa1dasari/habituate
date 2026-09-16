@@ -8,4 +8,6 @@ public interface CheckInRepository extends JpaRepository<CheckIn, Long> {
     List<CheckIn> findByUserIdAndHabitIdOrderByOccurredAtDesc(String userId, Long habitId);
 
     List<CheckIn> findByUserIdAndHabitIdOrderByOccurredAtAsc(String userId, Long habitId);
+
+    void deleteByHabitId(Long habitId);
 }

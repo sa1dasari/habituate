@@ -63,6 +63,7 @@ const HabitsContext = createContext(null);
 
 export function HabitsProvider({ children }) {
   const [habits, setHabits] = useState([]);
+  const [archivedHabits, setArchivedHabits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -70,8 +71,12 @@ export function HabitsProvider({ children }) {
   const refresh = useCallback(async () => {
     try {
       setLoading(true);
-      const data = (await api.listHabits()) || [];
-      setHabits(await Promise.all(data.map(hydrate)));
+      const [active, archived] = await Promise.all([
+        api.listHabits(),
+        api.listArchivedHabits(),
+      ]);
+      setHabits(await Promise.all((active || []).map(hydrate)));
+      setArchivedHabits(archived || []);
       setError('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not load habits');
@@ -99,6 +104,11 @@ export function HabitsProvider({ children }) {
 
   const createHabit = useCallback((habit) => run(() => api.createHabit(habit)), [run]);
 
+  const updateHabit = useCallback(
+    (habitId, changes) => run(() => api.updateHabit(habitId, changes)),
+    [run]
+  );
+
   const toggleCheckIn = useCallback(
     (habitId) =>
       run(async () => {
@@ -119,6 +129,10 @@ export function HabitsProvider({ children }) {
 
   const archiveHabit = useCallback((habitId) => run(() => api.archiveHabit(habitId)), [run]);
 
+  const restoreHabit = useCallback((habitId) => run(() => api.restoreHabit(habitId)), [run]);
+
+  const deleteHabit = useCallback((habitId) => run(() => api.deleteHabit(habitId)), [run]);
+
   const summary = useMemo(() => {
     const total = habits.length;
     const done = habits.filter((habit) => habit.checkedInToday).length;
@@ -131,8 +145,36 @@ export function HabitsProvider({ children }) {
   }, [habits]);
 
   const value = useMemo(
-    () => ({ habits, loading, busy, error, summary, refresh, createHabit, toggleCheckIn, archiveHabit }),
-    [habits, loading, busy, error, summary, refresh, createHabit, toggleCheckIn, archiveHabit]
+    () => ({
+      habits,
+      archivedHabits,
+      loading,
+      busy,
+      error,
+      summary,
+      refresh,
+      createHabit,
+      updateHabit,
+      toggleCheckIn,
+      archiveHabit,
+      restoreHabit,
+      deleteHabit,
+    }),
+    [
+      habits,
+      archivedHabits,
+      loading,
+      busy,
+      error,
+      summary,
+      refresh,
+      createHabit,
+      updateHabit,
+      toggleCheckIn,
+      archiveHabit,
+      restoreHabit,
+      deleteHabit,
+    ]
   );
 
   return createElement(HabitsContext.Provider, { value }, children);

@@ -25,6 +25,7 @@ export default function HabitCard({
   disabled = false,
   onToggle,
   onPress,
+  onEdit,
 }) {
   const cadence = CADENCE_LABEL[String(cadenceType).toUpperCase()] || 'Daily';
 
@@ -50,6 +51,23 @@ export default function HabitCard({
           <StreakIndicator streak={streak} status={streakStatus} compact />
         </View>
       </View>
+
+      {onEdit ? (
+        <Pressable
+          onPress={onEdit}
+          disabled={disabled}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={`Edit ${name}`}
+          style={({ pressed }) => [
+            styles.edit,
+            pressed && !disabled ? styles.checkPressed : null,
+            disabled ? styles.checkDisabled : null,
+          ]}
+        >
+          <MaterialCommunityIcons name="pencil-outline" size={18} color={colors.textSecondary} />
+        </Pressable>
+      ) : null}
 
       <Pressable
         onPress={onToggle}
@@ -118,6 +136,14 @@ const styles = StyleSheet.create({
   },
   streakRow: {
     marginTop: spacing.sm,
+  },
+  edit: {
+    width: 36,
+    height: 36,
+    borderRadius: radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.background,
   },
   check: {
     width: 44,

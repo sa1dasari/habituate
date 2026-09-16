@@ -47,13 +47,13 @@ For as long as the app stays in Expo's managed workflow with Expo Go–compatibl
 
 - [ ] Firebase Auth wired up (sign up, login, logout); backend verifies the Firebase ID token server-side on every request
   - **Not started.** `userId` is currently a `@RequestParam(defaultValue = "demo-user")` on every endpoint, so any caller can read or write any user's data. This must land before anything is deployed.
-- [x] `habits` table + CRUD API (create, edit, archive)
+- [x] `habits` table + CRUD API (create, edit, archive, restore, permanent delete)
 - [x] `check_ins` table + log/undo check-in API
 - [ ] Cadence types (daily / weekly / monthly) stored and enforced in UI
   - Stored and used to group the Habits list; `cadenceTarget` is not yet enforced against check-in counts.
 - [x] **Today page complete**: today's habits list using the shared habit card, check-in tap interaction, today's progress ring, non-punitive empty state
 - [ ] **Habits page complete**: cadence-grouped habit list (Daily/Weekly/Monthly), add/edit habit flow, calendar grid view per habit (mirrors the paper tracker layout — days across, habits down)
-  - Cadence grouping and the add-habit flow are done; edit/archive UI and the calendar grid are still pending.
+  - Cadence grouping, the add-habit flow (with a category dropdown), and the edit / archive / restore / delete UI are done; the calendar grid is still pending.
 - [ ] Streak calculation (current + longest) wired into the shared streak indicator component
   - Current streak is computed **client-side** in `useHabits.js`; longest streak isn't tracked at all. Both should move server-side.
 

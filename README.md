@@ -86,6 +86,35 @@ cd api && ./mvnw spring-boot:run
 cd mobile && npx expo start
 ```
 
+### Running on a physical phone (Expo Go)
+
+The mobile client derives the API host from Expo's manifest (`Constants.expoConfig.hostUri`,
+with the Metro bundle URL as a fallback), so on a real device it calls
+`http://<your-dev-machine-LAN-IP>:8080` automatically — no code edit needed. The
+resolved address is logged on startup as `[habituate] API base URL: …`, which is the
+first thing to check when a request fails.
+
+Two things still have to be true:
+
+1. Phone and dev machine are on the same Wi-Fi network, and Metro is running in LAN
+   mode (the default — not `--localhost`, not `--tunnel`).
+2. Windows Firewall allows inbound TCP 8080 for the JDK running the API. If requests
+   time out while Metro still loads fine, add an explicit rule from an **admin** PowerShell:
+
+   ```powershell
+   New-NetFirewallRule -DisplayName "Habituate API 8080 (dev)" -Direction Inbound `
+     -Protocol TCP -LocalPort 8080 -Action Allow -Profile Any
+   ```
+
+To point the app at a different host (tunnel, staging, USB/`adb reverse`), either set
+`EXPO_PUBLIC_API_URL` before starting Metro:
+
+```bash
+EXPO_PUBLIC_API_URL=http://10.0.0.5:8080 npx expo start
+```
+
+or add `expo.extra.apiUrl` in `mobile/app.json`. Both take precedence over auto-detection.
+
 ## Build order
 
 See `SKILLS.md` for the phased build plan — start there, work top to bottom.

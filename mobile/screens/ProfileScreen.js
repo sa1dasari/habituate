@@ -8,6 +8,16 @@ import SharedHabitCard from '../components/SharedHabitCard';
 import StreakIndicator from '../components/StreakIndicator';
 import { colors, spacing, typography } from '../theme';
 
+function hoursAgo(hours) {
+  return new Date(Date.now() - hours * 3600 * 1000).toISOString();
+}
+
+const SAMPLE_CHECK_INS = [
+  { id: 'a', occurredAt: hoursAgo(3) },
+  { id: 'b', occurredAt: hoursAgo(27) },
+  { id: 'c', occurredAt: hoursAgo(75) },
+];
+
 function Section({ title, note, children }) {
   return (
     <View style={styles.section}>
@@ -74,6 +84,67 @@ export default function ProfileScreen() {
             cadenceType="MONTHLY"
             streak={9}
             streakStatus="frozen"
+            onToggle={() => {}}
+          />
+        </Section>
+
+        <Section title="HabitCard — today variant" note="Compact schedule row used on Today.">
+          <HabitCard
+            variant="today"
+            name="Morning coffee"
+            category="Nutrition"
+            scheduledTime="08:00"
+            checked
+            onToggle={() => {}}
+          />
+          <HabitCard
+            variant="today"
+            name="Read 10 pages"
+            category="Learning"
+            scheduledTime="12:00"
+            onToggle={() => {}}
+          />
+          <HabitCard
+            variant="today"
+            name="30 min walk"
+            category="Fitness"
+            cadenceType="DAILY"
+            onToggle={() => {}}
+          />
+        </Section>
+
+        <Section
+          title="HabitCard — period progress + expanded"
+          note="Weekly / monthly habits show a bar, and tapping a row reveals when it was logged."
+        >
+          <HabitCard
+            variant="today"
+            name="Gym"
+            category="Fitness"
+            cadenceType="WEEKLY"
+            progressLabel="1 of 3 this week"
+            periodDone={1}
+            periodTarget={3}
+            daysLeft={5}
+            checkIns={SAMPLE_CHECK_INS}
+            checked
+            expanded
+            onPress={() => {}}
+            onToggle={() => {}}
+          />
+          <HabitCard
+            variant="today"
+            name="Budget review"
+            category="Finance"
+            cadenceType="MONTHLY"
+            progressLabel="2 of 2 this month — all done"
+            progressComplete
+            periodDone={2}
+            periodTarget={2}
+            periodComplete
+            daysLeft={14}
+            checkIns={SAMPLE_CHECK_INS}
+            onPress={() => {}}
             onToggle={() => {}}
           />
         </Section>

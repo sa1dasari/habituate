@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.LocalTime;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 
 @Service
@@ -36,6 +38,10 @@ public class HabitService {
         Integer cadenceTarget = request.cadenceTarget() == null ? 1 : request.cadenceTarget();
 
         Habit habit = new Habit(userId, name, category, cadenceType, cadenceTarget);
+        habit.setScheduledTime(parseScheduledTime(request.scheduledTime()));
+        habit.setReminderEnabled(
+                Boolean.TRUE.equals(request.reminderEnabled()) && habit.getScheduledTime() != null
+        );
         return habitRepository.save(habit);
     }
 
@@ -59,11 +65,33 @@ public class HabitService {
         if (request.cadenceTarget() != null) {
             habit.setCadenceTarget(request.cadenceTarget());
         }
+        // A blank scheduledTime clears it, so the time can be removed after being set.
+        if (request.scheduledTime() != null) {
+            habit.setScheduledTime(parseScheduledTime(request.scheduledTime()));
+        }
+        if (request.reminderEnabled() != null) {
+            habit.setReminderEnabled(request.reminderEnabled());
+        }
+        if (habit.getScheduledTime() == null) {
+            habit.setReminderEnabled(false);
+        }
         if (request.archived() != null) {
             habit.setArchived(request.archived());
         }
 
         return habitRepository.save(habit);
+    }
+
+    /** Accepts "HH:mm" or "HH:mm:ss"; blank clears the time. */
+    private LocalTime parseScheduledTime(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return LocalTime.parse(value.trim());
+        } catch (DateTimeParseException ex) {
+            throw new IllegalArgumentException("Invalid scheduledTime, expected HH:mm: " + value);
+        }
     }
 
     public Habit setArchived(String userId, Long habitId, boolean archived) {

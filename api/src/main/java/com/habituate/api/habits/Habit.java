@@ -10,6 +10,7 @@ import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 
 import java.time.Instant;
+import java.time.LocalTime;
 
 @Entity
 @Table(name = "habits")
@@ -33,6 +34,14 @@ public class Habit {
 
     @Column(nullable = false)
     private Integer cadenceTarget = 1;
+
+    /** Optional time of day the user intends to do the habit. Never enforced. */
+    @Column(name = "scheduled_time")
+    private LocalTime scheduledTime;
+
+    /** Only meaningful with a scheduled time; delivery lands with FCM in Phase 9. */
+    @Column(nullable = false)
+    private boolean reminderEnabled = false;
 
     @Column(nullable = false)
     private boolean archived = false;
@@ -108,6 +117,22 @@ public class Habit {
 
     public void setCadenceTarget(Integer cadenceTarget) {
         this.cadenceTarget = cadenceTarget;
+    }
+
+    public LocalTime getScheduledTime() {
+        return scheduledTime;
+    }
+
+    public void setScheduledTime(LocalTime scheduledTime) {
+        this.scheduledTime = scheduledTime;
+    }
+
+    public boolean isReminderEnabled() {
+        return reminderEnabled;
+    }
+
+    public void setReminderEnabled(boolean reminderEnabled) {
+        this.reminderEnabled = reminderEnabled;
     }
 
     public boolean isArchived() {

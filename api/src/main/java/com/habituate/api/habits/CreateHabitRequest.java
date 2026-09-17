@@ -4,6 +4,8 @@ public record CreateHabitRequest(
         String name,
         String category,
         String cadenceType,
-        Integer cadenceTarget
+        Integer cadenceTarget,
+        String scheduledTime,
+        Boolean reminderEnabled
 ) {
 }

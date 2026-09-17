@@ -5,6 +5,8 @@ public record UpdateHabitRequest(
         String category,
         String cadenceType,
         Integer cadenceTarget,
+        String scheduledTime,
+        Boolean reminderEnabled,
         Boolean archived
 ) {
 }

@@ -1,6 +1,7 @@
 package com.habituate.api.habits;
 
 import java.time.Instant;
+import java.time.format.DateTimeFormatter;
 
 public record HabitResponse(
         Long id,
@@ -9,6 +10,8 @@ public record HabitResponse(
         String category,
         String cadenceType,
         Integer cadenceTarget,
+        String scheduledTime,
+        boolean reminderEnabled,
         boolean archived,
         Instant createdAt,
         Instant updatedAt
@@ -21,6 +24,10 @@ public record HabitResponse(
                 habit.getCategory(),
                 habit.getCadenceType(),
                 habit.getCadenceTarget(),
+                habit.getScheduledTime() == null
+                        ? null
+                        : habit.getScheduledTime().format(DateTimeFormatter.ofPattern("HH:mm")),
+                habit.isReminderEnabled(),
                 habit.isArchived(),
                 habit.getCreatedAt(),
                 habit.getUpdatedAt()

@@ -1,5 +1,14 @@
 import React, { useRef, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Dropdown from '../components/Dropdown';
 import HabitCard from '../components/HabitCard';
@@ -8,6 +17,7 @@ import {
   HABIT_CATEGORY_OPTIONS,
 } from '../constants/habitCategories';
 import { useHabits } from '../hooks/useHabits';
+import { formatTime, parseTimeInput } from '../utils/time';
 import { colors, radii, shadow, spacing, typography } from '../theme';
 
 const CADENCES = [
@@ -22,6 +32,8 @@ const emptyForm = {
   category: DEFAULT_HABIT_CATEGORY,
   cadenceType: 'DAILY',
   cadenceTarget: '1',
+  scheduledTime: '',
+  reminderEnabled: false,
 };
 
 function formFromHabit(habit) {
@@ -34,6 +46,8 @@ function formFromHabit(habit) {
       : DEFAULT_HABIT_CATEGORY,
     cadenceType: CADENCES.some((cadence) => cadence.key === cadenceType) ? cadenceType : 'DAILY',
     cadenceTarget: String(habit.cadenceTarget == null ? 1 : habit.cadenceTarget),
+    scheduledTime: formatTime(habit.scheduledTime),
+    reminderEnabled: Boolean(habit.reminderEnabled),
   };
 }
 
@@ -88,11 +102,21 @@ export default function HabitsScreen() {
       return;
     }
 
+    // Both the time and the reminder are optional; only a typo blocks saving.
+    const timeText = form.scheduledTime.trim();
+    const scheduledTime = timeText ? parseTimeInput(timeText) : '';
+    if (timeText && !scheduledTime) {
+      Alert.alert('Check the time', 'Use a time like 8:00 AM or 19:30 — or leave it blank.');
+      return;
+    }
+
     const payload = {
       name,
       category: form.category || DEFAULT_HABIT_CATEGORY,
       cadenceType: form.cadenceType,
       cadenceTarget: Number(form.cadenceTarget) || 1,
+      scheduledTime,
+      reminderEnabled: Boolean(scheduledTime) && form.reminderEnabled,
     };
 
     try {
@@ -231,6 +255,34 @@ export default function HabitsScreen() {
               onChangeText={(value) => setForm({ ...form, cadenceTarget: value.replace(/[^0-9]/g, '') })}
             />
 
+            <Text style={styles.label}>Ideal time (optional)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. 8:00 AM"
+              placeholderTextColor={colors.textMuted}
+              autoCapitalize="characters"
+              value={form.scheduledTime}
+              onChangeText={(value) => setForm({ ...form, scheduledTime: value })}
+            />
+
+            <View style={styles.switchRow}>
+              <View style={styles.switchText}>
+                <Text style={styles.switchLabel}>Remind me at that time</Text>
+                <Text style={styles.switchHint}>
+                  {form.scheduledTime.trim()
+                    ? 'Saved with the habit. Reminders start sending once notifications ship.'
+                    : 'Set an ideal time first to turn this on.'}
+                </Text>
+              </View>
+              <Switch
+                value={Boolean(form.scheduledTime.trim()) && form.reminderEnabled}
+                disabled={!form.scheduledTime.trim()}
+                onValueChange={(value) => setForm({ ...form, reminderEnabled: value })}
+                trackColor={{ false: colors.border, true: colors.safeSoft }}
+                thumbColor={form.reminderEnabled ? colors.safe : '#FFFFFF'}
+              />
+            </View>
+
             <Pressable style={styles.primaryButton} onPress={submit} disabled={busy}>
               <Text style={styles.primaryButtonText}>
                 {busy ? 'Saving…' : isEditing ? 'Save changes' : 'Add habit'}
@@ -270,6 +322,10 @@ export default function HabitsScreen() {
                   name={habit.name}
                   category={habit.category}
                   cadenceType={habit.cadenceType}
+                  scheduledTime={habit.scheduledTime}
+                  reminderEnabled={habit.reminderEnabled}
+                  progressLabel={habit.progressLabel}
+                  progressComplete={habit.periodComplete}
                   streak={habit.streak}
                   streakStatus={habit.streakStatus}
                   checked={habit.checkedInToday}
@@ -371,6 +427,15 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   label: { ...typography.meta, fontWeight: '600', marginBottom: spacing.sm },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginBottom: spacing.md,
+  },
+  switchText: { flex: 1 },
+  switchLabel: { fontSize: 14, fontWeight: '600', color: colors.textPrimary },
+  switchHint: { ...typography.meta, marginTop: 2 },
   segmented: {
     flexDirection: 'row',
     backgroundColor: colors.background,

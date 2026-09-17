@@ -1,12 +1,9 @@
 import { createContext, createElement, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import api from '../api/client';
+import { cadenceProgress } from '../utils/cadence';
+import { toDateKey } from '../utils/date';
 
-export function toDateKey(value) {
-  const date = value instanceof Date ? value : new Date(value);
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
-    date.getDate()
-  ).padStart(2, '0')}`;
-}
+export { toDateKey };
 
 /** Consecutive days ending today, or ending yesterday if today is still open. */
 export function computeStreak(checkIns) {
@@ -56,7 +53,24 @@ async function hydrate(habit) {
     lastCheckIn: checkIns[0] ? checkIns[0].occurredAt : null,
   };
 
-  return { ...enriched, streakStatus: streakStatus(enriched) };
+  return {
+    ...enriched,
+    ...cadenceProgress(enriched),
+    streakStatus: streakStatus(enriched),
+  };
+}
+
+/** Check-in progress for any slice of habits — today's daily list, a cadence group, etc. */
+export function summarizeHabits(list = []) {
+  const total = list.length;
+  const done = list.filter((habit) => habit.checkedInToday).length;
+
+  return {
+    total,
+    done,
+    percent: total === 0 ? 0 : Math.round((done / total) * 100),
+    topStreak: total === 0 ? 0 : Math.max(...list.map((habit) => habit.streak || 0)),
+  };
 }
 
 const HabitsContext = createContext(null);
@@ -133,16 +147,7 @@ export function HabitsProvider({ children }) {
 
   const deleteHabit = useCallback((habitId) => run(() => api.deleteHabit(habitId)), [run]);
 
-  const summary = useMemo(() => {
-    const total = habits.length;
-    const done = habits.filter((habit) => habit.checkedInToday).length;
-    return {
-      total,
-      done,
-      percent: total === 0 ? 0 : Math.round((done / total) * 100),
-      topStreak: total === 0 ? 0 : Math.max(...habits.map((habit) => habit.streak || 0)),
-    };
-  }, [habits]);
+  const summary = useMemo(() => summarizeHabits(habits), [habits]);
 
   const value = useMemo(
     () => ({

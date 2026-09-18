@@ -22,7 +22,8 @@ Thumbs.db
 
 # Firebase — service account key is a secret, never commit it
 *service-account*.json
-firebase-adminsdk*.json
+*firebase-adminsdk*.json
+*adminsdk*.json
 
 # Mobile env (contains API keys)
 mobile/.env.local

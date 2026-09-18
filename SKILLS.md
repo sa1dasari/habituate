@@ -45,8 +45,8 @@ For as long as the app stays in Expo's managed workflow with Expo Go–compatibl
 ## Phase 2 — Core tracking MVP (Today + Habits pages, fully complete)
 **Goal:** the basic habit loop works end to end, no streaming, no insights yet. Build Today, then Habits, each to completion before moving to the next page — not both half-done in parallel.
 
-- [ ] Firebase Auth wired up (sign up, login, logout); backend verifies the Firebase ID token server-side on every request
-  - **Not started.** `userId` is currently a `@RequestParam(defaultValue = "demo-user")` on every endpoint, so any caller can read or write any user's data. This must land before anything is deployed.
+- [x] Firebase Auth wired up (sign up, login, logout); backend verifies the Firebase ID token server-side on every request
+  - Implemented 2026-09-17: Firebase JS SDK in mobile (`firebase.js`, `hooks/useAuth.js`); `LoginScreen` + `SignupScreen` with email/password; `App.js` gates tabs behind auth state. Backend: `FirebaseConfig` initialises Firebase Admin SDK from `firebase.service-account-path`, `FirebaseAuthFilter` verifies Bearer tokens and sets `userId` request attribute (falls back to `demo-user` when no service account is configured for local dev), `SecurityConfig` registers the filter. `HabitController` now reads `userId` from the request attribute — `?userId=` query param removed from all endpoints. **Action required:** create a Firebase project and set `EXPO_PUBLIC_FIREBASE_*` env vars in mobile and `firebase.service-account-path` in the API before deploying (see README for steps).
 - [x] `habits` table + CRUD API (create, edit, archive, restore, permanent delete)
 - [x] `check_ins` table + log/undo check-in API
 - [x] Cadence types (daily / weekly / monthly) stored and enforced in UI

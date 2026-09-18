@@ -2,8 +2,9 @@ package com.habituate.api.habits;
 
 import com.habituate.api.checkins.CheckInRequest;
 import com.habituate.api.checkins.CheckInResponse;
+import com.habituate.api.config.FirebaseAuthFilter;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -19,7 +20,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api")
-@CrossOrigin(origins = "*")
 public class HabitController {
 
     private final HabitService habitService;
@@ -28,11 +28,17 @@ public class HabitController {
         this.habitService = habitService;
     }
 
+    /** Extracts the verified Firebase UID set by FirebaseAuthFilter. */
+    private String userId(HttpServletRequest req) {
+        return (String) req.getAttribute(FirebaseAuthFilter.USER_ID_ATTRIBUTE);
+    }
+
     @GetMapping("/habits")
     public List<HabitResponse> listHabits(
-            @RequestParam(defaultValue = "demo-user") String userId,
+            HttpServletRequest req,
             @RequestParam(defaultValue = "false") boolean archived) {
 
+        String userId = userId(req);
         List<Habit> habits = archived
                 ? habitService.listArchivedHabits(userId)
                 : habitService.listHabits(userId);
@@ -44,32 +50,28 @@ public class HabitController {
 
     @PostMapping("/habits")
     @ResponseStatus(HttpStatus.CREATED)
-    public HabitResponse createHabit(
-            @RequestParam(defaultValue = "demo-user") String userId,
-            @RequestBody CreateHabitRequest request) {
-        return HabitResponse.from(habitService.createHabit(userId, request));
+    public HabitResponse createHabit(HttpServletRequest req, @RequestBody CreateHabitRequest request) {
+        return HabitResponse.from(habitService.createHabit(userId(req), request));
     }
 
     @PutMapping("/habits/{habitId}")
     public HabitResponse updateHabit(
-            @RequestParam(defaultValue = "demo-user") String userId,
+            HttpServletRequest req,
             @PathVariable Long habitId,
             @RequestBody UpdateHabitRequest request) {
-        return HabitResponse.from(habitService.updateHabit(userId, habitId, request));
+        return HabitResponse.from(habitService.updateHabit(userId(req), habitId, request));
     }
 
     /** Permanent — removes the habit and its check-ins. Archiving is PUT with {"archived": true}. */
     @DeleteMapping("/habits/{habitId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteHabit(@RequestParam(defaultValue = "demo-user") String userId, @PathVariable Long habitId) {
-        habitService.deleteHabit(userId, habitId);
+    public void deleteHabit(HttpServletRequest req, @PathVariable Long habitId) {
+        habitService.deleteHabit(userId(req), habitId);
     }
 
     @GetMapping("/habits/{habitId}/check-ins")
-    public List<CheckInResponse> listCheckIns(
-            @RequestParam(defaultValue = "demo-user") String userId,
-            @PathVariable Long habitId) {
-        return habitService.listCheckIns(userId, habitId).stream()
+    public List<CheckInResponse> listCheckIns(HttpServletRequest req, @PathVariable Long habitId) {
+        return habitService.listCheckIns(userId(req), habitId).stream()
                 .map(CheckInResponse::from)
                 .toList();
     }
@@ -77,17 +79,17 @@ public class HabitController {
     @PostMapping("/habits/{habitId}/check-ins")
     @ResponseStatus(HttpStatus.CREATED)
     public CheckInResponse createCheckIn(
-            @RequestParam(defaultValue = "demo-user") String userId,
+            HttpServletRequest req,
             @PathVariable Long habitId,
             @RequestBody(required = false) CheckInRequest request) {
 
         CheckInRequest safeRequest = request == null ? new CheckInRequest(null, 1, "manual") : request;
-        return CheckInResponse.from(habitService.createCheckIn(userId, habitId, safeRequest));
+        return CheckInResponse.from(habitService.createCheckIn(userId(req), habitId, safeRequest));
     }
 
     @DeleteMapping("/check-ins/{checkInId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteCheckIn(@RequestParam(defaultValue = "demo-user") String userId, @PathVariable Long checkInId) {
-        habitService.deleteCheckIn(userId, checkInId);
+    public void deleteCheckIn(HttpServletRequest req, @PathVariable Long checkInId) {
+        habitService.deleteCheckIn(userId(req), checkInId);
     }
 }

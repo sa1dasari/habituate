@@ -1,15 +1,19 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { ActivityIndicator, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { HabitsProvider } from './hooks/useHabits';
+import { AuthProvider, useAuth } from './hooks/useAuth';
 import {
   CommunityScreen,
   HabitsScreen,
   InsightsScreen,
+  LoginScreen,
   ProfileScreen,
+  SignupScreen,
   TodayScreen,
 } from './screens';
 import { colors } from './theme';
@@ -24,9 +28,6 @@ const TAB_ICONS = {
   Profile: 'account-circle-outline',
 };
 
-// Enough room for a 24px icon plus an 11px label; the device's bottom inset is
-// added on top so the labels clear the home indicator / gesture bar instead of
-// being squashed into the icons.
 const TAB_BAR_CONTENT_HEIGHT = 58;
 
 function Tabs() {
@@ -65,14 +66,40 @@ function Tabs() {
   );
 }
 
+function AppGate() {
+  const { user } = useAuth();
+  const [showSignup, setShowSignup] = useState(false);
+
+  // user === undefined means Firebase hasn't resolved the auth state yet
+  if (user === undefined) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+        <ActivityIndicator size="large" color={colors.accent} />
+      </View>
+    );
+  }
+
+  if (!user) {
+    return showSignup
+      ? <SignupScreen onGoToLogin={() => setShowSignup(false)} />
+      : <LoginScreen onGoToSignup={() => setShowSignup(true)} />;
+  }
+
+  return (
+    <HabitsProvider>
+      <NavigationContainer>
+        <Tabs />
+      </NavigationContainer>
+    </HabitsProvider>
+  );
+}
+
 export default function App() {
   return (
     <SafeAreaProvider>
-      <HabitsProvider>
-        <NavigationContainer>
-          <Tabs />
-        </NavigationContainer>
-      </HabitsProvider>
+      <AuthProvider>
+        <AppGate />
+      </AuthProvider>
       <StatusBar style="dark" />
     </SafeAreaProvider>
   );

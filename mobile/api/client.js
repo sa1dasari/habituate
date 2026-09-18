@@ -1,5 +1,6 @@
 import Constants from 'expo-constants';
 import { NativeModules, Platform } from 'react-native';
+import { auth } from '../firebase';
 
 const API_PORT = 8080;
 const REQUEST_TIMEOUT_MS = 10000;
@@ -68,13 +69,22 @@ if (__DEV__) {
   console.log(`[habituate] API base URL: ${API_BASE_URL}`);
 }
 
-// Placeholder until Firebase Auth lands in Phase 2 and the backend derives the
-// user from a verified ID token instead of a query parameter.
-export const DEMO_USER_ID = 'demo-user';
+/** Returns the current user's Firebase ID token, or null in demo mode. */
+async function getIdToken() {
+  try {
+    const user = auth.currentUser;
+    if (!user) return null;
+    return await user.getIdToken();
+  } catch {
+    return null;
+  }
+}
 
 async function request(path, options = {}) {
-  const separator = path.includes('?') ? '&' : '?';
-  const url = `${API_BASE_URL}${path}${separator}userId=${encodeURIComponent(DEMO_USER_ID)}`;
+  const url = `${API_BASE_URL}${path}`;
+
+  const idToken = await getIdToken();
+  const authHeader = idToken ? { Authorization: `Bearer ${idToken}` } : {};
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -86,6 +96,7 @@ async function request(path, options = {}) {
       signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
+        ...authHeader,
         ...(options.headers || {}),
       },
     });

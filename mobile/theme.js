@@ -44,6 +44,7 @@ export const typography = {
   sectionTitle: { fontSize: 16, fontWeight: '800', color: colors.textPrimary },
   cardTitle: { fontSize: 16, fontWeight: '700', color: colors.textPrimary },
   body: { fontSize: 14, color: colors.textPrimary },
+  label: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
   meta: { fontSize: 12, color: colors.textSecondary },
 };
 

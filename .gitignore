@@ -19,3 +19,15 @@ api/.mvn/wrapper/maven-wrapper.properties
 # OS
 .DS_Store
 Thumbs.db
+
+# Firebase — service account key is a secret, never commit it
+*service-account*.json
+firebase-adminsdk*.json
+
+# Mobile env (contains API keys)
+mobile/.env.local
+mobile/.env
+
+# Firebase native config files (contain project identifiers — keep out of root)
+google-services.json
+GoogleService-Info.plist

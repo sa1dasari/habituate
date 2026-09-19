@@ -40,10 +40,10 @@ public class Habit {
     private LocalTime scheduledTime;
 
     /** Only meaningful with a scheduled time; delivery lands with FCM in Phase 9. */
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "boolean not null default false")
     private boolean reminderEnabled = false;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "boolean not null default false")
     private boolean archived = false;
 
     @Column(nullable = false, updatable = false)

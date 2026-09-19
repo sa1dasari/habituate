@@ -15,7 +15,7 @@ import { useAuth } from '../hooks/useAuth';
 import { colors, radii, spacing, typography } from '../theme';
 
 export default function LoginScreen({ onGoToSignup }) {
-  const { signIn, error, clearError } = useAuth();
+  const { signIn, signInWithGoogle, error, googleLoading, clearError } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -78,14 +78,32 @@ export default function LoginScreen({ onGoToSignup }) {
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
             <Pressable
-              style={[styles.button, loading && styles.buttonDisabled]}
+              style={[styles.button, (loading || googleLoading) && styles.buttonDisabled]}
               onPress={handleSignIn}
-              disabled={loading}
+              disabled={loading || googleLoading}
             >
               {loading ? (
                 <ActivityIndicator color="#fff" />
               ) : (
                 <Text style={styles.buttonText}>Sign in</Text>
+              )}
+            </Pressable>
+
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>or</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            <Pressable
+              style={[styles.googleButton, googleLoading && styles.buttonDisabled]}
+              onPress={signInWithGoogle}
+              disabled={googleLoading || loading}
+            >
+              {googleLoading ? (
+                <ActivityIndicator color={colors.accent} />
+              ) : (
+                <Text style={styles.googleButtonText}>Sign in with Google</Text>
               )}
             </Pressable>
 
@@ -158,6 +176,20 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.6 },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  divider: { flexDirection: 'row', alignItems: 'center', marginVertical: spacing.lg },
+  dividerLine: { flex: 1, height: 1, backgroundColor: colors.border },
+  dividerText: { ...typography.meta, marginHorizontal: spacing.md, color: colors.textMuted },
+  googleButton: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.md,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    minHeight: 48,
+    justifyContent: 'center',
+  },
+  googleButtonText: { color: colors.textPrimary, fontSize: 16, fontWeight: '600' },
   switchLink: { alignItems: 'center', marginTop: spacing.lg },
   switchText: { ...typography.body, color: colors.textSecondary },
   switchAction: { color: colors.accent, fontWeight: '600' },

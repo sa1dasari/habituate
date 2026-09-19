@@ -8,18 +8,31 @@ import {
 } from 'react';
 import {
   createUserWithEmailAndPassword,
+  GoogleAuthProvider,
   onAuthStateChanged,
+  signInWithCredential,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
   updateProfile,
 } from 'firebase/auth';
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
 import { auth } from '../firebase';
+
+WebBrowser.maybeCompleteAuthSession();
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(undefined); // undefined = loading, null = signed out
   const [error, setError] = useState(null);
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  const [googleRequest, googleResponse, googlePromptAsync] = Google.useAuthRequest({
+    clientId: process.env.EXPO_PUBLIC_FIREBASE_WEB_CLIENT_ID || '',
+    iosClientId: process.env.EXPO_PUBLIC_FIREBASE_IOS_CLIENT_ID || '',
+    androidClientId: process.env.EXPO_PUBLIC_FIREBASE_ANDROID_CLIENT_ID || '',
+  });
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
@@ -27,6 +40,16 @@ export function AuthProvider({ children }) {
     });
     return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    if (googleResponse?.type === 'success') {
+      const { id_token } = googleResponse.params;
+      const credential = GoogleAuthProvider.credential(id_token);
+      signInWithCredential(auth, credential)
+        .catch(err => setError(friendlyError(err)))
+        .finally(() => setGoogleLoading(false));
+    }
+  }, [googleResponse]);
 
   const signIn = useCallback(async (email, password) => {
     setError(null);
@@ -56,10 +79,21 @@ export function AuthProvider({ children }) {
     await firebaseSignOut(auth);
   }, []);
 
+  const signInWithGoogle = useCallback(async () => {
+    setError(null);
+    setGoogleLoading(true);
+    try {
+      await googlePromptAsync();
+    } catch (err) {
+      setError(friendlyError(err));
+      setGoogleLoading(false);
+    }
+  }, [googlePromptAsync]);
+
   const clearError = useCallback(() => setError(null), []);
 
   return createElement(AuthContext.Provider, {
-    value: { user, error, signIn, signUp, signOut, clearError },
+    value: { user, error, signIn, signUp, signOut, signInWithGoogle, googleLoading, clearError },
     children,
   });
 }

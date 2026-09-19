@@ -1,5 +1,6 @@
 import { initializeApp, getApps } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { initializeAuth, getAuth, getReactNativePersistence } from 'firebase/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**
  * Firebase project config — these values are safe to commit (they're public
@@ -18,7 +19,23 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID || 'REPLACE_ME',
 };
 
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+let app;
+if (getApps().length === 0) {
+  app = initializeApp(firebaseConfig);
+} else {
+  app = getApps()[0];
+}
 
-export const auth = getAuth(app);
+// initializeAuth must be called exactly once per app instance.
+// On hot-reload getAuth works because auth is already registered.
+let auth;
+try {
+  auth = initializeAuth(app, {
+    persistence: getReactNativePersistence(AsyncStorage),
+  });
+} catch (_e) {
+  auth = getAuth(app);
+}
+
+export { auth };
 export default app;

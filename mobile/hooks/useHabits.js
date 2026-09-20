@@ -5,7 +5,10 @@ import { toDateKey } from '../utils/date';
 
 export { toDateKey };
 
-/** Consecutive days ending today, or ending yesterday if today is still open. */
+/**
+ * Kept for local fallback only — the authoritative values come from the API
+ * (currentStreak / longestStreak on each HabitResponse).
+ */
 export function computeStreak(checkIns) {
   if (!checkIns || checkIns.length === 0) return 0;
 
@@ -45,11 +48,15 @@ async function hydrate(habit) {
 
   const today = toDateKey(new Date());
   const checkedInToday = checkIns.some((checkIn) => toDateKey(checkIn.occurredAt) === today);
+  // currentStreak and longestStreak come from the server; fall back to
+  // client-side computation only if the API is older and omits them.
+  const serverStreak = habit.currentStreak != null ? habit.currentStreak : computeStreak(checkIns);
   const enriched = {
     ...habit,
     checkIns,
     checkedInToday,
-    streak: computeStreak(checkIns),
+    streak: serverStreak,
+    longestStreak: habit.longestStreak != null ? habit.longestStreak : serverStreak,
     lastCheckIn: checkIns[0] ? checkIns[0].occurredAt : null,
   };
 
@@ -123,6 +130,7 @@ export function HabitsProvider({ children }) {
     [run]
   );
 
+  // BOOLEAN habits only: today is either logged or not, so a second tap undoes it.
   const toggleCheckIn = useCallback(
     (habitId) =>
       run(async () => {
@@ -136,6 +144,32 @@ export function HabitsProvider({ children }) {
           await api.deleteCheckIn(todays.id);
         } else {
           await api.createCheckIn(habitId);
+        }
+      }),
+    [habits, run]
+  );
+
+  // COUNT habits: every tap (or a batch amount) adds a new check-in — today can
+  // hold any number of them, e.g. two gym visits or five job applications.
+  const addCheckIn = useCallback(
+    (habitId, value = 1) => run(() => api.createCheckIn(habitId, { value, source: 'manual' })),
+    [run]
+  );
+
+  // Undoes the single most recent check-in logged today, not the whole day.
+  const removeLastCheckIn = useCallback(
+    (habitId) =>
+      run(async () => {
+        const habit = habits.find((item) => item.id === habitId);
+        if (!habit) return;
+
+        const today = toDateKey(new Date());
+        const todays = habit.checkIns
+          .filter((checkIn) => toDateKey(checkIn.occurredAt) === today)
+          .sort((a, b) => new Date(b.occurredAt) - new Date(a.occurredAt));
+
+        if (todays[0]) {
+          await api.deleteCheckIn(todays[0].id);
         }
       }),
     [habits, run]
@@ -161,6 +195,8 @@ export function HabitsProvider({ children }) {
       createHabit,
       updateHabit,
       toggleCheckIn,
+      addCheckIn,
+      removeLastCheckIn,
       archiveHabit,
       restoreHabit,
       deleteHabit,
@@ -176,6 +212,8 @@ export function HabitsProvider({ children }) {
       createHabit,
       updateHabit,
       toggleCheckIn,
+      addCheckIn,
+      removeLastCheckIn,
       archiveHabit,
       restoreHabit,
       deleteHabit,

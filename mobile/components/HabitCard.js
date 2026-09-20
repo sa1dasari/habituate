@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, Pressable, StyleSheet, TextInput } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import StreakIndicator from './StreakIndicator';
 import { categoryIcon } from '../constants/habitCategories';
@@ -26,9 +26,12 @@ export default function HabitCard({
   name = 'Habit name',
   category = 'General',
   cadenceType = 'DAILY',
+  trackingMode = 'BOOLEAN',
+  todayCount = 0,
   scheduledTime = null,
   reminderEnabled = false,
   progressLabel = '',
+  progressLines = [],
   progressComplete = false,
   periodDone = 0,
   periodTarget = 1,
@@ -42,11 +45,58 @@ export default function HabitCard({
   disabled = false,
   variant = 'detailed',
   onToggle,
+  onAdd,
+  onRemoveLast,
+  onLogAmount,
   onPress,
   onEdit,
 }) {
   const cadence = CADENCE_LABEL[String(cadenceType).toUpperCase()] || 'Daily';
   const periodNoun = cadenceNoun({ cadenceType });
+  const countMode = String(trackingMode).toUpperCase() === 'COUNT';
+  const [amountInput, setAmountInput] = useState('');
+
+  // COUNT habits replace the single toggle with a stepper: tap + to log one
+  // more (a second gym visit, another application), tap − to undo the most
+  // recent one. Today's running total is the number in the middle.
+  const stepper = (compact) => (
+    <View style={compact ? styles.stepperCompact : styles.stepper}>
+      <Pressable
+        onPress={onRemoveLast}
+        disabled={disabled || todayCount <= 0}
+        hitSlop={6}
+        accessibilityRole="button"
+        accessibilityLabel={`Remove last check-in for ${name}`}
+        style={({ pressed }) => [
+          styles.stepperBtn,
+          (disabled || todayCount <= 0) && styles.stepperBtnDisabled,
+          pressed && todayCount > 0 && !disabled ? styles.checkPressed : null,
+        ]}
+      >
+        <MaterialCommunityIcons name="minus" size={16} color={colors.textSecondary} />
+      </Pressable>
+
+      <Text style={styles.stepperCount} numberOfLines={1}>
+        {todayCount}
+      </Text>
+
+      <Pressable
+        onPress={onAdd}
+        disabled={disabled}
+        hitSlop={6}
+        accessibilityRole="button"
+        accessibilityLabel={`Add a check-in for ${name}`}
+        style={({ pressed }) => [
+          styles.stepperBtn,
+          styles.stepperBtnAdd,
+          pressed && !disabled ? styles.checkPressed : null,
+          disabled ? styles.checkDisabled : null,
+        ]}
+      >
+        <MaterialCommunityIcons name="plus" size={16} color="#FFFFFF" />
+      </Pressable>
+    </View>
+  );
 
   if (variant === 'today') {
     const time = formatTime(scheduledTime);
@@ -103,35 +153,74 @@ export default function HabitCard({
             ) : null}
           </View>
 
-          <Pressable
-            onPress={onToggle}
-            disabled={disabled}
-            hitSlop={8}
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked }}
-            accessibilityLabel={checked ? `Undo check-in for ${name}` : `Check in ${name}`}
-            style={({ pressed }) => [
-              styles.check,
-              styles.checkToday,
-              checked ? styles.checkOn : styles.checkIdle,
-              pressed && !disabled ? styles.checkPressed : null,
-              disabled ? styles.checkDisabled : null,
-            ]}
-          >
-            <MaterialCommunityIcons
-              name={checked ? 'check' : 'plus'}
-              size={checked ? 22 : 20}
-              color={checked ? '#FFFFFF' : colors.textMuted}
-            />
-          </Pressable>
+          {countMode ? (
+            stepper(true)
+          ) : (
+            <Pressable
+              onPress={onToggle}
+              disabled={disabled}
+              hitSlop={8}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked }}
+              accessibilityLabel={checked ? `Undo check-in for ${name}` : `Check in ${name}`}
+              style={({ pressed }) => [
+                styles.check,
+                styles.checkToday,
+                checked ? styles.checkOn : styles.checkIdle,
+                pressed && !disabled ? styles.checkPressed : null,
+                disabled ? styles.checkDisabled : null,
+              ]}
+            >
+              <MaterialCommunityIcons
+                name={checked ? 'check' : 'plus'}
+                size={checked ? 22 : 20}
+                color={checked ? '#FFFFFF' : colors.textMuted}
+              />
+            </Pressable>
+          )}
         </Pressable>
 
         {expanded ? (
           <View style={styles.expanded}>
+            {countMode ? (
+              <View style={styles.amountRow}>
+                <TextInput
+                  style={styles.amountInput}
+                  keyboardType="number-pad"
+                  placeholder="Log an amount, e.g. 5"
+                  placeholderTextColor={colors.textMuted}
+                  value={amountInput}
+                  onChangeText={(v) => setAmountInput(v.replace(/[^0-9]/g, ''))}
+                />
+                <Pressable
+                  onPress={() => {
+                    const n = Number(amountInput);
+                    if (n > 0 && onLogAmount) onLogAmount(n);
+                    setAmountInput('');
+                  }}
+                  disabled={disabled || !amountInput}
+                  hitSlop={6}
+                  accessibilityRole="button"
+                  accessibilityLabel="Log this amount"
+                  style={({ pressed }) => [
+                    styles.amountButton,
+                    (disabled || !amountInput) && styles.checkDisabled,
+                    pressed && !disabled && amountInput ? styles.checkPressed : null,
+                  ]}
+                >
+                  <Text style={styles.amountButtonText}>Log</Text>
+                </Pressable>
+              </View>
+            ) : null}
+
             <Text style={styles.expandedLine}>
-              {loggedToday
-                ? `Logged today at ${formatClockTime(loggedToday.occurredAt)}`
-                : 'Not logged yet today — whenever you get to it.'}
+              {countMode
+                ? todayCount > 0
+                  ? `${todayCount} logged today`
+                  : 'Nothing logged yet today — whenever you get to it.'
+                : loggedToday
+                  ? `Logged today at ${formatClockTime(loggedToday.occurredAt)}`
+                  : 'Not logged yet today — whenever you get to it.'}
             </Text>
 
             {showBar ? (
@@ -161,6 +250,7 @@ export default function HabitCard({
                   />
                   <Text style={styles.historyText}>
                     {formatDayLabel(checkIn.occurredAt)} · {formatClockTime(checkIn.occurredAt)}
+                    {countMode && checkIn.value > 1 ? ` · +${checkIn.value}` : ''}
                   </Text>
                 </View>
               ))
@@ -173,7 +263,10 @@ export default function HabitCard({
 
   return (
     <Pressable
-      style={({ pressed }) => [styles.card, pressed && onPress ? styles.cardPressed : null]}
+      style={({ pressed }) => [
+        styles.card,
+        pressed && onPress ? styles.cardPressed : null,
+      ]}
       onPress={onPress}
       accessibilityRole={onPress ? 'button' : undefined}
     >
@@ -201,11 +294,19 @@ export default function HabitCard({
 
         <View style={styles.streakRow}>
           <StreakIndicator streak={streak} status={streakStatus} compact />
-          {progressLabel ? (
-            <Text style={[styles.progress, progressComplete ? styles.subtitleComplete : null]}>
-              {progressLabel}
-            </Text>
-          ) : null}
+          <View style={styles.progressLines}>
+            {(progressLines.length > 0 ? progressLines : progressLabel ? [progressLabel] : []).map(
+              (line, i) => (
+                <Text
+                  key={i}
+                  style={[styles.progress, progressComplete && i === 0 ? styles.subtitleComplete : null]}
+                  numberOfLines={1}
+                >
+                  {line}
+                </Text>
+              )
+            )}
+          </View>
         </View>
       </View>
 
@@ -226,26 +327,30 @@ export default function HabitCard({
         </Pressable>
       ) : null}
 
-      <Pressable
-        onPress={onToggle}
-        disabled={disabled}
-        hitSlop={8}
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked }}
-        accessibilityLabel={checked ? `Undo check-in for ${name}` : `Check in ${name}`}
-        style={({ pressed }) => [
-          styles.check,
-          checked ? styles.checkOn : styles.checkOff,
-          pressed && !disabled ? styles.checkPressed : null,
-          disabled ? styles.checkDisabled : null,
-        ]}
-      >
-        <MaterialCommunityIcons
-          name="check"
-          size={22}
-          color={checked ? '#FFFFFF' : colors.textMuted}
-        />
-      </Pressable>
+      {countMode ? (
+        stepper(false)
+      ) : (
+        <Pressable
+          onPress={onToggle}
+          disabled={disabled}
+          hitSlop={8}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked }}
+          accessibilityLabel={checked ? `Undo check-in for ${name}` : `Check in ${name}`}
+          style={({ pressed }) => [
+            styles.check,
+            checked ? styles.checkOn : styles.checkOff,
+            pressed && !disabled ? styles.checkPressed : null,
+            disabled ? styles.checkDisabled : null,
+          ]}
+        >
+          <MaterialCommunityIcons
+            name="check"
+            size={22}
+            color={checked ? '#FFFFFF' : colors.textMuted}
+          />
+        </Pressable>
+      )}
     </Pressable>
   );
 }
@@ -375,9 +480,13 @@ const styles = StyleSheet.create({
   },
   streakRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: spacing.sm,
     marginTop: spacing.sm,
+  },
+  progressLines: {
+    flex: 1,
+    gap: 2,
   },
   progress: {
     fontSize: 12,
@@ -421,5 +530,68 @@ const styles = StyleSheet.create({
   },
   checkDisabled: {
     opacity: 0.5,
+  },
+  // Stepper (COUNT habits): − / count / + in place of the single check toggle.
+  stepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  stepperCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  stepperBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  stepperBtnAdd: {
+    borderWidth: 0,
+    backgroundColor: colors.safe,
+  },
+  stepperBtnDisabled: {
+    opacity: 0.4,
+  },
+  stepperCount: {
+    minWidth: 22,
+    textAlign: 'center',
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  amountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  amountInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    fontSize: 14,
+    color: colors.textPrimary,
+    backgroundColor: colors.surface,
+  },
+  amountButton: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.sm,
+    backgroundColor: colors.accent,
+  },
+  amountButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

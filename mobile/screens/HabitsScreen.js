@@ -9,46 +9,72 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import CalendarModal from '../components/CalendarModal';
 import Dropdown from '../components/Dropdown';
 import HabitCard from '../components/HabitCard';
 import {
   DEFAULT_HABIT_CATEGORY,
   HABIT_CATEGORY_OPTIONS,
 } from '../constants/habitCategories';
+import { effectiveMonthlyTarget, effectiveWeeklyTarget, hasDailyTarget } from '../utils/cadence';
 import { useHabits } from '../hooks/useHabits';
 import { formatTime, parseTimeInput } from '../utils/time';
 import { colors, radii, shadow, spacing, typography } from '../theme';
-
-const CADENCES = [
-  { key: 'DAILY', label: 'Daily' },
-  { key: 'WEEKLY', label: 'Weekly' },
-  { key: 'MONTHLY', label: 'Monthly' },
-];
 
 const emptyForm = {
   id: null,
   name: '',
   category: DEFAULT_HABIT_CATEGORY,
-  cadenceType: 'DAILY',
-  cadenceTarget: '1',
+  // dailyTarget: how many times per day (blank = 1, i.e. once is enough)
+  dailyTarget: '',
+  // weeklyTarget / monthlyTarget: optional count goals at those scales
+  weeklyTarget: '',
+  monthlyTarget: '',
+  // BOOLEAN: once a day, toggled on/off. COUNT: any number of check-ins a
+  // day, each adding to the period total — needed for targets like "50 job
+  // applications this month" that can't be satisfied one-per-day.
+  trackingMode: 'BOOLEAN',
   scheduledTime: '',
   reminderEnabled: false,
 };
 
 function formFromHabit(habit) {
-  const cadenceType = String(habit.cadenceType || 'DAILY').toUpperCase();
+  const key = String(habit.cadenceType || 'DAILY').toUpperCase();
+  const isOldPeriodHabit = key === 'WEEKLY' || key === 'MONTHLY';
+
+  // Prefer the cadenceProgress-enriched fields (already resolved effective values),
+  // then fall back to effectiveWeeklyTarget/effectiveMonthlyTarget for raw API shapes.
+  const wt = (habit.weeklyTarget > 0 ? habit.weeklyTarget : null)
+    || effectiveWeeklyTarget(habit)
+    || 0;
+  const mt = (habit.monthlyTarget > 0 ? habit.monthlyTarget : null)
+    || effectiveMonthlyTarget(habit)
+    || 0;
+
   return {
     id: habit.id,
     name: habit.name || '',
-    category: HABIT_CATEGORY_OPTIONS.some((option) => option.value === habit.category)
+    category: HABIT_CATEGORY_OPTIONS.some((o) => o.value === habit.category)
       ? habit.category
       : DEFAULT_HABIT_CATEGORY,
-    cadenceType: CADENCES.some((cadence) => cadence.key === cadenceType) ? cadenceType : 'DAILY',
-    cadenceTarget: String(habit.cadenceTarget == null ? 1 : habit.cadenceTarget),
+    dailyTarget: !isOldPeriodHabit && habit.cadenceTarget && habit.cadenceTarget > 1
+      ? String(habit.cadenceTarget)
+      : '',
+    weeklyTarget: wt > 0 ? String(wt) : '',
+    monthlyTarget: mt > 0 ? String(mt) : '',
+    trackingMode: String(habit.trackingMode || 'BOOLEAN').toUpperCase() === 'COUNT'
+      ? 'COUNT'
+      : 'BOOLEAN',
     scheduledTime: formatTime(habit.scheduledTime),
     reminderEnabled: Boolean(habit.reminderEnabled),
   };
+}
+
+/** cadenceType is always DAILY — grouping is now driven by which targets are set, not this field. */
+function deriveCadenceType() {
+  return 'DAILY';
 }
 
 export default function HabitsScreen() {
@@ -58,6 +84,8 @@ export default function HabitsScreen() {
     archivedHabits,
     busy,
     toggleCheckIn,
+    addCheckIn,
+    removeLastCheckIn,
     createHabit,
     updateHabit,
     archiveHabit,
@@ -67,6 +95,7 @@ export default function HabitsScreen() {
   const [form, setForm] = useState(emptyForm);
   const [showForm, setShowForm] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
   const scrollRef = useRef(null);
 
   const isEditing = form.id != null;
@@ -110,11 +139,18 @@ export default function HabitsScreen() {
       return;
     }
 
+    const dailyTarget = Number(form.dailyTarget) || 1;
+    const weeklyTarget = Number(form.weeklyTarget) || null;
+    const monthlyTarget = Number(form.monthlyTarget) || null;
+
     const payload = {
       name,
       category: form.category || DEFAULT_HABIT_CATEGORY,
-      cadenceType: form.cadenceType,
-      cadenceTarget: Number(form.cadenceTarget) || 1,
+      cadenceType: deriveCadenceType(form),
+      cadenceTarget: dailyTarget,
+      weeklyTarget,
+      monthlyTarget,
+      trackingMode: form.trackingMode,
       scheduledTime,
       reminderEnabled: Boolean(scheduledTime) && form.reminderEnabled,
     };
@@ -200,13 +236,29 @@ export default function HabitsScreen() {
       >
         <View style={styles.titleRow}>
           <Text style={styles.title}>Habits</Text>
-          <Pressable
-            style={styles.addButton}
-            onPress={() => (showForm ? closeForm() : openCreate())}
-          >
-            <Text style={styles.addButtonText}>{showForm ? 'Cancel' : '+ New'}</Text>
-          </Pressable>
+          <View style={styles.titleActions}>
+            <Pressable
+              style={styles.iconButton}
+              onPress={() => setShowCalendar(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Open habit calendar"
+            >
+              <MaterialCommunityIcons name="calendar-month-outline" size={22} color={colors.accent} />
+            </Pressable>
+            <Pressable
+              style={styles.addButton}
+              onPress={() => (showForm ? closeForm() : openCreate())}
+            >
+              <Text style={styles.addButtonText}>{showForm ? 'Cancel' : '+ New'}</Text>
+            </Pressable>
+          </View>
         </View>
+
+        <CalendarModal
+          visible={showCalendar}
+          habits={habits}
+          onClose={() => setShowCalendar(false)}
+        />
 
         {showForm ? (
           <View style={styles.formCard}>
@@ -229,31 +281,83 @@ export default function HabitsScreen() {
               onChange={(value) => setForm({ ...form, category: value })}
             />
 
-            <Text style={styles.label}>Cadence</Text>
-            <View style={styles.segmented}>
-              {CADENCES.map((cadence) => {
-                const active = form.cadenceType === cadence.key;
-                return (
-                  <Pressable
-                    key={cadence.key}
-                    style={[styles.segment, active && styles.segmentActive]}
-                    onPress={() => setForm({ ...form, cadenceType: cadence.key })}
-                  >
-                    <Text style={[styles.segmentText, active && styles.segmentTextActive]}>
-                      {cadence.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+            <Text style={styles.label}>How do you check in?</Text>
+            <View style={styles.modeRow}>
+              <Pressable
+                style={[styles.modePill, form.trackingMode === 'BOOLEAN' && styles.modePillActive]}
+                onPress={() => setForm({ ...form, trackingMode: 'BOOLEAN' })}
+              >
+                <Text
+                  style={[
+                    styles.modePillText,
+                    form.trackingMode === 'BOOLEAN' && styles.modePillTextActive,
+                  ]}
+                >
+                  Once a day
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[styles.modePill, form.trackingMode === 'COUNT' && styles.modePillActive]}
+                onPress={() => setForm({ ...form, trackingMode: 'COUNT' })}
+              >
+                <Text
+                  style={[
+                    styles.modePillText,
+                    form.trackingMode === 'COUNT' && styles.modePillTextActive,
+                  ]}
+                >
+                  Count multiple
+                </Text>
+              </Pressable>
+            </View>
+            <Text style={styles.targetHint}>
+              {form.trackingMode === 'COUNT'
+                ? 'Log it as many times as you like each day — e.g. two gym visits, five job applications. Your targets below add up across every check-in.'
+                : 'One check-in a day, on or off — right for habits like "meditate" or "read".'}
+            </Text>
+
+            <Text style={styles.sectionDivider}>Goals (optional)</Text>
+            <Text style={styles.goalsHint}>
+              Set targets at any scale — leave blank if you don't need that level.
+            </Text>
+
+            <View style={styles.targetRow}>
+              <View style={styles.targetField}>
+                <Text style={styles.label}>Times per day</Text>
+                <TextInput
+                  style={styles.input}
+                  keyboardType="number-pad"
+                  placeholder="e.g. 8"
+                  placeholderTextColor={colors.textMuted}
+                  value={form.dailyTarget}
+                  onChangeText={(v) => setForm({ ...form, dailyTarget: v.replace(/[^0-9]/g, '') })}
+                />
+                <Text style={styles.targetHint}>e.g. drink water 8× a day</Text>
+              </View>
+              <View style={styles.targetField}>
+                <Text style={styles.label}>Times per week</Text>
+                <TextInput
+                  style={styles.input}
+                  keyboardType="number-pad"
+                  placeholder="e.g. 3"
+                  placeholderTextColor={colors.textMuted}
+                  value={form.weeklyTarget}
+                  onChangeText={(v) => setForm({ ...form, weeklyTarget: v.replace(/[^0-9]/g, '') })}
+                />
+                <Text style={styles.targetHint}>e.g. gym 3× a week</Text>
+              </View>
             </View>
 
-            <Text style={styles.label}>Target per period</Text>
+            <Text style={styles.label}>Times per month</Text>
             <TextInput
               style={styles.input}
               keyboardType="number-pad"
-              value={form.cadenceTarget}
-              onChangeText={(value) => setForm({ ...form, cadenceTarget: value.replace(/[^0-9]/g, '') })}
+              placeholder="e.g. 50"
+              placeholderTextColor={colors.textMuted}
+              value={form.monthlyTarget}
+              onChangeText={(v) => setForm({ ...form, monthlyTarget: v.replace(/[^0-9]/g, '') })}
             />
+            <Text style={styles.targetHint}>e.g. apply for 50 jobs this month</Text>
 
             <Text style={styles.label}>Ideal time (optional)</Text>
             <TextInput
@@ -307,30 +411,55 @@ export default function HabitsScreen() {
           </View>
         ) : null}
 
-        {CADENCES.map((cadence) => {
-          const group = habits.filter(
-            (habit) => String(habit.cadenceType).toUpperCase() === cadence.key
-          );
+        {[
+          {
+            key: 'DAILY',
+            label: 'Daily',
+            // Only habits with a real daily target — a weekly/monthly-only
+            // habit isn't "daily" just because it can be logged any day.
+            match: (habit) => hasDailyTarget(habit),
+          },
+          {
+            key: 'WEEKLY',
+            label: 'Weekly',
+            match: (habit) => !hasDailyTarget(habit) && effectiveWeeklyTarget(habit) > 0,
+          },
+          {
+            key: 'MONTHLY',
+            label: 'Monthly',
+            // Monthly-only: no daily target and no weekly target, just a monthly one.
+            match: (habit) =>
+              !hasDailyTarget(habit) &&
+              effectiveWeeklyTarget(habit) === 0 &&
+              effectiveMonthlyTarget(habit) > 0,
+          },
+        ].map((section) => {
+          const group = habits.filter(section.match);
           if (group.length === 0) return null;
 
           return (
-            <View key={cadence.key} style={styles.section}>
-              <Text style={styles.sectionTitle}>{cadence.label}</Text>
+            <View key={section.key} style={styles.section}>
+              <Text style={styles.sectionTitle}>{section.label}</Text>
               {group.map((habit) => (
                 <HabitCard
                   key={habit.id}
                   name={habit.name}
                   category={habit.category}
                   cadenceType={habit.cadenceType}
+                  trackingMode={habit.trackingMode}
+                  todayCount={habit.todayCount}
                   scheduledTime={habit.scheduledTime}
                   reminderEnabled={habit.reminderEnabled}
                   progressLabel={habit.progressLabel}
+                  progressLines={habit.progressLines || []}
                   progressComplete={habit.periodComplete}
                   streak={habit.streak}
                   streakStatus={habit.streakStatus}
                   checked={habit.checkedInToday}
                   disabled={busy}
                   onToggle={() => toggleCheckIn(habit.id)}
+                  onAdd={() => addCheckIn(habit.id)}
+                  onRemoveLast={() => removeLastCheckIn(habit.id)}
                   onEdit={() => openEdit(habit)}
                 />
               ))}
@@ -385,7 +514,6 @@ export default function HabitsScreen() {
           </View>
         ) : null}
 
-        <Text style={styles.pending}>Calendar grid view lands with Phase 2.</Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -399,6 +527,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: spacing.lg,
+  },
+  titleActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  iconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: radii.pill,
+    backgroundColor: colors.accentSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: typography.screenTitle,
   addButton: {
@@ -436,22 +577,6 @@ const styles = StyleSheet.create({
   switchText: { flex: 1 },
   switchLabel: { fontSize: 14, fontWeight: '600', color: colors.textPrimary },
   switchHint: { ...typography.meta, marginTop: 2 },
-  segmented: {
-    flexDirection: 'row',
-    backgroundColor: colors.background,
-    borderRadius: radii.sm,
-    padding: 3,
-    marginBottom: spacing.md,
-  },
-  segment: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    borderRadius: radii.sm - 2,
-  },
-  segmentActive: { backgroundColor: colors.surface, ...shadow },
-  segmentText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
-  segmentTextActive: { color: colors.textPrimary },
   primaryButton: {
     backgroundColor: colors.accent,
     borderRadius: radii.sm,
@@ -461,6 +586,60 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: { color: '#FFFFFF', fontWeight: '700', fontSize: 15 },
   formTitle: { ...typography.sectionTitle, marginBottom: spacing.md },
+  sectionDivider: {
+    ...typography.sectionTitle,
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: spacing.md,
+  },
+  goalsHint: {
+    ...typography.meta,
+    color: colors.textMuted,
+    marginBottom: spacing.md,
+  },
+  modeRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  modePill: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.sm,
+    paddingVertical: spacing.sm + 2,
+    alignItems: 'center',
+    backgroundColor: colors.background,
+  },
+  modePillActive: {
+    borderColor: colors.accent,
+    backgroundColor: colors.accentSoft,
+  },
+  modePillText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  modePillTextActive: {
+    color: colors.accent,
+  },
+  targetRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  targetField: {
+    flex: 1,
+  },
+  targetHint: {
+    ...typography.meta,
+    color: colors.textMuted,
+    marginTop: -spacing.sm,
+    marginBottom: spacing.md,
+  },
   secondaryButton: {
     borderRadius: radii.sm,
     paddingVertical: spacing.md,
@@ -496,12 +675,6 @@ const styles = StyleSheet.create({
   empty: {
     ...typography.body,
     color: colors.textSecondary,
-    textAlign: 'center',
-    marginTop: spacing.xl,
-  },
-  pending: {
-    ...typography.meta,
-    color: colors.textMuted,
     textAlign: 'center',
     marginTop: spacing.xl,
   },

@@ -19,6 +19,11 @@ export const colors = {
   frozen: '#3730A3',
   frozenSoft: '#EEF2FF',
 
+  warning: '#B45309',
+  warningSoft: '#FFFBEB',
+
+  neutralSoft: '#F3F4F6',
+
   flame: '#FB923C',
   ringTrack: '#E5E7EB',
 };

@@ -2,14 +2,15 @@ import React, { useMemo, useState } from 'react';
 import {
   Modal,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { categoryIcon } from '../constants/habitCategories';
+import { cadenceTarget, hasDailyTarget } from '../utils/cadence';
 import { toDateKey } from '../utils/date';
 import { colors, radii, shadow, spacing, typography } from '../theme';
 
@@ -29,7 +30,7 @@ export default function CalendarModal({ visible, habits = [], onClose }) {
   const [month, setMonth] = useState(today.getMonth()); // 0-based
   const [selectedDay, setSelectedDay] = useState(null); // 'YYYY-MM-DD' or null
 
-  const { weeks, checkedByDay } = useMemo(
+  const { weeks, dayStats } = useMemo(
     () => buildMonth(year, month, habits),
     [year, month, habits]
   );
@@ -53,7 +54,8 @@ export default function CalendarModal({ visible, habits = [], onClose }) {
     year: 'numeric',
   });
 
-  const selectedHabits = selectedDay ? (checkedByDay[selectedDay] || []) : [];
+  const selectedStats = selectedDay ? dayStats[selectedDay] : null;
+  const selectedStreak = selectedDay ? allDoneStreak(selectedDay, weeks, dayStats) : 0;
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
@@ -101,7 +103,10 @@ export default function CalendarModal({ visible, habits = [], onClose }) {
             ))}
           </View>
 
-          {/* Calendar grid */}
+          {/* Calendar grid — each day is tinted by how much of that day's
+              daily-target habits were completed: all done (green), some
+              (amber), none (grey). Weekly/monthly check-ins that day show as
+              a small dot instead, since they're never "due" on a specific day. */}
           {weeks.map((week, wi) => (
             <View key={wi} style={styles.weekRow}>
               {week.map((cell, di) => {
@@ -110,14 +115,17 @@ export default function CalendarModal({ visible, habits = [], onClose }) {
                 }
                 const isToday = cell.key === todayKey;
                 const isSelected = cell.key === selectedDay;
-                const dots = checkedByDay[cell.key] || [];
-                const hasAny = dots.length > 0;
+                const stats = dayStats[cell.key];
+                const heat = dayHeat(stats);
+                const hasOtherActivity = stats.entries.some((e) => !e.isDaily);
 
                 return (
                   <Pressable
                     key={di}
                     style={[
                       styles.dayCell,
+                      heat === 'all' && styles.dayCellAll,
+                      heat === 'some' && styles.dayCellSome,
                       isToday && styles.dayCellToday,
                       isSelected && styles.dayCellSelected,
                     ]}
@@ -126,7 +134,8 @@ export default function CalendarModal({ visible, habits = [], onClose }) {
                     <Text
                       style={[
                         styles.dayNumber,
-                        isToday && styles.dayNumberToday,
+                        heat === 'all' && styles.dayNumberAll,
+                        heat === 'some' && styles.dayNumberSome,
                         isSelected && styles.dayNumberSelected,
                         !cell.inMonth && styles.dayNumberFaded,
                       ]}
@@ -134,73 +143,122 @@ export default function CalendarModal({ visible, habits = [], onClose }) {
                       {cell.day}
                     </Text>
 
-                    {/* Dot cluster — up to 3 dots, then a +N overflow */}
-                    <View style={styles.dotRow}>
-                      {hasAny ? (
-                        dots.slice(0, 3).map((_, i) => (
-                          <View
-                            key={i}
-                            style={[styles.dot, isSelected && styles.dotSelected]}
-                          />
-                        ))
-                      ) : null}
-                      {dots.length > 3 ? (
-                        <Text style={styles.dotOverflow}>+{dots.length - 3}</Text>
-                      ) : null}
-                    </View>
+                    {hasOtherActivity ? (
+                      <View style={[styles.otherDot, isSelected && styles.otherDotSelected]} />
+                    ) : null}
                   </Pressable>
                 );
               })}
             </View>
           ))}
 
-          {/* Selected day detail */}
-          {selectedDay ? (
-            <View style={styles.detail}>
-              <Text style={styles.detailTitle}>
-                {formatSelectedDay(selectedDay)}
-              </Text>
+          {/* Legend */}
+          <View style={styles.legendRow}>
+            <LegendItem swatchStyle={styles.legendAll} label="All daily habits" />
+            <LegendItem swatchStyle={styles.legendSome} label="Some" />
+            <LegendItem swatchStyle={styles.legendNone} label="None yet" />
+            <LegendItem dotStyle={styles.legendDot} label="Weekly / monthly" />
+          </View>
 
-              {selectedHabits.length === 0 ? (
-                <Text style={styles.detailEmpty}>
-                  No habits checked in — and that's okay.
-                </Text>
+          {/* Selected day detail */}
+          {selectedDay && selectedStats ? (
+            <View style={styles.detail}>
+              <View style={styles.detailHeader}>
+                <Text style={styles.detailTitle}>{formatSelectedDay(selectedDay)}</Text>
+                {selectedStats.dailyTotal > 0 ? (
+                  <View style={styles.detailBadge}>
+                    <Text style={styles.detailBadgeText}>
+                      {Math.round((selectedStats.dailyDone / selectedStats.dailyTotal) * 100)}% done
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+
+              {selectedStats.dailyTotal > 0 ? (
+                <>
+                  <Text style={styles.detailSubtitle}>
+                    {selectedStats.dailyTotal} daily habit{selectedStats.dailyTotal === 1 ? '' : 's'} ·{' '}
+                    {selectedStats.dailyDone} completed
+                  </Text>
+
+                  <View style={styles.statRow}>
+                    <View style={styles.statTile}>
+                      <Text style={styles.statValue}>{selectedStats.dailyDone}</Text>
+                      <Text style={styles.statLabel}>Completed</Text>
+                    </View>
+                    <View style={styles.statTile}>
+                      <Text style={styles.statValue}>
+                        {selectedStats.dailyTotal - selectedStats.dailyDone}
+                      </Text>
+                      <Text style={styles.statLabel}>Remaining</Text>
+                    </View>
+                    <View style={styles.statTile}>
+                      <Text style={styles.statValue}>{selectedStreak}</Text>
+                      <Text style={styles.statLabel}>Day streak</Text>
+                    </View>
+                  </View>
+                </>
+              ) : null}
+
+              {selectedStats.entries.length === 0 ? (
+                <Text style={styles.detailEmpty}>Nothing logged — and that's okay.</Text>
               ) : (
-                selectedHabits.map((h) => (
-                  <View key={h.id} style={styles.detailRow}>
-                    <View style={styles.detailIcon}>
+                selectedStats.entries.map(({ habit, value, isDaily, done }) => (
+                  <View key={habit.id} style={styles.detailRow}>
+                    <View style={[styles.detailIcon, !done && styles.detailIconIdle]}>
                       <MaterialCommunityIcons
-                        name={categoryIcon(h.category)}
+                        name={categoryIcon(habit.category)}
                         size={18}
-                        color={colors.safe}
+                        color={done ? colors.safe : colors.textMuted}
                       />
                     </View>
                     <View style={styles.detailText}>
-                      <Text style={styles.detailHabitName}>{h.name}</Text>
-                      <Text style={styles.detailMeta}>{h.category}</Text>
+                      <Text style={styles.detailHabitName}>{habit.name}</Text>
+                      <Text style={styles.detailMeta}>
+                        {isDaily
+                          ? done
+                            ? value > 1
+                              ? `Completed · logged ${value}×`
+                              : 'Completed'
+                            : 'Not yet logged'
+                          : `Logged${value > 1 ? ` ${value}×` : ''} today`}
+                      </Text>
                     </View>
                     <MaterialCommunityIcons
-                      name="check-circle"
+                      name={done ? 'check-circle' : 'circle-outline'}
                       size={20}
-                      color={colors.safe}
+                      color={done ? colors.safe : colors.border}
                     />
                   </View>
                 ))
               )}
             </View>
           ) : (
-            <Text style={styles.tapHint}>Tap a day to see which habits you completed.</Text>
+            <Text style={styles.tapHint}>Tap a day to see how it went.</Text>
           )}
 
           {/* Monthly summary */}
-          <MonthlySummary year={year} month={month} habits={habits} checkedByDay={checkedByDay} />
+          <MonthlySummary year={year} month={month} habits={habits} dayStats={dayStats} />
         </ScrollView>
       </SafeAreaView>
     </Modal>
   );
 }
 
-function MonthlySummary({ year, month, habits, checkedByDay }) {
+function LegendItem({ swatchStyle, dotStyle, label }) {
+  return (
+    <View style={styles.legendItem}>
+      {dotStyle ? (
+        <View style={[styles.legendSwatch, styles.legendSwatchDot, dotStyle]} />
+      ) : (
+        <View style={[styles.legendSwatch, swatchStyle]} />
+      )}
+      <Text style={styles.legendText}>{label}</Text>
+    </View>
+  );
+}
+
+function MonthlySummary({ year, month, habits, dayStats }) {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const today = new Date();
   const isCurrentMonth = year === today.getFullYear() && month === today.getMonth();
@@ -210,7 +268,8 @@ function MonthlySummary({ year, month, habits, checkedByDay }) {
     let count = 0;
     for (let d = 1; d <= daysElapsed; d++) {
       const key = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-      if ((checkedByDay[key] || []).some((x) => x.id === h.id)) count++;
+      const stats = dayStats[key];
+      if (stats && stats.entries.some((e) => e.habit.id === h.id)) count++;
     }
     const pct = daysElapsed > 0 ? Math.round((count / daysElapsed) * 100) : 0;
     return { habit: h, count, pct };
@@ -241,17 +300,66 @@ function MonthlySummary({ year, month, habits, checkedByDay }) {
   );
 }
 
+/** Sum of check-in values a habit logged on one calendar day (BOOLEAN check-ins default to 1). */
+function sumValueForDay(habit, dayKey) {
+  return (habit.checkIns || []).reduce((sum, ci) => {
+    if (toDateKey(new Date(ci.occurredAt)) !== dayKey) return sum;
+    return sum + (Number(ci.value) || 1);
+  }, 0);
+}
+
+/**
+ * Per-day stats: how many of the CURRENT daily-target habits were completed
+ * that day (a COUNT habit needs its values to sum to its daily target — a
+ * batch of 9 job applications still counts as one habit "done", not nine),
+ * plus every other habit (weekly/monthly-only) that had any activity that day.
+ */
+function computeDayStats(dayKey, habits, dailyHabits) {
+  const entries = [];
+  let dailyDone = 0;
+
+  dailyHabits.forEach((habit) => {
+    const value = sumValueForDay(habit, dayKey);
+    const target = cadenceTarget(habit);
+    const done = value >= target;
+    if (done) dailyDone += 1;
+    entries.push({ habit, value, isDaily: true, done });
+  });
+
+  const dailyIds = new Set(dailyHabits.map((h) => h.id));
+  habits.forEach((habit) => {
+    if (dailyIds.has(habit.id)) return;
+    const value = sumValueForDay(habit, dayKey);
+    if (value > 0) entries.push({ habit, value, isDaily: false, done: true });
+  });
+
+  return { dailyTotal: dailyHabits.length, dailyDone, entries };
+}
+
+function dayHeat(stats) {
+  if (!stats || stats.dailyTotal === 0 || stats.dailyDone === 0) return 'none';
+  if (stats.dailyDone >= stats.dailyTotal) return 'all';
+  return 'some';
+}
+
+/** Consecutive "all daily habits done" days ending at dayKey, walking backward through the visible grid. */
+function allDoneStreak(dayKey, weeks, dayStats) {
+  const flat = weeks.flat().filter(Boolean).map((c) => c.key);
+  const idx = flat.indexOf(dayKey);
+  if (idx === -1) return 0;
+
+  let streak = 0;
+  for (let i = idx; i >= 0; i--) {
+    const stats = dayStats[flat[i]];
+    if (!stats || stats.dailyTotal === 0 || stats.dailyDone < stats.dailyTotal) break;
+    streak += 1;
+  }
+  return streak;
+}
+
 /** Build a 2D array of week rows for the given month. Each cell is null (padding) or { key, day, inMonth }. */
 function buildMonth(year, month, habits) {
-  // Build a map: dateKey -> [habit, ...]
-  const checkedByDay = {};
-  for (const habit of habits) {
-    for (const ci of habit.checkIns || []) {
-      const key = toDateKey(new Date(ci.occurredAt));
-      if (!checkedByDay[key]) checkedByDay[key] = [];
-      checkedByDay[key].push(habit);
-    }
-  }
+  const dailyHabits = habits.filter((h) => hasDailyTarget(h));
 
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
@@ -262,17 +370,16 @@ function buildMonth(year, month, habits) {
 
   const weeks = [];
   let week = [];
+  const dayStats = {};
 
   for (let i = 0; i < totalCells; i++) {
     const dayOffset = i - startDow;
     const date = new Date(year, month, 1 + dayOffset);
     const inMonth = date.getMonth() === month;
+    const key = toDateKey(date);
 
-    week.push({
-      key: toDateKey(date),
-      day: date.getDate(),
-      inMonth,
-    });
+    week.push({ key, day: date.getDate(), inMonth });
+    dayStats[key] = computeDayStats(key, habits, dailyHabits);
 
     if (week.length === 7) {
       weeks.push(week);
@@ -280,7 +387,7 @@ function buildMonth(year, month, habits) {
     }
   }
 
-  return { weeks, checkedByDay };
+  return { weeks, dayStats };
 }
 
 function formatSelectedDay(key) {
@@ -361,8 +468,18 @@ const styles = StyleSheet.create({
     borderRadius: radii.sm,
     marginBottom: 2,
   },
+  dayCellAll: {
+    backgroundColor: colors.safeSoft,
+  },
+  dayCellSome: {
+    backgroundColor: colors.warningSoft,
+  },
+  // "None" is deliberately unstyled (plain background) — grey/muted text
+  // carries that state instead of a filled cell, so an empty day never reads
+  // as a red-X-style failure block.
   dayCellToday: {
-    backgroundColor: colors.accentSoft,
+    borderWidth: 2,
+    borderColor: colors.accent,
   },
   dayCellSelected: {
     backgroundColor: colors.accent,
@@ -370,10 +487,14 @@ const styles = StyleSheet.create({
   dayNumber: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.textPrimary,
+    color: colors.textMuted,
   },
-  dayNumberToday: {
-    color: colors.accent,
+  dayNumberAll: {
+    color: colors.safe,
+    fontWeight: '800',
+  },
+  dayNumberSome: {
+    color: colors.warning,
     fontWeight: '800',
   },
   dayNumberSelected: {
@@ -383,26 +504,58 @@ const styles = StyleSheet.create({
   dayNumberFaded: {
     color: colors.border,
   },
-  dotRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    marginTop: 3,
-    height: 8,
-  },
-  dot: {
+  otherDot: {
     width: 5,
     height: 5,
     borderRadius: radii.pill,
-    backgroundColor: colors.safe,
+    backgroundColor: colors.accent,
+    marginTop: 4,
   },
-  dotSelected: {
+  otherDotSelected: {
     backgroundColor: '#FFFFFF',
   },
-  dotOverflow: {
-    fontSize: 8,
+  legendRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  legendSwatch: {
+    width: 10,
+    height: 10,
+    borderRadius: radii.sm - 3,
+  },
+  legendSwatchDot: {
+    borderRadius: radii.pill,
+  },
+  legendAll: {
+    backgroundColor: colors.safeSoft,
+    borderWidth: 1,
+    borderColor: colors.safe,
+  },
+  legendSome: {
+    backgroundColor: colors.warningSoft,
+    borderWidth: 1,
+    borderColor: colors.warning,
+  },
+  legendNone: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  legendDot: {
+    backgroundColor: colors.accent,
+  },
+  legendText: {
+    fontSize: 11,
     color: colors.textMuted,
-    fontWeight: '700',
   },
   detail: {
     margin: spacing.lg,
@@ -411,9 +564,51 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     ...shadow,
   },
+  detailHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   detailTitle: {
     ...typography.sectionTitle,
+  },
+  detailBadge: {
+    backgroundColor: colors.accentSoft,
+    borderRadius: radii.pill,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 4,
+  },
+  detailBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.accent,
+  },
+  detailSubtitle: {
+    ...typography.meta,
+    marginTop: spacing.xs,
     marginBottom: spacing.md,
+  },
+  statRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  statTile: {
+    flex: 1,
+    backgroundColor: colors.background,
+    borderRadius: radii.md,
+    paddingVertical: spacing.sm + 2,
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.textPrimary,
+  },
+  statLabel: {
+    fontSize: 11,
+    color: colors.textMuted,
+    marginTop: 2,
   },
   detailEmpty: {
     ...typography.body,
@@ -434,6 +629,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
+  },
+  detailIconIdle: {
+    backgroundColor: colors.neutralSoft,
   },
   detailText: {
     flex: 1,

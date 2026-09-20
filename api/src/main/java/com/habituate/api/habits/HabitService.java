@@ -23,29 +23,45 @@ public class HabitService {
         this.checkInRepository = checkInRepository;
     }
 
-    public List<Habit> listHabits(String userId) {
-        return habitRepository.findByUserIdAndArchivedFalseOrderByCreatedAtDesc(userId);
+    public List<HabitResponse> listHabits(String userId) {
+        return habitRepository.findByUserIdAndArchivedFalseOrderByCreatedAtDesc(userId)
+                .stream()
+                .map(this::toResponse)
+                .toList();
     }
 
-    public List<Habit> listArchivedHabits(String userId) {
-        return habitRepository.findByUserIdAndArchivedTrueOrderByUpdatedAtDesc(userId);
+    public List<HabitResponse> listArchivedHabits(String userId) {
+        return habitRepository.findByUserIdAndArchivedTrueOrderByUpdatedAtDesc(userId)
+                .stream()
+                .map(this::toResponse)
+                .toList();
     }
 
-    public Habit createHabit(String userId, CreateHabitRequest request) {
+    private HabitResponse toResponse(Habit habit) {
+        List<CheckIn> checkIns = checkInRepository.findByUserIdAndHabitIdOrderByOccurredAtAsc(
+                habit.getUserId(), habit.getId());
+        StreakCalculator.Streaks streaks = StreakCalculator.compute(checkIns);
+        return HabitResponse.from(habit, streaks.current(), streaks.longest());
+    }
+
+    public HabitResponse createHabit(String userId, CreateHabitRequest request) {
         String name = request.name() == null ? "" : request.name().trim();
         String category = request.category() == null ? "General" : request.category().trim();
         String cadenceType = request.cadenceType() == null ? "DAILY" : request.cadenceType().trim().toUpperCase();
         Integer cadenceTarget = request.cadenceTarget() == null ? 1 : request.cadenceTarget();
 
         Habit habit = new Habit(userId, name, category, cadenceType, cadenceTarget);
+        habit.setWeeklyTarget(request.weeklyTarget());
+        habit.setMonthlyTarget(request.monthlyTarget());
+        habit.setTrackingMode(normalizeTrackingMode(request.trackingMode()));
         habit.setScheduledTime(parseScheduledTime(request.scheduledTime()));
         habit.setReminderEnabled(
                 Boolean.TRUE.equals(request.reminderEnabled()) && habit.getScheduledTime() != null
         );
-        return habitRepository.save(habit);
+        return toResponse(habitRepository.save(habit));
     }
 
-    public Habit updateHabit(String userId, Long habitId, UpdateHabitRequest request) {
+    public HabitResponse updateHabit(String userId, Long habitId, UpdateHabitRequest request) {
         Habit habit = habitRepository.findById(habitId)
                 .orElseThrow(() -> new EntityNotFoundException("Habit not found: " + habitId));
 
@@ -75,11 +91,26 @@ public class HabitService {
         if (habit.getScheduledTime() == null) {
             habit.setReminderEnabled(false);
         }
+        // weeklyTarget / monthlyTarget: null means "clear it", so always apply when key is present.
+        // Since records always include the field, we apply unconditionally (null clears the target).
+        habit.setWeeklyTarget(request.weeklyTarget());
+        habit.setMonthlyTarget(request.monthlyTarget());
+
+        if (request.trackingMode() != null) {
+            habit.setTrackingMode(normalizeTrackingMode(request.trackingMode()));
+        }
+
         if (request.archived() != null) {
             habit.setArchived(request.archived());
         }
 
-        return habitRepository.save(habit);
+        return toResponse(habitRepository.save(habit));
+    }
+
+    private String normalizeTrackingMode(String value) {
+        if (value == null) return "BOOLEAN";
+        String upper = value.trim().toUpperCase();
+        return upper.equals("COUNT") ? "COUNT" : "BOOLEAN";
     }
 
     /** Accepts "HH:mm" or "HH:mm:ss"; blank clears the time. */
@@ -94,10 +125,10 @@ public class HabitService {
         }
     }
 
-    public Habit setArchived(String userId, Long habitId, boolean archived) {
+    public HabitResponse setArchived(String userId, Long habitId, boolean archived) {
         Habit habit = requireOwnedHabit(userId, habitId);
         habit.setArchived(archived);
-        return habitRepository.save(habit);
+        return toResponse(habitRepository.save(habit));
     }
 
     /**

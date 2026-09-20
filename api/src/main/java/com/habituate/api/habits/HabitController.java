@@ -39,19 +39,15 @@ public class HabitController {
             @RequestParam(defaultValue = "false") boolean archived) {
 
         String userId = userId(req);
-        List<Habit> habits = archived
+        return archived
                 ? habitService.listArchivedHabits(userId)
                 : habitService.listHabits(userId);
-
-        return habits.stream()
-                .map(HabitResponse::from)
-                .toList();
     }
 
     @PostMapping("/habits")
     @ResponseStatus(HttpStatus.CREATED)
     public HabitResponse createHabit(HttpServletRequest req, @RequestBody CreateHabitRequest request) {
-        return HabitResponse.from(habitService.createHabit(userId(req), request));
+        return habitService.createHabit(userId(req), request);
     }
 
     @PutMapping("/habits/{habitId}")
@@ -59,7 +55,7 @@ public class HabitController {
             HttpServletRequest req,
             @PathVariable Long habitId,
             @RequestBody UpdateHabitRequest request) {
-        return HabitResponse.from(habitService.updateHabit(userId(req), habitId, request));
+        return habitService.updateHabit(userId(req), habitId, request);
     }
 
     /** Permanent — removes the habit and its check-ins. Archiving is PUT with {"archived": true}. */

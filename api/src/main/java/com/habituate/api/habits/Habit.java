@@ -35,6 +35,26 @@ public class Habit {
     @Column(nullable = false)
     private Integer cadenceTarget = 1;
 
+    /**
+     * Optional targets at weekly and monthly scale, independent of cadenceTarget.
+     * A gym habit can have cadenceTarget=1 (daily), weeklyTarget=3, monthlyTarget=10
+     * all at once. Null means "no target set at that scale".
+     */
+    @Column
+    private Integer weeklyTarget;
+
+    @Column
+    private Integer monthlyTarget;
+
+    /**
+     * BOOLEAN: one check-in per day, toggled on/off (default — "did it happen today").
+     * COUNT: any number of check-ins per day, each carrying a value; period progress
+     * sums the values instead of counting days. Needed for targets like "50 job
+     * applications this month" that can't be satisfied one-per-day.
+     */
+    @Column(nullable = false, columnDefinition = "varchar(255) not null default 'BOOLEAN'")
+    private String trackingMode = "BOOLEAN";
+
     /** Optional time of day the user intends to do the habit. Never enforced. */
     @Column(name = "scheduled_time")
     private LocalTime scheduledTime;
@@ -117,6 +137,30 @@ public class Habit {
 
     public void setCadenceTarget(Integer cadenceTarget) {
         this.cadenceTarget = cadenceTarget;
+    }
+
+    public Integer getWeeklyTarget() {
+        return weeklyTarget;
+    }
+
+    public void setWeeklyTarget(Integer weeklyTarget) {
+        this.weeklyTarget = weeklyTarget;
+    }
+
+    public Integer getMonthlyTarget() {
+        return monthlyTarget;
+    }
+
+    public void setMonthlyTarget(Integer monthlyTarget) {
+        this.monthlyTarget = monthlyTarget;
+    }
+
+    public String getTrackingMode() {
+        return trackingMode;
+    }
+
+    public void setTrackingMode(String trackingMode) {
+        this.trackingMode = trackingMode;
     }
 
     public LocalTime getScheduledTime() {

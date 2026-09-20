@@ -16,6 +16,7 @@ import MotivationBanner from '../components/MotivationBanner';
 import { motivationMessage } from '../constants/motivation';
 import { DISPLAY_NAME, initials } from '../constants/profile';
 import { summarizeHabits, useHabits } from '../hooks/useHabits';
+import { effectiveMonthlyTarget, effectiveWeeklyTarget } from '../utils/cadence';
 import { byScheduledTime } from '../utils/time';
 import { colors, radii, shadow, spacing, typography } from '../theme';
 
@@ -51,23 +52,35 @@ function encouragement({ total, done }, hasOtherHabits = false) {
 export default function TodayScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const { habits, loading, busy, error, refresh, toggleCheckIn } = useHabits();
+  const { habits, loading, busy, error, refresh, toggleCheckIn, addCheckIn, removeLastCheckIn } =
+    useHabits();
   const [expandedId, setExpandedId] = useState(null);
   const [banner, setBanner] = useState(null);
 
-  // A habit is "today's" when its cadence leaves no slack — every daily habit,
-  // a weekly habit targeting all 7 days, or one with as many check-ins left as
-  // days left in the period. The rest stay loggable in their own sections with
-  // period progress instead of being counted against today.
+  // "Due Today" is only genuinely daily habits (habit.dueToday, from
+  // isDueToday in cadence.js). A habit whose target lives at the weekly or
+  // monthly scale — gym 2x/week, 50 applications/month — is never pulled in
+  // here just because slack is running low: it can happen on any day of its
+  // period, so it always lives in its own section below with its own period
+  // progress, and never inflates Today's Progress.
   const groups = useMemo(() => {
     const due = [];
     const weekly = [];
     const monthly = [];
 
     habits.forEach((habit) => {
-      if (habit.dueToday) due.push(habit);
-      else if (String(habit.cadenceType).toUpperCase() === 'MONTHLY') monthly.push(habit);
-      else weekly.push(habit);
+      if (habit.dueToday) {
+        due.push(habit);
+      } else if (effectiveMonthlyTarget(habit) > 0 && effectiveWeeklyTarget(habit) === 0) {
+        // Monthly-only target
+        monthly.push(habit);
+      } else if (effectiveWeeklyTarget(habit) > 0 || effectiveMonthlyTarget(habit) > 0) {
+        // Has a weekly target (or both weekly+monthly)
+        weekly.push(habit);
+      } else {
+        // Pure daily habit that's already met today's target
+        due.push(habit);
+      }
     });
 
     [due, weekly, monthly].forEach((list) => list.sort(byScheduledTime));
@@ -77,14 +90,9 @@ export default function TodayScreen() {
   // "Today's Progress" only counts habits actually due today.
   const summary = useMemo(() => summarizeHabits(groups.due), [groups]);
 
-  // Checking in is the only action that gets a banner; undoing one stays silent.
-  const handleToggle = useCallback(
-    async (habit) => {
-      const wasChecked = habit.checkedInToday;
-      await toggleCheckIn(habit.id);
-
-      if (wasChecked) return;
-
+  // Logging progress is the only action that gets a banner; undoing stays silent.
+  const celebrate = useCallback(
+    (habit) => {
       const remaining = habit.dueToday
         ? Math.max(0, summary.total - summary.done - 1)
         : null;
@@ -97,7 +105,32 @@ export default function TodayScreen() {
         }),
       }));
     },
-    [summary, toggleCheckIn]
+    [summary]
+  );
+
+  const handleToggle = useCallback(
+    async (habit) => {
+      const wasChecked = habit.checkedInToday;
+      await toggleCheckIn(habit.id);
+      if (!wasChecked) celebrate(habit);
+    },
+    [toggleCheckIn, celebrate]
+  );
+
+  const handleAdd = useCallback(
+    async (habit) => {
+      await addCheckIn(habit.id);
+      celebrate(habit);
+    },
+    [addCheckIn, celebrate]
+  );
+
+  const handleLogAmount = useCallback(
+    async (habit, amount) => {
+      await addCheckIn(habit.id, amount);
+      celebrate(habit);
+    },
+    [addCheckIn, celebrate]
   );
 
   const renderHabit = (habit) => (
@@ -107,6 +140,8 @@ export default function TodayScreen() {
       name={habit.name}
       category={habit.category}
       cadenceType={habit.cadenceType}
+      trackingMode={habit.trackingMode}
+      todayCount={habit.todayCount}
       scheduledTime={habit.scheduledTime}
       progressLabel={habit.progressLabel}
       progressComplete={habit.periodComplete}
@@ -120,6 +155,9 @@ export default function TodayScreen() {
       disabled={busy}
       onPress={() => setExpandedId((current) => (current === habit.id ? null : habit.id))}
       onToggle={() => handleToggle(habit)}
+      onAdd={() => handleAdd(habit)}
+      onRemoveLast={() => removeLastCheckIn(habit.id)}
+      onLogAmount={(amount) => handleLogAmount(habit, amount)}
     />
   );
 
@@ -181,7 +219,7 @@ export default function TodayScreen() {
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Daily Habits</Text>
+          <Text style={styles.sectionTitle}>Due Today</Text>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="See all habits"

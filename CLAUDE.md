@@ -49,8 +49,11 @@ Reads from the existing insights store and check-in history. No new pipeline —
 ## Data model
 
 - `users` — id, email, auth_provider, timezone, created_at
-- `habits` — id, user_id, name, category, cadence_type (daily / weekly / monthly), cadence_target, color, archived_at
+- `habits` — id, user_id, name, category, cadence_type (daily / weekly / monthly), cadence_target, weekly_target (nullable), monthly_target (nullable), tracking_mode (boolean / count), color, scheduled_time, reminder_enabled, archived_at
+  - `cadence_target` / `weekly_target` / `monthly_target` are independent, not mutually exclusive — a habit can carry any combination (e.g. gym: `weekly_target=2`, `monthly_target=12`, no daily target). `cadence_type` no longer picks which one applies; it's effectively vestigial now that a habit can span scales at once.
+  - `tracking_mode`: `boolean` (default) is one check-in a day, toggled on/off. `count` allows any number of check-ins a day, each carrying a `value`; period totals sum those values instead of counting distinct days — required for a target like "50 applications this month," which is otherwise unreachable if every check-in dedupes to at most one day.
 - `check_ins` — id, habit_id, user_id, occurred_at, value, source (manual / ocr_import), group_id (nullable)
+  - `value` defaults to 1 (a boolean check-in) but for `count` habits carries the logged quantity (e.g. `value=5` for a batch of 5 applications logged at once). Multiple check-ins per habit per day are allowed — necessary for `count` habits, harmless for `boolean` ones since the UI only ever creates one per day for those.
 - `goals` — id, user_id, period (week/month), habit_id (nullable), target_count, description
 - `correlations` — id, user_id, habit_a_id, habit_b_id, window_days, score, sample_size, computed_at
   - `habit_a_id` → `habit_b_id` is directional (A is the trigger habit, B is the outcome habit) to support the "A → B" display; store both directions if both are statistically meaningful, don't assume symmetry

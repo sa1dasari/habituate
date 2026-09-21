@@ -8,6 +8,7 @@ public record UpdateHabitRequest(
         Integer weeklyTarget,
         Integer monthlyTarget,
         String trackingMode,
+        Boolean featuredGoal,
         String scheduledTime,
         Boolean reminderEnabled,
         Boolean archived

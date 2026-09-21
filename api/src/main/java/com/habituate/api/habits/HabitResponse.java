@@ -13,6 +13,7 @@ public record HabitResponse(
         Integer weeklyTarget,
         Integer monthlyTarget,
         String trackingMode,
+        boolean featuredGoal,
         String scheduledTime,
         boolean reminderEnabled,
         boolean archived,
@@ -32,6 +33,7 @@ public record HabitResponse(
                 habit.getWeeklyTarget(),
                 habit.getMonthlyTarget(),
                 habit.getTrackingMode(),
+                habit.isFeaturedGoal(),
                 habit.getScheduledTime() == null
                         ? null
                         : habit.getScheduledTime().format(DateTimeFormatter.ofPattern("HH:mm")),

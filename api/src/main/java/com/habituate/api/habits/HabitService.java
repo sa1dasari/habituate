@@ -54,6 +54,7 @@ public class HabitService {
         habit.setWeeklyTarget(request.weeklyTarget());
         habit.setMonthlyTarget(request.monthlyTarget());
         habit.setTrackingMode(normalizeTrackingMode(request.trackingMode()));
+        habit.setFeaturedGoal(Boolean.TRUE.equals(request.featuredGoal()));
         habit.setScheduledTime(parseScheduledTime(request.scheduledTime()));
         habit.setReminderEnabled(
                 Boolean.TRUE.equals(request.reminderEnabled()) && habit.getScheduledTime() != null
@@ -98,6 +99,9 @@ public class HabitService {
 
         if (request.trackingMode() != null) {
             habit.setTrackingMode(normalizeTrackingMode(request.trackingMode()));
+        }
+        if (request.featuredGoal() != null) {
+            habit.setFeaturedGoal(request.featuredGoal());
         }
 
         if (request.archived() != null) {

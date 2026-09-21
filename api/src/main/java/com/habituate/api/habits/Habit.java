@@ -55,6 +55,16 @@ public class Habit {
     @Column(nullable = false, columnDefinition = "varchar(255) not null default 'BOOLEAN'")
     private String trackingMode = "BOOLEAN";
 
+    /**
+     * Pins this habit's existing weekly/monthly target into the Habits page's
+     * Goals section. Deliberately not automatic for every habit with a period
+     * target — that would clutter Goals with every habit that happens to have
+     * one. No separate target/progress is stored here; it's the same
+     * weeklyTarget/monthlyTarget and check-ins the habit already has.
+     */
+    @Column(nullable = false, columnDefinition = "boolean not null default false")
+    private boolean featuredGoal = false;
+
     /** Optional time of day the user intends to do the habit. Never enforced. */
     @Column(name = "scheduled_time")
     private LocalTime scheduledTime;
@@ -161,6 +171,14 @@ public class Habit {
 
     public void setTrackingMode(String trackingMode) {
         this.trackingMode = trackingMode;
+    }
+
+    public boolean isFeaturedGoal() {
+        return featuredGoal;
+    }
+
+    public void setFeaturedGoal(boolean featuredGoal) {
+        this.featuredGoal = featuredGoal;
     }
 
     public LocalTime getScheduledTime() {

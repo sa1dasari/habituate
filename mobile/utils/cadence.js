@@ -260,3 +260,44 @@ export function cadenceProgress(habit, now = new Date()) {
     progressLines: progressLines(habit, now),
   };
 }
+
+// ─── Featured-goal review (previous period, for a habit pinned to Goals) ────
+
+/**
+ * Stats for the period just before the current one — e.g. "last month" for a
+ * habit with a monthly target. Used to show a one-time review ("10 of 12 last
+ * month") when a featured habit's period has rolled over, without needing any
+ * new persisted state: it's derived from check-ins the habit already has.
+ * Returns null for a habit with no weekly/monthly target — a plain daily
+ * habit has nothing period-shaped to review.
+ */
+export function previousPeriodStats(habit, now = new Date()) {
+  const mt = effectiveMonthlyTarget(habit);
+  const wt = effectiveWeeklyTarget(habit);
+  if (!mt && !wt) return null;
+
+  const period = mt > 0 ? 'MONTHLY' : 'WEEKLY';
+  const target = mt > 0 ? mt : wt;
+  const currentStart = periodStart(period, now);
+
+  const previousStart = period === 'MONTHLY'
+    ? new Date(currentStart.getFullYear(), currentStart.getMonth() - 1, 1)
+    : new Date(currentStart.getFullYear(), currentStart.getMonth(), currentStart.getDate() - 7);
+
+  const checkIns = (habit.checkIns || []).filter((ci) => {
+    const when = new Date(ci.occurredAt);
+    return when >= previousStart && when < currentStart;
+  });
+
+  const done = isCountMode(habit)
+    ? sumValues(checkIns)
+    : new Set(checkIns.map((ci) => toDateKey(new Date(ci.occurredAt)))).size;
+
+  return {
+    period,
+    periodLabel: period === 'MONTHLY' ? 'Last month' : 'Last week',
+    done,
+    target,
+    hit: done >= target,
+  };
+}

@@ -154,6 +154,26 @@ export const api = {
     request(`/api/habits/${habitId}/check-ins`, { method: 'POST', body: JSON.stringify(body) }),
 
   deleteCheckIn: (checkInId) => request(`/api/check-ins/${checkInId}`, { method: 'DELETE' }),
+
+  listGoals: () => request('/api/goals'),
+
+  listArchivedGoals: () => request('/api/goals?archived=true'),
+
+  createGoal: (goal) => request('/api/goals', { method: 'POST', body: JSON.stringify(goal) }),
+
+  updateGoal: (goalId, changes) =>
+    request(`/api/goals/${goalId}`, { method: 'PUT', body: JSON.stringify(changes) }),
+
+  adjustGoalProgress: (goalId, delta) =>
+    request(`/api/goals/${goalId}/progress`, { method: 'POST', body: JSON.stringify({ delta }) }),
+
+  rolloverGoal: (goalId, periodStart) =>
+    request(`/api/goals/${goalId}/rollover`, { method: 'POST', body: JSON.stringify({ periodStart }) }),
+
+  archiveGoal: (goalId) =>
+    request(`/api/goals/${goalId}`, { method: 'PUT', body: JSON.stringify({ archived: true }) }),
+
+  deleteGoal: (goalId) => request(`/api/goals/${goalId}`, { method: 'DELETE' }),
 };
 
 export default api;

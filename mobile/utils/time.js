@@ -3,31 +3,19 @@
  * date attached — and shown to the user in 12-hour form.
  */
 
-/** Accepts "8", "8:00", "08:00", "8:00 pm", "8pm". Returns "HH:mm" or null. */
-export function parseTimeInput(text) {
-  if (text == null) return null;
-
-  const trimmed = String(text).trim();
-  if (!trimmed) return null;
-
-  const match = trimmed.match(/^(\d{1,2})(?::(\d{2}))?\s*([ap]\.?m\.?)?$/i);
-  if (!match) return null;
-
-  let hours = Number(match[1]);
-  const minutes = match[2] == null ? 0 : Number(match[2]);
-  const meridiem = match[3] ? match[3][0].toLowerCase() : null;
-
-  if (minutes > 59) return null;
-
-  if (meridiem) {
-    if (hours < 1 || hours > 12) return null;
-    if (meridiem === 'a') hours = hours === 12 ? 0 : hours;
-    else hours = hours === 12 ? 12 : hours + 12;
-  } else if (hours > 23) {
-    return null;
+/** "HH:mm" -> a Date carrying that time (today's date, ignored by callers). Falls back to now. */
+export function timeStringToDate(value) {
+  const match = value ? String(value).match(/^(\d{1,2}):(\d{2})/) : null;
+  const date = new Date();
+  if (match) {
+    date.setHours(Number(match[1]), Number(match[2]), 0, 0);
   }
+  return date;
+}
 
-  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+/** A Date's clock time -> "HH:mm". */
+export function dateToTimeString(date) {
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 }
 
 /** "08:00" -> "8:00 AM". Returns '' for a missing or unparseable value. */

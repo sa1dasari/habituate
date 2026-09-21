@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -10,17 +10,21 @@ import {
   View,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import CalendarModal from '../components/CalendarModal';
 import Dropdown from '../components/Dropdown';
+import GoalCard from '../components/GoalCard';
 import HabitCard from '../components/HabitCard';
+import TimePicker from '../components/TimePicker';
 import {
   DEFAULT_HABIT_CATEGORY,
   HABIT_CATEGORY_OPTIONS,
 } from '../constants/habitCategories';
 import { effectiveMonthlyTarget, effectiveWeeklyTarget, hasDailyTarget } from '../utils/cadence';
+import { useFeaturedGoalReviews } from '../hooks/useFeaturedGoalReviews';
+import { useGoals } from '../hooks/useGoals';
 import { useHabits } from '../hooks/useHabits';
-import { formatTime, parseTimeInput } from '../utils/time';
 import { colors, radii, shadow, spacing, typography } from '../theme';
 
 const emptyForm = {
@@ -36,8 +40,18 @@ const emptyForm = {
   // day, each adding to the period total — needed for targets like "50 job
   // applications this month" that can't be satisfied one-per-day.
   trackingMode: 'BOOLEAN',
+  // Pins this habit's own weekly/monthly target into the Goals section —
+  // no separate target, just a spotlight on the one it already has.
+  featuredGoal: false,
   scheduledTime: '',
   reminderEnabled: false,
+};
+
+const emptyGoalForm = {
+  id: null,
+  description: '',
+  period: 'MONTHLY',
+  targetCount: '',
 };
 
 function formFromHabit(habit) {
@@ -67,8 +81,18 @@ function formFromHabit(habit) {
     trackingMode: String(habit.trackingMode || 'BOOLEAN').toUpperCase() === 'COUNT'
       ? 'COUNT'
       : 'BOOLEAN',
-    scheduledTime: formatTime(habit.scheduledTime),
+    featuredGoal: Boolean(habit.featuredGoal),
+    scheduledTime: habit.scheduledTime || '',
     reminderEnabled: Boolean(habit.reminderEnabled),
+  };
+}
+
+function goalFromRecord(goal) {
+  return {
+    id: goal.id,
+    description: goal.description || '',
+    period: goal.period === 'WEEKLY' ? 'WEEKLY' : 'MONTHLY',
+    targetCount: goal.targetCount ? String(goal.targetCount) : '',
   };
 }
 
@@ -92,13 +116,49 @@ export default function HabitsScreen() {
     restoreHabit,
     deleteHabit,
   } = useHabits();
+  const {
+    goals,
+    busy: goalsBusy,
+    createGoal,
+    updateGoal,
+    increment: incrementGoal,
+    decrement: decrementGoal,
+    logAmount: logGoalAmount,
+    rollover: rolloverGoal,
+    archiveGoal,
+    deleteGoal,
+  } = useGoals();
+  const navigation = useNavigation();
+  const route = useRoute();
   const [form, setForm] = useState(emptyForm);
   const [showForm, setShowForm] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
+  const [goalForm, setGoalForm] = useState(emptyGoalForm);
+  const [showGoalForm, setShowGoalForm] = useState(false);
   const scrollRef = useRef(null);
+  const goalsSectionY = useRef(0);
 
   const isEditing = form.id != null;
+  const isEditingGoal = goalForm.id != null;
+
+  const featuredHabits = habits.filter((h) => h.featuredGoal);
+  const { reviews: habitGoalReviews, dismiss: dismissHabitGoalReview } =
+    useFeaturedGoalReviews(featuredHabits);
+  const hasGoals = featuredHabits.length > 0 || goals.length > 0;
+
+  // Coming from the Today page's Goals summary card — jump straight to the
+  // Goals section instead of landing at the top of a long habit list.
+  useFocusEffect(
+    useCallback(() => {
+      if (!route.params?.scrollToGoals) return;
+      const timer = setTimeout(() => {
+        scrollRef.current?.scrollTo({ y: Math.max(0, goalsSectionY.current - spacing.lg), animated: true });
+      }, 150);
+      navigation.setParams({ scrollToGoals: undefined });
+      return () => clearTimeout(timer);
+    }, [route.params?.scrollToGoals, navigation])
+  );
 
   // The form renders above the list, so bring it into view when editing a habit
   // the user had to scroll down to reach.
@@ -131,13 +191,8 @@ export default function HabitsScreen() {
       return;
     }
 
-    // Both the time and the reminder are optional; only a typo blocks saving.
-    const timeText = form.scheduledTime.trim();
-    const scheduledTime = timeText ? parseTimeInput(timeText) : '';
-    if (timeText && !scheduledTime) {
-      Alert.alert('Check the time', 'Use a time like 8:00 AM or 19:30 — or leave it blank.');
-      return;
-    }
+    // The time comes from the native picker, so it's always valid or blank.
+    const scheduledTime = form.scheduledTime || '';
 
     const dailyTarget = Number(form.dailyTarget) || 1;
     const weeklyTarget = Number(form.weeklyTarget) || null;
@@ -151,6 +206,7 @@ export default function HabitsScreen() {
       weeklyTarget,
       monthlyTarget,
       trackingMode: form.trackingMode,
+      featuredGoal: (weeklyTarget > 0 || monthlyTarget > 0) && form.featuredGoal,
       scheduledTime,
       reminderEnabled: Boolean(scheduledTime) && form.reminderEnabled,
     };
@@ -226,6 +282,69 @@ export default function HabitsScreen() {
     } catch (err) {
       Alert.alert('Could not restore habit', err instanceof Error ? err.message : 'Unknown error');
     }
+  };
+
+  const closeGoalForm = () => {
+    setGoalForm(emptyGoalForm);
+    setShowGoalForm(false);
+  };
+
+  const openCreateGoal = () => {
+    setGoalForm(emptyGoalForm);
+    setShowGoalForm(true);
+  };
+
+  const openEditGoal = (goal) => {
+    setGoalForm(goalFromRecord(goal));
+    setShowGoalForm(true);
+  };
+
+  const submitGoal = async () => {
+    const description = goalForm.description.trim();
+    if (!description) {
+      Alert.alert('Missing description', 'Give the goal a short description first.');
+      return;
+    }
+    const targetCount = Number(goalForm.targetCount);
+    if (!targetCount || targetCount < 1) {
+      Alert.alert('Missing target', 'Set a target count for this goal.');
+      return;
+    }
+
+    try {
+      if (isEditingGoal) {
+        await updateGoal(goalForm.id, { description, targetCount });
+      } else {
+        await createGoal({ description, period: goalForm.period, targetCount });
+      }
+      closeGoalForm();
+    } catch (err) {
+      Alert.alert(
+        isEditingGoal ? 'Could not save changes' : 'Could not create goal',
+        err instanceof Error ? err.message : 'Unknown error'
+      );
+    }
+  };
+
+  const confirmDeleteGoal = (goal) => {
+    Alert.alert(
+      `Delete “${goal.description}”?`,
+      'This removes the goal and its progress. It cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteGoal(goal.id);
+            } catch (err) {
+              Alert.alert('Could not delete goal', err instanceof Error ? err.message : 'Unknown error');
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -359,28 +478,43 @@ export default function HabitsScreen() {
             />
             <Text style={styles.targetHint}>e.g. apply for 50 jobs this month</Text>
 
+            {Number(form.weeklyTarget) > 0 || Number(form.monthlyTarget) > 0 ? (
+              <View style={styles.switchRow}>
+                <View style={styles.switchText}>
+                  <Text style={styles.switchLabel}>Feature on Goals</Text>
+                  <Text style={styles.switchHint}>
+                    Pins this habit's progress to the Goals section on this page — same
+                    target, no extra tracking.
+                  </Text>
+                </View>
+                <Switch
+                  value={form.featuredGoal}
+                  onValueChange={(value) => setForm({ ...form, featuredGoal: value })}
+                  trackColor={{ false: colors.border, true: colors.safeSoft }}
+                  thumbColor={form.featuredGoal ? colors.safe : '#FFFFFF'}
+                />
+              </View>
+            ) : null}
+
             <Text style={styles.label}>Ideal time (optional)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. 8:00 AM"
-              placeholderTextColor={colors.textMuted}
-              autoCapitalize="characters"
+            <TimePicker
               value={form.scheduledTime}
-              onChangeText={(value) => setForm({ ...form, scheduledTime: value })}
+              onChange={(value) => setForm({ ...form, scheduledTime: value })}
+              placeholder="Set a time"
             />
 
             <View style={styles.switchRow}>
               <View style={styles.switchText}>
                 <Text style={styles.switchLabel}>Remind me at that time</Text>
                 <Text style={styles.switchHint}>
-                  {form.scheduledTime.trim()
+                  {form.scheduledTime
                     ? 'Saved with the habit. Reminders start sending once notifications ship.'
                     : 'Set an ideal time first to turn this on.'}
                 </Text>
               </View>
               <Switch
-                value={Boolean(form.scheduledTime.trim()) && form.reminderEnabled}
-                disabled={!form.scheduledTime.trim()}
+                value={Boolean(form.scheduledTime) && form.reminderEnabled}
+                disabled={!form.scheduledTime}
                 onValueChange={(value) => setForm({ ...form, reminderEnabled: value })}
                 trackColor={{ false: colors.border, true: colors.safeSoft }}
                 thumbColor={form.reminderEnabled ? colors.safe : '#FFFFFF'}
@@ -408,6 +542,145 @@ export default function HabitsScreen() {
                 </Pressable>
               </View>
             ) : null}
+          </View>
+        ) : null}
+
+        {hasGoals || showGoalForm ? (
+          <View
+            style={styles.section}
+            onLayout={(e) => {
+              goalsSectionY.current = e.nativeEvent.layout.y;
+            }}
+          >
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>Goals</Text>
+              <Pressable onPress={() => (showGoalForm ? closeGoalForm() : openCreateGoal())}>
+                <Text style={styles.sectionAction}>{showGoalForm ? 'Cancel' : '+ New goal'}</Text>
+              </Pressable>
+            </View>
+
+            {showGoalForm ? (
+              <View style={styles.formCard}>
+                <Text style={styles.formTitle}>{isEditingGoal ? 'Edit goal' : 'New goal'}</Text>
+
+                <Text style={styles.label}>Description</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. Save $500 this month"
+                  placeholderTextColor={colors.textMuted}
+                  value={goalForm.description}
+                  onChangeText={(value) => setGoalForm({ ...goalForm, description: value })}
+                />
+
+                {!isEditingGoal ? (
+                  <View>
+                    <Text style={styles.label}>Period</Text>
+                    <View style={styles.modeRow}>
+                      <Pressable
+                        style={[styles.modePill, goalForm.period === 'WEEKLY' && styles.modePillActive]}
+                        onPress={() => setGoalForm({ ...goalForm, period: 'WEEKLY' })}
+                      >
+                        <Text
+                          style={[
+                            styles.modePillText,
+                            goalForm.period === 'WEEKLY' && styles.modePillTextActive,
+                          ]}
+                        >
+                          Weekly
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        style={[styles.modePill, goalForm.period === 'MONTHLY' && styles.modePillActive]}
+                        onPress={() => setGoalForm({ ...goalForm, period: 'MONTHLY' })}
+                      >
+                        <Text
+                          style={[
+                            styles.modePillText,
+                            goalForm.period === 'MONTHLY' && styles.modePillTextActive,
+                          ]}
+                        >
+                          Monthly
+                        </Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                ) : null}
+
+                <Text style={styles.label}>Target count</Text>
+                <TextInput
+                  style={styles.input}
+                  keyboardType="number-pad"
+                  placeholder="e.g. 500"
+                  placeholderTextColor={colors.textMuted}
+                  value={goalForm.targetCount}
+                  onChangeText={(v) => setGoalForm({ ...goalForm, targetCount: v.replace(/[^0-9]/g, '') })}
+                />
+
+                <Pressable style={styles.primaryButton} onPress={submitGoal} disabled={goalsBusy}>
+                  <Text style={styles.primaryButtonText}>
+                    {goalsBusy ? 'Saving…' : isEditingGoal ? 'Save changes' : 'Add goal'}
+                  </Text>
+                </Pressable>
+              </View>
+            ) : null}
+
+            {habitGoalReviews.map(({ habit, stats, currentKey }) => (
+              <View key={`review-${habit.id}`} style={styles.reviewCard}>
+                <Text style={styles.reviewName}>{habit.name}</Text>
+                <Text style={styles.reviewLine}>
+                  {stats.hit
+                    ? `You hit it — ${stats.done} of ${stats.target} ${stats.periodLabel.toLowerCase()}.`
+                    : `${stats.done} of ${stats.target} ${stats.periodLabel.toLowerCase()} — close, but not quite.`}
+                </Text>
+                <View style={styles.reviewActions}>
+                  <Pressable
+                    style={styles.reviewBtn}
+                    onPress={() => dismissHabitGoalReview(habit.id, currentKey)}
+                  >
+                    <Text style={styles.reviewBtnText}>Dismiss</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ))}
+
+            {featuredHabits.map((habit) => (
+              <HabitCard
+                key={`goal-habit-${habit.id}`}
+                name={habit.name}
+                category={habit.category}
+                cadenceType={habit.cadenceType}
+                trackingMode={habit.trackingMode}
+                todayCount={habit.todayCount}
+                scheduledTime={habit.scheduledTime}
+                reminderEnabled={habit.reminderEnabled}
+                progressLabel={habit.progressLabel}
+                progressLines={habit.progressLines || []}
+                progressComplete={habit.periodComplete}
+                streak={habit.streak}
+                streakStatus={habit.streakStatus}
+                checked={habit.checkedInToday}
+                disabled={busy}
+                onToggle={() => toggleCheckIn(habit.id)}
+                onAdd={() => addCheckIn(habit.id)}
+                onRemoveLast={() => removeLastCheckIn(habit.id)}
+                onEdit={() => openEdit(habit)}
+              />
+            ))}
+
+            {goals.map((goal) => (
+              <GoalCard
+                key={goal.id}
+                goal={goal}
+                disabled={goalsBusy}
+                onIncrement={() => incrementGoal(goal.id)}
+                onDecrement={() => decrementGoal(goal.id)}
+                onLogAmount={(g, amount) => logGoalAmount(g.id, amount)}
+                onEdit={() => openEditGoal(goal)}
+                onDelete={() => confirmDeleteGoal(goal)}
+                onRollover={() => rolloverGoal(goal)}
+                onDismiss={() => archiveGoal(goal.id)}
+              />
+            ))}
           </View>
         ) : null}
 
@@ -672,6 +945,37 @@ const styles = StyleSheet.create({
   archivedActionText: { color: colors.accent, fontWeight: '700', fontSize: 14 },
   section: { marginBottom: spacing.lg },
   sectionTitle: { ...typography.sectionTitle, marginBottom: spacing.md },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
+  },
+  sectionAction: { fontSize: 13, fontWeight: '700', color: colors.accent },
+  reviewCard: {
+    backgroundColor: colors.accentSoft,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  reviewName: { ...typography.cardTitle },
+  reviewLine: {
+    ...typography.body,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+  },
+  reviewActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: spacing.sm,
+  },
+  reviewBtn: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surface,
+  },
+  reviewBtnText: { color: colors.textSecondary, fontWeight: '600', fontSize: 13 },
   empty: {
     ...typography.body,
     color: colors.textSecondary,

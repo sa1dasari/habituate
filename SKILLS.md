@@ -71,11 +71,16 @@ For as long as the app stays in Expo's managed workflow with Expo Go–compatibl
 ## Phase 3 — Goals layer
 **Goal:** weekly/monthly goals independent of a single habit. Folds into the Habits page rather than being its own tab.
 
-- [ ] `goals` table + API
-- [ ] Mobile: add a goal (habit-linked or freeform), progress bar
-- [ ] End-of-period review screen (hit/missed, simple rollover option)
+- [x] `goals` table + API
+  - Completed 2026-09-21, but scoped differently than originally planned: since habits already carry their own `weeklyTarget`/`monthlyTarget` (Phase 2), a "habit-linked goal" as a separate DB row would just duplicate a number that already exists and risk it drifting out of sync. Instead, `goals` (new `com.habituate.api.goals` package: `Goal`, `GoalRepository`, `GoalService`, `GoalController`) stores **freeform goals only** — `description`, `period` (WEEKLY/MONTHLY), `targetCount`, `currentCount`, `periodStart`. Habit-linked goals are just a habit with `featuredGoal=true` on `Habit` — no new storage, it reuses the habit's existing target and check-ins.
+  - Endpoints: `GET/POST /api/goals`, `PUT /api/goals/{id}`, `POST /api/goals/{id}/progress` (±delta), `POST /api/goals/{id}/rollover`, `DELETE /api/goals/{id}`.
+- [x] Mobile: add a goal (habit-linked or freeform), progress bar
+  - `useGoals` hook (mirrors `useHabits`' shape) plus `useFeaturedGoalReviews`. New "Goals" section on the Habits page (between the habit form and the cadence-grouped lists): featured-habit cards (reusing `HabitCard` as-is), freeform `GoalCard`s (progress bar, +/- stepper, and an "Add progress" batch-amount field for lump-sum targets like a dollar goal — a plain ±1 stepper doesn't work for "$500"), and a "+ New goal" form. The habit edit form gained a "Feature on Goals" toggle, shown only once a weekly/monthly target is set. A `GoalsSummaryCard` on the Today page ("N of M completed · X% avg. progress", tapping it jumps straight to the Goals section) surfaces goal progress without duplicating the full cards there.
+- [x] End-of-period review screen (hit/missed, simple rollover option)
+  - Freeform goals: `needsReview` is computed client-side (`useGoals`) by comparing the goal's stored `periodStart` against the client's own current period start — when they diverge, `GoalCard` swaps its stepper for a review ("10 of 12 last month") with Roll over (fresh period, same target) / Dismiss (archives it) actions.
+  - Habit-linked goals: no rollover needed since the habit's target just keeps recurring — `previousPeriodStats` (`cadence.js`) derives "last month" stats purely from check-ins the habit already has, and `useFeaturedGoalReviews` tracks which period-transitions have already been shown in `AsyncStorage` only (not the backend, since it's just "have I seen this" UI state).
 
-**Exit criteria:** a monthly goal like "10 days of gym" shows live progress against the linked habit's check-ins.
+**Exit criteria:** a monthly goal like "10 days of gym" shows live progress against the linked habit's check-ins. *(Met — via the `featuredGoal` pin, not a separate goal record.)*
 
 ---
 

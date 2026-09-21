@@ -12,9 +12,12 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import HabitCard from '../components/HabitCard';
+import GoalsSummaryCard from '../components/GoalsSummaryCard';
 import MotivationBanner from '../components/MotivationBanner';
 import { motivationMessage } from '../constants/motivation';
 import { DISPLAY_NAME, initials } from '../constants/profile';
+import { useFeaturedGoalReviews } from '../hooks/useFeaturedGoalReviews';
+import { useGoals } from '../hooks/useGoals';
 import { summarizeHabits, useHabits } from '../hooks/useHabits';
 import { effectiveMonthlyTarget, effectiveWeeklyTarget } from '../utils/cadence';
 import { byScheduledTime } from '../utils/time';
@@ -54,8 +57,34 @@ export default function TodayScreen() {
   const navigation = useNavigation();
   const { habits, loading, busy, error, refresh, toggleCheckIn, addCheckIn, removeLastCheckIn } =
     useHabits();
+  const { goals } = useGoals();
   const [expandedId, setExpandedId] = useState(null);
   const [banner, setBanner] = useState(null);
+
+  const featuredHabits = useMemo(() => habits.filter((h) => h.featuredGoal), [habits]);
+  const { reviews: habitGoalReviews } = useFeaturedGoalReviews(featuredHabits);
+
+  // One combined list so the summary card can report across both habit-linked
+  // and freeform goals without caring which is which. `percent` carries actual
+  // partial progress (not just done/not-done) so the summary bar reflects
+  // trend rather than looking empty until something hits 100%.
+  const goalItems = useMemo(
+    () => [
+      ...featuredHabits.map((h) => ({
+        id: `habit-${h.id}`,
+        complete: h.periodComplete,
+        percent: h.periodTarget > 0 ? Math.min(100, Math.round((h.periodDone / h.periodTarget) * 100)) : 0,
+        needsReview: habitGoalReviews.some((r) => r.habit.id === h.id),
+      })),
+      ...goals.map((g) => ({
+        id: `goal-${g.id}`,
+        complete: g.complete,
+        percent: g.percent,
+        needsReview: g.needsReview,
+      })),
+    ],
+    [featuredHabits, habitGoalReviews, goals]
+  );
 
   // "Due Today" is only genuinely daily habits (habit.dueToday, from
   // isDueToday in cadence.js). A habit whose target lives at the weekly or
@@ -215,6 +244,11 @@ export default function TodayScreen() {
             {encouragement(summary, habits.length > groups.due.length)}
           </Text>
         </View>
+
+        <GoalsSummaryCard
+          items={goalItems}
+          onPress={() => navigation.navigate('Habits', { scrollToGoals: true })}
+        />
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 

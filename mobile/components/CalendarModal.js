@@ -266,12 +266,15 @@ function MonthlySummary({ year, month, habits, dayStats }) {
 
   const rows = habits.map((h) => {
     let count = 0;
+    let possibleDays = 0;
     for (let d = 1; d <= daysElapsed; d++) {
       const key = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      if (!existedOn(h, key)) continue;
+      possibleDays++;
       const stats = dayStats[key];
       if (stats && stats.entries.some((e) => e.habit.id === h.id)) count++;
     }
-    const pct = daysElapsed > 0 ? Math.round((count / daysElapsed) * 100) : 0;
+    const pct = possibleDays > 0 ? Math.round((count / possibleDays) * 100) : 0;
     return { habit: h, count, pct };
   }).filter((r) => r.count > 0)
     .sort((a, b) => b.count - a.count);
@@ -308,17 +311,30 @@ function sumValueForDay(habit, dayKey) {
   }, 0);
 }
 
+/** A habit only counts toward a day's stats once it actually existed — a habit
+ * created today shouldn't retroactively make yesterday look incomplete. */
+function existedOn(habit, dayKey) {
+  if (!habit || !habit.createdAt) return true;
+  return toDateKey(new Date(habit.createdAt)) <= dayKey;
+}
+
 /**
- * Per-day stats: how many of the CURRENT daily-target habits were completed
- * that day (a COUNT habit needs its values to sum to its daily target — a
- * batch of 9 job applications still counts as one habit "done", not nine),
- * plus every other habit (weekly/monthly-only) that had any activity that day.
+ * Per-day stats: how many of that day's daily-target habits (only ones that
+ * existed by then) were completed — a COUNT habit needs its values to sum to
+ * its daily target, so a batch of 9 job applications still counts as one
+ * habit "done", not nine — plus every other habit (weekly/monthly-only) that
+ * had any activity that day.
  */
-function computeDayStats(dayKey, habits, dailyHabits) {
+function computeDayStats(dayKey, habits) {
   const entries = [];
+  let dailyTotal = 0;
   let dailyDone = 0;
 
-  dailyHabits.forEach((habit) => {
+  const existing = habits.filter((h) => existedOn(h, dayKey));
+
+  existing.forEach((habit) => {
+    if (!hasDailyTarget(habit)) return;
+    dailyTotal += 1;
     const value = sumValueForDay(habit, dayKey);
     const target = cadenceTarget(habit);
     const done = value >= target;
@@ -326,14 +342,13 @@ function computeDayStats(dayKey, habits, dailyHabits) {
     entries.push({ habit, value, isDaily: true, done });
   });
 
-  const dailyIds = new Set(dailyHabits.map((h) => h.id));
-  habits.forEach((habit) => {
-    if (dailyIds.has(habit.id)) return;
+  existing.forEach((habit) => {
+    if (hasDailyTarget(habit)) return;
     const value = sumValueForDay(habit, dayKey);
     if (value > 0) entries.push({ habit, value, isDaily: false, done: true });
   });
 
-  return { dailyTotal: dailyHabits.length, dailyDone, entries };
+  return { dailyTotal, dailyDone, entries };
 }
 
 function dayHeat(stats) {
@@ -359,8 +374,6 @@ function allDoneStreak(dayKey, weeks, dayStats) {
 
 /** Build a 2D array of week rows for the given month. Each cell is null (padding) or { key, day, inMonth }. */
 function buildMonth(year, month, habits) {
-  const dailyHabits = habits.filter((h) => hasDailyTarget(h));
-
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
 
@@ -379,7 +392,7 @@ function buildMonth(year, month, habits) {
     const key = toDateKey(date);
 
     week.push({ key, day: date.getDate(), inMonth });
-    dayStats[key] = computeDayStats(key, habits, dailyHabits);
+    dayStats[key] = computeDayStats(key, habits);
 
     if (week.length === 7) {
       weeks.push(week);

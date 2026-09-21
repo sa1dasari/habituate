@@ -187,7 +187,7 @@ export default function HabitCard({
                 <TextInput
                   style={styles.amountInput}
                   keyboardType="number-pad"
-                  placeholder="Log an amount, e.g. 5"
+                  placeholder="Add progress, e.g. 5"
                   placeholderTextColor={colors.textMuted}
                   value={amountInput}
                   onChangeText={(v) => setAmountInput(v.replace(/[^0-9]/g, ''))}
@@ -201,14 +201,14 @@ export default function HabitCard({
                   disabled={disabled || !amountInput}
                   hitSlop={6}
                   accessibilityRole="button"
-                  accessibilityLabel="Log this amount"
+                  accessibilityLabel="Add progress"
                   style={({ pressed }) => [
                     styles.amountButton,
                     (disabled || !amountInput) && styles.checkDisabled,
                     pressed && !disabled && amountInput ? styles.checkPressed : null,
                   ]}
                 >
-                  <Text style={styles.amountButtonText}>Log</Text>
+                  <Text style={styles.amountButtonText}>Add</Text>
                 </Pressable>
               </View>
             ) : null}

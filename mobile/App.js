@@ -7,6 +7,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { HabitsProvider } from './hooks/useHabits';
 import { GoalsProvider } from './hooks/useGoals';
+import { CelebrationProvider } from './hooks/useCelebration';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import {
   CommunityScreen,
@@ -89,9 +90,11 @@ function AppGate() {
   return (
     <HabitsProvider>
       <GoalsProvider>
-        <NavigationContainer>
-          <Tabs />
-        </NavigationContainer>
+        <CelebrationProvider>
+          <NavigationContainer>
+            <Tabs />
+          </NavigationContainer>
+        </CelebrationProvider>
       </GoalsProvider>
     </HabitsProvider>
   );

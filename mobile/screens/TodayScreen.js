@@ -13,12 +13,12 @@ import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import HabitCard from '../components/HabitCard';
 import GoalsSummaryCard from '../components/GoalsSummaryCard';
-import MotivationBanner from '../components/MotivationBanner';
-import { motivationMessage } from '../constants/motivation';
 import { DISPLAY_NAME, initials } from '../constants/profile';
+import { useCelebration } from '../hooks/useCelebration';
 import { useFeaturedGoalReviews } from '../hooks/useFeaturedGoalReviews';
 import { useGoals } from '../hooks/useGoals';
 import { summarizeHabits, useHabits } from '../hooks/useHabits';
+import { buildAllDoneCelebration, buildCheckInCelebration, buildHabitMilestone } from '../utils/celebration';
 import { effectiveMonthlyTarget, effectiveWeeklyTarget } from '../utils/cadence';
 import { byScheduledTime } from '../utils/time';
 import { colors, radii, shadow, spacing, typography } from '../theme';
@@ -58,8 +58,8 @@ export default function TodayScreen() {
   const { habits, loading, busy, error, refresh, toggleCheckIn, addCheckIn, removeLastCheckIn } =
     useHabits();
   const { goals } = useGoals();
+  const { celebrate: showCelebration } = useCelebration();
   const [expandedId, setExpandedId] = useState(null);
-  const [banner, setBanner] = useState(null);
 
   const featuredHabits = useMemo(() => habits.filter((h) => h.featuredGoal), [habits]);
   const { reviews: habitGoalReviews } = useFeaturedGoalReviews(featuredHabits);
@@ -119,29 +119,29 @@ export default function TodayScreen() {
   // "Today's Progress" only counts habits actually due today.
   const summary = useMemo(() => summarizeHabits(groups.due), [groups]);
 
-  // Logging progress is the only action that gets a banner; undoing stays silent.
+  // Logging progress is the only action that gets a celebration; undoing stays
+  // silent. Priority when more than one applies on the same check-in: a
+  // habit's own target being met, then finishing every habit due today, then
+  // the routine card — showing more than one at once would be excessive.
   const celebrate = useCallback(
-    (habit) => {
-      const remaining = habit.dueToday
-        ? Math.max(0, summary.total - summary.done - 1)
-        : null;
+    (habit, delta = 1) => {
+      const previousDone = summary.done;
+      const todayDone = habit.dueToday ? Math.min(summary.total, previousDone + delta) : previousDone;
 
-      setBanner((current) => ({
-        key: Date.now(),
-        message: motivationMessage(habit, {
-          remaining,
-          avoid: current ? current.message : null,
-        }),
-      }));
+      const payload =
+        buildHabitMilestone(habit, delta, { todayDone, todayTotal: summary.total }) ||
+        buildAllDoneCelebration(previousDone, todayDone, summary.total) ||
+        buildCheckInCelebration(habit, delta, { todayDone, todayTotal: summary.total });
+      showCelebration(payload);
     },
-    [summary]
+    [summary, showCelebration]
   );
 
   const handleToggle = useCallback(
     async (habit) => {
       const wasChecked = habit.checkedInToday;
       await toggleCheckIn(habit.id);
-      if (!wasChecked) celebrate(habit);
+      if (!wasChecked) celebrate(habit, 1);
     },
     [toggleCheckIn, celebrate]
   );
@@ -149,7 +149,7 @@ export default function TodayScreen() {
   const handleAdd = useCallback(
     async (habit) => {
       await addCheckIn(habit.id);
-      celebrate(habit);
+      celebrate(habit, 1);
     },
     [addCheckIn, celebrate]
   );
@@ -157,47 +157,76 @@ export default function TodayScreen() {
   const handleLogAmount = useCallback(
     async (habit, amount) => {
       await addCheckIn(habit.id, amount);
-      celebrate(habit);
+      celebrate(habit, amount);
     },
     [addCheckIn, celebrate]
   );
 
-  const renderHabit = (habit) => (
-    <HabitCard
-      key={habit.id}
-      variant="today"
-      name={habit.name}
-      category={habit.category}
-      cadenceType={habit.cadenceType}
-      trackingMode={habit.trackingMode}
-      todayCount={habit.todayCount}
-      scheduledTime={habit.scheduledTime}
-      progressLabel={habit.progressLabel}
-      progressComplete={habit.periodComplete}
-      periodDone={habit.periodDone}
-      periodTarget={habit.periodTarget}
-      periodComplete={habit.periodComplete}
-      daysLeft={habit.daysLeftInPeriod}
-      checkIns={habit.checkIns}
-      expanded={expandedId === habit.id}
-      checked={habit.checkedInToday}
-      disabled={busy}
-      onPress={() => setExpandedId((current) => (current === habit.id ? null : habit.id))}
-      onToggle={() => handleToggle(habit)}
-      onAdd={() => handleAdd(habit)}
-      onRemoveLast={() => removeLastCheckIn(habit.id)}
-      onLogAmount={(amount) => handleLogAmount(habit, amount)}
-    />
-  );
+  // A habit with both a weekly and a monthly target still has only one bar
+  // on its card — it needs to reflect whichever scale this section is about,
+  // not always the "primary" (monthly-first) number cadenceProgress picks.
+  // Otherwise a card sitting under "This Week" can show 20% from the monthly
+  // count even though the week's own target was just fully met.
+  const focusedProgress = (habit, focus) => {
+    if (focus === 'weekly') {
+      const target = habit.weeklyTarget || 0;
+      return {
+        periodDone: habit.weeklyDone || 0,
+        periodTarget: target,
+        periodNoun: 'this week',
+        periodComplete: target > 0 && (habit.weeklyDone || 0) >= target,
+      };
+    }
+    if (focus === 'monthly') {
+      const target = habit.monthlyTarget || 0;
+      return {
+        periodDone: habit.monthlyDone || 0,
+        periodTarget: target,
+        periodNoun: 'this month',
+        periodComplete: target > 0 && (habit.monthlyDone || 0) >= target,
+      };
+    }
+    return {
+      periodDone: habit.periodDone,
+      periodTarget: habit.periodTarget,
+      periodNoun: habit.periodNoun,
+      periodComplete: habit.periodComplete,
+    };
+  };
+
+  const renderHabit = (habit, focus = 'daily') => {
+    const progress = focusedProgress(habit, focus);
+    return (
+      <HabitCard
+        key={habit.id}
+        variant="today"
+        name={habit.name}
+        category={habit.category}
+        cadenceType={habit.cadenceType}
+        trackingMode={habit.trackingMode}
+        todayCount={habit.todayCount}
+        scheduledTime={habit.scheduledTime}
+        progressLabel={habit.progressLabel}
+        progressComplete={progress.periodComplete}
+        periodDone={progress.periodDone}
+        periodTarget={progress.periodTarget}
+        periodNoun={progress.periodNoun}
+        daysLeft={habit.daysLeftInPeriod}
+        checkIns={habit.checkIns}
+        expanded={expandedId === habit.id}
+        checked={habit.checkedInToday}
+        disabled={busy}
+        onPress={() => setExpandedId((current) => (current === habit.id ? null : habit.id))}
+        onToggle={() => handleToggle(habit)}
+        onAdd={() => handleAdd(habit)}
+        onRemoveLast={() => removeLastCheckIn(habit.id)}
+        onLogAmount={(amount) => handleLogAmount(habit, amount)}
+      />
+    );
+  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <MotivationBanner
-        key={banner ? banner.key : 'idle'}
-        message={banner ? banner.message : null}
-        onDismiss={() => setBanner(null)}
-      />
-
       <ScrollView
         contentContainerStyle={[styles.container, { paddingBottom: spacing.xl + insets.bottom }]}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} />}
@@ -281,7 +310,7 @@ export default function TodayScreen() {
             Nothing has to happen today — your weekly and monthly habits are below.
           </Text>
         ) : (
-          groups.due.map(renderHabit)
+          groups.due.map((habit) => renderHabit(habit, 'daily'))
         )}
 
         {OTHER_CADENCES.map(({ key, title, note }) =>
@@ -289,7 +318,7 @@ export default function TodayScreen() {
             <View key={key} style={styles.laterSection}>
               <Text style={styles.sectionTitle}>{title}</Text>
               <Text style={styles.sectionNote}>{note}</Text>
-              {groups[key].map(renderHabit)}
+              {groups[key].map((habit) => renderHabit(habit, key))}
             </View>
           ) : null
         )}

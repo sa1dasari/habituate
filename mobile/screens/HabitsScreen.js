@@ -22,9 +22,16 @@ import {
   HABIT_CATEGORY_OPTIONS,
 } from '../constants/habitCategories';
 import { effectiveMonthlyTarget, effectiveWeeklyTarget, hasDailyTarget } from '../utils/cadence';
+import {
+  buildAllDoneCelebration,
+  buildCheckInCelebration,
+  buildGoalMilestone,
+  buildHabitMilestone,
+} from '../utils/celebration';
+import { useCelebration } from '../hooks/useCelebration';
 import { useFeaturedGoalReviews } from '../hooks/useFeaturedGoalReviews';
 import { useGoals } from '../hooks/useGoals';
-import { useHabits } from '../hooks/useHabits';
+import { summarizeHabits, useHabits } from '../hooks/useHabits';
 import { colors, radii, shadow, spacing, typography } from '../theme';
 
 const emptyForm = {
@@ -128,6 +135,7 @@ export default function HabitsScreen() {
     archiveGoal,
     deleteGoal,
   } = useGoals();
+  const { celebrate: showCelebration } = useCelebration();
   const navigation = useNavigation();
   const route = useRoute();
   const [form, setForm] = useState(emptyForm);
@@ -146,6 +154,72 @@ export default function HabitsScreen() {
   const { reviews: habitGoalReviews, dismiss: dismissHabitGoalReview } =
     useFeaturedGoalReviews(featuredHabits);
   const hasGoals = featuredHabits.length > 0 || goals.length > 0;
+
+  // Same "Due Today" concept Today's Progress uses, so the check-in
+  // celebration's progress line reads the same wherever the check-in happens.
+  const todaySummary = summarizeHabits(habits.filter((h) => h.dueToday));
+
+  // Priority when more than one applies on the same check-in: a habit's own
+  // target being met, then finishing every habit due today, then the
+  // routine card. Undoing a check-in never celebrates.
+  const celebrateHabit = useCallback(
+    (habit, delta = 1) => {
+      const previousDone = todaySummary.done;
+      const todayDone = habit.dueToday
+        ? Math.min(todaySummary.total, previousDone + delta)
+        : previousDone;
+
+      const payload =
+        buildHabitMilestone(habit, delta, { todayDone, todayTotal: todaySummary.total }) ||
+        buildAllDoneCelebration(previousDone, todayDone, todaySummary.total) ||
+        buildCheckInCelebration(habit, delta, { todayDone, todayTotal: todaySummary.total });
+      showCelebration(payload);
+    },
+    [todaySummary, showCelebration]
+  );
+
+  const handleToggleHabit = useCallback(
+    async (habit) => {
+      const wasChecked = habit.checkedInToday;
+      await toggleCheckIn(habit.id);
+      if (!wasChecked) celebrateHabit(habit, 1);
+    },
+    [toggleCheckIn, celebrateHabit]
+  );
+
+  const handleAddHabit = useCallback(
+    async (habit) => {
+      await addCheckIn(habit.id);
+      celebrateHabit(habit, 1);
+    },
+    [addCheckIn, celebrateHabit]
+  );
+
+  // Freeform goals only celebrate when they actually hit their target —
+  // there's no "today" progress or streak to report on every tap here.
+  const celebrateGoalProgress = useCallback(
+    (goal, delta) => {
+      const payload = buildGoalMilestone(goal, delta);
+      if (payload) showCelebration(payload);
+    },
+    [showCelebration]
+  );
+
+  const handleIncrementGoal = useCallback(
+    (goal) => {
+      celebrateGoalProgress(goal, 1);
+      incrementGoal(goal.id);
+    },
+    [celebrateGoalProgress, incrementGoal]
+  );
+
+  const handleLogGoalAmount = useCallback(
+    (goal, amount) => {
+      celebrateGoalProgress(goal, amount);
+      logGoalAmount(goal.id, amount);
+    },
+    [celebrateGoalProgress, logGoalAmount]
+  );
 
   // Coming from the Today page's Goals summary card — jump straight to the
   // Goals section instead of landing at the top of a long habit list.
@@ -660,8 +734,8 @@ export default function HabitsScreen() {
                 streakStatus={habit.streakStatus}
                 checked={habit.checkedInToday}
                 disabled={busy}
-                onToggle={() => toggleCheckIn(habit.id)}
-                onAdd={() => addCheckIn(habit.id)}
+                onToggle={() => handleToggleHabit(habit)}
+                onAdd={() => handleAddHabit(habit)}
                 onRemoveLast={() => removeLastCheckIn(habit.id)}
                 onEdit={() => openEdit(habit)}
               />
@@ -672,9 +746,9 @@ export default function HabitsScreen() {
                 key={goal.id}
                 goal={goal}
                 disabled={goalsBusy}
-                onIncrement={() => incrementGoal(goal.id)}
+                onIncrement={() => handleIncrementGoal(goal)}
                 onDecrement={() => decrementGoal(goal.id)}
-                onLogAmount={(g, amount) => logGoalAmount(g.id, amount)}
+                onLogAmount={(g, amount) => handleLogGoalAmount(g, amount)}
                 onEdit={() => openEditGoal(goal)}
                 onDelete={() => confirmDeleteGoal(goal)}
                 onRollover={() => rolloverGoal(goal)}
@@ -730,8 +804,8 @@ export default function HabitsScreen() {
                   streakStatus={habit.streakStatus}
                   checked={habit.checkedInToday}
                   disabled={busy}
-                  onToggle={() => toggleCheckIn(habit.id)}
-                  onAdd={() => addCheckIn(habit.id)}
+                  onToggle={() => handleToggleHabit(habit)}
+                  onAdd={() => handleAddHabit(habit)}
                   onRemoveLast={() => removeLastCheckIn(habit.id)}
                   onEdit={() => openEdit(habit)}
                 />

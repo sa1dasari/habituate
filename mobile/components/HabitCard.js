@@ -3,7 +3,7 @@ import { View, Text, Pressable, StyleSheet, TextInput } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import StreakIndicator from './StreakIndicator';
 import { categoryIcon } from '../constants/habitCategories';
-import { periodCheckIns, periodNoun as cadenceNoun } from '../utils/cadence';
+import { completionSuffix, periodCheckIns } from '../utils/cadence';
 import { formatClockTime, formatDayLabel, formatTime } from '../utils/time';
 import { colors, radii, shadow, spacing, typography } from '../theme';
 
@@ -35,7 +35,7 @@ export default function HabitCard({
   progressComplete = false,
   periodDone = 0,
   periodTarget = 1,
-  periodComplete = false,
+  periodNoun = 'today',
   daysLeft = 1,
   checkIns = [],
   expanded = false,
@@ -52,7 +52,6 @@ export default function HabitCard({
   onEdit,
 }) {
   const cadence = CADENCE_LABEL[String(cadenceType).toUpperCase()] || 'Daily';
-  const periodNoun = cadenceNoun({ cadenceType });
   const countMode = String(trackingMode).toUpperCase() === 'COUNT';
   const [amountInput, setAmountInput] = useState('');
 
@@ -101,19 +100,31 @@ export default function HabitCard({
   if (variant === 'today') {
     const time = formatTime(scheduledTime);
     const subtitle = [time, progressLabel].filter(Boolean).join('  ·  ') || cadence;
-    // Weekly and monthly habits always carry a bar; daily ones only when the
-    // target is more than a single check-in.
-    const showBar = String(cadenceType).toUpperCase() !== 'DAILY' || periodTarget > 1;
+    // Weekly and monthly habits always carry a bar (even a 1x/week target),
+    // daily ones only when the target is more than a single check-in.
+    // cadenceType itself is always 'DAILY' now, so periodNoun — not
+    // cadenceType — is what actually distinguishes a period-focused card.
+    const showBar = periodNoun !== 'today' || periodTarget > 1;
     const percent = periodTarget > 0
       ? Math.min(100, Math.round((periodDone / periodTarget) * 100))
       : 0;
 
     // A period habit shows what it has logged this week/month; a plain daily
-    // habit shows its most recent check-ins instead.
+    // habit shows its most recent check-ins instead. periodCheckIns needs the
+    // actual window to filter by — derived from periodNoun (what's actually
+    // being shown), not the vestigial cadenceType.
     const recent = [...checkIns].sort(
       (a, b) => new Date(b.occurredAt) - new Date(a.occurredAt)
     );
-    const history = showBar ? periodCheckIns({ cadenceType, checkIns }) : recent;
+    const historyCadence =
+      periodNoun === 'this month' ? 'MONTHLY' : periodNoun === 'this week' ? 'WEEKLY' : 'DAILY';
+    const history = showBar ? periodCheckIns({ cadenceType: historyCadence, checkIns }) : recent;
+    const periodSuffix = completionSuffix(periodDone, periodTarget);
+    const periodTrailingText = periodSuffix
+      ? periodSuffix
+      : periodNoun === 'today'
+        ? ''
+        : ` · ${daysLeft} day${daysLeft === 1 ? '' : 's'} left`;
     const loggedToday = recent.find(
       (checkIn) => formatDayLabel(checkIn.occurredAt) === 'Today'
     );
@@ -225,12 +236,7 @@ export default function HabitCard({
 
             {showBar ? (
               <Text style={styles.expandedLine}>
-                {`${periodDone} of ${periodTarget} ${periodNoun}`}
-                {periodComplete
-                  ? ' — target met'
-                  : periodNoun === 'today'
-                    ? ''
-                    : ` · ${daysLeft} day${daysLeft === 1 ? '' : 's'} left`}
+                {`${periodDone} of ${periodTarget} ${periodNoun}${periodTrailingText}`}
               </Text>
             ) : null}
 

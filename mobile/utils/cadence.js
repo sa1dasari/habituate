@@ -87,12 +87,12 @@ export function periodStart(period, now = new Date()) {
   }
 }
 
+// cadenceType is always 'DAILY' now — which noun applies is driven by which
+// target scale is actually set, same priority as cadenceProgress's primary.
 export function periodNoun(habit) {
-  switch (cadenceKey(habit)) {
-    case 'WEEKLY': return 'this week';
-    case 'MONTHLY': return 'this month';
-    default: return 'today';
-  }
+  if (effectiveMonthlyTarget(habit) > 0) return 'this month';
+  if (effectiveWeeklyTarget(habit) > 0) return 'this week';
+  return 'today';
 }
 
 function sumValues(checkIns) {
@@ -166,6 +166,18 @@ export function isDueToday(habit, now = new Date()) {
 // ─── Progress labels ──────────────────────────────────────────────────────────
 
 /**
+ * " — done" at exactly the target, " — exceeded" past it (e.g. a habit whose
+ * weekly target is already met still counts further check-ins toward its
+ * monthly target, so "done" alone would misleadingly cap it at 1:1), nothing
+ * while still short.
+ */
+export function completionSuffix(done, target) {
+  if (done > target) return ' — exceeded';
+  if (done === target) return ' — done';
+  return '';
+}
+
+/**
  * Returns an array of progress lines — one per active target scale.
  * e.g. ["3 of 8 today", "2 of 3 this week", "5 of 10 this month"]
  */
@@ -178,25 +190,21 @@ export function progressLines(habit, now = new Date()) {
 
   // Daily target (only show if > 1, otherwise it's just "done / not done")
   if (cadenceKey(habit) === 'DAILY' && dailyTarget > 1) {
-    lines.push(
-      todayCount >= dailyTarget
-        ? `${todayCount} of ${dailyTarget} today — done`
-        : `${todayCount} of ${dailyTarget} today`
-    );
+    lines.push(`${todayCount} of ${dailyTarget} today${completionSuffix(todayCount, dailyTarget)}`);
   }
 
   // Weekly target (new field or old WEEKLY cadenceType)
   const wt = effectiveWeeklyTarget(habit);
   if (wt > 0) {
     const done = countInPeriod(checkIns, 'WEEKLY', now, habit);
-    lines.push(done >= wt ? `${done} of ${wt} this week — done` : `${done} of ${wt} this week`);
+    lines.push(`${done} of ${wt} this week${completionSuffix(done, wt)}`);
   }
 
   // Monthly target (new field or old MONTHLY cadenceType)
   const mt = effectiveMonthlyTarget(habit);
   if (mt > 0) {
     const done = countInPeriod(checkIns, 'MONTHLY', now, habit);
-    lines.push(done >= mt ? `${done} of ${mt} this month — done` : `${done} of ${mt} this month`);
+    lines.push(`${done} of ${mt} this month${completionSuffix(done, mt)}`);
   }
 
   return lines;

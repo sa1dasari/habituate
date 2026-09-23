@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, TextInput } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import StreakIndicator from './StreakIndicator';
 import { categoryIcon } from '../constants/habitCategories';
 import { completionSuffix, periodCheckIns } from '../utils/cadence';
 import { formatClockTime, formatDayLabel, formatTime } from '../utils/time';
-import { colors, radii, shadow, spacing, typography } from '../theme';
+import { useAppTheme } from '../hooks/useAppTheme';
+import { gradients, radii, shadow, spacing } from '../theme';
 
 const CADENCE_LABEL = {
   DAILY: 'Daily',
@@ -51,6 +53,8 @@ export default function HabitCard({
   onPress,
   onEdit,
 }) {
+  const { colors, typography } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const cadence = CADENCE_LABEL[String(cadenceType).toUpperCase()] || 'Daily';
   const countMode = String(trackingMode).toUpperCase() === 'COUNT';
   const [amountInput, setAmountInput] = useState('');
@@ -159,7 +163,12 @@ export default function HabitCard({
 
             {showBar ? (
               <View style={styles.barTrack}>
-                <View style={[styles.barFill, { width: `${percent}%` }]} />
+                <LinearGradient
+                  colors={gradients.safe}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={[styles.barFill, { width: `${percent}%` }]}
+                />
               </View>
             ) : null}
           </View>
@@ -361,7 +370,8 @@ export default function HabitCard({
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(colors, typography) {
+  return StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -400,7 +410,6 @@ const styles = StyleSheet.create({
   barFill: {
     height: '100%',
     borderRadius: radii.pill,
-    backgroundColor: colors.safe,
   },
   expanded: {
     borderTopWidth: 1,
@@ -595,9 +604,10 @@ const styles = StyleSheet.create({
     borderRadius: radii.sm,
     backgroundColor: colors.accent,
   },
-  amountButtonText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-});
+    amountButtonText: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: '#FFFFFF',
+    },
+  });
+}

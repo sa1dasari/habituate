@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, radii, shadow, spacing, typography } from '../theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useAppTheme } from '../hooks/useAppTheme';
+import { gradients, radii, shadow, spacing } from '../theme';
 
 /**
  * A compact, tap-through summary of every goal (habit-linked and freeform) —
@@ -9,6 +11,9 @@ import { colors, radii, shadow, spacing, typography } from '../theme';
  * cards there. Tapping it jumps to the Goals section on the Habits page.
  */
 export default function GoalsSummaryCard({ items = [], onPress }) {
+  const { colors, typography } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
+
   if (items.length === 0) return null;
 
   const completed = items.filter((item) => item.complete).length;
@@ -43,13 +48,19 @@ export default function GoalsSummaryCard({ items = [], onPress }) {
       </View>
 
       <View style={styles.barTrack}>
-        <View style={[styles.barFill, { width: `${percent}%` }]} />
+        <LinearGradient
+          colors={gradients.accent}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={[styles.barFill, { width: `${percent}%` }]}
+        />
       </View>
     </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(colors, typography) {
+  return StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     borderRadius: radii.lg,
@@ -91,9 +102,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginTop: spacing.md,
   },
-  barFill: {
-    height: '100%',
-    borderRadius: radii.pill,
-    backgroundColor: colors.accent,
-  },
-});
+    barFill: {
+      height: '100%',
+      borderRadius: radii.pill,
+    },
+  });
+}

@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { daysLeftInPeriod } from '../utils/cadence';
-import { colors, radii, shadow, spacing, typography } from '../theme';
+import { useAppTheme } from '../hooks/useAppTheme';
+import { gradients, radii, shadow, spacing } from '../theme';
 
 const PERIOD_NOUN = { WEEKLY: 'this week', MONTHLY: 'this month' };
 
@@ -24,6 +26,8 @@ export default function GoalCard({
   onRollover,
   onDismiss,
 }) {
+  const { colors, typography } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const periodNoun = PERIOD_NOUN[goal.period] || 'this period';
   const [amountInput, setAmountInput] = useState('');
 
@@ -76,7 +80,12 @@ export default function GoalCard({
       </View>
 
       <View style={styles.barTrack}>
-        <View style={[styles.barFill, { width: `${goal.percent}%` }]} />
+        <LinearGradient
+          colors={gradients.accent}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={[styles.barFill, { width: `${goal.percent}%` }]}
+        />
       </View>
 
       <View style={styles.footerRow}>
@@ -138,7 +147,8 @@ export default function GoalCard({
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(colors, typography) {
+  return StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     borderRadius: radii.lg,
@@ -178,7 +188,6 @@ const styles = StyleSheet.create({
   barFill: {
     height: '100%',
     borderRadius: radii.pill,
-    backgroundColor: colors.accent,
   },
   footerRow: {
     flexDirection: 'row',
@@ -283,9 +292,10 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     backgroundColor: colors.background,
   },
-  secondaryBtnText: {
-    color: colors.textSecondary,
-    fontWeight: '600',
-    fontSize: 13,
-  },
-});
+    secondaryBtnText: {
+      color: colors.textSecondary,
+      fontWeight: '600',
+      fontSize: 13,
+    },
+  });
+}

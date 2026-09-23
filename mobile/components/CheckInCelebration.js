@@ -1,7 +1,10 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { Animated, Easing, Modal, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, radii, shadow, spacing, typography } from '../theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import FlameIcon from './FlameIcon';
+import { useAppTheme } from '../hooks/useAppTheme';
+import { gradients, radii, shadowLg, spacing } from '../theme';
 
 const VARIANT = {
   checkin: { icon: 'star-four-points', duration: 2800 },
@@ -16,6 +19,8 @@ const VARIANT = {
  * and Share are there for whoever wants to act sooner.
  */
 export default function CheckInCelebration({ payload, onDismiss }) {
+  const { colors, typography } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const scale = useRef(new Animated.Value(0.9)).current;
   const opacity = useRef(new Animated.Value(0)).current;
   const dismissRef = useRef(onDismiss);
@@ -73,13 +78,14 @@ export default function CheckInCelebration({ payload, onDismiss }) {
               <MaterialCommunityIcons name="close" size={18} color={colors.textMuted} />
             </Pressable>
 
-            <View style={[styles.iconCircle, isMilestone && styles.iconCircleMilestone]}>
-              <MaterialCommunityIcons
-                name={icon}
-                size={30}
-                color={isMilestone ? colors.warning : colors.safe}
-              />
-            </View>
+            <LinearGradient
+              colors={isMilestone ? gradients.warm : gradients.safe}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.iconCircle}
+            >
+              <MaterialCommunityIcons name={icon} size={30} color="#FFFFFF" />
+            </LinearGradient>
 
             <Text style={styles.headline}>{payload.headline}</Text>
             {payload.subhead ? <Text style={styles.subhead}>{payload.subhead}</Text> : null}
@@ -88,14 +94,21 @@ export default function CheckInCelebration({ payload, onDismiss }) {
 
             {payload.streakLine ? (
               <View style={styles.streakRow}>
-                <MaterialCommunityIcons name="fire" size={16} color={colors.flame} />
+                <FlameIcon width={16} height={16} streak={payload.streak} />
                 <Text style={styles.streakText}>{payload.streakLine}</Text>
               </View>
             ) : null}
 
-            <Pressable style={styles.shareBtn} onPress={handleShare}>
-              <MaterialCommunityIcons name="share-variant-outline" size={16} color="#FFFFFF" />
-              <Text style={styles.shareBtnText}>Share</Text>
+            <Pressable onPress={handleShare}>
+              <LinearGradient
+                colors={gradients.accent}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.shareBtn}
+              >
+                <MaterialCommunityIcons name="share-variant-outline" size={16} color="#FFFFFF" />
+                <Text style={styles.shareBtnText}>Share</Text>
+              </LinearGradient>
             </Pressable>
           </Pressable>
         </Animated.View>
@@ -104,7 +117,8 @@ export default function CheckInCelebration({ payload, onDismiss }) {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(colors, typography) {
+  return StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(17, 24, 39, 0.45)',
@@ -122,7 +136,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.xl + spacing.sm,
     alignItems: 'center',
-    ...shadow,
+    ...shadowLg,
   },
   closeBtn: {
     position: 'absolute',
@@ -141,11 +155,8 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.safeSoft,
     marginBottom: spacing.md,
-  },
-  iconCircleMilestone: {
-    backgroundColor: colors.warningSoft,
+    overflow: 'hidden',
   },
   headline: {
     ...typography.screenTitle,
@@ -180,15 +191,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    backgroundColor: colors.accent,
     borderRadius: radii.pill,
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.sm + 2,
     marginTop: spacing.lg,
+    overflow: 'hidden',
   },
-  shareBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 14,
-  },
-});
+    shareBtnText: {
+      color: '#FFFFFF',
+      fontWeight: '700',
+      fontSize: 14,
+    },
+  });
+}

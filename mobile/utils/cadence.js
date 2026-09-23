@@ -136,12 +136,13 @@ export function periodCheckIns(habit, now = new Date()) {
     .sort((a, b) => new Date(b.occurredAt) - new Date(a.occurredAt));
 }
 
+// Same fix as periodNoun: cadenceType is always 'DAILY' now, so this has to
+// key off the actual target scale instead — otherwise it always falls to the
+// "1 day left" default regardless of the real day of week or habit type.
 export function daysLeftInPeriod(habit, now = new Date()) {
-  switch (cadenceKey(habit)) {
-    case 'WEEKLY': return daysLeftInWeek(now);
-    case 'MONTHLY': return daysLeftInMonth(now);
-    default: return 1;
-  }
+  if (effectiveMonthlyTarget(habit) > 0) return daysLeftInMonth(now);
+  if (effectiveWeeklyTarget(habit) > 0) return daysLeftInWeek(now);
+  return 1;
 }
 
 // ─── Due-today logic ─────────────────────────────────────────────────────────

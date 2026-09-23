@@ -80,6 +80,7 @@ export function buildCheckInCelebration(habit, delta = 1, { todayDone = 0, today
     subhead: habit.name,
     progressLine,
     streakLine,
+    streak: prospectiveStreak(habit),
     shareText: [`${habit.name} — logged!`, progressLine, streakLine ? `🔥 ${streakLine}` : null]
       .filter(Boolean)
       .join('\n'),
@@ -119,6 +120,7 @@ export function buildHabitMilestone(habit, delta = 1, { todayDone, todayTotal } 
     subhead: habit.name,
     progressLine,
     streakLine,
+    streak: prospectiveStreak(habit),
     shareText: [targetLine, streakLine ? `🔥 ${streakLine}` : null].filter(Boolean).join('\n'),
   };
 }

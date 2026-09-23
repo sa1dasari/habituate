@@ -12,7 +12,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { categoryIcon } from '../constants/habitCategories';
 import { cadenceTarget, hasDailyTarget } from '../utils/cadence';
 import { toDateKey } from '../utils/date';
-import { colors, radii, shadow, spacing, typography } from '../theme';
+import { useAppTheme } from '../hooks/useAppTheme';
+import { radii, shadow, spacing } from '../theme';
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -25,6 +26,8 @@ const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
  *   onClose   – () => void
  */
 export default function CalendarModal({ visible, habits = [], onClose }) {
+  const { colors, typography } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth()); // 0-based
@@ -104,9 +107,11 @@ export default function CalendarModal({ visible, habits = [], onClose }) {
           </View>
 
           {/* Calendar grid — each day is tinted by how much of that day's
-              daily-target habits were completed: all done (green), some
-              (amber), none (grey). Weekly/monthly check-ins that day show as
-              a small dot instead, since they're never "due" on a specific day. */}
+              daily-target habits were completed, continuously from grey (0%)
+              through amber (partial) to green (100%), not snapped to three
+              hard buckets — a 90% day should visibly read as further along
+              than a 20% one. Weekly/monthly check-ins that day show as a
+              small dot instead, since they're never "due" on a specific day. */}
           {weeks.map((week, wi) => (
             <View key={wi} style={styles.weekRow}>
               {week.map((cell, di) => {
@@ -116,7 +121,7 @@ export default function CalendarModal({ visible, habits = [], onClose }) {
                 const isToday = cell.key === todayKey;
                 const isSelected = cell.key === selectedDay;
                 const stats = dayStats[cell.key];
-                const heat = dayHeat(stats);
+                const heatColor = heatColors(dayHeatRatio(stats), colors);
                 const hasOtherActivity = stats.entries.some((e) => !e.isDaily);
 
                 return (
@@ -124,8 +129,7 @@ export default function CalendarModal({ visible, habits = [], onClose }) {
                     key={di}
                     style={[
                       styles.dayCell,
-                      heat === 'all' && styles.dayCellAll,
-                      heat === 'some' && styles.dayCellSome,
+                      heatColor.background && !isSelected ? { backgroundColor: heatColor.background } : null,
                       isToday && styles.dayCellToday,
                       isSelected && styles.dayCellSelected,
                     ]}
@@ -134,8 +138,7 @@ export default function CalendarModal({ visible, habits = [], onClose }) {
                     <Text
                       style={[
                         styles.dayNumber,
-                        heat === 'all' && styles.dayNumberAll,
-                        heat === 'some' && styles.dayNumberSome,
+                        !isSelected && { color: heatColor.text },
                         isSelected && styles.dayNumberSelected,
                         !cell.inMonth && styles.dayNumberFaded,
                       ]}
@@ -154,10 +157,10 @@ export default function CalendarModal({ visible, habits = [], onClose }) {
 
           {/* Legend */}
           <View style={styles.legendRow}>
-            <LegendItem swatchStyle={styles.legendAll} label="All daily habits" />
-            <LegendItem swatchStyle={styles.legendSome} label="Some" />
-            <LegendItem swatchStyle={styles.legendNone} label="None yet" />
-            <LegendItem dotStyle={styles.legendDot} label="Weekly / monthly" />
+            <LegendItem styles={styles} swatchStyle={styles.legendAll} label="All daily habits" />
+            <LegendItem styles={styles} swatchStyle={styles.legendSome} label="Some" />
+            <LegendItem styles={styles} swatchStyle={styles.legendNone} label="None yet" />
+            <LegendItem styles={styles} dotStyle={styles.legendDot} label="Weekly / monthly" />
           </View>
 
           {/* Selected day detail */}
@@ -238,14 +241,21 @@ export default function CalendarModal({ visible, habits = [], onClose }) {
           )}
 
           {/* Monthly summary */}
-          <MonthlySummary year={year} month={month} habits={habits} dayStats={dayStats} />
+          <MonthlySummary
+            year={year}
+            month={month}
+            habits={habits}
+            dayStats={dayStats}
+            styles={styles}
+            colors={colors}
+          />
         </ScrollView>
       </SafeAreaView>
     </Modal>
   );
 }
 
-function LegendItem({ swatchStyle, dotStyle, label }) {
+function LegendItem({ swatchStyle, dotStyle, label, styles }) {
   return (
     <View style={styles.legendItem}>
       {dotStyle ? (
@@ -258,7 +268,7 @@ function LegendItem({ swatchStyle, dotStyle, label }) {
   );
 }
 
-function MonthlySummary({ year, month, habits, dayStats }) {
+function MonthlySummary({ year, month, habits, dayStats, styles, colors }) {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const today = new Date();
   const isCurrentMonth = year === today.getFullYear() && month === today.getMonth();
@@ -351,10 +361,40 @@ function computeDayStats(dayKey, habits) {
   return { dailyTotal, dailyDone, entries };
 }
 
-function dayHeat(stats) {
-  if (!stats || stats.dailyTotal === 0 || stats.dailyDone === 0) return 'none';
-  if (stats.dailyDone >= stats.dailyTotal) return 'all';
-  return 'some';
+/** Fraction of that day's daily-target habits completed, 0 when there's nothing to grade. */
+function dayHeatRatio(stats) {
+  if (!stats || stats.dailyTotal === 0) return 0;
+  return Math.max(0, Math.min(1, stats.dailyDone / stats.dailyTotal));
+}
+
+function hexToRgb(hex) {
+  const n = parseInt(hex.replace('#', ''), 16);
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+
+function mixColors(fromHex, toHex, t) {
+  const a = hexToRgb(fromHex);
+  const b = hexToRgb(toHex);
+  const mix = (x, y) => Math.round(x + (y - x) * t);
+  const toHex2 = (v) => v.toString(16).padStart(2, '0');
+  return `#${toHex2(mix(a.r, b.r))}${toHex2(mix(a.g, b.g))}${toHex2(mix(a.b, b.b))}`;
+}
+
+/**
+ * Continuous grey -> amber -> green fill instead of three hard-snapped
+ * buckets, so a day that's 90% done reads visibly different from one that's
+ * 20% done rather than both just being "some". Zero stays fully unstyled —
+ * a day with nothing logged is neutral, never a filled failure block.
+ */
+function heatColors(ratio, colors) {
+  if (ratio <= 0) return { background: null, text: colors.textMuted };
+  if (ratio < 1) {
+    const t = ratio < 0.5 ? ratio / 0.5 : (ratio - 0.5) / 0.5;
+    const [bgFrom, bgTo] = ratio < 0.5 ? [colors.neutralSoft, colors.warningSoft] : [colors.warningSoft, colors.safeSoft];
+    const [fgFrom, fgTo] = ratio < 0.5 ? [colors.textMuted, colors.warning] : [colors.warning, colors.safe];
+    return { background: mixColors(bgFrom, bgTo, t), text: mixColors(fgFrom, fgTo, t) };
+  }
+  return { background: colors.safeSoft, text: colors.safe };
 }
 
 /** Consecutive "all daily habits done" days ending at dayKey, walking backward through the visible grid. */
@@ -414,7 +454,8 @@ function formatSelectedDay(key) {
 
 const DAY_CELL_SIZE = 44;
 
-const styles = StyleSheet.create({
+function makeStyles(colors, typography) {
+  return StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,
@@ -481,15 +522,10 @@ const styles = StyleSheet.create({
     borderRadius: radii.sm,
     marginBottom: 2,
   },
-  dayCellAll: {
-    backgroundColor: colors.safeSoft,
-  },
-  dayCellSome: {
-    backgroundColor: colors.warningSoft,
-  },
   // "None" is deliberately unstyled (plain background) — grey/muted text
   // carries that state instead of a filled cell, so an empty day never reads
-  // as a red-X-style failure block.
+  // as a red-X-style failure block. Anything above 0% gets a continuous
+  // grey->amber->green tint applied inline (see heatColors), not a fixed style.
   dayCellToday: {
     borderWidth: 2,
     borderColor: colors.accent,
@@ -501,14 +537,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.textMuted,
-  },
-  dayNumberAll: {
-    color: colors.safe,
-    fontWeight: '800',
-  },
-  dayNumberSome: {
-    color: colors.warning,
-    fontWeight: '800',
   },
   dayNumberSelected: {
     color: '#FFFFFF',
@@ -709,4 +737,5 @@ const styles = StyleSheet.create({
     width: 28,
     textAlign: 'right',
   },
-});
+  });
+}

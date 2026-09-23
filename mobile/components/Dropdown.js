@@ -1,13 +1,16 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, radii, shadow, spacing, typography } from '../theme';
+import { useAppTheme } from '../hooks/useAppTheme';
+import { radii, shadow, spacing } from '../theme';
 
 /**
  * Minimal single-select dropdown. Uses a modal sheet rather than a native
  * picker so iOS and Android render identically.
  */
 export default function Dropdown({ value, options, onChange, placeholder = 'Select…', disabled = false }) {
+  const { colors, typography } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const [open, setOpen] = useState(false);
   const selected = options.find((option) => option.value === value);
 
@@ -62,7 +65,8 @@ export default function Dropdown({ value, options, onChange, placeholder = 'Sele
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(colors, typography) {
+  return StyleSheet.create({
   trigger: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -99,7 +103,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
   },
-  optionActive: { backgroundColor: colors.accentSoft },
-  optionText: { ...typography.body, fontSize: 15 },
-  optionTextActive: { color: colors.accent, fontWeight: '700' },
-});
+    optionActive: { backgroundColor: colors.accentSoft },
+    optionText: { ...typography.body, fontSize: 15 },
+    optionTextActive: { color: colors.accent, fontWeight: '700' },
+  });
+}

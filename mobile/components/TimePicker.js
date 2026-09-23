@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, radii, shadow, spacing, typography } from '../theme';
+import { useAppTheme } from '../hooks/useAppTheme';
+import { radii, shadow, spacing } from '../theme';
 import { dateToTimeString, formatTime, timeStringToDate } from '../utils/time';
 
 /**
@@ -15,6 +16,8 @@ import { dateToTimeString, formatTime, timeStringToDate } from '../utils/time';
  * sheet with Cancel/Done. Both paths converge on the same onChange contract.
  */
 export default function TimePicker({ value, onChange, placeholder = 'Set a time', disabled = false }) {
+  const { colors, typography } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(() => timeStringToDate(value));
 
@@ -102,7 +105,8 @@ export default function TimePicker({ value, onChange, placeholder = 'Set a time'
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(colors, typography) {
+  return StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -172,7 +176,8 @@ const styles = StyleSheet.create({
     color: colors.accent,
     fontWeight: '700',
   },
-  picker: {
-    alignSelf: 'stretch',
-  },
-});
+    picker: {
+      alignSelf: 'stretch',
+    },
+  });
+}

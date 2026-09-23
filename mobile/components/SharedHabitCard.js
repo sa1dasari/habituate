@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import StreakIndicator from './StreakIndicator';
-import { colors, radii, resolveStreakState, shadow, spacing } from '../theme';
+import { useAppTheme } from '../hooks/useAppTheme';
+import { radii, shadow, spacing } from '../theme';
 
 const RULE_LABEL = {
   all_members: 'All members',
@@ -34,6 +35,8 @@ export default function SharedHabitCard({
   streakStatus = 'safe',
   rule = 'any_member',
 }) {
+  const { colors, resolveStreakState } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const state = resolveStreakState(streakStatus);
   const people = Array.isArray(participants) ? participants : [];
   const total = participantCount != null ? participantCount : people.length;
@@ -94,7 +97,8 @@ export default function SharedHabitCard({
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(colors) {
+  return StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     borderRadius: radii.lg,
@@ -182,8 +186,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm + 2,
     paddingVertical: spacing.xs,
   },
-  statusText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-});
+    statusText: {
+      fontSize: 11,
+      fontWeight: '700',
+    },
+  });
+}

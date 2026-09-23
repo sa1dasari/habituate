@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, radii, shadow, spacing } from '../theme';
+import { useAppTheme } from '../hooks/useAppTheme';
+import { radii, shadow, spacing } from '../theme';
 
 /**
  * "Pattern detected" card.
@@ -19,6 +20,8 @@ export default function InsightCard({
   nudge,
   sampleSize,
 }) {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const heading = kind === 'streak_risk' ? 'Heads up' : kind === 'trend' ? 'Trend' : 'Pattern detected';
   const percent = Math.max(0, Math.min(100, Math.round(matchPercent || 0)));
 
@@ -59,7 +62,8 @@ export default function InsightCard({
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(colors) {
+  return StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     borderRadius: radii.lg,
@@ -125,11 +129,12 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     backgroundColor: colors.safeSoft,
   },
-  nudgeText: {
-    flex: 1,
-    fontSize: 13,
-    lineHeight: 19,
-    color: colors.safe,
-    fontWeight: '600',
-  },
-});
+    nudgeText: {
+      flex: 1,
+      fontSize: 13,
+      lineHeight: 19,
+      color: colors.safe,
+      fontWeight: '600',
+    },
+  });
+}

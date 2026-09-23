@@ -1,7 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { radii, resolveStreakState, spacing } from '../theme';
+import FlameIcon from './FlameIcon';
+import { useAppTheme } from '../hooks/useAppTheme';
+import { radii, spacing } from '../theme';
 
 /**
  * The three designed states — safe / at_risk / frozen — each get their own
@@ -14,6 +16,7 @@ export default function StreakIndicator({
   showLabel = false,
   compact = false,
 }) {
+  const { resolveStreakState } = useAppTheme();
   const state = resolveStreakState(status);
   const iconSize = compact ? 12 : 14;
 
@@ -26,7 +29,11 @@ export default function StreakIndicator({
       ]}
       accessibilityLabel={`${streak} day streak, ${state.label}`}
     >
-      <MaterialCommunityIcons name={state.icon} size={iconSize} color={state.color} />
+      {state.icon === 'fire' ? (
+        <FlameIcon width={iconSize} height={iconSize} streak={streak} />
+      ) : (
+        <MaterialCommunityIcons name={state.icon} size={iconSize} color={state.color} />
+      )}
       <Text style={[styles.text, compact && styles.textCompact, { color: state.color }]}>
         {streak}
         {compact ? 'd' : streak === 1 ? ' day' : ' days'}

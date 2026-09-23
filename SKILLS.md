@@ -152,7 +152,8 @@ For as long as the app stays in Expo's managed workflow with Expo Go–compatibl
 - [ ] Home-screen widget for quick check-in
 - [ ] Push reminder scheduling per habit
 - [ ] Data export (CSV/JSON)
-- [ ] Dark mode
+- [x] Dark mode
+  - Pulled forward and completed ahead of this phase: Light/Dark/System toggle on the Profile page's new "Appearance" section, persisted, System following the OS setting. See `CLAUDE.md`'s "Mobile visual system" note for the `useAppTheme()` pattern every component must follow — this is load-bearing across nearly the whole mobile app, not an isolated feature.
 - [ ] Full anti-guilt UX audit: confirm no shaming copy, no red X states, no causal-language leaks in correlation copy, anywhere
 
 **Exit criteria:** you'd hand this to a real user without embarrassment.

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -12,9 +12,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../hooks/useAuth';
-import { colors, radii, spacing, typography } from '../theme';
+import { useAppTheme } from '../hooks/useAppTheme';
+import { radii, spacing } from '../theme';
 
 export default function SignupScreen({ onGoToLogin }) {
+  const { colors, typography } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const { signUp, signInWithGoogle, error, googleLoading, clearError } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -132,7 +135,8 @@ export default function SignupScreen({ onGoToLogin }) {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(colors, typography) {
+  return StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
   container: {
@@ -202,7 +206,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   googleButtonText: { color: colors.textPrimary, fontSize: 16, fontWeight: '600' },
-  switchLink: { alignItems: 'center', marginTop: spacing.lg },
-  switchText: { ...typography.body, color: colors.textSecondary },
-  switchAction: { color: colors.accent, fontWeight: '600' },
-});
+    switchLink: { alignItems: 'center', marginTop: spacing.lg },
+    switchText: { ...typography.body, color: colors.textSecondary },
+    switchAction: { color: colors.accent, fontWeight: '600' },
+  });
+}

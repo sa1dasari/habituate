@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -32,7 +32,8 @@ import { useCelebration } from '../hooks/useCelebration';
 import { useFeaturedGoalReviews } from '../hooks/useFeaturedGoalReviews';
 import { useGoals } from '../hooks/useGoals';
 import { summarizeHabits, useHabits } from '../hooks/useHabits';
-import { colors, radii, shadow, spacing, typography } from '../theme';
+import { useAppTheme } from '../hooks/useAppTheme';
+import { radii, shadow, spacing } from '../theme';
 
 const emptyForm = {
   id: null,
@@ -110,6 +111,8 @@ function deriveCadenceType() {
 
 export default function HabitsScreen() {
   const insets = useSafeAreaInsets();
+  const { colors, typography } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const {
     habits,
     archivedHabits,
@@ -160,8 +163,10 @@ export default function HabitsScreen() {
   const todaySummary = summarizeHabits(habits.filter((h) => h.dueToday));
 
   // Priority when more than one applies on the same check-in: a habit's own
-  // target being met, then finishing every habit due today, then the
-  // routine card. Undoing a check-in never celebrates.
+  // target being met, then finishing every habit due today, then the routine
+  // card — and the routine card only on the FIRST check-in of the day, so a
+  // count-mode habit tapped several times doesn't pop up every tap. Undoing a
+  // check-in never celebrates.
   const celebrateHabit = useCallback(
     (habit, delta = 1) => {
       const previousDone = todaySummary.done;
@@ -172,8 +177,10 @@ export default function HabitsScreen() {
       const payload =
         buildHabitMilestone(habit, delta, { todayDone, todayTotal: todaySummary.total }) ||
         buildAllDoneCelebration(previousDone, todayDone, todaySummary.total) ||
-        buildCheckInCelebration(habit, delta, { todayDone, todayTotal: todaySummary.total });
-      showCelebration(payload);
+        (habit.checkedInToday
+          ? null
+          : buildCheckInCelebration(habit, delta, { todayDone, todayTotal: todaySummary.total }));
+      if (payload) showCelebration(payload);
     },
     [todaySummary, showCelebration]
   );
@@ -866,7 +873,8 @@ export default function HabitsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(colors, typography) {
+  return StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   container: { padding: spacing.xl },
   titleRow: {
@@ -1056,4 +1064,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: spacing.xl,
   },
-});
+  });
+}

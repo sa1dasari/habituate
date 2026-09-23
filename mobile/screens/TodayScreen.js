@@ -11,6 +11,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import HabitCard from '../components/HabitCard';
 import GoalsSummaryCard from '../components/GoalsSummaryCard';
 import { DISPLAY_NAME, initials } from '../constants/profile';
@@ -20,8 +21,10 @@ import { useGoals } from '../hooks/useGoals';
 import { summarizeHabits, useHabits } from '../hooks/useHabits';
 import { buildAllDoneCelebration, buildCheckInCelebration, buildHabitMilestone } from '../utils/celebration';
 import { effectiveMonthlyTarget, effectiveWeeklyTarget } from '../utils/cadence';
+import { daysLeftInMonth, daysLeftInWeek } from '../utils/date';
 import { byScheduledTime } from '../utils/time';
-import { colors, radii, shadow, spacing, typography } from '../theme';
+import { useAppTheme } from '../hooks/useAppTheme';
+import { gradients, radii, shadow, shadowLg, spacing } from '../theme';
 
 // Shown below the daily list so a weekly habit can still be logged from Today
 // without being counted against today's progress.
@@ -55,6 +58,8 @@ function encouragement({ total, done }, hasOtherHabits = false) {
 export default function TodayScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
+  const { colors, typography } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const { habits, loading, busy, error, refresh, toggleCheckIn, addCheckIn, removeLastCheckIn } =
     useHabits();
   const { goals } = useGoals();
@@ -122,7 +127,10 @@ export default function TodayScreen() {
   // Logging progress is the only action that gets a celebration; undoing stays
   // silent. Priority when more than one applies on the same check-in: a
   // habit's own target being met, then finishing every habit due today, then
-  // the routine card — showing more than one at once would be excessive.
+  // the routine card — showing more than one at once would be excessive. The
+  // routine card only shows on the FIRST check-in of the day for a habit —
+  // a count-mode habit tapped 5 times for 5 applications shouldn't pop up 5
+  // times, though a milestone crossed on tap 3 still always shows.
   const celebrate = useCallback(
     (habit, delta = 1) => {
       const previousDone = summary.done;
@@ -131,8 +139,10 @@ export default function TodayScreen() {
       const payload =
         buildHabitMilestone(habit, delta, { todayDone, todayTotal: summary.total }) ||
         buildAllDoneCelebration(previousDone, todayDone, summary.total) ||
-        buildCheckInCelebration(habit, delta, { todayDone, todayTotal: summary.total });
-      showCelebration(payload);
+        (habit.checkedInToday
+          ? null
+          : buildCheckInCelebration(habit, delta, { todayDone, todayTotal: summary.total }));
+      if (payload) showCelebration(payload);
     },
     [summary, showCelebration]
   );
@@ -175,6 +185,7 @@ export default function TodayScreen() {
         periodTarget: target,
         periodNoun: 'this week',
         periodComplete: target > 0 && (habit.weeklyDone || 0) >= target,
+        daysLeft: daysLeftInWeek(),
       };
     }
     if (focus === 'monthly') {
@@ -184,6 +195,7 @@ export default function TodayScreen() {
         periodTarget: target,
         periodNoun: 'this month',
         periodComplete: target > 0 && (habit.monthlyDone || 0) >= target,
+        daysLeft: daysLeftInMonth(),
       };
     }
     return {
@@ -191,6 +203,7 @@ export default function TodayScreen() {
       periodTarget: habit.periodTarget,
       periodNoun: habit.periodNoun,
       periodComplete: habit.periodComplete,
+      daysLeft: habit.daysLeftInPeriod,
     };
   };
 
@@ -211,7 +224,7 @@ export default function TodayScreen() {
         periodDone={progress.periodDone}
         periodTarget={progress.periodTarget}
         periodNoun={progress.periodNoun}
-        daysLeft={habit.daysLeftInPeriod}
+        daysLeft={progress.daysLeft}
         checkIns={habit.checkIns}
         expanded={expandedId === habit.id}
         checked={habit.checkedInToday}
@@ -266,7 +279,12 @@ export default function TodayScreen() {
           </View>
 
           <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${summary.percent}%` }]} />
+            <LinearGradient
+              colors={gradients.safe}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={[styles.progressFill, { width: `${summary.percent}%` }]}
+            />
           </View>
 
           <Text style={styles.summaryNudge}>
@@ -327,7 +345,8 @@ export default function TodayScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(colors, typography) {
+  return StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   container: { padding: spacing.xl },
   header: {
@@ -353,7 +372,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.lg,
     padding: spacing.xl,
     marginBottom: spacing.xl,
-    ...shadow,
+    ...shadowLg,
   },
   summaryTop: {
     flexDirection: 'row',
@@ -386,7 +405,6 @@ const styles = StyleSheet.create({
   progressFill: {
     height: '100%',
     borderRadius: radii.pill,
-    backgroundColor: colors.safe,
   },
   summaryNudge: {
     fontSize: 13,
@@ -427,4 +445,5 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
   },
-});
+  });
+}

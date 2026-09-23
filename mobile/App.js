@@ -1,13 +1,22 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import * as SplashScreen from 'expo-splash-screen';
+import {
+  Nunito_400Regular,
+  Nunito_600SemiBold,
+  Nunito_700Bold,
+  Nunito_800ExtraBold,
+  useFonts,
+} from '@expo-google-fonts/nunito';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { NavigationContainer } from '@react-navigation/native';
+import { DarkTheme, DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { HabitsProvider } from './hooks/useHabits';
 import { GoalsProvider } from './hooks/useGoals';
 import { CelebrationProvider } from './hooks/useCelebration';
+import { ThemeProvider, useAppTheme } from './hooks/useAppTheme';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import {
   CommunityScreen,
@@ -18,7 +27,8 @@ import {
   SignupScreen,
   TodayScreen,
 } from './screens';
-import { colors } from './theme';
+
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 const Tab = createBottomTabNavigator();
 
@@ -34,6 +44,7 @@ const TAB_BAR_CONTENT_HEIGHT = 58;
 
 function Tabs() {
   const insets = useSafeAreaInsets();
+  const { colors } = useAppTheme();
 
   return (
     <Tab.Navigator
@@ -70,6 +81,7 @@ function Tabs() {
 
 function AppGate() {
   const { user } = useAuth();
+  const { colors, effectiveMode } = useAppTheme();
   const [showSignup, setShowSignup] = useState(false);
 
   // user === undefined means Firebase hasn't resolved the auth state yet
@@ -87,11 +99,23 @@ function AppGate() {
       : <LoginScreen onGoToSignup={() => setShowSignup(true)} />;
   }
 
+  const navigationTheme = {
+    ...(effectiveMode === 'dark' ? DarkTheme : DefaultTheme),
+    colors: {
+      ...(effectiveMode === 'dark' ? DarkTheme.colors : DefaultTheme.colors),
+      background: colors.background,
+      card: colors.surface,
+      border: colors.border,
+      primary: colors.accent,
+      text: colors.textPrimary,
+    },
+  };
+
   return (
     <HabitsProvider>
       <GoalsProvider>
         <CelebrationProvider>
-          <NavigationContainer>
+          <NavigationContainer theme={navigationTheme}>
             <Tabs />
           </NavigationContainer>
         </CelebrationProvider>
@@ -100,13 +124,41 @@ function AppGate() {
   );
 }
 
+function AppShell() {
+  const { effectiveMode } = useAppTheme();
+  return (
+    <AuthProvider>
+      <AppGate />
+      <StatusBar style={effectiveMode === 'dark' ? 'light' : 'dark'} />
+    </AuthProvider>
+  );
+}
+
 export default function App() {
+  const [fontsLoaded, fontError] = useFonts({
+    Nunito_400Regular,
+    Nunito_600SemiBold,
+    Nunito_700Bold,
+    Nunito_800ExtraBold,
+  });
+
+  const ready = fontsLoaded || fontError;
+
+  useEffect(() => {
+    if (ready) {
+      SplashScreen.hideAsync().catch(() => {});
+    }
+  }, [ready]);
+
+  if (!ready) {
+    return null;
+  }
+
   return (
     <SafeAreaProvider>
-      <AuthProvider>
-        <AppGate />
-      </AuthProvider>
-      <StatusBar style="dark" />
+      <ThemeProvider>
+        <AppShell />
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }

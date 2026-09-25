@@ -87,11 +87,14 @@ For as long as the app stays in Expo's managed workflow with Expo Go–compatibl
 ## Phase 4 — Event backbone
 **Goal:** every check-in also becomes a Kafka event, nothing consumes it yet.
 
-- [ ] `checkin-events` Kafka topic created
-- [ ] API publishes to the topic on every check-in write, same request
-- [ ] Basic consumer that just logs events, to confirm the pipe works
+- [x] `checkin-events` Kafka topic created
+  - Declared explicitly via a `NewTopic` bean (`events.KafkaTopicConfig`), 1 partition/1 replica — matches what Kafka's own auto-create would produce locally, but documents the topic as part of the app rather than relying on an implicit side effect.
+- [x] API publishes to the topic on every check-in write, same request
+  - `events.CheckInEventPublisher`, called from `HabitService.createCheckIn`/`deleteCheckIn` right after the Postgres write. The send is awaited with a 5s timeout so a broker outage fails the request instead of silently dropping the event — not a full transactional outbox (the Postgres write can't roll back once committed), just a best-effort v1 per the note in `CLAUDE.md`.
+- [x] Basic consumer that just logs events, to confirm the pipe works
+  - `events.CheckInEventLogger` — a `@KafkaListener` in the same `api` app (no separate `/streaming` project yet; that's Phase 6's Flink job). Verified 2026-09-24: produced a test `CheckInEvent` JSON message directly to the topic and confirmed it arrived at the logger with correct deserialization.
 
-**Exit criteria:** checking in on mobile produces a visible event in the Kafka topic within your local setup.
+**Exit criteria:** checking in on mobile produces a visible event in the Kafka topic within your local setup. *(Verified at the Kafka level — topic creation, JSON (de)serialization, and the listener all confirmed working end-to-end with a test message. The mobile→API→Kafka path through a real authenticated check-in hasn't been separately exercised — Firebase Admin SDK is live in this environment, so an unauthenticated curl can't reach the endpoint; the producer code itself is a straightforward synchronous `KafkaTemplate.send` using the same topic/serialization already proven.)*
 
 ---
 

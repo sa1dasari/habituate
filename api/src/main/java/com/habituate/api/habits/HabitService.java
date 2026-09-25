@@ -3,6 +3,7 @@ package com.habituate.api.habits;
 import com.habituate.api.checkins.CheckIn;
 import com.habituate.api.checkins.CheckInRepository;
 import com.habituate.api.checkins.CheckInRequest;
+import com.habituate.api.events.CheckInEventPublisher;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,10 +18,15 @@ public class HabitService {
 
     private final HabitRepository habitRepository;
     private final CheckInRepository checkInRepository;
+    private final CheckInEventPublisher checkInEventPublisher;
 
-    public HabitService(HabitRepository habitRepository, CheckInRepository checkInRepository) {
+    public HabitService(
+            HabitRepository habitRepository,
+            CheckInRepository checkInRepository,
+            CheckInEventPublisher checkInEventPublisher) {
         this.habitRepository = habitRepository;
         this.checkInRepository = checkInRepository;
+        this.checkInEventPublisher = checkInEventPublisher;
     }
 
     public List<HabitResponse> listHabits(String userId) {
@@ -177,7 +183,9 @@ public class HabitService {
                 request.source() != null ? request.source() : "manual"
         );
 
-        return checkInRepository.save(checkIn);
+        CheckIn saved = checkInRepository.save(checkIn);
+        checkInEventPublisher.publishCreated(saved);
+        return saved;
     }
 
     public void deleteCheckIn(String userId, Long checkInId) {
@@ -189,5 +197,6 @@ public class HabitService {
         }
 
         checkInRepository.delete(checkIn);
+        checkInEventPublisher.publishDeleted(checkIn);
     }
 }

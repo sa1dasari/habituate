@@ -35,9 +35,15 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      # Two listeners: PLAINTEXT is what the host machine (the Spring Boot
+      # API, kafka-topics from your own terminal) connects to via the mapped
+      # port. PLAINTEXT_INTERNAL is for other containers on the compose
+      # network (kafka-ui) — they resolve "kafka" by service name, but would
+      # hit themselves if told to use "localhost" like the host listener does.
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_INTERNAL://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     healthcheck:
@@ -46,5 +52,31 @@ services:
       timeout: 10s
       retries: 20
 
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: habituate-pgadmin
+    depends_on:
+      - postgres
+    ports:
+      - "5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@habituate.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: habituate-kafka-ui
+    depends_on:
+      - kafka
+    ports:
+      - "8082:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: habituate
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+
 volumes:
   postgres-data:
+  pgadmin-data:

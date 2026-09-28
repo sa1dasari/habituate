@@ -234,17 +234,27 @@ export default function HabitsScreen() {
   );
 
   const handleIncrementGoal = useCallback(
-    (goal) => {
+    async (goal) => {
+      try {
+        await incrementGoal(goal.id);
+      } catch (err) {
+        Alert.alert('Could not update goal', err instanceof Error ? err.message : 'Unknown error');
+        return;
+      }
       celebrateGoalProgress(goal, 1);
-      incrementGoal(goal.id);
     },
     [celebrateGoalProgress, incrementGoal]
   );
 
   const handleLogGoalAmount = useCallback(
-    (goal, amount) => {
+    async (goal, amount) => {
+      try {
+        await logGoalAmount(goal.id, amount);
+      } catch (err) {
+        Alert.alert('Could not update goal', err instanceof Error ? err.message : 'Unknown error');
+        return;
+      }
       celebrateGoalProgress(goal, amount);
-      logGoalAmount(goal.id, amount);
     },
     [celebrateGoalProgress, logGoalAmount]
   );

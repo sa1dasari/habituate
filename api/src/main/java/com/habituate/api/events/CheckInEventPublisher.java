@@ -12,11 +12,12 @@ import java.util.concurrent.TimeoutException;
 /**
  * Publishes to `checkin-events` in the same request as the Postgres write
  * (see CLAUDE.md: "Postgres write and Kafka publish must not drift — if one
- * fails, the request fails"). The send is awaited with a short timeout so a
- * broker outage surfaces as a failed API request instead of silently
- * dropping the event — this isn't a full transactional outbox (the Postgres
- * write can't be rolled back once committed), just a best-effort v1; revisit
- * with an outbox table if dual-write drift becomes a real problem.
+ * fails, the request fails"). The send is awaited with a short timeout, and
+ * the calling HabitService methods are @Transactional, so a broker outage
+ * throws before the transaction commits and the Postgres write rolls back
+ * with it — this isn't a full transactional outbox (no durable retry of the
+ * event itself), just a best-effort v1; revisit with an outbox table if
+ * publish failures under load become a real problem.
  */
 @Component
 public class CheckInEventPublisher {

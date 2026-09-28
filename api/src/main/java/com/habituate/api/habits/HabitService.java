@@ -167,6 +167,7 @@ public class HabitService {
         return checkInRepository.findByUserIdAndHabitIdOrderByOccurredAtDesc(userId, habitId);
     }
 
+    @Transactional
     public CheckIn createCheckIn(String userId, Long habitId, CheckInRequest request) {
         Habit habit = habitRepository.findById(habitId)
                 .orElseThrow(() -> new EntityNotFoundException("Habit not found: " + habitId));
@@ -188,6 +189,7 @@ public class HabitService {
         return saved;
     }
 
+    @Transactional
     public void deleteCheckIn(String userId, Long checkInId) {
         CheckIn checkIn = checkInRepository.findById(checkInId)
                 .orElseThrow(() -> new EntityNotFoundException("Check-in not found: " + checkInId));

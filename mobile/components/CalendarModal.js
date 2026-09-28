@@ -58,7 +58,7 @@ export default function CalendarModal({ visible, habits = [], onClose }) {
   });
 
   const selectedStats = selectedDay ? dayStats[selectedDay] : null;
-  const selectedStreak = selectedDay ? allDoneStreak(selectedDay, weeks, dayStats) : 0;
+  const selectedStreak = selectedDay ? allDoneStreak(selectedDay, habits) : 0;
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
@@ -397,19 +397,33 @@ function heatColors(ratio, colors) {
   return { background: colors.safeSoft, text: colors.safe };
 }
 
-/** Consecutive "all daily habits done" days ending at dayKey, walking backward through the visible grid. */
-function allDoneStreak(dayKey, weeks, dayStats) {
-  const flat = weeks.flat().filter(Boolean).map((c) => c.key);
-  const idx = flat.indexOf(dayKey);
-  if (idx === -1) return 0;
+/** Days before which no streak can possibly reach — caps the backward walk below. */
+const MAX_STREAK_LOOKBACK_DAYS = 3650;
 
+/**
+ * Consecutive "all daily habits done" days ending at dayKey, walking backward
+ * day-by-day and recomputing stats directly rather than only scanning the
+ * currently-rendered month grid — the grid only exposes a handful of the
+ * previous month's padding cells, which silently truncated any real streak
+ * longer than that.
+ */
+function allDoneStreak(dayKey, habits) {
   let streak = 0;
-  for (let i = idx; i >= 0; i--) {
-    const stats = dayStats[flat[i]];
+  const cursor = parseDateKey(dayKey);
+
+  for (let i = 0; i < MAX_STREAK_LOOKBACK_DAYS; i++) {
+    const key = toDateKey(cursor);
+    const stats = computeDayStats(key, habits);
     if (!stats || stats.dailyTotal === 0 || stats.dailyDone < stats.dailyTotal) break;
     streak += 1;
+    cursor.setDate(cursor.getDate() - 1);
   }
   return streak;
+}
+
+function parseDateKey(key) {
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(y, m - 1, d);
 }
 
 /** Build a 2D array of week rows for the given month. Each cell is null (padding) or { key, day, inMonth }. */

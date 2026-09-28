@@ -86,6 +86,16 @@ async function request(path, options = {}) {
   const idToken = await getIdToken();
   const authHeader = idToken ? { Authorization: `Bearer ${idToken}` } : {};
 
+  // Lets the API bucket streaks by the device's own calendar day instead of
+  // UTC, so a streak shown here always matches CalendarModal's local-time math.
+  let timezone;
+  try {
+    timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  } catch {
+    timezone = null;
+  }
+  const timezoneHeader = timezone ? { 'X-Timezone': timezone } : {};
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
@@ -97,6 +107,7 @@ async function request(path, options = {}) {
       headers: {
         'Content-Type': 'application/json',
         ...authHeader,
+        ...timezoneHeader,
         ...(options.headers || {}),
       },
     });

@@ -8,9 +8,11 @@ import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
@@ -32,25 +34,43 @@ public class HabitService {
         this.checkInEventPublisher = checkInEventPublisher;
     }
 
-    public List<HabitResponse> listHabits(String userId) {
+    public List<HabitResponse> listHabits(String userId, String timezone) {
+        ZoneId zone = resolveZone(timezone);
         return habitRepository.findByUserIdAndArchivedFalseOrderByCreatedAtDesc(userId)
                 .stream()
-                .map(this::toResponse)
+                .map(habit -> toResponse(habit, zone))
                 .toList();
     }
 
-    public List<HabitResponse> listArchivedHabits(String userId) {
+    public List<HabitResponse> listArchivedHabits(String userId, String timezone) {
+        ZoneId zone = resolveZone(timezone);
         return habitRepository.findByUserIdAndArchivedTrueOrderByUpdatedAtDesc(userId)
                 .stream()
-                .map(this::toResponse)
+                .map(habit -> toResponse(habit, zone))
                 .toList();
+    }
+
+    /** Falls back to UTC when the client sends no zone or an unparseable one. */
+    private ZoneId resolveZone(String timezone) {
+        if (timezone == null || timezone.isBlank()) {
+            return ZoneOffset.UTC;
+        }
+        try {
+            return ZoneId.of(timezone.trim());
+        } catch (DateTimeException ex) {
+            return ZoneOffset.UTC;
+        }
+    }
+
+    private HabitResponse toResponse(Habit habit, ZoneId zone) {
+        List<CheckIn> checkIns = checkInRepository.findByUserIdAndHabitIdOrderByOccurredAtAsc(
+                habit.getUserId(), habit.getId());
+        StreakCalculator.Streaks streaks = StreakCalculator.compute(checkIns, zone);
+        return HabitResponse.from(habit, streaks.current(), streaks.longest());
     }
 
     private HabitResponse toResponse(Habit habit) {
-        List<CheckIn> checkIns = checkInRepository.findByUserIdAndHabitIdOrderByOccurredAtAsc(
-                habit.getUserId(), habit.getId());
-        StreakCalculator.Streaks streaks = StreakCalculator.compute(checkIns);
-        return HabitResponse.from(habit, streaks.current(), streaks.longest());
+        return toResponse(habit, ZoneOffset.UTC);
     }
 
     public HabitResponse createHabit(String userId, CreateHabitRequest request) {

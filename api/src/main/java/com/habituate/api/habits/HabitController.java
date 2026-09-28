@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -36,12 +37,13 @@ public class HabitController {
     @GetMapping("/habits")
     public List<HabitResponse> listHabits(
             HttpServletRequest req,
-            @RequestParam(defaultValue = "false") boolean archived) {
+            @RequestParam(defaultValue = "false") boolean archived,
+            @RequestHeader(value = "X-Timezone", required = false) String timezone) {
 
         String userId = userId(req);
         return archived
-                ? habitService.listArchivedHabits(userId)
-                : habitService.listHabits(userId);
+                ? habitService.listArchivedHabits(userId, timezone)
+                : habitService.listHabits(userId, timezone);
     }
 
     @PostMapping("/habits")

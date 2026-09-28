@@ -9,8 +9,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 @Service
@@ -176,10 +179,25 @@ public class HabitService {
             throw new IllegalArgumentException("Habit does not belong to user: " + userId);
         }
 
+        Instant occurredAt = request.occurredAt() != null ? request.occurredAt() : Instant.now();
+
+        // BOOLEAN habits are a single toggle per day (see Habit.java) — COUNT
+        // habits are allowed multiple check-ins a day by design, so only guard
+        // the BOOLEAN case against duplicate taps/retries landing twice.
+        if ("BOOLEAN".equals(habit.getTrackingMode())) {
+            LocalDate day = occurredAt.atZone(ZoneOffset.UTC).toLocalDate();
+            Instant dayStart = day.atStartOfDay(ZoneOffset.UTC).toInstant();
+            Instant dayEnd = dayStart.plus(1, ChronoUnit.DAYS);
+            boolean alreadyCheckedIn = checkInRepository.existsByHabitIdAndOccurredAtBetween(habitId, dayStart, dayEnd);
+            if (alreadyCheckedIn) {
+                throw new IllegalStateException("Habit " + habitId + " is already checked in for " + day);
+            }
+        }
+
         CheckIn checkIn = new CheckIn(
                 habitId,
                 userId,
-                request.occurredAt() != null ? request.occurredAt() : Instant.now(),
+                occurredAt,
                 request.value() != null ? request.value() : 1,
                 request.source() != null ? request.source() : "manual"
         );

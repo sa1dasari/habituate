@@ -83,7 +83,14 @@ export function AuthProvider({ children }) {
     setError(null);
     setGoogleLoading(true);
     try {
-      await googlePromptAsync();
+      const result = await googlePromptAsync();
+      // A dismiss/cancel resolves rather than throwing, and there's no
+      // 'success' response coming to clear the flag via the effect above —
+      // without this, backing out of the picker left both sign-in buttons
+      // disabled until the app reloaded.
+      if (result?.type !== 'success') {
+        setGoogleLoading(false);
+      }
     } catch (err) {
       setError(friendlyError(err));
       setGoogleLoading(false);

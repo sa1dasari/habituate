@@ -93,9 +93,16 @@ public class GoalService {
         return goal;
     }
 
+    /** Defaults to WEEKLY when omitted, but rejects anything else that isn't a real period. */
     private String normalizePeriod(String value) {
-        String upper = value == null ? "" : value.trim().toUpperCase();
-        return upper.equals("MONTHLY") ? "MONTHLY" : "WEEKLY";
+        if (value == null || value.isBlank()) {
+            return "WEEKLY";
+        }
+        String upper = value.trim().toUpperCase();
+        if (upper.equals("WEEKLY") || upper.equals("MONTHLY")) {
+            return upper;
+        }
+        throw new IllegalArgumentException("Invalid period, expected WEEKLY or MONTHLY: " + value);
     }
 
     private LocalDate parsePeriodStart(String value) {

@@ -1,5 +1,6 @@
 package com.habituate.api.goals;
 
+import com.habituate.api.common.ForbiddenException;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 
@@ -87,7 +88,7 @@ public class GoalService {
                 .orElseThrow(() -> new EntityNotFoundException("Goal not found: " + goalId));
 
         if (!userId.equals(goal.getUserId())) {
-            throw new IllegalArgumentException("Goal does not belong to user: " + userId);
+            throw new ForbiddenException("Goal does not belong to user: " + userId);
         }
 
         return goal;

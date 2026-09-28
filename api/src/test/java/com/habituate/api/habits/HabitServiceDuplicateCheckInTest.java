@@ -1,6 +1,7 @@
 package com.habituate.api.habits;
 
 import com.habituate.api.checkins.CheckInRequest;
+import com.habituate.api.common.DuplicateCheckInException;
 import com.habituate.api.events.CheckInEventPublisher;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -46,7 +47,7 @@ class HabitServiceDuplicateCheckInTest {
 
         assertThatThrownBy(() ->
                 habitService.createCheckIn(userId, habitId, new CheckInRequest(null, 1, "manual"))
-        ).isInstanceOf(IllegalStateException.class);
+        ).isInstanceOf(DuplicateCheckInException.class);
     }
 
     @Test

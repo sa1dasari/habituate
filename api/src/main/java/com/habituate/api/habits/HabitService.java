@@ -3,6 +3,8 @@ package com.habituate.api.habits;
 import com.habituate.api.checkins.CheckIn;
 import com.habituate.api.checkins.CheckInRepository;
 import com.habituate.api.checkins.CheckInRequest;
+import com.habituate.api.common.DuplicateCheckInException;
+import com.habituate.api.common.ForbiddenException;
 import com.habituate.api.events.CheckInEventPublisher;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
@@ -96,7 +98,7 @@ public class HabitService {
                 .orElseThrow(() -> new EntityNotFoundException("Habit not found: " + habitId));
 
         if (!userId.equals(habit.getUserId())) {
-            throw new IllegalArgumentException("Habit does not belong to user: " + userId);
+            throw new ForbiddenException("Habit does not belong to user: " + userId);
         }
 
         if (request.name() != null && !request.name().isBlank()) {
@@ -180,7 +182,7 @@ public class HabitService {
                 .orElseThrow(() -> new EntityNotFoundException("Habit not found: " + habitId));
 
         if (!userId.equals(habit.getUserId())) {
-            throw new IllegalArgumentException("Habit does not belong to user: " + userId);
+            throw new ForbiddenException("Habit does not belong to user: " + userId);
         }
 
         return habit;
@@ -196,7 +198,7 @@ public class HabitService {
                 .orElseThrow(() -> new EntityNotFoundException("Habit not found: " + habitId));
 
         if (!userId.equals(habit.getUserId())) {
-            throw new IllegalArgumentException("Habit does not belong to user: " + userId);
+            throw new ForbiddenException("Habit does not belong to user: " + userId);
         }
 
         Instant occurredAt = request.occurredAt() != null ? request.occurredAt() : Instant.now();
@@ -210,7 +212,7 @@ public class HabitService {
             Instant dayEnd = dayStart.plus(1, ChronoUnit.DAYS);
             boolean alreadyCheckedIn = checkInRepository.existsByHabitIdAndOccurredAtBetween(habitId, dayStart, dayEnd);
             if (alreadyCheckedIn) {
-                throw new IllegalStateException("Habit " + habitId + " is already checked in for " + day);
+                throw new DuplicateCheckInException("Habit " + habitId + " is already checked in for " + day);
             }
         }
 
@@ -233,7 +235,7 @@ public class HabitService {
                 .orElseThrow(() -> new EntityNotFoundException("Check-in not found: " + checkInId));
 
         if (!userId.equals(checkIn.getUserId())) {
-            throw new IllegalArgumentException("Check-in does not belong to user: " + userId);
+            throw new ForbiddenException("Check-in does not belong to user: " + userId);
         }
 
         checkInRepository.delete(checkIn);

@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -150,7 +151,12 @@ export default function TodayScreen() {
   const handleToggle = useCallback(
     async (habit) => {
       const wasChecked = habit.checkedInToday;
-      await toggleCheckIn(habit.id);
+      try {
+        await toggleCheckIn(habit.id);
+      } catch (err) {
+        Alert.alert('Could not update check-in', err instanceof Error ? err.message : 'Unknown error');
+        return;
+      }
       if (!wasChecked) celebrate(habit, 1);
     },
     [toggleCheckIn, celebrate]
@@ -158,7 +164,12 @@ export default function TodayScreen() {
 
   const handleAdd = useCallback(
     async (habit) => {
-      await addCheckIn(habit.id);
+      try {
+        await addCheckIn(habit.id);
+      } catch (err) {
+        Alert.alert('Could not log check-in', err instanceof Error ? err.message : 'Unknown error');
+        return;
+      }
       celebrate(habit, 1);
     },
     [addCheckIn, celebrate]
@@ -166,10 +177,26 @@ export default function TodayScreen() {
 
   const handleLogAmount = useCallback(
     async (habit, amount) => {
-      await addCheckIn(habit.id, amount);
+      try {
+        await addCheckIn(habit.id, amount);
+      } catch (err) {
+        Alert.alert('Could not log progress', err instanceof Error ? err.message : 'Unknown error');
+        return;
+      }
       celebrate(habit, amount);
     },
     [addCheckIn, celebrate]
+  );
+
+  const handleRemoveLast = useCallback(
+    async (habitId) => {
+      try {
+        await removeLastCheckIn(habitId);
+      } catch (err) {
+        Alert.alert('Could not undo check-in', err instanceof Error ? err.message : 'Unknown error');
+      }
+    },
+    [removeLastCheckIn]
   );
 
   // A habit with both a weekly and a monthly target still has only one bar
@@ -232,7 +259,7 @@ export default function TodayScreen() {
         onPress={() => setExpandedId((current) => (current === habit.id ? null : habit.id))}
         onToggle={() => handleToggle(habit)}
         onAdd={() => handleAdd(habit)}
-        onRemoveLast={() => removeLastCheckIn(habit.id)}
+        onRemoveLast={() => handleRemoveLast(habit.id)}
         onLogAmount={(amount) => handleLogAmount(habit, amount)}
       />
     );

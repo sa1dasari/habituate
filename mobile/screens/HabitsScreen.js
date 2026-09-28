@@ -188,7 +188,12 @@ export default function HabitsScreen() {
   const handleToggleHabit = useCallback(
     async (habit) => {
       const wasChecked = habit.checkedInToday;
-      await toggleCheckIn(habit.id);
+      try {
+        await toggleCheckIn(habit.id);
+      } catch (err) {
+        Alert.alert('Could not update check-in', err instanceof Error ? err.message : 'Unknown error');
+        return;
+      }
       if (!wasChecked) celebrateHabit(habit, 1);
     },
     [toggleCheckIn, celebrateHabit]
@@ -196,10 +201,26 @@ export default function HabitsScreen() {
 
   const handleAddHabit = useCallback(
     async (habit) => {
-      await addCheckIn(habit.id);
+      try {
+        await addCheckIn(habit.id);
+      } catch (err) {
+        Alert.alert('Could not log check-in', err instanceof Error ? err.message : 'Unknown error');
+        return;
+      }
       celebrateHabit(habit, 1);
     },
     [addCheckIn, celebrateHabit]
+  );
+
+  const handleRemoveLastHabit = useCallback(
+    async (habitId) => {
+      try {
+        await removeLastCheckIn(habitId);
+      } catch (err) {
+        Alert.alert('Could not undo check-in', err instanceof Error ? err.message : 'Unknown error');
+      }
+    },
+    [removeLastCheckIn]
   );
 
   // Freeform goals only celebrate when they actually hit their target —
@@ -743,7 +764,7 @@ export default function HabitsScreen() {
                 disabled={busy}
                 onToggle={() => handleToggleHabit(habit)}
                 onAdd={() => handleAddHabit(habit)}
-                onRemoveLast={() => removeLastCheckIn(habit.id)}
+                onRemoveLast={() => handleRemoveLastHabit(habit.id)}
                 onEdit={() => openEdit(habit)}
               />
             ))}
@@ -813,7 +834,7 @@ export default function HabitsScreen() {
                   disabled={busy}
                   onToggle={() => handleToggleHabit(habit)}
                   onAdd={() => handleAddHabit(habit)}
-                  onRemoveLast={() => removeLastCheckIn(habit.id)}
+                  onRemoveLast={() => handleRemoveLastHabit(habit.id)}
                   onEdit={() => openEdit(habit)}
                 />
               ))}

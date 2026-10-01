@@ -15,6 +15,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { HabitsProvider } from './hooks/useHabits';
 import { GoalsProvider } from './hooks/useGoals';
+import { InsightsProvider } from './hooks/useInsights';
 import { CelebrationProvider } from './hooks/useCelebration';
 import { ThemeProvider, useAppTheme } from './hooks/useAppTheme';
 import { AuthProvider, useAuth } from './hooks/useAuth';
@@ -114,11 +115,13 @@ function AppGate() {
   return (
     <HabitsProvider>
       <GoalsProvider>
-        <CelebrationProvider>
-          <NavigationContainer theme={navigationTheme}>
-            <Tabs />
-          </NavigationContainer>
-        </CelebrationProvider>
+        <InsightsProvider>
+          <CelebrationProvider>
+            <NavigationContainer theme={navigationTheme}>
+              <Tabs />
+            </NavigationContainer>
+          </CelebrationProvider>
+        </InsightsProvider>
       </GoalsProvider>
     </HabitsProvider>
   );

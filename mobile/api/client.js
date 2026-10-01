@@ -185,6 +185,13 @@ export const api = {
     request(`/api/goals/${goalId}`, { method: 'PUT', body: JSON.stringify({ archived: true }) }),
 
   deleteGoal: (goalId) => request(`/api/goals/${goalId}`, { method: 'DELETE' }),
+
+  listInsights: () => request('/api/insights'),
+
+  // Recomputes just this user's own insights on demand instead of waiting for the nightly job.
+  recomputeInsights: () => request('/api/insights/recompute', { method: 'POST' }),
+
+  dismissInsight: (insightId) => request(`/api/insights/${insightId}/dismiss`, { method: 'POST' }),
 };
 
 export default api;

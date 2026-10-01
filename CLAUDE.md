@@ -5,6 +5,15 @@ This file is the standing context for any AI assistant (Copilot, Claude, etc.) w
 Global design rule (applies to all phases):
 - Design-first, mobile-first: the /design assets are the canonical UI spec for every phase. Implementations must prioritize native mobile device layouts, use mobile-optimized component sizes and touch targets, and match design tokens for colors, spacing, and typography. The Expo web preview is permitted for development convenience but is not the acceptance target.
 
+## Deployment target
+
+The end goal is a real Play Store + App Store release, not just a personal/dev build. This should shape decisions as they come up, not just be a final checklist:
+- Prefer Expo Go–compatible / EAS Build–compatible libraries. A native module that forces `expo prebuild` (ejecting from the managed workflow) is a real cost — worth it only when there's no managed-workflow alternative, not a default choice.
+- Apple requires in-app account deletion (not just sign-out) for any app with account creation — build this before submission, not as an afterthought.
+- A privacy policy is required by both stores once Firebase Auth / any user data collection is live — needed before the first submission, not after.
+- Firebase config, API keys, and the backend's production deployment (Terraform/AWS, per below) need to be real and stable before store review — reviewers test the actual live app, not a mocked build.
+- Anti-guilt UX and the non-causal correlation framing (see below) aren't just product taste — health/wellness-adjacent app review can flag manipulative or unsubstantiated-claim patterns, so these conventions are also a review-risk mitigation.
+
 ## What this app is
 
 Habituate is a habit-tracking app with three differentiators over generic trackers:
@@ -59,6 +68,7 @@ Reads from the existing insights store and check-in history. No new pipeline —
   - `habit_a_id` → `habit_b_id` is directional (A is the trigger habit, B is the outcome habit) to support the "A → B" display; store both directions if both are statistically meaningful, don't assume symmetry
 - `insights` — id, user_id, type (correlation / streak_risk / trend), payload (jsonb), generated_at, dismissed_at
   - payload for a `correlation` insight includes the nudge text, kept separate from the raw stat so copy can be revised without recomputing
+  - also carries `habit_a_id`/`habit_b_id` as real columns (not just inside payload) — needed to look up "is there already an insight for this exact pair" without querying inside jsonb, so a nightly recompute updates the existing row (or respects its dismissal) instead of creating a duplicate
 - `friendships` — user_id, friend_id, status (pending/accepted), created_at
 - `groups` — id, habit_id (nullable), name, created_by, streak_rule (all_members / any_member)
 - `group_members` — group_id, user_id, joined_at

@@ -2,6 +2,8 @@
 
 Work through these phases in order. Don't start a phase until the previous one's exit criteria are met — this is a solo build and sequencing is what keeps it shippable. Check items off as you go; this file should reflect real progress, not the plan.
 
+**Standing rule — production readiness isn't Phase 10's job alone.** The end goal is a real Play Store/App Store release used by many people, not a personal build (see CLAUDE.md's "Deployment target"). When a phase below involves an infra, library, or data-model choice, default to the store-compatible and scale-sane option over the fastest shortcut — e.g. Expo Go/EAS-compatible libraries over ones that force ejecting, and query patterns that stay fast once `check_ins` has millions of rows rather than thousands. Phase 10 is the explicit gate that catches anything still deferred before launch — it's not where production-mindedness starts.
+
 ---
 
 ## Phase 0 — Scaffolding
@@ -101,17 +103,23 @@ For as long as the app stays in Expo's managed workflow with Expo Go–compatibl
 ## Phase 5 — Insights engine v1 (simple, batch) — Insights page complete
 **Goal:** prove the insight concept before adding Flink complexity, and finish the Insights page end to end.
 
-- [ ] Nightly job (plain scheduled task, no Flink yet) computes pairwise, directional correlation over the last 30 days per user (P(habit B completed | habit A completed))
-- [ ] Minimum sample-size threshold enforced before a correlation is surfaced (don't show "90% match" from 3 data points)
-- [ ] `correlations` and `insights` tables populated, including a generated nudge string per insight
-- [ ] **Insights page complete**: consistency ring (Daily/Weekly/Monthly/Yearly tabs), "Pattern detected" cards using the shared insight card component (directional label, match %, one-sentence non-causal description, evidence-based nudge)
+- [x] Nightly job (plain scheduled task, no Flink yet) computes pairwise, directional correlation over the last 30 days per user (P(habit B completed | habit A completed))
+  - Completed 2026-09-30: new `com.habituate.api.insights` package. `CorrelationEngine` (pure, unit-tested) defines "habit completed on day d" as that day's logged values summing to at least `cadenceTarget` — a uniform per-day bar across BOOLEAN and COUNT habits, deliberately simpler than mobile's full daily/weekly/monthly section logic in `cadence.js`, since correlation only cares "did you do X today." Bucketed in UTC (not per-user timezone like `StreakCalculator`) since this is a server-initiated nightly job with no HTTP request to carry an `X-Timezone` header — revisit once `users.timezone` exists. `InsightScheduler` runs it at 3am via `@Scheduled`; `InsightController`'s `POST /api/insights/recompute` lets a user (or a test) trigger their own recompute immediately instead of waiting for the cron.
+- [x] Minimum sample-size threshold enforced before a correlation is surfaced (don't show "90% match" from 3 data points)
+  - **Decision:** `MIN_SAMPLE_SIZE = 5` days and `MIN_SCORE = 0.6` (60%) — both in `InsightService`, not the UI. Sample size is the explicit CLAUDE.md requirement; the score floor is an added product judgment call (a 20% co-occurrence isn't a "pattern detected" moment even with plenty of data) — adjust both if they feel off once there's real usage.
+- [x] `correlations` and `insights` tables populated, including a generated nudge string per insight
+  - `correlations` holds the raw score/sample_size, upserted in place per (user, habitA, habitB, windowDays) rather than accumulating a new row every night. `insights.payload` is a real `jsonb` column (Hibernate's `@JdbcTypeCode(SqlTypes.JSON)`, not a plain string column — verified against the real Postgres dev DB in `InsightServiceTest`) carrying habit names, match %, description, and nudge text, kept separate from the raw stat per CLAUDE.md so copy can be revised without recomputing. Dismissing an insight (`dismissedAt`) is permanent against recompute — a nightly rerun won't resurrect a dismissed pairing even if the stat is still true.
+- [x] **Insights page complete**: consistency ring (Daily/Weekly/Monthly/Yearly tabs), "Pattern detected" cards using the shared insight card component (directional label, match %, one-sentence non-causal description, evidence-based nudge)
+  - Built against `design/Insights.png`. The ring's exact formula is a product interpretation, not a literal spec (the mockup's "84%" and "5.8/7" aren't algebraically identical to each other either): `mobile/utils/consistency.js` computes a smooth average daily-completion ratio for the ring percent, and a separate "fully-complete-days" count for the center fraction, over a rolling window per tab (1/7/30/365 days — approximate, not calendar-exact months/years). Days before any habit existed are excluded from the ring average entirely (not counted as 0%), so a new account's Yearly tab isn't tanked by the many days before signup. Trend badge compares against the immediately preceding window of equal length. Anti-guilt copy tiers in `consistencyMessage()` — no shaming language even at 0%.
 
-**Exit criteria:** after a couple weeks of check-in data, the app surfaces at least one correct, sensible correlation with the full card treatment, and the Insights page fully matches the mockup — not just the underlying data being correct.
+**Exit criteria:** after a couple weeks of check-in data, the app surfaces at least one correct, sensible correlation with the full card treatment, and the Insights page fully matches the mockup — not just the underlying data being correct. *(Correctness verified: 9 backend tests covering the correlation math, threshold suppression, and dismissal-survives-recompute, run against the real dev Postgres DB; the mobile bundle exports cleanly with the new screen wired in. Not yet verified: an actual multi-week real-usage account surfacing a genuine pattern through the full UI in a browser/device — no browser automation tool is available in this environment to click through it, and real accounts don't have weeks of history yet. Say so if asked "does it work" rather than claiming full UI verification.)*
 
 ---
 
 ## Phase 6 — Insights engine v2 (real-time, Flink)
 **Goal:** replace the nightly batch job with the real-time pipeline. No new UI — this phase upgrades what's already on the Insights page.
+
+**Before starting — cost check, not a given:** a managed Flink job plus MSK has real fixed infrastructure cost regardless of how many users you have, unlike the batch job in Phase 5 which just runs on the existing API's compute. "Works for many users" is about the app surviving load, not about every subsystem being real-time from day one. Confirm with actual Phase 5 usage (does the batch job's latency actually bother users, or is "real-time-triggered, not instant-accurate" from CLAUDE.md already good enough) before paying for this — it's fine to stay on Phase 5's batch version through initial launch and revisit this once there's real usage data justifying it.
 
 - [ ] Flink job consumes `checkin-events`, maintains keyed rolling-window state per user/habit
 - [ ] Correlation recomputed on meaningful state change, written to `correlations`/`insights`, same sample-size threshold enforced in the job
@@ -150,7 +158,7 @@ For as long as the app stays in Expo's managed workflow with Expo Go–compatibl
 ---
 
 ## Phase 9 — Profile page + polish and retention mechanics
-**Goal:** the things that make people keep using it daily.
+**Goal:** the things that make people keep using it daily. (Account deletion and the privacy policy/ToS pages are store-submission *gates*, not retention polish — they live in Phase 10 so they don't get silently skipped if this phase gets trimmed.)
 
 - [ ] Home-screen widget for quick check-in
 - [ ] Push reminder scheduling per habit
@@ -160,6 +168,28 @@ For as long as the app stays in Expo's managed workflow with Expo Go–compatibl
 - [ ] Full anti-guilt UX audit: confirm no shaming copy, no red X states, no causal-language leaks in correlation copy, anywhere
 
 **Exit criteria:** you'd hand this to a real user without embarrassment.
+
+---
+
+## Phase 10 — Production infrastructure & launch readiness
+**Goal:** safe, stable, and legally compliant to put in front of real strangers at Play Store/App Store scale — not just "it works on my phone and my test account." Many of these items should start incrementally alongside earlier phases (CI, environment separation, migrations) rather than being left for one final sprint; this phase is the gate checked before public launch, not where the work begins.
+
+- [ ] CI pipeline (GitHub Actions): backend tests run on every PR/push (the suite already exists — `api/src/test`); mobile build at minimum syntax/lint-checked until real mobile tests exist
+- [ ] Environment separation: distinct Firebase projects, Postgres databases, and Kafka clusters for dev/staging/prod — the shipped app must never point at a laptop's docker-compose
+- [ ] Replace `spring.jpa.hibernate.ddl-auto=update` with versioned migrations (Flyway or Liquibase) — auto-updating the schema is fine solo-dev convenience, not safe for a production database you can't just drop and recreate
+- [ ] Secrets management: the Firebase service-account key currently lives at a literal filesystem path in `application.properties` — move it (and any other API keys) into a real secret store (AWS Secrets Manager or equivalent) referenced by env var, out of the repo and off any one machine
+- [ ] Terraform for the AWS footprint already decided in CLAUDE.md (ECS Fargate, RDS, MSK) — actually provisioned, not just planned
+- [ ] API rate limiting / basic abuse protection on public endpoints — nothing currently stops one client from hammering `/api/habits/{id}/check-ins`
+- [ ] Crash reporting + error tracking wired up on both mobile (Sentry or similar) and backend (structured logs plus an APM/error aggregator) — so you find out from a dashboard, not a support email
+- [ ] Database review before scale: add indexes on `check_ins(habit_id, occurred_at)` and `check_ins(user_id, occurred_at)` (every streak/calendar/correlation query filters on these), size the connection pool for real concurrency, and have an actual backup/restore plan for Postgres
+- [ ] Kafka review before scale: the dev `checkin-events` topic is 1 partition/1 replica (see `KafkaTopicConfig`) — fine for local dev, not for production throughput or durability
+- [ ] Mobile release pipeline: EAS Build + EAS Submit configured for both stores, a real app versioning scheme, and EAS Update wired up for JS-only fixes without a full store review cycle
+- [ ] Privacy policy and Terms of Service published and linked from the app (required by both stores once Firebase Auth collects user data)
+- [ ] In-app account deletion flow — Apple requires this for any app with account creation; sign-out alone doesn't satisfy it
+- [ ] Store listing compliance: screenshots, description, Play Store Data Safety form and Apple App Privacy details filled out accurately (they ask what data you collect and why — Firebase Auth, check-in data, etc. all need honest answers)
+- [ ] Load/smoke test the check-in write path (API write + Kafka publish, now `@Transactional` per the recent fix) at a realistic concurrent-user estimate before announcing a public launch
+
+**Exit criteria:** a stranger can download the app from the Play Store, create an account, use it daily, and — if something breaks — you find out from an error dashboard before they have to email you.
 
 ---
 

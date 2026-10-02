@@ -1,4 +1,4 @@
-import { createContext, createElement, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, createElement, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import api from '../api/client';
 import { cadenceProgress } from '../utils/cadence';
 import { toDateKey } from '../utils/date';
@@ -136,6 +136,32 @@ export function HabitsProvider({ children }) {
     [refresh]
   );
 
+  // `busy` alone isn't enough to stop a double-fire from racing itself: it's
+  // React state, so there's a render-timing gap between a tap starting and
+  // the button actually becoming disabled. A fast double-tap (or a Pressable
+  // double-fire) landing in that gap reads the *same* stale habit.checkIns
+  // snapshot twice — e.g. tap 1 creates a check-in, tap 2 (also seeing "not
+  // checked in yet") creates again or, once its own stale closure thinks
+  // it's now checked, deletes what tap 1 just created — silently reverting
+  // the checkmark even though the first tap's celebration already fired.
+  // This ref is checked synchronously, before any state update, so a second
+  // invocation for the same habit while one is still in flight is simply
+  // ignored instead of racing it.
+  const pendingHabitIds = useRef(new Set());
+
+  const runExclusive = useCallback(
+    (habitId, action) => {
+      if (pendingHabitIds.current.has(habitId)) {
+        return Promise.resolve();
+      }
+      pendingHabitIds.current.add(habitId);
+      return run(action).finally(() => {
+        pendingHabitIds.current.delete(habitId);
+      });
+    },
+    [run]
+  );
+
   const createHabit = useCallback((habit) => run(() => api.createHabit(habit)), [run]);
 
   const updateHabit = useCallback(
@@ -148,7 +174,7 @@ export function HabitsProvider({ children }) {
   // (e.g. from the calendar's day-detail panel) to toggle a past day instead.
   const toggleCheckIn = useCallback(
     (habitId, dayKey = toDateKey(new Date())) =>
-      run(async () => {
+      runExclusive(habitId, async () => {
         const habit = habits.find((item) => item.id === habitId);
         if (!habit) return;
 
@@ -179,12 +205,16 @@ export function HabitsProvider({ children }) {
           if (!alreadyInDesiredState) throw err;
         }
       }),
-    [habits, run]
+    [habits, runExclusive]
   );
 
   // COUNT habits: every tap (or a batch amount) adds a new check-in — a day can
   // hold any number of them, e.g. two gym visits or five job applications.
   // Defaults to today; pass a 'YYYY-MM-DD' key to log against a past day.
+  // Unlike toggleCheckIn, this never branches on stale local state (it always
+  // just creates), so — unlike toggle — concurrent calls for the same habit
+  // are safe here; COUNT habits legitimately need rapid repeated taps (5
+  // quick taps for 5 reps) to all land, not get dropped by an exclusive lock.
   const addCheckIn = useCallback(
     (habitId, value = 1, dayKey = toDateKey(new Date())) =>
       run(() => {
@@ -201,7 +231,7 @@ export function HabitsProvider({ children }) {
   // Undoes the single most recent check-in logged today, not the whole day.
   const removeLastCheckIn = useCallback(
     (habitId) =>
-      run(async () => {
+      runExclusive(habitId, async () => {
         const habit = habits.find((item) => item.id === habitId);
         if (!habit) return;
 
@@ -220,7 +250,7 @@ export function HabitsProvider({ children }) {
           }
         }
       }),
-    [habits, run]
+    [habits, runExclusive]
   );
 
   const archiveHabit = useCallback((habitId) => run(() => api.archiveHabit(habitId)), [run]);

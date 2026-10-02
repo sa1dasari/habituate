@@ -85,7 +85,7 @@ class CorrelationEngineTest {
                 LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 2), LocalDate.of(2026, 1, 3),
                 LocalDate.of(2026, 1, 4), LocalDate.of(2026, 1, 5));
 
-        CorrelationEngine.PairResult result = CorrelationEngine.correlate(daysA, daysB);
+        CorrelationEngine.PairResult result = CorrelationEngine.correlate(daysA, daysB, 30);
 
         assertThat(result.score()).isEqualTo(1.0);
         assertThat(result.sampleSize()).isEqualTo(5);
@@ -98,7 +98,7 @@ class CorrelationEngineTest {
                 LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 2), LocalDate.of(2026, 1, 3), LocalDate.of(2026, 1, 4));
         Set<LocalDate> daysB = Set.of(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 2), LocalDate.of(2026, 1, 9));
 
-        CorrelationEngine.PairResult result = CorrelationEngine.correlate(daysA, daysB);
+        CorrelationEngine.PairResult result = CorrelationEngine.correlate(daysA, daysB, 30);
 
         assertThat(result.sampleSize()).isEqualTo(4);
         assertThat(result.matches()).isEqualTo(2);
@@ -107,9 +107,57 @@ class CorrelationEngineTest {
 
     @Test
     void correlate_emptySampleIsZeroNotDivideByZeroCrash() {
-        CorrelationEngine.PairResult result = CorrelationEngine.correlate(Set.of(), Set.of(LocalDate.of(2026, 1, 1)));
+        CorrelationEngine.PairResult result =
+                CorrelationEngine.correlate(Set.of(), Set.of(LocalDate.of(2026, 1, 1)), 30);
 
         assertThat(result.sampleSize()).isEqualTo(0);
         assertThat(result.score()).isEqualTo(0.0);
+    }
+
+    @Test
+    void correlate_lowLift_whenBIsFrequentRegardlessOfA() {
+        // B happens on 20 of 30 days overall (frequent habit on its own).
+        // A happens on 5 days, and B happens to co-occur on 4 of them — a
+        // high raw score (80%), but B's own baseline is already 67%, so A
+        // barely moves the needle. This is the "gym -> job applications"
+        // false-pattern scenario: two independently frequent habits.
+        Set<LocalDate> daysB = Set.of(
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 2), LocalDate.of(2026, 1, 3),
+                LocalDate.of(2026, 1, 4), LocalDate.of(2026, 1, 6), LocalDate.of(2026, 1, 7),
+                LocalDate.of(2026, 1, 8), LocalDate.of(2026, 1, 9), LocalDate.of(2026, 1, 10),
+                LocalDate.of(2026, 1, 11), LocalDate.of(2026, 1, 12), LocalDate.of(2026, 1, 13),
+                LocalDate.of(2026, 1, 14), LocalDate.of(2026, 1, 15), LocalDate.of(2026, 1, 16),
+                LocalDate.of(2026, 1, 17), LocalDate.of(2026, 1, 18), LocalDate.of(2026, 1, 19),
+                LocalDate.of(2026, 1, 20), LocalDate.of(2026, 1, 21));
+        Set<LocalDate> daysA = Set.of(
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 2), LocalDate.of(2026, 1, 3),
+                LocalDate.of(2026, 1, 4), LocalDate.of(2026, 1, 25));
+
+        CorrelationEngine.PairResult result = CorrelationEngine.correlate(daysA, daysB, 30);
+
+        assertThat(result.score()).isCloseTo(0.8, org.assertj.core.data.Offset.offset(0.001));
+        assertThat(result.baseRateB()).isCloseTo(20.0 / 30.0, org.assertj.core.data.Offset.offset(0.001));
+        // lift = 0.8 / 0.667 ≈ 1.2 — a high raw score, but not meaningfully
+        // above B's own baseline. This is exactly what MIN_LIFT filters out
+        // in InsightService even though MIN_SCORE alone would have passed it.
+        assertThat(result.lift()).isCloseTo(1.2, org.assertj.core.data.Offset.offset(0.01));
+    }
+
+    @Test
+    void correlate_highLift_whenBIsRareExceptOnADays() {
+        // B happens only 5 of 30 days overall (rare on its own), but all 5
+        // coincide with A — a real signal, not base-rate noise.
+        Set<LocalDate> daysB = Set.of(
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 2), LocalDate.of(2026, 1, 3),
+                LocalDate.of(2026, 1, 4), LocalDate.of(2026, 1, 5));
+        Set<LocalDate> daysA = Set.of(
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 2), LocalDate.of(2026, 1, 3),
+                LocalDate.of(2026, 1, 4), LocalDate.of(2026, 1, 5));
+
+        CorrelationEngine.PairResult result = CorrelationEngine.correlate(daysA, daysB, 30);
+
+        assertThat(result.score()).isEqualTo(1.0);
+        assertThat(result.baseRateB()).isCloseTo(5.0 / 30.0, org.assertj.core.data.Offset.offset(0.001));
+        assertThat(result.lift()).isCloseTo(6.0, org.assertj.core.data.Offset.offset(0.01));
     }
 }

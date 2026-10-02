@@ -39,6 +39,16 @@ public class InsightService {
     /** Below this, a pairing isn't really a "pattern detected" — it's noise. */
     static final double MIN_SCORE = 0.6;
 
+    /**
+     * Below this, B isn't actually more likely on an A-day than on an
+     * arbitrary day — it's just a habit that happens to be frequent on its
+     * own. Without this, two unrelated-but-both-frequent habits (e.g. gym
+     * and job applications, each done most days) show a high raw match
+     * purely from coincidence, not because completing one predicts the
+     * other. 1.3 means "at least 30% more likely than B's own baseline."
+     */
+    static final double MIN_LIFT = 1.3;
+
     private final HabitRepository habitRepository;
     private final CheckInRepository checkInRepository;
     private final CorrelationRepository correlationRepository;
@@ -80,20 +90,67 @@ public class InsightService {
             completedDaysByHabit.put(habit.getId(), CorrelationEngine.completedDays(habit, checkIns, since));
         }
 
-        for (Habit a : habits) {
-            for (Habit b : habits) {
-                if (a.getId().equals(b.getId())) continue;
+        // Unordered pairs — both directions are computed and stored as
+        // correlations (CLAUDE.md: "store both directions if both are
+        // statistically meaningful, don't assume symmetry"), but only the
+        // stronger-qualifying direction becomes a user-facing insight. A→B
+        // and B→A showing up as two separate "pattern detected" cards for
+        // the same two habits read as redundant noise, not two patterns.
+        for (int i = 0; i < habits.size(); i++) {
+            for (int j = i + 1; j < habits.size(); j++) {
+                Habit a = habits.get(i);
+                Habit b = habits.get(j);
+                Set<LocalDate> daysA = completedDaysByHabit.get(a.getId());
+                Set<LocalDate> daysB = completedDaysByHabit.get(b.getId());
 
-                CorrelationEngine.PairResult result = CorrelationEngine.correlate(
-                        completedDaysByHabit.get(a.getId()), completedDaysByHabit.get(b.getId()));
+                CorrelationEngine.PairResult aToB = CorrelationEngine.correlate(daysA, daysB, WINDOW_DAYS);
+                CorrelationEngine.PairResult bToA = CorrelationEngine.correlate(daysB, daysA, WINDOW_DAYS);
 
-                upsertCorrelation(userId, a.getId(), b.getId(), result);
+                upsertCorrelation(userId, a.getId(), b.getId(), aToB);
+                upsertCorrelation(userId, b.getId(), a.getId(), bToA);
 
-                if (result.sampleSize() >= MIN_SAMPLE_SIZE && result.score() >= MIN_SCORE) {
-                    upsertInsight(userId, a, b, result);
+                boolean aToBQualifies = qualifies(aToB);
+                boolean bToAQualifies = qualifies(bToA);
+
+                if (aToBQualifies && bToAQualifies) {
+                    // Both directions clear the bar — surface only the
+                    // stronger one (by lift, since that's what distinguishes
+                    // a real pattern from base-rate noise) rather than both.
+                    if (aToB.lift() >= bToA.lift()) {
+                        removeActiveInsightIfPresent(userId, b.getId(), a.getId());
+                        upsertInsight(userId, a, b, aToB);
+                    } else {
+                        removeActiveInsightIfPresent(userId, a.getId(), b.getId());
+                        upsertInsight(userId, b, a, bToA);
+                    }
+                } else if (aToBQualifies) {
+                    // The opposite direction may have been the surfaced one
+                    // on a previous run — if the stronger direction flipped,
+                    // clear it instead of leaving an orphaned, now-superseded
+                    // insight that nothing will ever touch again.
+                    removeActiveInsightIfPresent(userId, b.getId(), a.getId());
+                    upsertInsight(userId, a, b, aToB);
+                } else if (bToAQualifies) {
+                    removeActiveInsightIfPresent(userId, a.getId(), b.getId());
+                    upsertInsight(userId, b, a, bToA);
+                } else {
+                    // Neither direction qualifies (any more) — actively clear
+                    // a previously-surfaced insight for this pair rather than
+                    // leaving it to rot. This matters in practice, not just
+                    // in theory: tightening MIN_LIFT after it shipped needs
+                    // the next recompute to retract patterns that no longer
+                    // clear the new bar, not just stop minting new ones.
+                    removeActiveInsightIfPresent(userId, a.getId(), b.getId());
+                    removeActiveInsightIfPresent(userId, b.getId(), a.getId());
                 }
             }
         }
+    }
+
+    private boolean qualifies(CorrelationEngine.PairResult result) {
+        return result.sampleSize() >= MIN_SAMPLE_SIZE
+                && result.score() >= MIN_SCORE
+                && result.lift() >= MIN_LIFT;
     }
 
     private void upsertCorrelation(String userId, Long habitAId, Long habitBId, CorrelationEngine.PairResult result) {
@@ -104,6 +161,19 @@ public class InsightService {
         correlation.setSampleSize(result.sampleSize());
         correlation.setComputedAt(Instant.now());
         correlationRepository.save(correlation);
+    }
+
+    /**
+     * Clears a still-active (non-dismissed) insight for the losing direction
+     * of a pair when the other direction is the one being surfaced instead —
+     * it's being replaced by a more-correct reading of the same two habits,
+     * not lost information, so this doesn't need to respect a dismissal the
+     * way upsertInsight does for its own direction.
+     */
+    private void removeActiveInsightIfPresent(String userId, Long habitAId, Long habitBId) {
+        insightRepository.findByUserIdAndTypeAndHabitAIdAndHabitBId(userId, Insight.TYPE_CORRELATION, habitAId, habitBId)
+                .filter(insight -> insight.getDismissedAt() == null)
+                .ifPresent(insightRepository::delete);
     }
 
     private void upsertInsight(String userId, Habit a, Habit b, CorrelationEngine.PairResult result) {
@@ -148,6 +218,7 @@ public class InsightService {
         payload.put("matchPercent", percent);
         payload.put("sampleSize", result.sampleSize());
         payload.put("windowDays", WINDOW_DAYS);
+        payload.put("lift", Math.round(result.lift() * 100) / 100.0);
         payload.put("description", description);
         payload.put("nudge", nudge);
 

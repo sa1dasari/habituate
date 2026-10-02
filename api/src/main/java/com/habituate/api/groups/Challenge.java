@@ -14,13 +14,21 @@ import java.time.LocalDate;
 /**
  * Per CLAUDE.md: "a time-boxed, multi-person goal with a progress bar, not a
  * running streak" — deliberately not sharing a table with Group/GroupStreak.
- * No habit linkage (unlike Shared Habits) — progress is logged directly via
- * ChallengeParticipant.progressCount, mirroring GoalService's
- * create/adjustProgress pattern rather than deriving from check-ins.
+ * No habit linkage (unlike Shared Habits) — progress is a boolean once-a-day
+ * log, derived from ChallengeCheckIn rows (same shape as a BOOLEAN habit's
+ * check-ins) rather than a bare counter, so a day can be unlogged.
+ *
+ * Unlike Shared Habits (private-only, friendship-gated invites), a Challenge
+ * can be PUBLIC — discoverable and joinable by anyone via "browse" — or
+ * PRIVATE, which only hides it from browse; join() still works by id either
+ * way since there's no challenge-invite system yet.
  */
 @Entity
 @Table(name = "challenges")
 public class Challenge {
+
+    public static final String PUBLIC = "PUBLIC";
+    public static final String PRIVATE = "PRIVATE";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -44,6 +52,9 @@ public class Challenge {
     @Column(nullable = false)
     private LocalDate periodEnd;
 
+    @Column(nullable = false, columnDefinition = "varchar(255) default 'PRIVATE'")
+    private String visibility;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -51,13 +62,14 @@ public class Challenge {
     }
 
     public Challenge(String name, String description, String createdBy, Integer targetCount,
-                      LocalDate periodStart, LocalDate periodEnd) {
+                      LocalDate periodStart, LocalDate periodEnd, String visibility) {
         this.name = name;
         this.description = description;
         this.createdBy = createdBy;
         this.targetCount = targetCount;
         this.periodStart = periodStart;
         this.periodEnd = periodEnd;
+        this.visibility = visibility;
     }
 
     @PrePersist
@@ -91,6 +103,10 @@ public class Challenge {
 
     public LocalDate getPeriodEnd() {
         return periodEnd;
+    }
+
+    public String getVisibility() {
+        return visibility;
     }
 
     public Instant getCreatedAt() {

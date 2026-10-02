@@ -24,9 +24,6 @@ public class ChallengeParticipant {
     @Column(nullable = false)
     private String userId;
 
-    @Column(nullable = false)
-    private Integer progressCount = 0;
-
     @Column(nullable = false, updatable = false)
     private Instant joinedAt;
 
@@ -36,7 +33,6 @@ public class ChallengeParticipant {
     public ChallengeParticipant(Long challengeId, String userId) {
         this.challengeId = challengeId;
         this.userId = userId;
-        this.progressCount = 0;
     }
 
     @PrePersist
@@ -54,14 +50,6 @@ public class ChallengeParticipant {
 
     public String getUserId() {
         return userId;
-    }
-
-    public Integer getProgressCount() {
-        return progressCount;
-    }
-
-    public void setProgressCount(Integer progressCount) {
-        this.progressCount = progressCount;
     }
 
     public Instant getJoinedAt() {

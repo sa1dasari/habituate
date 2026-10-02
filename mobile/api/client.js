@@ -194,6 +194,43 @@ export const api = {
   recomputeInsights: () => request('/api/insights/recompute', { method: 'POST' }),
 
   dismissInsight: (insightId) => request(`/api/insights/${insightId}/dismiss`, { method: 'POST' }),
+
+  listFriends: () => request('/api/friendships'),
+
+  listPendingFriendRequests: () => request('/api/friendships/pending'),
+
+  sendFriendRequest: (email) =>
+    request('/api/friendships', { method: 'POST', body: JSON.stringify({ email }) }),
+
+  acceptFriendRequest: (friendshipId) =>
+    request(`/api/friendships/${friendshipId}/accept`, { method: 'POST' }),
+
+  declineFriendRequest: (friendshipId) =>
+    request(`/api/friendships/${friendshipId}/decline`, { method: 'POST' }),
+
+  listGroups: () => request('/api/groups'),
+
+  listPendingGroupInvites: () => request('/api/groups/pending'),
+
+  createGroup: (group) => request('/api/groups', { method: 'POST', body: JSON.stringify(group) }),
+
+  inviteToGroup: (groupId, friendUserId) =>
+    request(`/api/groups/${groupId}/invite`, { method: 'POST', body: JSON.stringify({ friendUserId }) }),
+
+  acceptGroupInvite: (groupId, habitId) =>
+    request(`/api/groups/${groupId}/accept`, { method: 'POST', body: JSON.stringify({ habitId }) }),
+
+  listMyChallenges: () => request('/api/challenges'),
+
+  browseChallenges: () => request('/api/challenges/browse'),
+
+  createChallenge: (challenge) =>
+    request('/api/challenges', { method: 'POST', body: JSON.stringify(challenge) }),
+
+  joinChallenge: (challengeId) => request(`/api/challenges/${challengeId}/join`, { method: 'POST' }),
+
+  adjustChallengeProgress: (challengeId, delta) =>
+    request(`/api/challenges/${challengeId}/progress`, { method: 'POST', body: JSON.stringify({ delta }) }),
 };
 
 export default api;

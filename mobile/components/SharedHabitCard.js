@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import StreakIndicator from './StreakIndicator';
+import AvatarStack from './AvatarStack';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { radii, shadow, spacing } from '../theme';
 
@@ -9,19 +10,6 @@ const RULE_LABEL = {
   all_members: 'All members',
   any_member: 'Any member',
 };
-
-const AVATAR_COLORS = ['#2563EB', '#7C3AED', '#0891B2', '#DB2777', '#EA580C'];
-const MAX_AVATARS = 4;
-
-function initials(name) {
-  return String(name || '?')
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join('')
-    .toUpperCase();
-}
 
 /**
  * Shared-habit card for the Community page. Shows who's in, the rule that keeps
@@ -40,8 +28,6 @@ export default function SharedHabitCard({
   const state = resolveStreakState(streakStatus);
   const people = Array.isArray(participants) ? participants : [];
   const total = participantCount != null ? participantCount : people.length;
-  const shown = people.slice(0, MAX_AVATARS);
-  const overflow = total - shown.length;
 
   return (
     <View style={styles.card}>
@@ -53,29 +39,7 @@ export default function SharedHabitCard({
       </View>
 
       <View style={styles.middleRow}>
-        <View style={styles.avatars}>
-          {shown.map((person, index) => {
-            const label = typeof person === 'string' ? person : person && person.name;
-            return (
-              <View
-                key={`${label}-${index}`}
-                style={[
-                  styles.avatar,
-                  { backgroundColor: AVATAR_COLORS[index % AVATAR_COLORS.length] },
-                  index > 0 ? styles.avatarOverlap : null,
-                ]}
-              >
-                <Text style={styles.avatarText}>{initials(label)}</Text>
-              </View>
-            );
-          })}
-
-          {overflow > 0 ? (
-            <View style={[styles.avatar, styles.avatarMore, shown.length > 0 ? styles.avatarOverlap : null]}>
-              <Text style={styles.avatarMoreText}>+{overflow}</Text>
-            </View>
-          ) : null}
-        </View>
+        <AvatarStack people={people} total={total} />
 
         <Text style={styles.participantCount}>
           {total} {total === 1 ? 'member' : 'members'}
@@ -123,35 +87,6 @@ function makeStyles(colors) {
     alignItems: 'center',
     gap: spacing.sm,
     marginTop: spacing.md,
-  },
-  avatars: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  avatar: {
-    width: 28,
-    height: 28,
-    borderRadius: radii.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: colors.surface,
-  },
-  avatarOverlap: {
-    marginLeft: -8,
-  },
-  avatarText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  avatarMore: {
-    backgroundColor: colors.background,
-  },
-  avatarMoreText: {
-    color: colors.textSecondary,
-    fontSize: 11,
-    fontWeight: '700',
   },
   participantCount: {
     fontSize: 12,

@@ -14,7 +14,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -48,6 +51,19 @@ public class InsightService {
      * other. 1.3 means "at least 30% more likely than B's own baseline."
      */
     static final double MIN_LIFT = 1.3;
+
+    /**
+     * Even when every threshold above is honestly cleared, surfacing every
+     * qualifying pair at once overwhelms the page — and with few habits,
+     * nearly all of them CAN qualify from a single shared cause: a user with
+     * "good days" (most habits done) and "off days" (most skipped) will see
+     * every pair of habits correlate with each other, not because any
+     * specific pair is linked, but because they're all proxies for the same
+     * underlying day-level consistency. Capping to the strongest few keeps
+     * "Pattern detected" meaning "the standout ones," per CLAUDE.md's design
+     * (a handful of cards), not an exhaustive pairwise correlation matrix.
+     */
+    static final int MAX_SURFACED_INSIGHTS = 5;
 
     private final HabitRepository habitRepository;
     private final CheckInRepository checkInRepository;
@@ -93,9 +109,12 @@ public class InsightService {
         // Unordered pairs — both directions are computed and stored as
         // correlations (CLAUDE.md: "store both directions if both are
         // statistically meaningful, don't assume symmetry"), but only the
-        // stronger-qualifying direction becomes a user-facing insight. A→B
-        // and B→A showing up as two separate "pattern detected" cards for
-        // the same two habits read as redundant noise, not two patterns.
+        // stronger-qualifying direction is even a *candidate* to become a
+        // user-facing insight. A→B and B→A showing up as two separate
+        // "pattern detected" cards for the same two habits read as redundant
+        // noise, not two patterns.
+        List<Candidate> candidates = new ArrayList<>();
+
         for (int i = 0; i < habits.size(); i++) {
             for (int j = i + 1; j < habits.size(); j++) {
                 Habit a = habits.get(i);
@@ -113,38 +132,59 @@ public class InsightService {
                 boolean bToAQualifies = qualifies(bToA);
 
                 if (aToBQualifies && bToAQualifies) {
-                    // Both directions clear the bar — surface only the
-                    // stronger one (by lift, since that's what distinguishes
-                    // a real pattern from base-rate noise) rather than both.
-                    if (aToB.lift() >= bToA.lift()) {
-                        removeActiveInsightIfPresent(userId, b.getId(), a.getId());
-                        upsertInsight(userId, a, b, aToB);
-                    } else {
-                        removeActiveInsightIfPresent(userId, a.getId(), b.getId());
-                        upsertInsight(userId, b, a, bToA);
-                    }
+                    // Both directions clear the bar — only the stronger one
+                    // (by lift, since that's what distinguishes a real
+                    // pattern from base-rate noise) is even a candidate.
+                    candidates.add(aToB.lift() >= bToA.lift()
+                            ? new Candidate(a, b, aToB)
+                            : new Candidate(b, a, bToA));
                 } else if (aToBQualifies) {
-                    // The opposite direction may have been the surfaced one
-                    // on a previous run — if the stronger direction flipped,
-                    // clear it instead of leaving an orphaned, now-superseded
-                    // insight that nothing will ever touch again.
-                    removeActiveInsightIfPresent(userId, b.getId(), a.getId());
-                    upsertInsight(userId, a, b, aToB);
+                    candidates.add(new Candidate(a, b, aToB));
                 } else if (bToAQualifies) {
-                    removeActiveInsightIfPresent(userId, a.getId(), b.getId());
-                    upsertInsight(userId, b, a, bToA);
-                } else {
-                    // Neither direction qualifies (any more) — actively clear
-                    // a previously-surfaced insight for this pair rather than
-                    // leaving it to rot. This matters in practice, not just
-                    // in theory: tightening MIN_LIFT after it shipped needs
-                    // the next recompute to retract patterns that no longer
-                    // clear the new bar, not just stop minting new ones.
-                    removeActiveInsightIfPresent(userId, a.getId(), b.getId());
-                    removeActiveInsightIfPresent(userId, b.getId(), a.getId());
+                    candidates.add(new Candidate(b, a, bToA));
                 }
             }
         }
+
+        // Rank by combined strength (lift * score — how non-coincidental,
+        // weighted by how strong the raw match is) and keep only the
+        // strongest few. See MAX_SURFACED_INSIGHTS for why this cap exists
+        // even though every candidate here already honestly cleared the
+        // sample-size/score/lift bar.
+        candidates.sort(Comparator.comparingDouble(
+                (Candidate c) -> c.result().lift() * c.result().score()).reversed());
+
+        Set<String> surfacedPairKeys = new HashSet<>();
+        for (int i = 0; i < Math.min(MAX_SURFACED_INSIGHTS, candidates.size()); i++) {
+            Candidate winner = candidates.get(i);
+            surfacedPairKeys.add(pairKey(winner.a().getId(), winner.b().getId()));
+            removeActiveInsightIfPresent(userId, winner.b().getId(), winner.a().getId());
+            upsertInsight(userId, winner.a(), winner.b(), winner.result());
+        }
+
+        // Everything else — pairs that never qualified, and qualifying pairs
+        // that lost out to stronger ones this run — gets any previously
+        // surfaced insight actively retracted rather than left to rot. This
+        // matters in practice, not just in theory: tightening a threshold
+        // (or this cap) after it shipped needs the next recompute to retract
+        // patterns that no longer make the cut, not just stop minting new ones.
+        for (int i = 0; i < habits.size(); i++) {
+            for (int j = i + 1; j < habits.size(); j++) {
+                Long aId = habits.get(i).getId();
+                Long bId = habits.get(j).getId();
+                if (!surfacedPairKeys.contains(pairKey(aId, bId))) {
+                    removeActiveInsightIfPresent(userId, aId, bId);
+                    removeActiveInsightIfPresent(userId, bId, aId);
+                }
+            }
+        }
+    }
+
+    private record Candidate(Habit a, Habit b, CorrelationEngine.PairResult result) {
+    }
+
+    private String pairKey(Long habitId1, Long habitId2) {
+        return habitId1 < habitId2 ? habitId1 + ":" + habitId2 : habitId2 + ":" + habitId1;
     }
 
     private boolean qualifies(CorrelationEngine.PairResult result) {

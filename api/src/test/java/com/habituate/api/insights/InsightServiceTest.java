@@ -199,6 +199,33 @@ class InsightServiceTest {
     }
 
     @Test
+    void capsSurfacedInsights_whenManyPairsAllQualify() {
+        // Reproduces the real-world report: with enough habits sharing
+        // "good day / off day" clustering, nearly every pair can honestly
+        // clear the sample-size/score/lift bar — not a bug in the threshold
+        // math, but a wall of near-duplicate cards is still bad UX. 4 habits
+        // checked in on the exact same 6 days gives 6 equally-strong
+        // qualifying pairs (C(4,2)), one more than MAX_SURFACED_INSIGHTS.
+        userId = "insight-test-user-6";
+        Long a = createHabit("A");
+        Long b = createHabit("B");
+        Long c = createHabit("C");
+        Long d = createHabit("D");
+
+        for (int day = 1; day <= 6; day++) {
+            checkInOnDay(a, day);
+            checkInOnDay(b, day);
+            checkInOnDay(c, day);
+            checkInOnDay(d, day);
+        }
+
+        insightService.computeForUser(userId);
+
+        List<Insight> active = insightService.listActive(userId);
+        assertThat(active).hasSize(5);
+    }
+
+    @Test
     void dismissedInsight_isNotResurrectedByRecompute() {
         userId = "insight-test-user-3";
         Long a = createHabit("Coffee");

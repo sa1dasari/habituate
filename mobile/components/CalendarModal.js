@@ -21,11 +21,15 @@ const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
  * Full-page monthly calendar modal (Samsung Health style).
  *
  * Props:
- *   visible   – boolean
- *   habits    – enriched habit array from useHabits (each has .checkIns[])
- *   onClose   – () => void
+ *   visible         – boolean
+ *   habits          – enriched habit array from useHabits (each has .checkIns[])
+ *   onClose         – () => void
+ *   onToggleHabitDay – (habit, dayKey) => Promise<boolean>, backdates/undoes a
+ *                      BOOLEAN habit's check-in for the selected day. Omit to
+ *                      keep the day-detail panel read-only.
+ *   busy            – disables the toggle while a request is in flight
  */
-export default function CalendarModal({ visible, habits = [], onClose }) {
+export default function CalendarModal({ visible, habits = [], onClose, onToggleHabitDay, busy = false }) {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const today = new Date();
@@ -206,34 +210,64 @@ export default function CalendarModal({ visible, habits = [], onClose }) {
               {selectedStats.entries.length === 0 ? (
                 <Text style={styles.detailEmpty}>Nothing logged — and that's okay.</Text>
               ) : (
-                selectedStats.entries.map(({ habit, value, isDaily, done }) => (
-                  <View key={habit.id} style={styles.detailRow}>
-                    <View style={[styles.detailIcon, !done && styles.detailIconIdle]}>
+                selectedStats.entries.map(({ habit, value, isDaily, done }) => {
+                  // Backdating is scoped to BOOLEAN daily-target habits for now —
+                  // those already have a clear per-day done/not-done state.
+                  // COUNT habits (what amount? which check-in to undo?) and
+                  // weekly/monthly-only habits (no "due this day" concept) stay
+                  // view-only here; see HabitsScreen for the handler.
+                  const canToggle =
+                    Boolean(onToggleHabitDay) &&
+                    isDaily &&
+                    habit.trackingMode !== 'COUNT' &&
+                    selectedDay <= todayKey;
+
+                  const row = (
+                    <>
+                      <View style={[styles.detailIcon, !done && styles.detailIconIdle]}>
+                        <MaterialCommunityIcons
+                          name={categoryIcon(habit.category)}
+                          size={18}
+                          color={done ? colors.safe : colors.textMuted}
+                        />
+                      </View>
+                      <View style={styles.detailText}>
+                        <Text style={styles.detailHabitName}>{habit.name}</Text>
+                        <Text style={styles.detailMeta}>
+                          {isDaily
+                            ? done
+                              ? value > 1
+                                ? `Completed · logged ${value}×`
+                                : 'Completed'
+                              : canToggle
+                                ? 'Tap to log it for this day'
+                                : 'Not yet logged'
+                            : `Logged${value > 1 ? ` ${value}×` : ''} today`}
+                        </Text>
+                      </View>
                       <MaterialCommunityIcons
-                        name={categoryIcon(habit.category)}
-                        size={18}
-                        color={done ? colors.safe : colors.textMuted}
+                        name={done ? 'check-circle' : 'circle-outline'}
+                        size={20}
+                        color={done ? colors.safe : colors.border}
                       />
+                    </>
+                  );
+
+                  return canToggle ? (
+                    <Pressable
+                      key={habit.id}
+                      style={styles.detailRow}
+                      disabled={busy}
+                      onPress={() => onToggleHabitDay(habit, selectedDay)}
+                    >
+                      {row}
+                    </Pressable>
+                  ) : (
+                    <View key={habit.id} style={styles.detailRow}>
+                      {row}
                     </View>
-                    <View style={styles.detailText}>
-                      <Text style={styles.detailHabitName}>{habit.name}</Text>
-                      <Text style={styles.detailMeta}>
-                        {isDaily
-                          ? done
-                            ? value > 1
-                              ? `Completed · logged ${value}×`
-                              : 'Completed'
-                            : 'Not yet logged'
-                          : `Logged${value > 1 ? ` ${value}×` : ''} today`}
-                      </Text>
-                    </View>
-                    <MaterialCommunityIcons
-                      name={done ? 'check-circle' : 'circle-outline'}
-                      size={20}
-                      color={done ? colors.safe : colors.border}
-                    />
-                  </View>
-                ))
+                  );
+                })
               )}
             </View>
           ) : (

@@ -17,7 +17,6 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 @Service
@@ -192,8 +191,19 @@ public class HabitService {
         return checkInRepository.findByUserIdAndHabitIdOrderByOccurredAtDesc(userId, habitId);
     }
 
+    // Self-invocation note: this delegates to the @Transactional overload
+    // below, but Spring's @Transactional only applies through the proxy, not
+    // on an internal this.method() call — so this overload needs its own
+    // @Transactional too, or a caller entering through here wouldn't get a
+    // transaction at all (the Kafka-failure rollback test would silently pass
+    // without ever exercising a rollback).
     @Transactional
     public CheckIn createCheckIn(String userId, Long habitId, CheckInRequest request) {
+        return createCheckIn(userId, habitId, request, null);
+    }
+
+    @Transactional
+    public CheckIn createCheckIn(String userId, Long habitId, CheckInRequest request, String timezone) {
         Habit habit = habitRepository.findById(habitId)
                 .orElseThrow(() -> new EntityNotFoundException("Habit not found: " + habitId));
 
@@ -203,16 +213,36 @@ public class HabitService {
 
         Instant occurredAt = request.occurredAt() != null ? request.occurredAt() : Instant.now();
 
+        // Backdating is allowed (as far back as the habit itself existing),
+        // but a client-supplied occurredAt is still just client input — don't
+        // trust it blindly. Bucketed in the client's own zone (falls back to
+        // UTC if absent/invalid) so a day boundary here agrees with whatever
+        // local day the mobile calendar showed the user when they tapped it —
+        // a fixed "noon local" timestamp alone can't guarantee that for every
+        // real-world UTC offset (e.g. UTC+13/+14 can still roll to the
+        // adjacent UTC day), so the server needs to bucket in the same zone
+        // the client is reasoning in, same as StreakCalculator.
+        ZoneId zone = resolveZone(timezone);
+
+        if (occurredAt.isAfter(Instant.now())) {
+            throw new IllegalArgumentException("Cannot check in for a future date: " + occurredAt);
+        }
+        LocalDate occurredDay = occurredAt.atZone(zone).toLocalDate();
+        LocalDate habitCreatedDay = habit.getCreatedAt().atZone(zone).toLocalDate();
+        if (occurredDay.isBefore(habitCreatedDay)) {
+            throw new IllegalArgumentException(
+                    "Cannot check in before the habit was created (" + habitCreatedDay + "): " + occurredDay);
+        }
+
         // BOOLEAN habits are a single toggle per day (see Habit.java) — COUNT
         // habits are allowed multiple check-ins a day by design, so only guard
         // the BOOLEAN case against duplicate taps/retries landing twice.
         if ("BOOLEAN".equals(habit.getTrackingMode())) {
-            LocalDate day = occurredAt.atZone(ZoneOffset.UTC).toLocalDate();
-            Instant dayStart = day.atStartOfDay(ZoneOffset.UTC).toInstant();
-            Instant dayEnd = dayStart.plus(1, ChronoUnit.DAYS);
+            Instant dayStart = occurredDay.atStartOfDay(zone).toInstant();
+            Instant dayEnd = occurredDay.plusDays(1).atStartOfDay(zone).toInstant();
             boolean alreadyCheckedIn = checkInRepository.existsByHabitIdAndOccurredAtBetween(habitId, dayStart, dayEnd);
             if (alreadyCheckedIn) {
-                throw new DuplicateCheckInException("Habit " + habitId + " is already checked in for " + day);
+                throw new DuplicateCheckInException("Habit " + habitId + " is already checked in for " + occurredDay);
             }
         }
 

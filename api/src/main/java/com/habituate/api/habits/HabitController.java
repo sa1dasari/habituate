@@ -79,10 +79,11 @@ public class HabitController {
     public CheckInResponse createCheckIn(
             HttpServletRequest req,
             @PathVariable Long habitId,
-            @RequestBody(required = false) CheckInRequest request) {
+            @RequestBody(required = false) CheckInRequest request,
+            @RequestHeader(value = "X-Timezone", required = false) String timezone) {
 
         CheckInRequest safeRequest = request == null ? new CheckInRequest(null, 1, "manual") : request;
-        return CheckInResponse.from(habitService.createCheckIn(userId(req), habitId, safeRequest));
+        return CheckInResponse.from(habitService.createCheckIn(userId(req), habitId, safeRequest, timezone));
     }
 
     @DeleteMapping("/check-ins/{checkInId}")

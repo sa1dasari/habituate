@@ -199,6 +199,19 @@ export default function HabitsScreen() {
     [toggleCheckIn, celebrateHabit]
   );
 
+  // From the calendar's day-detail panel — backdates/undoes a BOOLEAN habit's
+  // check-in for whatever past day the user tapped, not just today.
+  const handleToggleCalendarDay = useCallback(
+    async (habit, dayKey) => {
+      try {
+        await toggleCheckIn(habit.id, dayKey);
+      } catch (err) {
+        Alert.alert('Could not update check-in', err instanceof Error ? err.message : 'Unknown error');
+      }
+    },
+    [toggleCheckIn]
+  );
+
   const handleAddHabit = useCallback(
     async (habit) => {
       try {
@@ -489,6 +502,8 @@ export default function HabitsScreen() {
           visible={showCalendar}
           habits={habits}
           onClose={() => setShowCalendar(false)}
+          onToggleHabitDay={handleToggleCalendarDay}
+          busy={busy}
         />
 
         {showForm ? (

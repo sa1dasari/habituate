@@ -125,9 +125,11 @@ async function request(path, options = {}) {
 
   if (!response.ok) {
     const detail = await response.text().catch(() => '');
-    throw new Error(
+    const error = new Error(
       `${options.method || 'GET'} ${path} failed (${response.status})${detail ? `: ${detail}` : ''}`
     );
+    error.status = response.status;
+    throw error;
   }
 
   if (response.status === 204) return null;

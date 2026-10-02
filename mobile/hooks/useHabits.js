@@ -6,6 +6,19 @@ import { toDateKey } from '../utils/date';
 export { toDateKey };
 
 /**
+ * Local noon for a backdated check-in. The actual hour doesn't matter for
+ * correctness — the backend now buckets a check-in's day in the client's own
+ * zone (the X-Timezone header the api client already sends on every
+ * request), matching whatever local day this instant falls on. Noon just
+ * keeps the stored timestamp looking sensible rather than landing on a
+ * calendar-day edge.
+ */
+function instantForDayKey(dayKey) {
+  const [y, m, d] = dayKey.split('-').map(Number);
+  return new Date(y, m - 1, d, 12, 0, 0, 0).toISOString();
+}
+
+/**
  * Kept for local fallback only — the authoritative values come from the API
  * (currentStreak / longestStreak on each HabitResponse).
  */
@@ -130,29 +143,58 @@ export function HabitsProvider({ children }) {
     [run]
   );
 
-  // BOOLEAN habits only: today is either logged or not, so a second tap undoes it.
+  // BOOLEAN habits only: a given day is either logged or not, so toggling an
+  // already-logged day undoes it. Defaults to today; pass a 'YYYY-MM-DD' key
+  // (e.g. from the calendar's day-detail panel) to toggle a past day instead.
   const toggleCheckIn = useCallback(
-    (habitId) =>
+    (habitId, dayKey = toDateKey(new Date())) =>
       run(async () => {
         const habit = habits.find((item) => item.id === habitId);
         if (!habit) return;
 
-        const today = toDateKey(new Date());
-        const todays = habit.checkIns.find((checkIn) => toDateKey(checkIn.occurredAt) === today);
+        const existing = habit.checkIns.find((checkIn) => toDateKey(checkIn.occurredAt) === dayKey);
 
-        if (todays) {
-          await api.deleteCheckIn(todays.id);
-        } else {
-          await api.createCheckIn(habitId);
+        try {
+          if (existing) {
+            await api.deleteCheckIn(existing.id);
+          } else if (dayKey === toDateKey(new Date())) {
+            await api.createCheckIn(habitId);
+          } else {
+            await api.createCheckIn(habitId, {
+              value: 1,
+              source: 'manual',
+              occurredAt: instantForDayKey(dayKey),
+            });
+          }
+        } catch (err) {
+          // Our local snapshot of this habit's check-ins can be a beat behind
+          // the server (a fast double-tap landing before `busy` disables the
+          // button, or two screens racing on the same habit). A 409 on
+          // create ("already checked in") or a 404 on delete ("already
+          // removed") both mean the desired end state already holds — not a
+          // real failure. refresh() right after this picks up the true
+          // state regardless, so just don't surface a scary error for it.
+          const alreadyInDesiredState =
+            (!existing && err?.status === 409) || (existing && err?.status === 404);
+          if (!alreadyInDesiredState) throw err;
         }
       }),
     [habits, run]
   );
 
-  // COUNT habits: every tap (or a batch amount) adds a new check-in — today can
+  // COUNT habits: every tap (or a batch amount) adds a new check-in — a day can
   // hold any number of them, e.g. two gym visits or five job applications.
+  // Defaults to today; pass a 'YYYY-MM-DD' key to log against a past day.
   const addCheckIn = useCallback(
-    (habitId, value = 1) => run(() => api.createCheckIn(habitId, { value, source: 'manual' })),
+    (habitId, value = 1, dayKey = toDateKey(new Date())) =>
+      run(() => {
+        const isToday = dayKey === toDateKey(new Date());
+        return api.createCheckIn(habitId, {
+          value,
+          source: 'manual',
+          ...(isToday ? {} : { occurredAt: instantForDayKey(dayKey) }),
+        });
+      }),
     [run]
   );
 
@@ -169,7 +211,13 @@ export function HabitsProvider({ children }) {
           .sort((a, b) => new Date(b.occurredAt) - new Date(a.occurredAt));
 
         if (todays[0]) {
-          await api.deleteCheckIn(todays[0].id);
+          try {
+            await api.deleteCheckIn(todays[0].id);
+          } catch (err) {
+            // Already gone (e.g. a race with another remove) — same
+            // desired-state-already-holds case as toggleCheckIn above.
+            if (err?.status !== 404) throw err;
+          }
         }
       }),
     [habits, run]

@@ -69,12 +69,20 @@ Reads from the existing insights store and check-in history. No new pipeline —
 - `insights` — id, user_id, type (correlation / streak_risk / trend), payload (jsonb), generated_at, dismissed_at
   - payload for a `correlation` insight includes the nudge text, kept separate from the raw stat so copy can be revised without recomputing
   - also carries `habit_a_id`/`habit_b_id` as real columns (not just inside payload) — needed to look up "is there already an insight for this exact pair" without querying inside jsonb, so a nightly recompute updates the existing row (or respects its dismissal) instead of creating a duplicate
-- `friendships` — user_id, friend_id, status (pending/accepted), created_at
-- `groups` — id, habit_id (nullable), name, created_by, streak_rule (all_members / any_member)
-- `group_members` — group_id, user_id, joined_at
-- `group_streaks` — group_id, current_streak, longest_streak, last_qualifying_date, status (active / at_risk / frozen)
-  - `status` drives the visual state on the Shared Habits card — `at_risk` when the streak's qualifying window is still open today but not yet satisfied, `frozen` when a grace token has been applied
-- `streak_freezes` — id, user_id or group_id, used_on_date, source (personal_grace / group_grace)
+- `friendships` — id, requester_id, recipient_id, status (PENDING/ACCEPTED/DECLINED), created_at, updated_at
+  - directional (requester → recipient), not mirrored into a reciprocal row on accept — "my friends" queries check both sides with status = ACCEPTED, same spirit as correlations being stored directionally rather than duplicated. No local `users` table exists (userId is a raw Firebase UID everywhere) — invites resolve email → UID via the Firebase Admin SDK directly (`UserLookupService`/`FirebaseUserLookupService` in the `groups` package), not a local lookup.
+- `groups` — id, name, created_by, streak_rule (ALL_MEMBERS / ANY_MEMBER), created_at
+  - no `habit_id` on this table (deviates from the original plan) — see `group_members` below for why
+- `group_members` — id, group_id, user_id, habit_id (nullable), status (PENDING/ACTIVE), joined_at
+  - `habit_id` is an addition beyond the original plan: a Shared Habit is NOT one literal habit row multiple people write to — `habits.user_id` is a single owner everywhere else in this codebase, and loosening that would mean rewriting ownership checks throughout. Instead, each member keeps their own personal habit (their own row, their own private streak/history, tracked exactly as a solo habit), and this column just links *that member's own* habit to the group. A normal check-in through the existing `createCheckIn` endpoint gets tagged with `check_ins.group_id` automatically when its habit is group-linked (one lookup in `HabitService`) — no separate "group check-in" path.
+- `group_streaks` — group_id (also the primary key — one row per group, upserted in place), current_streak, longest_streak, last_qualifying_date, status (active / at_risk / frozen), updated_at
+  - `status` drives the visual state on the Shared Habits card — `at_risk` when the streak's qualifying window is still open today but not yet satisfied, `frozen` when a grace token has been applied. Recomputed by `groups.GroupStreakConsumer`, a `@KafkaListener` on the same `checkin-events` topic (its own consumer `groupId`, `habituate-api-group-streak-consumer` — distinct from the existing logger's, or the two would compete for partitions instead of each independently seeing every event) filtered to events whose check-in is group-linked — per the groups/social architecture note, this is "just a filtered consumer of the same events," not a separate pipeline. Bucketed in UTC, same caveat as the insights engine.
+- `streak_freezes` — id, user_id (nullable), group_id (nullable), used_on_date, source (personal_grace / group_grace)
+  - v1 only implements the group_grace path: `groups.StreakFreezeScheduler` runs daily just after UTC midnight, auto-applying a freeze (no user action needed) to any group whose streak broke yesterday, if one hasn't been used in the last 30 days — otherwise the streak resets. Personal habit streak freezes are a deliberate, documented deferral (see SKILLS.md Phase 7) — personal streak-pressure mechanics don't exist yet to need freezing.
+- `challenges` — id, name, description, created_by, target_count, period_start, period_end, created_at
+  - time-boxed and multi-person, deliberately separate from Shared Habits in both data model and UI (per the groups/social architecture note) — a progress bar against `target_count`, not a running streak, and it carries no `habit_id` at all.
+- `challenge_participants` — id, challenge_id, user_id, progress_count (default 0), joined_at
+  - each participant tracks their own `progress_count` independently (mirrors `goals`' per-user progress, not a single shared group counter); `ChallengeService.adjustProgress` requires having joined first (`ForbiddenException` otherwise). `ChallengeResponse` shows the *viewing* user's own progress alongside the full roster — CLAUDE.md's "a progress bar" didn't specify whose, so this is a documented product decision, not a literal spec reading.
 
 ## UI conventions
 

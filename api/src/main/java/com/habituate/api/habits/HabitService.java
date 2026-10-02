@@ -6,6 +6,8 @@ import com.habituate.api.checkins.CheckInRequest;
 import com.habituate.api.common.DuplicateCheckInException;
 import com.habituate.api.common.ForbiddenException;
 import com.habituate.api.events.CheckInEventPublisher;
+import com.habituate.api.groups.GroupMember;
+import com.habituate.api.groups.GroupMemberRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,14 +27,17 @@ public class HabitService {
     private final HabitRepository habitRepository;
     private final CheckInRepository checkInRepository;
     private final CheckInEventPublisher checkInEventPublisher;
+    private final GroupMemberRepository groupMemberRepository;
 
     public HabitService(
             HabitRepository habitRepository,
             CheckInRepository checkInRepository,
-            CheckInEventPublisher checkInEventPublisher) {
+            CheckInEventPublisher checkInEventPublisher,
+            GroupMemberRepository groupMemberRepository) {
         this.habitRepository = habitRepository;
         this.checkInRepository = checkInRepository;
         this.checkInEventPublisher = checkInEventPublisher;
+        this.groupMemberRepository = groupMemberRepository;
     }
 
     public List<HabitResponse> listHabits(String userId, String timezone) {
@@ -253,6 +258,13 @@ public class HabitService {
                 request.value() != null ? request.value() : 1,
                 request.source() != null ? request.source() : "manual"
         );
+
+        // If this habit is linked to a group (see groups.GroupMember), tag the
+        // check-in so GroupStreakConsumer's checkin-events listener can filter
+        // to it — per CLAUDE.md, a group is just a filtered consumer of the
+        // same stream, not a separate check-in path.
+        groupMemberRepository.findByHabitIdAndStatus(habitId, GroupMember.ACTIVE)
+                .ifPresent(member -> checkIn.setGroupId(member.getGroupId()));
 
         CheckIn saved = checkInRepository.save(checkIn);
         checkInEventPublisher.publishCreated(saved);

@@ -47,6 +47,7 @@ public class CheckInEventPublisher {
                 checkIn.getOccurredAt(),
                 checkIn.getValue(),
                 checkIn.getSource(),
+                checkIn.getGroupId(),
                 Instant.now()
         );
 

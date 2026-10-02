@@ -33,6 +33,10 @@ public class CheckIn {
     @Column(nullable = false)
     private String source = "manual";
 
+    /** Set when this check-in's habit is linked to a group — see groups.GroupMember. */
+    @Column
+    private Long groupId;
+
     public CheckIn() {
     }
 
@@ -93,5 +97,13 @@ public class CheckIn {
 
     public void setSource(String source) {
         this.source = source;
+    }
+
+    public Long getGroupId() {
+        return groupId;
+    }
+
+    public void setGroupId(Long groupId) {
+        this.groupId = groupId;
     }
 }

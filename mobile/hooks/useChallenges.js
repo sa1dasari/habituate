@@ -1,4 +1,4 @@
-import { createContext, createElement, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, createElement, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import api from '../api/client';
 
 const ChallengesContext = createContext(null);
@@ -49,14 +49,36 @@ export function ChallengesProvider({ children }) {
 
   const joinChallenge = useCallback((challengeId) => run(() => api.joinChallenge(challengeId)), [run]);
 
-  const adjustProgress = useCallback(
-    (challengeId, delta) => run(() => api.adjustChallengeProgress(challengeId, delta)),
+  // Mirrors useHabits' runExclusive — a fast double-tap on the same
+  // challenge's log/unlog toggle would otherwise race against stale state.
+  const pendingChallengeIds = useRef(new Set());
+
+  const runExclusive = useCallback(
+    (challengeId, action) => {
+      if (pendingChallengeIds.current.has(challengeId)) {
+        return Promise.resolve(false);
+      }
+      pendingChallengeIds.current.add(challengeId);
+      return run(action).finally(() => {
+        pendingChallengeIds.current.delete(challengeId);
+      });
+    },
     [run]
   );
 
+  // Boolean-only, one log per day — toggleCheckIn picks log vs. unlog based
+  // on the challenge's own checkedInToday, same shape as a habit's toggle.
+  const toggleCheckIn = useCallback(
+    (challenge) =>
+      runExclusive(challenge.id, () =>
+        challenge.checkedInToday ? api.unlogChallengeCheckIn(challenge.id) : api.logChallengeCheckIn(challenge.id)
+      ),
+    [runExclusive]
+  );
+
   const value = useMemo(
-    () => ({ challenges, browseList, loading, busy, error, refresh, createChallenge, joinChallenge, adjustProgress }),
-    [challenges, browseList, loading, busy, error, refresh, createChallenge, joinChallenge, adjustProgress]
+    () => ({ challenges, browseList, loading, busy, error, refresh, createChallenge, joinChallenge, toggleCheckIn }),
+    [challenges, browseList, loading, busy, error, refresh, createChallenge, joinChallenge, toggleCheckIn]
   );
 
   return createElement(ChallengesContext.Provider, { value }, children);

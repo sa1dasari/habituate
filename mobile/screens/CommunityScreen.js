@@ -19,7 +19,7 @@ export default function CommunityScreen() {
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
 
   const { groups, loading: groupsLoading, refresh: refreshGroups } = useGroups();
-  const { challenges, loading: challengesLoading, busy: challengesBusy, refresh: refreshChallenges, adjustProgress } =
+  const { challenges, loading: challengesLoading, busy: challengesBusy, refresh: refreshChallenges, toggleCheckIn } =
     useChallenges();
 
   const [groupsModalVisible, setGroupsModalVisible] = useState(false);
@@ -27,9 +27,9 @@ export default function CommunityScreen() {
 
   const loading = groupsLoading || challengesLoading;
 
-  const handleLogProgress = async (challengeId) => {
-    const ok = await adjustProgress(challengeId, 1);
-    if (!ok) Alert.alert("Couldn't log progress", 'Something went wrong — try again.');
+  const handleToggleCheckIn = async (challenge) => {
+    const ok = await toggleCheckIn(challenge);
+    if (!ok) Alert.alert("Couldn't update today's log", 'Something went wrong — try again.');
   };
 
   const refresh = async () => {
@@ -131,8 +131,9 @@ export default function CommunityScreen() {
               participants={challenge.participants}
               participantCount={challenge.participantCount}
               joined={challenge.joined}
+              checkedInToday={challenge.checkedInToday}
               busy={challengesBusy}
-              onLogProgress={() => handleLogProgress(challenge.id)}
+              onToggleCheckIn={() => handleToggleCheckIn(challenge)}
             />
           ))
         )}

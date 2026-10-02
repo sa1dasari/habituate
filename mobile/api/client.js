@@ -229,8 +229,10 @@ export const api = {
 
   joinChallenge: (challengeId) => request(`/api/challenges/${challengeId}/join`, { method: 'POST' }),
 
-  adjustChallengeProgress: (challengeId, delta) =>
-    request(`/api/challenges/${challengeId}/progress`, { method: 'POST', body: JSON.stringify({ delta }) }),
+  logChallengeCheckIn: (challengeId) => request(`/api/challenges/${challengeId}/check-ins`, { method: 'POST' }),
+
+  unlogChallengeCheckIn: (challengeId) =>
+    request(`/api/challenges/${challengeId}/check-ins/today`, { method: 'DELETE' }),
 };
 
 export default api;

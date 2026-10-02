@@ -8,13 +8,14 @@ import { useChallenges } from '../hooks/useChallenges';
 import { toDateKey } from '../utils/date';
 import { radii, shadow, spacing } from '../theme';
 
-const LENGTH_OPTIONS = [
-  { label: '1 week', days: 7 },
-  { label: '2 weeks', days: 14 },
-  { label: '1 month', days: 30 },
+const MAX_LENGTH_DAYS = 365;
+
+const VISIBILITY_OPTIONS = [
+  { value: 'PRIVATE', label: 'Private', icon: 'lock-outline' },
+  { value: 'PUBLIC', label: 'Public', icon: 'earth' },
 ];
 
-/** Full-page modal for the Challenges "Browse": join open challenges, or create a new one. */
+/** Full-page modal for the Challenges "Browse": join public challenges, or create a new one. */
 export default function ChallengesManageModal({ visible, onClose }) {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
@@ -22,11 +23,13 @@ export default function ChallengesManageModal({ visible, onClose }) {
 
   const [name, setName] = useState('');
   const [targetCount, setTargetCount] = useState('5');
-  const [lengthDays, setLengthDays] = useState(7);
+  const [lengthDays, setLengthDays] = useState('7');
+  const [visibility, setVisibility] = useState('PRIVATE');
 
   const handleCreate = async () => {
     const trimmedName = name.trim();
     const target = parseInt(targetCount, 10);
+    const length = parseInt(lengthDays, 10);
     if (!trimmedName) {
       Alert.alert('Name it', 'Give the challenge a name.');
       return;
@@ -35,13 +38,19 @@ export default function ChallengesManageModal({ visible, onClose }) {
       Alert.alert('Set a target', 'Target days must be at least 1.');
       return;
     }
+    if (!Number.isFinite(length) || length < 1 || length > MAX_LENGTH_DAYS) {
+      Alert.alert('Set a length', `Length must be between 1 and ${MAX_LENGTH_DAYS} days.`);
+      return;
+    }
     const periodStart = toDateKey(new Date());
-    const periodEnd = toDateKey(new Date(Date.now() + lengthDays * 24 * 60 * 60 * 1000));
+    const periodEnd = toDateKey(new Date(Date.now() + length * 24 * 60 * 60 * 1000));
 
-    const ok = await createChallenge({ name: trimmedName, targetCount: target, periodStart, periodEnd });
+    const ok = await createChallenge({ name: trimmedName, targetCount: target, periodStart, periodEnd, visibility });
     if (ok) {
       setName('');
       setTargetCount('5');
+      setLengthDays('7');
+      setVisibility('PRIVATE');
     } else {
       Alert.alert("Couldn't create challenge", 'Something went wrong — try again.');
     }
@@ -85,15 +94,30 @@ export default function ChallengesManageModal({ visible, onClose }) {
               />
             </View>
 
+            <View style={styles.row}>
+              <Text style={styles.inputLabel}>Length (days, max {MAX_LENGTH_DAYS})</Text>
+              <TextInput
+                style={[styles.input, styles.numberInput]}
+                keyboardType="number-pad"
+                value={lengthDays}
+                onChangeText={setLengthDays}
+              />
+            </View>
+
             <View style={styles.lengthRow}>
-              {LENGTH_OPTIONS.map((option) => (
+              {VISIBILITY_OPTIONS.map((option) => (
                 <Pressable
-                  key={option.days}
-                  style={[styles.lengthOption, lengthDays === option.days && styles.lengthOptionActive]}
-                  onPress={() => setLengthDays(option.days)}
+                  key={option.value}
+                  style={[styles.lengthOption, visibility === option.value && styles.lengthOptionActive]}
+                  onPress={() => setVisibility(option.value)}
                 >
+                  <MaterialCommunityIcons
+                    name={option.icon}
+                    size={14}
+                    color={visibility === option.value ? colors.accent : colors.textSecondary}
+                  />
                   <Text
-                    style={[styles.lengthOptionText, lengthDays === option.days && styles.lengthOptionTextActive]}
+                    style={[styles.lengthOptionText, visibility === option.value && styles.lengthOptionTextActive]}
                   >
                     {option.label}
                   </Text>
@@ -107,10 +131,10 @@ export default function ChallengesManageModal({ visible, onClose }) {
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Open challenges</Text>
+            <Text style={styles.sectionTitle}>Public challenges</Text>
 
             {browseList.length === 0 ? (
-              <Text style={styles.emptyNote}>No open challenges right now — create one above.</Text>
+              <Text style={styles.emptyNote}>No public challenges right now — create one above.</Text>
             ) : (
               browseList.map((challenge) => (
                 <View key={challenge.id} style={styles.card}>
@@ -181,7 +205,10 @@ function makeStyles(colors, typography) {
     lengthRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg },
     lengthOption: {
       flex: 1,
+      flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.xs,
       paddingVertical: spacing.sm,
       borderRadius: radii.pill,
       backgroundColor: colors.background,

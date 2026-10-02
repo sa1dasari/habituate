@@ -19,8 +19,9 @@ export default function ChallengeCard({
   participants = [],
   participantCount,
   joined = false,
+  checkedInToday = false,
   onJoin,
-  onLogProgress,
+  onToggleCheckIn,
   busy = false,
 }) {
   const { colors, typography } = useAppTheme();
@@ -69,14 +70,20 @@ export default function ChallengeCard({
 
         {joined ? (
           <Pressable
-            style={styles.logButton}
+            style={[styles.logButton, checkedInToday && styles.logButtonActive]}
             disabled={busy}
             accessibilityRole="button"
-            accessibilityLabel={`Log a day for ${name}`}
-            onPress={onLogProgress}
+            accessibilityLabel={checkedInToday ? `Unlog today for ${name}` : `Log today for ${name}`}
+            onPress={onToggleCheckIn}
           >
-            <MaterialCommunityIcons name="plus" size={16} color={colors.accent} />
-            <Text style={styles.logButtonText}>Log day</Text>
+            <MaterialCommunityIcons
+              name={checkedInToday ? 'check' : 'plus'}
+              size={16}
+              color={checkedInToday ? '#FFFFFF' : colors.accent}
+            />
+            <Text style={[styles.logButtonText, checkedInToday && styles.logButtonTextActive]}>
+              {checkedInToday ? 'Logged today' : 'Log today'}
+            </Text>
           </Pressable>
         ) : (
           <Pressable
@@ -175,6 +182,12 @@ function makeStyles(colors, typography) {
       fontSize: 12,
       fontWeight: '700',
       color: colors.accent,
+    },
+    logButtonActive: {
+      backgroundColor: colors.accent,
+    },
+    logButtonTextActive: {
+      color: '#FFFFFF',
     },
     joinButton: {
       backgroundColor: colors.accent,

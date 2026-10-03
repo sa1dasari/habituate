@@ -8,26 +8,20 @@ import { useGroups } from '../hooks/useGroups';
 import { useHabits } from '../hooks/useHabits';
 import { radii, shadow, spacing } from '../theme';
 
-const RULE_OPTIONS = [
-  { value: 'ANY_MEMBER', label: 'Any member' },
-  { value: 'ALL_MEMBERS', label: 'All members' },
-];
-
-/** Full-page modal for the Shared Habits "See all": friends, requests, invites, and creating a group. */
+/**
+ * Pure management view for the Shared Habits "See all": pending invites,
+ * your existing groups (invite more friends into them), friend requests,
+ * and the friends list — creating a new shared habit lives in CreateGroupModal.
+ */
 export default function GroupsManageModal({ visible, onClose }) {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
 
   const { friends, pendingRequests, busy: friendsBusy, sendRequest, acceptRequest, declineRequest } = useFriends();
-  const { groups, pendingInvites, busy: groupsBusy, createGroup, inviteToGroup, acceptInvite } = useGroups();
-  const { habits } = useHabits();
+  const { groups, pendingInvites, busy: groupsBusy, inviteToGroup, acceptInvite } = useGroups();
 
   const [email, setEmail] = useState('');
-  const [groupName, setGroupName] = useState('');
-  const [selectedHabitId, setSelectedHabitId] = useState(null);
-  const [rule, setRule] = useState('ANY_MEMBER');
   const [acceptingInviteId, setAcceptingInviteId] = useState(null);
-  const [inviteHabitId, setInviteHabitId] = useState(null);
   const [invitingGroupId, setInvitingGroupId] = useState(null);
 
   const busy = friendsBusy || groupsBusy;
@@ -40,31 +34,10 @@ export default function GroupsManageModal({ visible, onClose }) {
     else Alert.alert("Couldn't send request", 'Check the email and try again.');
   };
 
-  const handleCreateGroup = async () => {
-    if (!selectedHabitId) {
-      Alert.alert('Pick a habit', 'Choose which of your habits this shared habit tracks.');
-      return;
-    }
-    const habit = habits.find((h) => h.id === selectedHabitId);
-    const name = groupName.trim() || (habit ? habit.name : 'Shared Habit');
-    const ok = await createGroup({ name, habitId: selectedHabitId, streakRule: rule });
-    if (ok) {
-      setGroupName('');
-      setSelectedHabitId(null);
-    } else {
-      Alert.alert("Couldn't create shared habit", 'Something went wrong — try again.');
-    }
-  };
-
-  const handleAcceptInvite = async (groupId) => {
-    if (!inviteHabitId) {
-      Alert.alert('Pick a habit', 'Choose which of your own habits to link to this group.');
-      return;
-    }
-    const ok = await acceptInvite(groupId, inviteHabitId);
+  const handleAcceptInvite = async (groupId, habitId) => {
+    const ok = await acceptInvite(groupId, habitId);
     if (ok) {
       setAcceptingInviteId(null);
-      setInviteHabitId(null);
     } else {
       Alert.alert("Couldn't join", 'Something went wrong — try again.');
     }
@@ -95,126 +68,31 @@ export default function GroupsManageModal({ visible, onClose }) {
           {pendingInvites.length > 0 ? (
             <Section title="Invites waiting for you" styles={styles}>
               {pendingInvites.map((invite) => (
-                <View key={invite.groupId} style={styles.inviteCard}>
-                  <Text style={styles.inviteName}>{invite.groupName}</Text>
-                  <Text style={styles.inviteMeta}>
-                    From {invite.invitedBy} · {invite.streakRule === 'ALL_MEMBERS' ? 'All members' : 'Any member'}
-                  </Text>
-
-                  {acceptingInviteId === invite.groupId ? (
-                    <View style={styles.habitPicker}>
-                      <Text style={styles.habitPickerLabel}>Link which of your habits?</Text>
-                      {habits.length === 0 ? (
-                        <Text style={styles.emptyNote}>Create a habit first on the Habits tab.</Text>
-                      ) : (
-                        habits.map((habit) => (
-                          <Pressable
-                            key={habit.id}
-                            style={styles.habitRow}
-                            onPress={() => setInviteHabitId(habit.id)}
-                          >
-                            <MaterialCommunityIcons
-                              name={inviteHabitId === habit.id ? 'radiobox-marked' : 'radiobox-blank'}
-                              size={18}
-                              color={inviteHabitId === habit.id ? colors.accent : colors.textMuted}
-                            />
-                            <Text style={styles.habitRowText}>{habit.name}</Text>
-                          </Pressable>
-                        ))
-                      )}
-                      <View style={styles.inlineButtonRow}>
-                        <Pressable
-                          style={styles.secondaryButton}
-                          onPress={() => {
-                            setAcceptingInviteId(null);
-                            setInviteHabitId(null);
-                          }}
-                        >
-                          <Text style={styles.secondaryButtonText}>Cancel</Text>
-                        </Pressable>
-                        <Pressable
-                          style={styles.primaryButton}
-                          disabled={busy}
-                          onPress={() => handleAcceptInvite(invite.groupId)}
-                        >
-                          <Text style={styles.primaryButtonText}>Join</Text>
-                        </Pressable>
-                      </View>
-                    </View>
-                  ) : (
-                    <Pressable
-                      style={styles.primaryButton}
-                      onPress={() => {
-                        setAcceptingInviteId(invite.groupId);
-                        setInviteHabitId(null);
-                      }}
-                    >
-                      <Text style={styles.primaryButtonText}>Accept</Text>
-                    </Pressable>
-                  )}
-                </View>
+                <GroupInviteRow
+                  key={invite.groupId}
+                  invite={invite}
+                  accepting={acceptingInviteId === invite.groupId}
+                  busy={busy}
+                  styles={styles}
+                  colors={colors}
+                  onStartAccept={() => setAcceptingInviteId(invite.groupId)}
+                  onCancelAccept={() => setAcceptingInviteId(null)}
+                  onConfirmAccept={(habitId) => handleAcceptInvite(invite.groupId, habitId)}
+                />
               ))}
             </Section>
           ) : null}
 
-          {/* Create a shared habit */}
-          <Section title="Create a shared habit" styles={styles}>
-            <Text style={styles.helperText}>
-              Pick one of your own habits — friends you invite will link their own habit to the same group.
-            </Text>
-
-            {habits.length === 0 ? (
-              <Text style={styles.emptyNote}>Create a habit first on the Habits tab.</Text>
-            ) : (
-              habits.map((habit) => (
-                <Pressable key={habit.id} style={styles.habitRow} onPress={() => setSelectedHabitId(habit.id)}>
-                  <MaterialCommunityIcons
-                    name={selectedHabitId === habit.id ? 'radiobox-marked' : 'radiobox-blank'}
-                    size={18}
-                    color={selectedHabitId === habit.id ? colors.accent : colors.textMuted}
-                  />
-                  <Text style={styles.habitRowText}>{habit.name}</Text>
-                </Pressable>
-              ))
-            )}
-
-            <TextInput
-              style={styles.input}
-              placeholder="Name (optional)"
-              placeholderTextColor={colors.textMuted}
-              value={groupName}
-              onChangeText={setGroupName}
-            />
-
-            <View style={styles.ruleRow}>
-              {RULE_OPTIONS.map((option) => (
-                <Pressable
-                  key={option.value}
-                  style={[styles.ruleOption, rule === option.value && styles.ruleOptionActive]}
-                  onPress={() => setRule(option.value)}
-                >
-                  <Text style={[styles.ruleOptionText, rule === option.value && styles.ruleOptionTextActive]}>
-                    {option.label}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-
-            <Pressable
-              style={[styles.primaryButton, styles.fullWidthButton]}
-              disabled={busy || !selectedHabitId}
-              onPress={handleCreateGroup}
-            >
-              <Text style={styles.primaryButtonText}>Create</Text>
-            </Pressable>
-          </Section>
-
           {/* Your shared habits — invite friends into them */}
           {groups.length > 0 ? (
-            <Section title="Invite friends to your shared habits" styles={styles}>
+            <Section title="Your shared habits" styles={styles}>
               {groups.map((group) => (
                 <View key={group.id} style={styles.inviteCard}>
                   <Text style={styles.inviteName}>{group.name}</Text>
+                  <Text style={styles.inviteMeta}>
+                    {group.participantCount} {group.participantCount === 1 ? 'member' : 'members'} · {group.streak}d
+                    streak
+                  </Text>
 
                   {invitingGroupId === group.id ? (
                     friends.length === 0 ? (
@@ -239,7 +117,9 @@ export default function GroupsManageModal({ visible, onClose }) {
                 </View>
               ))}
             </Section>
-          ) : null}
+          ) : (
+            <Text style={styles.emptyNote}>No shared habits yet — tap Create to start one.</Text>
+          )}
 
           {/* Friend requests */}
           {pendingRequests.length > 0 ? (
@@ -297,6 +177,56 @@ export default function GroupsManageModal({ visible, onClose }) {
   );
 }
 
+function GroupInviteRow({ invite, accepting, busy, styles, colors, onStartAccept, onCancelAccept, onConfirmAccept }) {
+  const { habits } = useHabits();
+  const [habitId, setHabitId] = useState(null);
+
+  return (
+    <View style={styles.inviteCard}>
+      <Text style={styles.inviteName}>{invite.groupName}</Text>
+      <Text style={styles.inviteMeta}>
+        From {invite.invitedBy} · {invite.streakRule === 'ALL_MEMBERS' ? 'All members' : 'Any member'}
+      </Text>
+
+      {accepting ? (
+        <View style={styles.habitPicker}>
+          <Text style={styles.habitPickerLabel}>Link which of your habits?</Text>
+          {habits.length === 0 ? (
+            <Text style={styles.emptyNote}>Create a habit first on the Habits tab.</Text>
+          ) : (
+            habits.map((habit) => (
+              <Pressable key={habit.id} style={styles.habitRow} onPress={() => setHabitId(habit.id)}>
+                <MaterialCommunityIcons
+                  name={habitId === habit.id ? 'radiobox-marked' : 'radiobox-blank'}
+                  size={18}
+                  color={habitId === habit.id ? colors.accent : colors.textMuted}
+                />
+                <Text style={styles.habitRowText}>{habit.name}</Text>
+              </Pressable>
+            ))
+          )}
+          <View style={styles.inlineButtonRow}>
+            <Pressable style={styles.secondaryButton} onPress={onCancelAccept}>
+              <Text style={styles.secondaryButtonText}>Cancel</Text>
+            </Pressable>
+            <Pressable
+              style={styles.primaryButton}
+              disabled={busy || !habitId}
+              onPress={() => onConfirmAccept(habitId)}
+            >
+              <Text style={styles.primaryButtonText}>Join</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : (
+        <Pressable style={styles.primaryButton} onPress={onStartAccept}>
+          <Text style={styles.primaryButtonText}>Accept</Text>
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
 function Section({ title, children, styles }) {
   return (
     <View style={styles.section}>
@@ -324,7 +254,6 @@ function makeStyles(colors, typography) {
     scroll: { padding: spacing.lg, paddingBottom: spacing.xxl },
     section: { marginBottom: spacing.xl },
     sectionTitle: { ...typography.sectionTitle, marginBottom: spacing.md },
-    helperText: { ...typography.meta, marginBottom: spacing.md },
     emptyNote: { ...typography.meta, marginBottom: spacing.sm },
     inviteCard: {
       backgroundColor: colors.surface,
@@ -353,18 +282,6 @@ function makeStyles(colors, typography) {
       color: colors.textPrimary,
       marginTop: spacing.sm,
     },
-    ruleRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
-    ruleOption: {
-      flex: 1,
-      alignItems: 'center',
-      paddingVertical: spacing.sm,
-      borderRadius: radii.pill,
-      backgroundColor: colors.background,
-    },
-    ruleOptionActive: { backgroundColor: colors.accentSoft },
-    ruleOptionText: { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
-    ruleOptionTextActive: { color: colors.accent },
-    fullWidthButton: { marginTop: spacing.lg, alignSelf: 'stretch', alignItems: 'center' },
     inlineButtonRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
     primaryButton: {
       backgroundColor: colors.accent,

@@ -7,6 +7,10 @@ import SharedHabitCard from '../components/SharedHabitCard';
 import ChallengeCard from '../components/ChallengeCard';
 import GroupsManageModal from '../components/GroupsManageModal';
 import ChallengesManageModal from '../components/ChallengesManageModal';
+import CreateGroupModal from '../components/CreateGroupModal';
+import CreateChallengeModal from '../components/CreateChallengeModal';
+import SharedHabitDetailModal from '../components/SharedHabitDetailModal';
+import ChallengeDetailModal from '../components/ChallengeDetailModal';
 import { DISPLAY_NAME, initials } from '../constants/profile';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useGroups } from '../hooks/useGroups';
@@ -24,8 +28,16 @@ export default function CommunityScreen() {
 
   const [groupsModalVisible, setGroupsModalVisible] = useState(false);
   const [challengesModalVisible, setChallengesModalVisible] = useState(false);
+  const [createGroupVisible, setCreateGroupVisible] = useState(false);
+  const [createChallengeVisible, setCreateChallengeVisible] = useState(false);
+  const [selectedGroupId, setSelectedGroupId] = useState(null);
+  const [selectedChallengeId, setSelectedChallengeId] = useState(null);
 
   const loading = groupsLoading || challengesLoading;
+  // Looked up by id each render (not the tapped object itself) so the detail
+  // modal reflects the latest streak/progress after an action inside it.
+  const selectedGroup = groups.find((g) => g.id === selectedGroupId) || null;
+  const selectedChallenge = challenges.find((c) => c.id === selectedChallengeId) || null;
 
   const handleToggleCheckIn = async (challenge) => {
     const ok = await toggleCheckIn(challenge);
@@ -65,7 +77,7 @@ export default function CommunityScreen() {
               style={styles.createBtn}
               accessibilityRole="button"
               accessibilityLabel="Create a shared habit"
-              onPress={() => setGroupsModalVisible(true)}
+              onPress={() => setCreateGroupVisible(true)}
             >
               <MaterialCommunityIcons name="plus" size={16} color={colors.accent} />
               <Text style={styles.createBtnText}>Create</Text>
@@ -91,7 +103,7 @@ export default function CommunityScreen() {
             icon="account-group-outline"
             title="No shared habits yet"
             body="Create one with a friend to start a group streak."
-            onPress={() => setGroupsModalVisible(true)}
+            onPress={() => setCreateGroupVisible(true)}
           />
         ) : (
           groups.map((group) => (
@@ -103,12 +115,12 @@ export default function CommunityScreen() {
               streak={group.streak}
               streakStatus={group.streakStatus}
               rule={group.rule}
-              onPress={() => setGroupsModalVisible(true)}
+              onPress={() => setSelectedGroupId(group.id)}
             />
           ))
         )}
 
-        <Pressable style={styles.ctaCard} onPress={() => setGroupsModalVisible(true)}>
+        <Pressable style={styles.ctaCard} onPress={() => setCreateGroupVisible(true)}>
           <View style={styles.ctaIcon}>
             <MaterialCommunityIcons name="account-group-outline" size={20} color={colors.accent} />
           </View>
@@ -126,7 +138,7 @@ export default function CommunityScreen() {
               style={styles.createBtn}
               accessibilityRole="button"
               accessibilityLabel="Create a challenge"
-              onPress={() => setChallengesModalVisible(true)}
+              onPress={() => setCreateChallengeVisible(true)}
             >
               <MaterialCommunityIcons name="plus" size={16} color={colors.accent} />
               <Text style={styles.createBtnText}>Create</Text>
@@ -168,12 +180,12 @@ export default function CommunityScreen() {
               checkedInToday={challenge.checkedInToday}
               busy={challengesBusy}
               onToggleCheckIn={() => handleToggleCheckIn(challenge)}
-              onPress={() => setChallengesModalVisible(true)}
+              onPress={() => setSelectedChallengeId(challenge.id)}
             />
           ))
         )}
 
-        <Pressable style={styles.ctaCard} onPress={() => setChallengesModalVisible(true)}>
+        <Pressable style={styles.ctaCard} onPress={() => setCreateChallengeVisible(true)}>
           <View style={styles.ctaIcon}>
             <MaterialCommunityIcons name="trophy-outline" size={20} color={colors.accent} />
           </View>
@@ -187,6 +199,18 @@ export default function CommunityScreen() {
 
       <GroupsManageModal visible={groupsModalVisible} onClose={() => setGroupsModalVisible(false)} />
       <ChallengesManageModal visible={challengesModalVisible} onClose={() => setChallengesModalVisible(false)} />
+      <CreateGroupModal visible={createGroupVisible} onClose={() => setCreateGroupVisible(false)} />
+      <CreateChallengeModal visible={createChallengeVisible} onClose={() => setCreateChallengeVisible(false)} />
+      <SharedHabitDetailModal
+        visible={!!selectedGroup}
+        group={selectedGroup}
+        onClose={() => setSelectedGroupId(null)}
+      />
+      <ChallengeDetailModal
+        visible={!!selectedChallenge}
+        challenge={selectedChallenge}
+        onClose={() => setSelectedChallengeId(null)}
+      />
     </SafeAreaView>
   );
 }

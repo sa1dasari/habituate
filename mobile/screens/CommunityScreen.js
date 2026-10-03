@@ -60,13 +60,24 @@ export default function CommunityScreen() {
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Shared Habits</Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Manage shared habits"
-            onPress={() => setGroupsModalVisible(true)}
-          >
-            <Text style={styles.sectionLink}>See all</Text>
-          </Pressable>
+          <View style={styles.sectionActions}>
+            <Pressable
+              style={styles.createBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Create a shared habit"
+              onPress={() => setGroupsModalVisible(true)}
+            >
+              <MaterialCommunityIcons name="plus" size={16} color={colors.accent} />
+              <Text style={styles.createBtnText}>Create</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Manage shared habits"
+              onPress={() => setGroupsModalVisible(true)}
+            >
+              <Text style={styles.sectionLink}>See all</Text>
+            </Pressable>
+          </View>
         </View>
 
         {loading && groups.length === 0 ? (
@@ -92,19 +103,42 @@ export default function CommunityScreen() {
               streak={group.streak}
               streakStatus={group.streakStatus}
               rule={group.rule}
+              onPress={() => setGroupsModalVisible(true)}
             />
           ))
         )}
 
+        <Pressable style={styles.ctaCard} onPress={() => setGroupsModalVisible(true)}>
+          <View style={styles.ctaIcon}>
+            <MaterialCommunityIcons name="account-group-outline" size={20} color={colors.accent} />
+          </View>
+          <View style={styles.ctaText}>
+            <Text style={styles.ctaTitle}>Create a Shared Habit</Text>
+            <Text style={styles.ctaBody}>Invite a friend to track it together</Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={22} color={colors.textMuted} />
+        </Pressable>
+
         <View style={[styles.sectionHeader, styles.laterSection]}>
           <Text style={styles.sectionTitle}>Challenges</Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Browse challenges"
-            onPress={() => setChallengesModalVisible(true)}
-          >
-            <Text style={styles.sectionLink}>Browse</Text>
-          </Pressable>
+          <View style={styles.sectionActions}>
+            <Pressable
+              style={styles.createBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Create a challenge"
+              onPress={() => setChallengesModalVisible(true)}
+            >
+              <MaterialCommunityIcons name="plus" size={16} color={colors.accent} />
+              <Text style={styles.createBtnText}>Create</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Browse challenges"
+              onPress={() => setChallengesModalVisible(true)}
+            >
+              <Text style={styles.sectionLink}>Browse</Text>
+            </Pressable>
+          </View>
         </View>
 
         {loading && challenges.length === 0 ? (
@@ -117,7 +151,7 @@ export default function CommunityScreen() {
             iconColor={colors.textMuted}
             icon="trophy-outline"
             title="No challenges yet"
-            body="Browse open challenges or start your own."
+            body="Browse public challenges or start your own."
             onPress={() => setChallengesModalVisible(true)}
           />
         ) : (
@@ -134,6 +168,7 @@ export default function CommunityScreen() {
               checkedInToday={challenge.checkedInToday}
               busy={challengesBusy}
               onToggleCheckIn={() => handleToggleCheckIn(challenge)}
+              onPress={() => setChallengesModalVisible(true)}
             />
           ))
         )}
@@ -195,7 +230,18 @@ function makeStyles(colors, typography) {
       marginBottom: spacing.md,
     },
     sectionTitle: { ...typography.sectionTitle, fontSize: 18 },
+    sectionActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
     sectionLink: { fontSize: 14, fontWeight: '600', color: colors.accent },
+    createBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 2,
+      backgroundColor: colors.accentSoft,
+      borderRadius: radii.pill,
+      paddingHorizontal: spacing.sm + 2,
+      paddingVertical: spacing.xs,
+    },
+    createBtnText: { fontSize: 13, fontWeight: '700', color: colors.accent },
     laterSection: { marginTop: spacing.lg },
     loaderRow: { alignItems: 'center', paddingVertical: spacing.lg },
     emptyCard: {

@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import StreakIndicator from './StreakIndicator';
 import AvatarStack from './AvatarStack';
@@ -22,20 +22,32 @@ export default function SharedHabitCard({
   streak = 0,
   streakStatus = 'safe',
   rule = 'any_member',
+  onPress,
 }) {
   const { colors, resolveStreakState } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const state = resolveStreakState(streakStatus);
   const people = Array.isArray(participants) ? participants : [];
   const total = participantCount != null ? participantCount : people.length;
+  const Container = onPress ? Pressable : View;
 
   return (
-    <View style={styles.card}>
+    <Container
+      style={onPress ? ({ pressed }) => [styles.card, pressed && styles.cardPressed] : styles.card}
+      onPress={onPress}
+      accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityLabel={onPress ? `Manage ${name}` : undefined}
+    >
       <View style={styles.topRow}>
         <Text style={styles.name} numberOfLines={1}>
           {name}
         </Text>
-        <StreakIndicator streak={streak} status={streakStatus} compact />
+        <View style={styles.topRowRight}>
+          <StreakIndicator streak={streak} status={streakStatus} compact />
+          {onPress ? (
+            <MaterialCommunityIcons name="chevron-right" size={18} color={colors.textMuted} />
+          ) : null}
+        </View>
       </View>
 
       <View style={styles.middleRow}>
@@ -57,7 +69,7 @@ export default function SharedHabitCard({
           <Text style={[styles.statusText, { color: state.color }]}>{state.label}</Text>
         </View>
       </View>
-    </View>
+    </Container>
   );
 }
 
@@ -70,11 +82,19 @@ function makeStyles(colors) {
     marginBottom: spacing.md,
     ...shadow,
   },
+  cardPressed: {
+    opacity: 0.85,
+  },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.sm,
+  },
+  topRowRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
   name: {
     fontSize: 16,

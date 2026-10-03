@@ -22,13 +22,20 @@ export default function ChallengeCard({
   checkedInToday = false,
   onJoin,
   onToggleCheckIn,
+  onPress,
   busy = false,
 }) {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
+  const Container = onPress ? Pressable : View;
 
   return (
-    <View style={styles.card}>
+    <Container
+      style={onPress ? ({ pressed }) => [styles.card, pressed && styles.cardPressed] : styles.card}
+      onPress={onPress}
+      accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityLabel={onPress ? `View ${name}` : undefined}
+    >
       <View style={styles.topRow}>
         <View style={styles.titleRow}>
           <View style={styles.iconBadge}>
@@ -97,7 +104,7 @@ export default function ChallengeCard({
           </Pressable>
         )}
       </View>
-    </View>
+    </Container>
   );
 }
 
@@ -109,6 +116,9 @@ function makeStyles(colors, typography) {
       padding: spacing.lg,
       marginBottom: spacing.md,
       ...shadow,
+    },
+    cardPressed: {
+      opacity: 0.85,
     },
     topRow: {
       flexDirection: 'row',

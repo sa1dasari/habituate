@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -25,7 +25,35 @@ const VISIBILITY_OPTIONS = [
   { value: 'PUBLIC', label: 'Public', icon: 'earth' },
 ];
 
+/**
+ * +/- buttons for fine adjustment, but the number itself is editable too —
+ * a 300-day target shouldn't require 300 taps. Typed text is kept as local
+ * state so a mid-edit value like "3" (on the way to "300") isn't clamped or
+ * overwritten before the user finishes; it's only parsed/clamped on change
+ * (to drive the live preview) and reconciled on blur.
+ */
 function Stepper({ value, onChange, min, max, step = 1, styles, colors, label }) {
+  const [text, setText] = useState(String(value));
+
+  useEffect(() => {
+    setText(String(value));
+  }, [value]);
+
+  const handleChangeText = (next) => {
+    setText(next);
+    const n = parseInt(next, 10);
+    if (Number.isFinite(n) && n >= min && n <= max) {
+      onChange(n);
+    }
+  };
+
+  const handleBlur = () => {
+    const n = parseInt(text, 10);
+    const clamped = Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : value;
+    onChange(clamped);
+    setText(String(clamped));
+  };
+
   return (
     <View style={styles.stepper}>
       <Pressable
@@ -37,7 +65,15 @@ function Stepper({ value, onChange, min, max, step = 1, styles, colors, label })
       >
         <MaterialCommunityIcons name="minus" size={18} color={colors.textSecondary} />
       </Pressable>
-      <Text style={styles.stepperValue}>{value}</Text>
+      <TextInput
+        style={styles.stepperValue}
+        value={text}
+        onChangeText={handleChangeText}
+        onBlur={handleBlur}
+        keyboardType="number-pad"
+        selectTextOnFocus
+        accessibilityLabel={`${label}, editable`}
+      />
       <Pressable
         style={[styles.stepperBtn, styles.stepperBtnAdd, value >= max && styles.stepperBtnDisabled]}
         disabled={value >= max}

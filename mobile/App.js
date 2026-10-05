@@ -15,10 +15,10 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { HabitsProvider } from './hooks/useHabits';
 import { GoalsProvider } from './hooks/useGoals';
-import { InsightsProvider } from './hooks/useInsights';
 import { FriendsProvider } from './hooks/useFriends';
 import { GroupsProvider } from './hooks/useGroups';
 import { ChallengesProvider } from './hooks/useChallenges';
+import { GroupActivityProvider } from './hooks/useGroupActivity';
 import { CelebrationProvider } from './hooks/useCelebration';
 import { ThemeProvider, useAppTheme } from './hooks/useAppTheme';
 import { AuthProvider, useAuth } from './hooks/useAuth';
@@ -121,19 +121,19 @@ function AppGate() {
   return (
     <HabitsProvider>
       <GoalsProvider>
-        <InsightsProvider>
-          <FriendsProvider>
-            <GroupsProvider>
-              <ChallengesProvider>
+        <FriendsProvider>
+          <GroupsProvider>
+            <ChallengesProvider>
+              <GroupActivityProvider>
                 <CelebrationProvider>
                   <NavigationContainer theme={navigationTheme}>
                     <Tabs />
                   </NavigationContainer>
                 </CelebrationProvider>
-              </ChallengesProvider>
-            </GroupsProvider>
-          </FriendsProvider>
-        </InsightsProvider>
+              </GroupActivityProvider>
+            </ChallengesProvider>
+          </GroupsProvider>
+        </FriendsProvider>
       </GoalsProvider>
     </HabitsProvider>
   );

@@ -1,26 +1,39 @@
 import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
-import * as Notifications from 'expo-notifications';
 import api from '../api/client';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+const STORAGE_KEY = '@habituate/pushToken';
+
+/**
+ * expo-notifications' remote-push code path throws at call time (not just a
+ * graceful no-op) when running inside classic Expo Go on SDK 53+ — merely
+ * importing the module and touching its push-token APIs is enough to crash,
+ * independent of platform. So the module is never statically imported here;
+ * it's only dynamically imported after confirming this isn't Expo Go.
+ *
+ * `Constants.executionEnvironment === 'storeClient'` is true for BOTH Expo
+ * Go and an expo-dev-client build (confirmed against expo-constants' own
+ * type definitions) — not precise enough here, since a dev-client build is
+ * exactly where this *should* run. `Constants.appOwnership === 'expo'` is
+ * marked deprecated in favor of that, but it's the one that actually still
+ * returns `'expo'` only for real Expo Go (`null` for a dev-client build) —
+ * the deprecated field is the correct choice for this specific check.
+ */
+function isExpoGo() {
+  return Constants.appOwnership === 'expo';
+}
 
 /**
  * Registers this device for habit-reminder push notifications once the user
- * is signed in. Sends through Expo's push service (not raw FCM/APNs), which
- * is what lets this work from inside Expo Go on iOS — Android needs a
- * development build for remote push as of Expo SDK 53+ (an Expo Go platform
- * limitation; this hook still runs there, it just won't get a token back).
- * Silent no-op on failure anywhere in this chain — a missing reminder is
+ * is signed in, from inside a development build or standalone app. Sends
+ * through Expo's push service (not raw FCM/APNs). A no-op inside Expo Go
+ * itself (see isExpoGo above) — Expo Go dropped remote-push support on
+ * Android in SDK 53 and this app isn't in a development build yet, so there
+ * is nothing safe to register from there regardless of platform.
+ * Silent no-op on any other failure in this chain — a missing reminder is
  * never worth surfacing an error over.
  */
 export function usePushToken(enabled) {
@@ -28,12 +41,26 @@ export function usePushToken(enabled) {
 
   useEffect(() => {
     if (!enabled) return;
+    if (isExpoGo()) {
+      if (__DEV__) console.log('[habituate] Skipping push registration: not available inside Expo Go.');
+      return;
+    }
 
     let cancelled = false;
 
     async function register() {
       try {
         if (!Device.isDevice) return; // simulators/emulators don't have push capability
+
+        const Notifications = await import('expo-notifications');
+        Notifications.setNotificationHandler({
+          handleNotification: async () => ({
+            shouldPlaySound: false,
+            shouldSetBadge: false,
+            shouldShowBanner: true,
+            shouldShowList: true,
+          }),
+        });
 
         if (Platform.OS === 'android') {
           await Notifications.setNotificationChannelAsync('default', {
@@ -62,6 +89,7 @@ export function usePushToken(enabled) {
 
         await api.registerPushToken(token, Platform.OS);
         registeredToken.current = token;
+        AsyncStorage.setItem(STORAGE_KEY, token).catch(() => {});
       } catch (err) {
         if (__DEV__) console.log('[habituate] Push registration skipped:', err?.message);
       }
@@ -75,11 +103,18 @@ export function usePushToken(enabled) {
   }, [enabled]);
 }
 
-/** Call on sign-out so a shared/reset device stops receiving the previous account's reminders. */
-export async function unregisterPushToken(token) {
-  if (!token) return;
+/**
+ * Call on sign-out so a shared/reset device stops receiving the previous
+ * account's reminders. Reads the last-registered token from AsyncStorage
+ * rather than requiring the caller to have one in hand — sign-out can happen
+ * from a screen that never called usePushToken directly.
+ */
+export async function unregisterPushToken() {
   try {
+    const token = await AsyncStorage.getItem(STORAGE_KEY);
+    if (!token) return;
     await api.unregisterPushToken(token);
+    await AsyncStorage.removeItem(STORAGE_KEY);
   } catch {
     // best-effort — a stray token just goes unused server-side until Expo marks it dead
   }

@@ -1,21 +1,10 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import InsightCard from '../components/InsightCard';
 import ProgressRing from '../components/ProgressRing';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useHabits } from '../hooks/useHabits';
-import { useInsights } from '../hooks/useInsights';
 import { CONSISTENCY_PERIODS, computeConsistency, consistencyMessage } from '../utils/consistency';
 import { radii, shadow, spacing } from '../theme';
 
@@ -27,13 +16,18 @@ const PERIOD_TITLES = {
   yearly: 'YEARLY CONSISTENCY',
 };
 
+/**
+ * Pattern/correlation detection (Phase 5/6) was removed 2026-10-04 — real
+ * usage showed it wasn't useful. This screen is just the consistency ring
+ * for now; SKILLS.md Phase 10 replaces what used to be below it with an
+ * "Ask Habituate" AI coach entry and a per-habit drill-down, not yet built.
+ */
 export default function InsightsScreen() {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const insets = useSafeAreaInsets();
 
-  const { habits, loading: habitsLoading } = useHabits();
-  const { insights, loading: insightsLoading, busy, recompute, dismiss, refresh } = useInsights();
+  const { habits, refresh } = useHabits();
   const [period, setPeriod] = useState('weekly');
   const [refreshing, setRefreshing] = useState(false);
 
@@ -45,21 +39,10 @@ export default function InsightsScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([refresh(), recompute()]);
+    await refresh();
     setRefreshing(false);
-  }, [refresh, recompute]);
+  }, [refresh]);
 
-  const handleDismiss = useCallback(
-    async (insightId) => {
-      const ok = await dismiss(insightId);
-      if (!ok) {
-        Alert.alert('Could not dismiss', 'Something went wrong — try again.');
-      }
-    },
-    [dismiss]
-  );
-
-  const loading = habitsLoading || insightsLoading;
   const trend = consistency.trendDelta;
 
   return (
@@ -71,7 +54,7 @@ export default function InsightsScreen() {
         }
       >
         <Text style={styles.title}>Insights</Text>
-        <Text style={styles.subtitle}>Behavioral patterns and evidence-based nudges.</Text>
+        <Text style={styles.subtitle}>Understand your progress. Find your rhythm.</Text>
 
         <View style={styles.tabRow}>
           {CONSISTENCY_PERIODS.map((p) => (
@@ -121,43 +104,6 @@ export default function InsightsScreen() {
           <Text style={styles.messageTitle}>{message.title}</Text>
           <Text style={styles.messageSubtitle}>{message.subtitle}</Text>
         </View>
-
-        <Text style={styles.sectionTitle}>Pattern detected</Text>
-
-        {loading ? (
-          <ActivityIndicator color={colors.accent} style={styles.loadingSpinner} />
-        ) : insights.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <MaterialCommunityIcons name="chart-timeline-variant" size={28} color={colors.textMuted} />
-            <Text style={styles.emptyTitle}>Patterns need a little more data.</Text>
-            <Text style={styles.emptyBody}>
-              Keep checking in — once there's enough history, real patterns between your habits
-              will show up here.
-            </Text>
-          </View>
-        ) : (
-          insights.map((insight) => (
-            <View key={insight.id} style={styles.insightWrap}>
-              <InsightCard
-                kind={insight.type}
-                habitA={insight.payload.habitAName}
-                habitB={insight.payload.habitBName}
-                matchPercent={insight.payload.matchPercent}
-                description={insight.payload.description}
-                nudge={insight.payload.nudge}
-                sampleSize={insight.payload.sampleSize}
-              />
-              <Pressable
-                style={styles.dismissButton}
-                onPress={() => handleDismiss(insight.id)}
-                disabled={busy}
-                hitSlop={8}
-              >
-                <Text style={styles.dismissText}>Dismiss</Text>
-              </Pressable>
-            </View>
-          ))
-        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -256,46 +202,6 @@ function makeStyles(colors, typography) {
     messageSubtitle: {
       ...typography.body,
       color: colors.textSecondary,
-    },
-    sectionTitle: {
-      ...typography.sectionTitle,
-      marginBottom: spacing.md,
-    },
-    loadingSpinner: {
-      marginTop: spacing.xl,
-    },
-    emptyCard: {
-      alignItems: 'center',
-      backgroundColor: colors.surface,
-      borderRadius: radii.lg,
-      padding: spacing.xl,
-      gap: spacing.sm,
-    },
-    emptyTitle: {
-      fontSize: 15,
-      fontWeight: '700',
-      color: colors.textPrimary,
-      textAlign: 'center',
-    },
-    emptyBody: {
-      ...typography.body,
-      color: colors.textSecondary,
-      textAlign: 'center',
-    },
-    insightWrap: {
-      marginBottom: spacing.sm,
-    },
-    dismissButton: {
-      alignSelf: 'flex-end',
-      marginTop: -spacing.sm,
-      marginBottom: spacing.sm,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 4,
-    },
-    dismissText: {
-      fontSize: 12,
-      fontWeight: '600',
-      color: colors.textMuted,
     },
   });
 }

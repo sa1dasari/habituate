@@ -188,13 +188,6 @@ export const api = {
 
   deleteGoal: (goalId) => request(`/api/goals/${goalId}`, { method: 'DELETE' }),
 
-  listInsights: () => request('/api/insights'),
-
-  // Recomputes just this user's own insights on demand instead of waiting for the nightly job.
-  recomputeInsights: () => request('/api/insights/recompute', { method: 'POST' }),
-
-  dismissInsight: (insightId) => request(`/api/insights/${insightId}/dismiss`, { method: 'POST' }),
-
   listFriends: () => request('/api/friendships'),
 
   listPendingFriendRequests: () => request('/api/friendships/pending'),
@@ -239,6 +232,17 @@ export const api = {
 
   unregisterPushToken: (token) =>
     request('/api/push-tokens', { method: 'DELETE', body: JSON.stringify({ token }) }),
+
+  listGroupActivity: () => request('/api/groups/activity'),
+
+  cheerCheckIn: (checkInId) => request(`/api/groups/activity/${checkInId}/cheer`, { method: 'POST' }),
+
+  getUserProfile: () => request('/api/users/me'),
+
+  updateUserProfile: (changes) =>
+    request('/api/users/me', { method: 'PATCH', body: JSON.stringify(changes) }),
+
+  uncheerCheckIn: (checkInId) => request(`/api/groups/activity/${checkInId}/cheer`, { method: 'DELETE' }),
 };
 
 export default api;

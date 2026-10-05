@@ -2,6 +2,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -15,7 +16,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import HabitCard from '../components/HabitCard';
 import GoalsSummaryCard from '../components/GoalsSummaryCard';
-import { DISPLAY_NAME, initials } from '../constants/profile';
+import { initials } from '../constants/profile';
+import { useAuth } from '../hooks/useAuth';
 import { useCelebration } from '../hooks/useCelebration';
 import { useFeaturedGoalReviews } from '../hooks/useFeaturedGoalReviews';
 import { useGoals } from '../hooks/useGoals';
@@ -64,6 +66,8 @@ export default function TodayScreen() {
   const { habits, loading, busy, error, refresh, toggleCheckIn, addCheckIn, removeLastCheckIn } =
     useHabits();
   const { goals } = useGoals();
+  const { user } = useAuth();
+  const displayName = user?.displayName || 'there';
   const { celebrate: showCelebration } = useCelebration();
   const [expandedId, setExpandedId] = useState(null);
 
@@ -274,7 +278,7 @@ export default function TodayScreen() {
         <View style={styles.header}>
           <View style={styles.headerText}>
             <Text style={styles.greeting}>{greeting()}</Text>
-            <Text style={styles.name}>{DISPLAY_NAME}</Text>
+            <Text style={styles.name}>{displayName}</Text>
           </View>
 
           <Pressable
@@ -283,7 +287,11 @@ export default function TodayScreen() {
             accessibilityLabel="Open profile"
             onPress={() => navigation.navigate('Profile')}
           >
-            <Text style={styles.avatarText}>{initials()}</Text>
+            {user?.photoURL ? (
+              <Image source={{ uri: user.photoURL }} style={styles.avatarPhoto} />
+            ) : (
+              <Text style={styles.avatarText}>{initials(displayName)}</Text>
+            )}
           </Pressable>
         </View>
 
@@ -392,7 +400,9 @@ function makeStyles(colors, typography) {
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.accentSoft,
+    overflow: 'hidden',
   },
+  avatarPhoto: { width: 48, height: 48, borderRadius: radii.pill },
   avatarText: { fontSize: 16, fontWeight: '700', color: colors.accent },
   summaryCard: {
     backgroundColor: colors.surface,

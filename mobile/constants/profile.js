@@ -1,8 +1,9 @@
 /**
- * Placeholder identity for the demo user. Replaced by the Firebase Auth
- * profile in Phase 2 once sign-in lands — nothing else should hardcode a name.
+ * Fallback only — every screen now reads the real name from useAuth()'s
+ * Firebase user (displayName). This covers the case where that's unset
+ * (e.g. an email/password account that never set one).
  */
-export const DISPLAY_NAME = 'Sawan';
+export const DISPLAY_NAME = 'there';
 
 export function initials(name = DISPLAY_NAME) {
   return String(name)

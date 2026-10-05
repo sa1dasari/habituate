@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -11,7 +11,8 @@ import CreateGroupModal from '../components/CreateGroupModal';
 import CreateChallengeModal from '../components/CreateChallengeModal';
 import SharedHabitDetailModal from '../components/SharedHabitDetailModal';
 import ChallengeDetailModal from '../components/ChallengeDetailModal';
-import { DISPLAY_NAME, initials } from '../constants/profile';
+import { initials } from '../constants/profile';
+import { useAuth } from '../hooks/useAuth';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useGroups } from '../hooks/useGroups';
 import { useChallenges } from '../hooks/useChallenges';
@@ -22,6 +23,7 @@ export default function CommunityScreen() {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
 
+  const { user } = useAuth();
   const { groups, loading: groupsLoading, refresh: refreshGroups } = useGroups();
   const { challenges, loading: challengesLoading, busy: challengesBusy, refresh: refreshChallenges, toggleCheckIn } =
     useChallenges();
@@ -66,7 +68,11 @@ export default function CommunityScreen() {
             accessibilityLabel="Open profile"
             onPress={() => navigation.navigate('Profile')}
           >
-            <Text style={styles.avatarText}>{initials(DISPLAY_NAME)}</Text>
+            {user?.photoURL ? (
+              <Image source={{ uri: user.photoURL }} style={styles.avatarPhoto} />
+            ) : (
+              <Text style={styles.avatarText}>{initials(user?.displayName)}</Text>
+            )}
           </Pressable>
         </View>
 
@@ -245,7 +251,9 @@ function makeStyles(colors, typography) {
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: colors.accentSoft,
+      overflow: 'hidden',
     },
+    avatarPhoto: { width: 48, height: 48, borderRadius: radii.pill },
     avatarText: { fontSize: 16, fontWeight: '700', color: colors.accent },
     sectionHeader: {
       flexDirection: 'row',

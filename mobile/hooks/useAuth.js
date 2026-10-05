@@ -10,6 +10,7 @@ import {
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
   onAuthStateChanged,
+  sendPasswordResetEmail,
   signInWithCredential,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
@@ -79,6 +80,32 @@ export function AuthProvider({ children }) {
     await firebaseSignOut(auth);
   }, []);
 
+  // Shared by updateDisplayName/updatePhotoURL — updateProfile mutates
+  // auth.currentUser in place but doesn't trigger onAuthStateChanged, so the
+  // context's own `user` wouldn't re-render without this; a fresh object
+  // reference is what React actually diffs on.
+  const applyProfileUpdate = useCallback(async (fields) => {
+    if (!auth.currentUser) return;
+    await updateProfile(auth.currentUser, fields);
+    setUser({ ...auth.currentUser });
+  }, []);
+
+  const updateDisplayName = useCallback(
+    (displayName) => applyProfileUpdate({ displayName }),
+    [applyProfileUpdate]
+  );
+
+  const updatePhotoURL = useCallback(
+    (photoURL) => applyProfileUpdate({ photoURL }),
+    [applyProfileUpdate]
+  );
+
+  /** Only meaningful for an email/password account — the caller checks providerData first. */
+  const sendPasswordReset = useCallback(async () => {
+    if (!auth.currentUser?.email) return;
+    await sendPasswordResetEmail(auth, auth.currentUser.email);
+  }, []);
+
   const signInWithGoogle = useCallback(async () => {
     setError(null);
     setGoogleLoading(true);
@@ -100,7 +127,19 @@ export function AuthProvider({ children }) {
   const clearError = useCallback(() => setError(null), []);
 
   return createElement(AuthContext.Provider, {
-    value: { user, error, signIn, signUp, signOut, signInWithGoogle, googleLoading, clearError },
+    value: {
+      user,
+      error,
+      signIn,
+      signUp,
+      signOut,
+      signInWithGoogle,
+      googleLoading,
+      clearError,
+      updateDisplayName,
+      updatePhotoURL,
+      sendPasswordReset,
+    },
     children,
   });
 }

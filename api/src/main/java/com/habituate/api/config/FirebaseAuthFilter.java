@@ -4,6 +4,7 @@ import com.google.firebase.FirebaseApp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.FirebaseToken;
+import com.habituate.api.users.UserTimezoneService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -32,6 +33,12 @@ public class FirebaseAuthFilter extends OncePerRequestFilter {
     public static final String USER_ID_ATTRIBUTE = "userId";
     private static final String DEMO_USER_ID = "demo-user";
 
+    private final UserTimezoneService userTimezoneService;
+
+    public FirebaseAuthFilter(UserTimezoneService userTimezoneService) {
+        this.userTimezoneService = userTimezoneService;
+    }
+
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
@@ -47,6 +54,7 @@ public class FirebaseAuthFilter extends OncePerRequestFilter {
         // Dev fallback: no Firebase project configured.
         if (FirebaseApp.getApps().isEmpty()) {
             request.setAttribute(USER_ID_ATTRIBUTE, DEMO_USER_ID);
+            recordTimezoneQuietly(DEMO_USER_ID, request.getHeader("X-Timezone"));
             chain.doFilter(request, response);
             return;
         }
@@ -61,10 +69,20 @@ public class FirebaseAuthFilter extends OncePerRequestFilter {
         try {
             FirebaseToken decoded = FirebaseAuth.getInstance().verifyIdToken(idToken);
             request.setAttribute(USER_ID_ATTRIBUTE, decoded.getUid());
+            recordTimezoneQuietly(decoded.getUid(), request.getHeader("X-Timezone"));
             chain.doFilter(request, response);
         } catch (FirebaseAuthException e) {
             log.warn("Firebase token verification failed: {}", e.getMessage());
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid or expired token");
+        }
+    }
+
+    // Opportunistic side effect of an authenticated request — must never fail the request itself.
+    private void recordTimezoneQuietly(String userId, String timezone) {
+        try {
+            userTimezoneService.recordTimezone(userId, timezone);
+        } catch (Exception e) {
+            log.warn("Could not record timezone for {}: {}", userId, e.getMessage());
         }
     }
 }

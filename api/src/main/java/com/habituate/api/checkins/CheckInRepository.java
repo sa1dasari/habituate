@@ -18,4 +18,7 @@ public interface CheckInRepository extends JpaRepository<CheckIn, Long> {
     /** Who's actually been active — the nightly insights job only bothers with these users. */
     @Query("select distinct c.userId from CheckIn c where c.occurredAt >= :since")
     List<String> findDistinctUserIdsSince(Instant since);
+
+    /** Friend-activity feed: recent check-ins from co-members across the viewer's own shared-habit groups, excluding their own. */
+    List<CheckIn> findTop20ByGroupIdInAndUserIdNotOrderByOccurredAtDesc(List<Long> groupIds, String userId);
 }

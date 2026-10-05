@@ -233,6 +233,12 @@ export const api = {
 
   unlogChallengeCheckIn: (challengeId) =>
     request(`/api/challenges/${challengeId}/check-ins/today`, { method: 'DELETE' }),
+
+  registerPushToken: (token, platform) =>
+    request('/api/push-tokens', { method: 'POST', body: JSON.stringify({ token, platform }) }),
+
+  unregisterPushToken: (token) =>
+    request('/api/push-tokens', { method: 'DELETE', body: JSON.stringify({ token }) }),
 };
 
 export default api;

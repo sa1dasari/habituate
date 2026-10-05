@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import HabitCard from '../components/HabitCard';
@@ -8,6 +8,9 @@ import ProgressRing from '../components/ProgressRing';
 import SharedHabitCard from '../components/SharedHabitCard';
 import StreakIndicator from '../components/StreakIndicator';
 import { useAppTheme } from '../hooks/useAppTheme';
+import { useHabits } from '../hooks/useHabits';
+import { useGoals } from '../hooks/useGoals';
+import { buildExportData, shareExport, toCsv, toJson } from '../utils/dataExport';
 import { radii, spacing } from '../theme';
 
 const MODE_OPTIONS = [
@@ -46,6 +49,25 @@ function Section({ title, note, children, styles }) {
 export default function ProfileScreen() {
   const { colors, typography, mode, setMode } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
+  const { habits } = useHabits();
+  const { goals } = useGoals();
+  const [exporting, setExporting] = useState(null); // 'json' | 'csv' | null
+
+  const handleExport = async (format) => {
+    setExporting(format);
+    try {
+      const data = buildExportData(habits, goals);
+      if (format === 'json') {
+        await shareExport(toJson(data), 'habituate-export.json', 'application/json');
+      } else {
+        await shareExport(toCsv(data), 'habituate-checkins.csv', 'text/csv');
+      }
+    } catch (err) {
+      Alert.alert("Couldn't export", err instanceof Error ? err.message : 'Something went wrong — try again.');
+    } finally {
+      setExporting(null);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -79,6 +101,39 @@ export default function ProfileScreen() {
                 </Pressable>
               );
             })}
+          </View>
+        </Section>
+
+        <Section
+          title="Data Export"
+          note="A copy of your habits, check-ins, and goals — yours to keep."
+          styles={styles}
+        >
+          <View style={styles.exportRow}>
+            <Pressable
+              style={styles.secondaryButton}
+              disabled={!!exporting}
+              onPress={() => handleExport('json')}
+            >
+              {exporting === 'json' ? (
+                <ActivityIndicator size="small" color={colors.textSecondary} />
+              ) : (
+                <MaterialCommunityIcons name="code-json" size={16} color={colors.textSecondary} />
+              )}
+              <Text style={styles.secondaryButtonText}>Export JSON</Text>
+            </Pressable>
+            <Pressable
+              style={styles.secondaryButton}
+              disabled={!!exporting}
+              onPress={() => handleExport('csv')}
+            >
+              {exporting === 'csv' ? (
+                <ActivityIndicator size="small" color={colors.textSecondary} />
+              ) : (
+                <MaterialCommunityIcons name="table" size={16} color={colors.textSecondary} />
+              )}
+              <Text style={styles.secondaryButtonText}>Export CSV</Text>
+            </Pressable>
           </View>
         </Section>
 
@@ -250,6 +305,27 @@ function makeStyles(colors, typography) {
     themeRow: {
       flexDirection: 'row',
       gap: spacing.sm,
+    },
+    exportRow: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+    },
+    secondaryButton: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.xs,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radii.sm,
+      paddingVertical: spacing.sm + 2,
+      backgroundColor: colors.background,
+    },
+    secondaryButtonText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.textSecondary,
     },
     themePill: {
       flex: 1,

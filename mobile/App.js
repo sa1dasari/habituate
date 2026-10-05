@@ -22,6 +22,7 @@ import { ChallengesProvider } from './hooks/useChallenges';
 import { CelebrationProvider } from './hooks/useCelebration';
 import { ThemeProvider, useAppTheme } from './hooks/useAppTheme';
 import { AuthProvider, useAuth } from './hooks/useAuth';
+import { usePushToken } from './hooks/usePushToken';
 import {
   CommunityScreen,
   HabitsScreen,
@@ -87,6 +88,8 @@ function AppGate() {
   const { user } = useAuth();
   const { colors, effectiveMode } = useAppTheme();
   const [showSignup, setShowSignup] = useState(false);
+
+  usePushToken(!!user);
 
   // user === undefined means Firebase hasn't resolved the auth state yet
   if (user === undefined) {

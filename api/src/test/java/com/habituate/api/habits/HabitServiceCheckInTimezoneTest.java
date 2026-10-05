@@ -56,8 +56,8 @@ class HabitServiceCheckInTimezoneTest {
                 "Test Habit", "General", "DAILY", 1, null, null, "BOOLEAN", null, null, null)).id();
 
         // The habit's own createdAt guard would otherwise reject backdating
-        // 5 days on a habit created "just now" — same test-only workaround as
-        // InsightServiceTest (JPA won't update createdAt: updatable = false).
+        // 5 days on a habit created "just now" — JPA won't update createdAt
+        // via the entity API (updatable = false), so this bypasses it directly.
         jdbcTemplate.update(
                 "UPDATE habits SET created_at = ? WHERE id = ?",
                 Timestamp.from(Instant.now().minus(30, ChronoUnit.DAYS)),

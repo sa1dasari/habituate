@@ -2,7 +2,6 @@ import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Image,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -16,7 +15,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import HabitCard from '../components/HabitCard';
 import GoalsSummaryCard from '../components/GoalsSummaryCard';
-import { initials } from '../constants/profile';
+import AvatarImage from '../components/AvatarImage';
 import { useAuth } from '../hooks/useAuth';
 import { useCelebration } from '../hooks/useCelebration';
 import { useFeaturedGoalReviews } from '../hooks/useFeaturedGoalReviews';
@@ -287,11 +286,7 @@ export default function TodayScreen() {
             accessibilityLabel="Open profile"
             onPress={() => navigation.navigate('Profile')}
           >
-            {user?.photoURL ? (
-              <Image source={{ uri: user.photoURL }} style={styles.avatarPhoto} />
-            ) : (
-              <Text style={styles.avatarText}>{initials(displayName)}</Text>
-            )}
+            <AvatarImage uri={user?.photoURL} name={displayName} size={48} style={styles.avatarPhoto} />
           </Pressable>
         </View>
 

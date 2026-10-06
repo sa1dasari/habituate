@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -11,7 +11,7 @@ import CreateGroupModal from '../components/CreateGroupModal';
 import CreateChallengeModal from '../components/CreateChallengeModal';
 import SharedHabitDetailModal from '../components/SharedHabitDetailModal';
 import ChallengeDetailModal from '../components/ChallengeDetailModal';
-import { initials } from '../constants/profile';
+import AvatarImage from '../components/AvatarImage';
 import { useAuth } from '../hooks/useAuth';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useGroups } from '../hooks/useGroups';
@@ -68,11 +68,7 @@ export default function CommunityScreen() {
             accessibilityLabel="Open profile"
             onPress={() => navigation.navigate('Profile')}
           >
-            {user?.photoURL ? (
-              <Image source={{ uri: user.photoURL }} style={styles.avatarPhoto} />
-            ) : (
-              <Text style={styles.avatarText}>{initials(user?.displayName)}</Text>
-            )}
+            <AvatarImage uri={user?.photoURL} name={user?.displayName} size={48} style={styles.avatarPhoto} />
           </Pressable>
         </View>
 

@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import FlameIcon from '../components/FlameIcon';
+import AvatarImage from '../components/AvatarImage';
 import EditProfileModal from '../components/EditProfileModal';
 import { categoryIcon } from '../constants/habitCategories';
 import { useAppTheme } from '../hooks/useAppTheme';
@@ -124,13 +125,9 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.heroCard}>
-          {user?.photoURL ? (
-            <Image source={{ uri: user.photoURL }} style={styles.avatarLgPhoto} />
-          ) : (
-            <View style={styles.avatarLg}>
-              <Text style={styles.avatarLgText}>{initials(displayName)}</Text>
-            </View>
-          )}
+          <View style={styles.avatarLg}>
+            <AvatarImage uri={user?.photoURL} name={displayName} size={52} fontSize={18} />
+          </View>
           <View style={styles.heroText}>
             <Text style={styles.heroTitle}>Hi {firstName}, you're doing great.</Text>
             <Text style={styles.heroSubtitle}>
@@ -317,7 +314,6 @@ function makeStyles(colors, typography) {
       backgroundColor: colors.accentSoft,
     },
     avatarLgText: { fontSize: 18, fontWeight: '700', color: colors.accent },
-    avatarLgPhoto: { width: 52, height: 52, borderRadius: radii.pill },
     heroText: { flex: 1 },
     heroTitle: { fontSize: 15, fontWeight: '700', color: colors.textPrimary },
     heroSubtitle: { ...typography.meta, marginTop: 2 },

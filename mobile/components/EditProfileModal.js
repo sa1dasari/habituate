@@ -1,25 +1,18 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
+import * as FileSystem from 'expo-file-system/legacy';
+import { ref, getDownloadURL } from 'firebase/storage';
 import DatePicker from './DatePicker';
-import { storage } from '../firebase';
+import AvatarImage from './AvatarImage';
+import { auth, storage } from '../firebase';
 import api from '../api/client';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useAuth } from '../hooks/useAuth';
 import { radii, spacing } from '../theme';
-
-function initials(name) {
-  return String(name || '?')
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join('')
-    .toUpperCase();
-}
 
 /** Display name, profile photo, date of birth, and (email/password accounts only) a password-reset link. */
 export default function EditProfileModal({ visible, onClose }) {
@@ -74,10 +67,37 @@ export default function EditProfileModal({ visible, onClose }) {
 
     setUploadingPhoto(true);
     try {
-      const response = await fetch(result.assets[0].uri);
-      const blob = await response.blob();
-      const photoRef = ref(storage, `profile-photos/${user.uid}.jpg`);
-      await uploadBytes(photoRef, blob);
+      // Picked images can be HEIC or other formats that upload fine as raw
+      // bytes (Storage never validates content) but that RN's <Image> can't
+      // decode later. Force a re-encode to a standard JPEG first.
+      const context = ImageManipulator.manipulate(result.assets[0].uri);
+      const renderedImage = await context.renderAsync();
+      const jpeg = await renderedImage.saveAsync({ format: SaveFormat.JPEG, compress: 0.8 });
+
+      // Both of Firebase's own upload entry points (uploadBytes, uploadString)
+      // normalize their input through RN's Blob implementation, which either
+      // throws outright on raw bytes or silently corrupts the bytes when built
+      // via fetch().blob() (the "unknown image format" failure we kept hitting
+      // downstream). Uploading directly against the Storage REST endpoint via
+      // expo-file-system's native binary upload sidesteps the JS Blob layer
+      // entirely — the file's bytes go straight from disk to the network.
+      const objectPath = `profile-photos/${user.uid}.jpg`;
+      const bucket = storage.app.options.storageBucket;
+      const idToken = await auth.currentUser.getIdToken();
+      const uploadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o?uploadType=media&name=${encodeURIComponent(objectPath)}`;
+      const uploadResult = await FileSystem.uploadAsync(uploadUrl, jpeg.uri, {
+        httpMethod: 'POST',
+        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+        headers: {
+          Authorization: `Bearer ${idToken}`,
+          'Content-Type': 'image/jpeg',
+        },
+      });
+      if (uploadResult.status < 200 || uploadResult.status >= 300) {
+        throw new Error(`Upload failed (${uploadResult.status})`);
+      }
+
+      const photoRef = ref(storage, objectPath);
       const downloadUrl = await getDownloadURL(photoRef);
       setPhotoURL(downloadUrl);
     } catch (err) {
@@ -147,13 +167,9 @@ export default function EditProfileModal({ visible, onClose }) {
               accessibilityRole="button"
               accessibilityLabel="Change profile photo"
             >
-              {photoURL ? (
-                <Image source={{ uri: photoURL }} style={styles.photo} />
-              ) : (
-                <View style={styles.photoFallback}>
-                  <Text style={styles.photoFallbackText}>{initials(name)}</Text>
-                </View>
-              )}
+              <View style={styles.photoFallback}>
+                <AvatarImage uri={photoURL} name={name} size={88} fontSize={26} />
+              </View>
               <View style={styles.photoEditBadge}>
                 {uploadingPhoto ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
@@ -219,7 +235,6 @@ function makeStyles(colors, typography) {
     content: { padding: spacing.lg, paddingBottom: spacing.xxl },
     photoSection: { alignItems: 'center', marginBottom: spacing.xl },
     photoWrap: { width: 88, height: 88 },
-    photo: { width: 88, height: 88, borderRadius: radii.pill },
     photoFallback: {
       width: 88,
       height: 88,
@@ -228,7 +243,6 @@ function makeStyles(colors, typography) {
       justifyContent: 'center',
       backgroundColor: colors.accentSoft,
     },
-    photoFallbackText: { fontSize: 26, fontWeight: '700', color: colors.accent },
     photoEditBadge: {
       position: 'absolute',
       right: 0,

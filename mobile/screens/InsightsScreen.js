@@ -3,9 +3,16 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'r
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import ProgressRing from '../components/ProgressRing';
+import ConsistencyDetailModal from '../components/ConsistencyDetailModal';
+import AskHabituateModal from '../components/AskHabituateModal';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useHabits } from '../hooks/useHabits';
-import { CONSISTENCY_PERIODS, computeConsistency, consistencyMessage } from '../utils/consistency';
+import {
+  CONSISTENCY_PERIODS,
+  computeConsistency,
+  consistencyMessage,
+  generateCoachStarterQuestions,
+} from '../utils/consistency';
 import { radii, shadow, spacing } from '../theme';
 
 const PERIOD_LABELS = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', yearly: 'Yearly' };
@@ -18,9 +25,11 @@ const PERIOD_TITLES = {
 
 /**
  * Pattern/correlation detection (Phase 5/6) was removed 2026-10-04 — real
- * usage showed it wasn't useful. This screen is just the consistency ring
- * for now; SKILLS.md Phase 10 replaces what used to be below it with an
- * "Ask Habituate" AI coach entry and a per-habit drill-down, not yet built.
+ * usage showed it wasn't useful. This screen is the consistency ring (opens
+ * a per-habit bar-graph drill-down via ConsistencyDetailModal when tapped)
+ * plus the Ask Habituate AI-coach entry card (design/Insights.png), which
+ * opens AskHabituateModal — SKILLS.md Phase 10's full replacement for
+ * pattern detection.
  */
 export default function InsightsScreen() {
   const { colors, typography } = useAppTheme();
@@ -30,12 +39,16 @@ export default function InsightsScreen() {
   const { habits, refresh } = useHabits();
   const [period, setPeriod] = useState('weekly');
   const [refreshing, setRefreshing] = useState(false);
+  const [detailVisible, setDetailVisible] = useState(false);
+  const [coachVisible, setCoachVisible] = useState(false);
+  const [coachInitialQuestion, setCoachInitialQuestion] = useState(null);
 
   const consistency = useMemo(() => computeConsistency(habits, period), [habits, period]);
   const message = useMemo(
     () => consistencyMessage(consistency.percent, consistency.hasData),
     [consistency]
   );
+  const coachStarterQuestions = useMemo(() => generateCoachStarterQuestions(habits), [habits]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -70,7 +83,12 @@ export default function InsightsScreen() {
           ))}
         </View>
 
-        <View style={styles.consistencyCard}>
+        <Pressable
+          style={styles.consistencyCard}
+          onPress={() => setDetailVisible(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Open consistency detail"
+        >
           <View style={styles.consistencyHeaderRow}>
             <View>
               <Text style={styles.consistencyLabel}>{PERIOD_TITLES[period]}</Text>
@@ -103,8 +121,59 @@ export default function InsightsScreen() {
 
           <Text style={styles.messageTitle}>{message.title}</Text>
           <Text style={styles.messageSubtitle}>{message.subtitle}</Text>
+        </Pressable>
+
+        <View style={styles.coachCard}>
+          <Pressable
+            style={styles.coachHeaderRow}
+            onPress={() => {
+              setCoachInitialQuestion(null);
+              setCoachVisible(true);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Open Ask Habituate"
+          >
+            <View style={styles.coachIcon}>
+              <MaterialCommunityIcons name="chart-bar" size={18} color={colors.safe} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.coachTitle}>Ask Habituate</Text>
+              <Text style={styles.coachSubtitle}>Small steps, guided by your check-ins. Ask a question to begin.</Text>
+            </View>
+          </Pressable>
+
+          <Text style={styles.coachSectionLabel}>Suggested questions</Text>
+          {coachStarterQuestions.map((q, i) => (
+            <Pressable
+              key={q}
+              style={styles.coachQuestionRow}
+              onPress={() => {
+                setCoachInitialQuestion(q);
+                setCoachVisible(true);
+              }}
+            >
+              <View style={styles.coachQuestionNumber}>
+                <Text style={styles.coachQuestionNumberText}>{i + 1}</Text>
+              </View>
+              <Text style={styles.coachQuestionText}>{q}</Text>
+            </Pressable>
+          ))}
         </View>
       </ScrollView>
+
+      <ConsistencyDetailModal
+        visible={detailVisible}
+        habits={habits}
+        initialPeriod={period}
+        onClose={() => setDetailVisible(false)}
+      />
+
+      <AskHabituateModal
+        visible={coachVisible}
+        habits={habits}
+        initialQuestion={coachInitialQuestion}
+        onClose={() => setCoachVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -203,5 +272,52 @@ function makeStyles(colors, typography) {
       ...typography.body,
       color: colors.textSecondary,
     },
+    coachCard: {
+      backgroundColor: colors.surface,
+      borderRadius: radii.lg,
+      padding: spacing.lg,
+      ...shadow,
+    },
+    coachHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: spacing.sm,
+      marginBottom: spacing.md,
+    },
+    coachIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: radii.md,
+      backgroundColor: colors.safeSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    coachTitle: { fontSize: 16, fontWeight: '800', color: colors.textPrimary },
+    coachSubtitle: { ...typography.meta, marginTop: 2 },
+    coachSectionLabel: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.textMuted,
+      marginBottom: spacing.sm,
+    },
+    coachQuestionRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      backgroundColor: colors.background,
+      borderRadius: radii.md,
+      padding: spacing.md,
+      marginBottom: spacing.sm,
+    },
+    coachQuestionNumber: {
+      width: 20,
+      height: 20,
+      borderRadius: radii.pill,
+      backgroundColor: colors.safeSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    coachQuestionNumberText: { fontSize: 11, fontWeight: '700', color: colors.safe },
+    coachQuestionText: { fontSize: 13, color: colors.textPrimary, flex: 1 },
   });
 }

@@ -243,6 +243,19 @@ export const api = {
     request('/api/users/me', { method: 'PATCH', body: JSON.stringify(changes) }),
 
   uncheerCheckIn: (checkInId) => request(`/api/groups/activity/${checkInId}/cheer`, { method: 'DELETE' }),
+
+  listCoachMessages: () => request('/api/coach/messages'),
+
+  askCoach: (content) =>
+    request('/api/coach/messages', { method: 'POST', body: JSON.stringify({ content }) }),
+
+  confirmCoachProposal: (messageId) =>
+    request(`/api/coach/messages/${messageId}/proposal/confirm`, { method: 'POST' }),
+
+  rejectCoachProposal: (messageId) =>
+    request(`/api/coach/messages/${messageId}/proposal/reject`, { method: 'POST' }),
+
+  clearCoachMessages: () => request('/api/coach/messages', { method: 'DELETE' }),
 };
 
 export default api;

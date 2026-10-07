@@ -25,6 +25,9 @@ Thumbs.db
 *firebase-adminsdk*.json
 *adminsdk*.json
 
+# Backend secrets (Anthropic API key, etc.) — local-only override, never commit it
+api/src/main/resources/application-secrets.properties
+
 # Mobile env (contains API keys)
 mobile/.env.local
 mobile/.env

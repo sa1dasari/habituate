@@ -20,6 +20,23 @@ const HISTORY_SUBTITLES = {
 const BAR_MAX_HEIGHT = 120;
 
 /**
+ * Cycled per selected habit so a multi-select chart can tell bars apart —
+ * gradient for the fill, solid "to" stop for the legend dot. Broader than
+ * theme.js's 3 brand gradients (those carry specific meaning elsewhere —
+ * safe/warning/accent) on purpose: this is a categorical chart palette, not
+ * a status indicator, so it needs enough distinct hues that a 4th+ selected
+ * habit doesn't silently repeat a color already on screen.
+ */
+const BAR_COLOR_SETS = [
+  gradients.safe,
+  gradients.accent,
+  gradients.warm,
+  ['#FB7185', '#E11D48'], // rose
+  ['#2DD4BF', '#0D9488'], // teal
+  ['#818CF8', '#4338CA'], // indigo
+];
+
+/**
  * Samsung-Health-style per-habit drill-down (design/Consistency detail.png),
  * reached by tapping the consistency card on Insights. Presented as a
  * full-page modal (same pattern as CalendarModal) rather than a navigation
@@ -37,27 +54,58 @@ export default function ConsistencyDetailModal({ visible, habits = [], initialPe
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
 
   const [period, setPeriod] = useState(initialPeriod);
-  const [selectedHabitId, setSelectedHabitId] = useState(null);
+  // Multi-select: an empty array (on first open) defaults to just the first
+  // habit, same single-habit starting point as before — tapping a chip
+  // toggles it in/out from there rather than replacing the selection.
+  const [selectedHabitIds, setSelectedHabitIds] = useState([]);
 
   useEffect(() => {
     if (!visible) return;
     setPeriod(initialPeriod);
-    setSelectedHabitId((current) => {
-      if (current && habits.some((h) => h.id === current)) return current;
-      return habits[0]?.id ?? null;
+    setSelectedHabitIds((current) => {
+      const stillValid = current.filter((id) => habits.some((h) => h.id === id));
+      if (stillValid.length > 0) return stillValid;
+      return habits[0] ? [habits[0].id] : [];
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, initialPeriod]);
 
-  const selectedHabit = habits.find((h) => h.id === selectedHabitId) || null;
+  const toggleHabit = (habitId) => {
+    setSelectedHabitIds((current) =>
+      current.includes(habitId) ? current.filter((id) => id !== habitId) : [...current, habitId]
+    );
+  };
 
-  const history = useMemo(
-    () => (selectedHabit ? habitPeriodHistory(selectedHabit, period) : null),
-    [selectedHabit, period]
+  const selectedHabits = habits.filter((h) => selectedHabitIds.includes(h.id));
+
+  // One independent history per selected habit — rendered as a grouped bar
+  // per period bucket (one bar per habit, color-coded) rather than blended
+  // into a single average, so each habit's own rhythm stays visible when
+  // comparing more than one at a time.
+  const selectedHistories = useMemo(
+    () => selectedHabits.map((habit) => ({ habit, history: habitPeriodHistory(habit, period) })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedHabitIds, period, habits]
   );
-  const summary = useMemo(() => (history ? habitHistorySummary(history) : ''), [history]);
-  const maxBucketValue = history ? Math.max(1, ...history.buckets.map((b) => b.windowLen)) : 1;
-  const latestBucket = history ? history.buckets[history.buckets.length - 1] : null;
+
+  const bucketLabels = selectedHistories[0]?.history.buckets.map((b) => b.label) || [];
+  const maxBucketValue =
+    selectedHistories.length > 0
+      ? Math.max(1, ...selectedHistories.flatMap(({ history }) => history.buckets.map((b) => b.windowLen)))
+      : 1;
+  const hasAnyWindow = selectedHistories.some(({ history }) => history.buckets.some((b) => b.windowLen > 0));
+
+  const latestSingleBucket =
+    selectedHistories.length === 1
+      ? selectedHistories[0].history.buckets[selectedHistories[0].history.buckets.length - 1]
+      : null;
+
+  const subtitleNames = (() => {
+    if (selectedHabits.length === 0) return null;
+    if (selectedHabits.length === 1) return selectedHabits[0].name;
+    if (selectedHabits.length === 2) return `${selectedHabits[0].name} & ${selectedHabits[1].name}`;
+    return `${selectedHabits.length} habits`;
+  })();
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
@@ -69,9 +117,11 @@ export default function ConsistencyDetailModal({ visible, habits = [], initialPe
           <View style={styles.headerText}>
             <Text style={styles.headerTitle}>Consistency detail</Text>
             <Text style={styles.headerSubtitle}>
-              {selectedHabit
-                ? `${PERIOD_LABELS[period]} rhythm for ${selectedHabit.name}`
-                : 'Add a habit to see its rhythm'}
+              {subtitleNames
+                ? `${PERIOD_LABELS[period]} rhythm for ${subtitleNames}`
+                : habits.length === 0
+                  ? 'Add a habit to see its rhythm'
+                  : 'Select at least one habit below'}
             </Text>
           </View>
           <View style={{ width: 34 }} />
@@ -102,10 +152,10 @@ export default function ConsistencyDetailModal({ visible, habits = [], initialPe
             <>
               <View style={styles.card}>
                 <View style={styles.cardHeaderRow}>
-                  <Text style={styles.cardTitle}>Selected habit</Text>
+                  <Text style={styles.cardTitle}>Selected habits</Text>
                   <View style={styles.countBadge}>
                     <Text style={styles.countBadgeText}>
-                      {habits.length} habit{habits.length === 1 ? '' : 's'}
+                      {selectedHabits.length} of {habits.length} selected
                     </Text>
                   </View>
                 </View>
@@ -116,12 +166,12 @@ export default function ConsistencyDetailModal({ visible, habits = [], initialPe
                   contentContainerStyle={styles.chipRow}
                 >
                   {habits.map((habit) => {
-                    const selected = habit.id === selectedHabitId;
+                    const selected = selectedHabitIds.includes(habit.id);
                     return (
                       <Pressable
                         key={habit.id}
                         style={[styles.chip, selected && styles.chipSelected]}
-                        onPress={() => setSelectedHabitId(habit.id)}
+                        onPress={() => toggleHabit(habit.id)}
                       >
                         <MaterialCommunityIcons
                           name={categoryIcon(habit.category)}
@@ -131,13 +181,20 @@ export default function ConsistencyDetailModal({ visible, habits = [], initialPe
                         <Text style={[styles.chipText, selected && styles.chipTextSelected]} numberOfLines={1}>
                           {habit.name}
                         </Text>
+                        {selected ? (
+                          <MaterialCommunityIcons name="check" size={14} color={colors.safe} />
+                        ) : null}
                       </Pressable>
                     );
                   })}
                 </ScrollView>
               </View>
 
-              {selectedHabit && history ? (
+              {selectedHabits.length === 0 ? (
+                <View style={styles.card}>
+                  <Text style={styles.emptyText}>Select at least one habit above to see its consistency.</Text>
+                </View>
+              ) : (
                 <>
                   <View style={styles.card}>
                     <View style={styles.cardHeaderRow}>
@@ -145,11 +202,11 @@ export default function ConsistencyDetailModal({ visible, habits = [], initialPe
                         <Text style={styles.cardTitle}>{HISTORY_TITLES[period]}</Text>
                         <Text style={styles.cardSubtitle}>{HISTORY_SUBTITLES[period]}</Text>
                       </View>
-                      {latestBucket && latestBucket.value > 0 ? (
+                      {latestSingleBucket && latestSingleBucket.value > 0 ? (
                         <View style={styles.statusPill}>
                           <View style={styles.statusDot} />
                           <Text style={styles.statusText}>
-                            {latestBucket.windowLen > 0 && latestBucket.value >= latestBucket.windowLen
+                            {latestSingleBucket.windowLen > 0 && latestSingleBucket.value >= latestSingleBucket.windowLen
                               ? 'Completed'
                               : 'In progress'}
                           </Text>
@@ -157,44 +214,87 @@ export default function ConsistencyDetailModal({ visible, habits = [], initialPe
                       ) : null}
                     </View>
 
-                    <View style={styles.chartRow}>
-                      {history.buckets.map((bucket, i) => {
-                        const pct = maxBucketValue > 0 ? Math.round((bucket.value / maxBucketValue) * 100) : 0;
-                        return (
-                          <View key={i} style={styles.barColumn}>
-                            <View style={styles.barTrack}>
-                              {bucket.value > 0 ? (
-                                <LinearGradient
-                                  colors={gradients.safe}
-                                  start={{ x: 0, y: 0 }}
-                                  end={{ x: 0, y: 1 }}
-                                  style={[styles.barFill, { height: `${Math.max(pct, 6)}%` }]}
-                                />
-                              ) : null}
+                    {hasAnyWindow ? (
+                      <>
+                        <View style={styles.chartRow}>
+                          {bucketLabels.map((label, bucketIndex) => (
+                            <View key={bucketIndex} style={styles.barColumn}>
+                              <View style={styles.barGroup}>
+                                {selectedHistories.map(({ habit, history: h }, habitIndex) => {
+                                  const bucket = h.buckets[bucketIndex];
+                                  const pct = maxBucketValue > 0 ? Math.round((bucket.value / maxBucketValue) * 100) : 0;
+                                  const colorSet = BAR_COLOR_SETS[habitIndex % BAR_COLOR_SETS.length];
+                                  return (
+                                    <View
+                                      key={habit.id}
+                                      style={[
+                                        styles.barTrack,
+                                        selectedHistories.length > 1 && styles.barTrackMulti,
+                                      ]}
+                                    >
+                                      {bucket.value > 0 ? (
+                                        <LinearGradient
+                                          colors={colorSet}
+                                          start={{ x: 0, y: 0 }}
+                                          end={{ x: 0, y: 1 }}
+                                          style={[styles.barFill, { height: `${Math.max(pct, 6)}%` }]}
+                                        />
+                                      ) : null}
+                                    </View>
+                                  );
+                                })}
+                              </View>
+                              <Text style={styles.barAxisLabel}>{label}</Text>
                             </View>
-                            <Text style={styles.barAxisLabel}>{bucket.label}</Text>
-                          </View>
-                        );
-                      })}
-                    </View>
-
-                    <View style={styles.bucketValueRow}>
-                      {history.buckets.map((bucket, i) => (
-                        <View key={i} style={styles.bucketValuePill}>
-                          <Text style={styles.bucketValueText}>
-                            {bucket.value} day{bucket.value === 1 ? '' : 's'}
-                          </Text>
+                          ))}
                         </View>
-                      ))}
-                    </View>
+
+                        {selectedHistories.length === 1 ? (
+                          <View style={styles.bucketValueRow}>
+                            {selectedHistories[0].history.buckets.map((bucket, i) => (
+                              <View key={i} style={styles.bucketValuePill}>
+                                <Text style={styles.bucketValueText}>
+                                  {bucket.value} day{bucket.value === 1 ? '' : 's'}
+                                </Text>
+                              </View>
+                            ))}
+                          </View>
+                        ) : (
+                          <View style={styles.legendRow}>
+                            {selectedHistories.map(({ habit }, i) => (
+                              <View key={habit.id} style={styles.legendItem}>
+                                <View
+                                  style={[
+                                    styles.legendDot,
+                                    { backgroundColor: BAR_COLOR_SETS[i % BAR_COLOR_SETS.length][1] },
+                                  ]}
+                                />
+                                <Text style={styles.legendText} numberOfLines={1}>
+                                  {habit.name}
+                                </Text>
+                              </View>
+                            ))}
+                          </View>
+                        )}
+                      </>
+                    ) : (
+                      <Text style={styles.emptyText}>No history yet in this window.</Text>
+                    )}
                   </View>
 
                   <View style={styles.card}>
                     <Text style={styles.cardTitle}>Selected-period details</Text>
-                    <Text style={styles.summaryText}>{summary}</Text>
+                    {selectedHistories.map(({ habit, history: h }, i) => (
+                      <View key={habit.id} style={i > 0 ? styles.summaryBlock : null}>
+                        {selectedHistories.length > 1 ? (
+                          <Text style={styles.summaryHabitName}>{habit.name}</Text>
+                        ) : null}
+                        <Text style={styles.summaryText}>{habitHistorySummary(h)}</Text>
+                      </View>
+                    ))}
                   </View>
                 </>
-              ) : null}
+              )}
             </>
           )}
         </ScrollView>
@@ -300,6 +400,7 @@ function makeStyles(colors, typography) {
       marginTop: spacing.md,
     },
     barColumn: { alignItems: 'center', flex: 1 },
+    barGroup: { flexDirection: 'row', alignItems: 'flex-end', gap: 3 },
     barTrack: {
       width: 28,
       height: BAR_MAX_HEIGHT,
@@ -308,6 +409,7 @@ function makeStyles(colors, typography) {
       borderRadius: radii.sm,
       overflow: 'hidden',
     },
+    barTrackMulti: { width: 12 },
     barFill: { width: '100%', borderRadius: radii.sm },
     barAxisLabel: { fontSize: 11, fontWeight: '600', color: colors.textMuted, marginTop: spacing.sm },
     bucketValueRow: {
@@ -317,7 +419,18 @@ function makeStyles(colors, typography) {
     },
     bucketValuePill: { flex: 1, alignItems: 'center' },
     bucketValueText: { fontSize: 12, fontWeight: '700', color: colors.textSecondary },
+    legendRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.md,
+      marginTop: spacing.md,
+    },
+    legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5, maxWidth: 140 },
+    legendDot: { width: 8, height: 8, borderRadius: radii.pill },
+    legendText: { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
     summaryText: { ...typography.body, color: colors.textSecondary, lineHeight: 20 },
+    summaryBlock: { marginTop: spacing.md },
+    summaryHabitName: { fontSize: 13, fontWeight: '700', color: colors.textPrimary, marginBottom: 2 },
     emptyText: { ...typography.body, color: colors.textSecondary, textAlign: 'center' },
   });
 }

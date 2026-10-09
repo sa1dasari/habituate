@@ -130,7 +130,14 @@ function habitDoneOnDay(habit, dayKey) {
   return value > 0;
 }
 
-export function habitPeriodHistory(habit, period, now = new Date()) {
+/**
+ * Bucket-builder behind habitPeriodHistory — `dayFraction(dayKey)` returns
+ * null for a day that doesn't count toward the window at all (the habit
+ * didn't exist yet), or a 0..1 completion fraction otherwise. Pulled out
+ * from habitPeriodHistory so the period/bucket-windowing logic isn't
+ * entangled with the single-habit done/not-done rule.
+ */
+function buildHistoryBuckets(period, now, dayFraction) {
   const config = HISTORY_BUCKET_CONFIG[period] || HISTORY_BUCKET_CONFIG.weekly;
   const { windowDays, bucketCount, periodWord, currentLabel } = config;
 
@@ -145,9 +152,10 @@ export function habitPeriodHistory(habit, period, now = new Date()) {
     let value = 0;
     let windowLen = 0;
     dayKeys.forEach((key) => {
-      if (!habit || !existedOn(habit, key)) return;
+      const fraction = dayFraction(key);
+      if (fraction === null) return;
       windowLen += 1;
-      if (habitDoneOnDay(habit, key)) value += 1;
+      value += fraction;
     });
 
     const label =
@@ -155,10 +163,17 @@ export function habitPeriodHistory(habit, period, now = new Date()) {
         ? bucketEnd.toLocaleDateString('en-US', { weekday: 'short' })
         : `${periodWord[0].toUpperCase()}${i + 1}`;
 
-    buckets.push({ label, value, windowLen });
+    buckets.push({ label, value: Math.round(value * 10) / 10, windowLen });
   }
 
   return { buckets, windowDays, bucketCount, periodWord, currentLabel };
+}
+
+export function habitPeriodHistory(habit, period, now = new Date()) {
+  return buildHistoryBuckets(period, now, (key) => {
+    if (!habit || !existedOn(habit, key)) return null;
+    return habitDoneOnDay(habit, key) ? 1 : 0;
+  });
 }
 
 /**
@@ -175,7 +190,7 @@ export function habitHistorySummary(history) {
   const totalPossible = buckets.reduce((sum, b) => sum + b.windowLen, 0);
 
   if (totalPossible === 0) {
-    return "No history yet for this habit in this window.";
+    return 'No history yet in this window.';
   }
 
   const currentPct = current.windowLen > 0 ? Math.round((current.value / current.windowLen) * 100) : 0;

@@ -20,8 +20,12 @@ export function existedOn(habit, dayKey) {
  * Per-day stats: how many of that day's daily-target habits (only ones that
  * existed by then) were completed — a COUNT habit needs its values to sum to
  * its daily target, so a batch of 9 job applications still counts as one
- * habit "done", not nine — plus every other habit (weekly/monthly-only) that
- * had any activity that day.
+ * habit "done", not nine — plus every other habit (weekly/monthly-only).
+ * A BOOLEAN weekly/monthly habit always gets an entry, done or not, so the
+ * calendar's day-detail panel has a row to tap and log it for that day
+ * (same backdating a daily habit already gets) — a COUNT one only shows up
+ * when it actually has logged activity that day, since COUNT stays view-only
+ * there (ambiguous amount / which check-in to undo from a bare tap).
  */
 export function computeDayStats(dayKey, habits) {
   const entries = [];
@@ -43,7 +47,10 @@ export function computeDayStats(dayKey, habits) {
   existing.forEach((habit) => {
     if (hasDailyTarget(habit)) return;
     const value = sumValueForDay(habit, dayKey);
-    if (value > 0) entries.push({ habit, value, isDaily: false, done: true });
+    const done = value > 0;
+    if (done || habit.trackingMode !== 'COUNT') {
+      entries.push({ habit, value, isDaily: false, done });
+    }
   });
 
   return { dailyTotal, dailyDone, entries };

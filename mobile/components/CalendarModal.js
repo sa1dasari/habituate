@@ -36,10 +36,27 @@ export default function CalendarModal({ visible, habits = [], onClose, onToggleH
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth()); // 0-based
   const [selectedDay, setSelectedDay] = useState(null); // 'YYYY-MM-DD' or null
+  // Empty set = "All habits". Non-empty = only these habits feed the grid,
+  // day-detail panel, streak, and monthly summary below.
+  const [filterHabitIds, setFilterHabitIds] = useState(() => new Set());
+
+  const toggleFilterHabit = (habitId) => {
+    setFilterHabitIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(habitId)) next.delete(habitId);
+      else next.add(habitId);
+      return next;
+    });
+  };
+
+  const filteredHabits = useMemo(
+    () => (filterHabitIds.size === 0 ? habits : habits.filter((h) => filterHabitIds.has(h.id))),
+    [habits, filterHabitIds]
+  );
 
   const { weeks, dayStats } = useMemo(
-    () => buildMonth(year, month, habits),
-    [year, month, habits]
+    () => buildMonth(year, month, filteredHabits),
+    [year, month, filteredHabits]
   );
 
   const todayKey = toDateKey(today);
@@ -62,7 +79,7 @@ export default function CalendarModal({ visible, habits = [], onClose, onToggleH
   });
 
   const selectedStats = selectedDay ? dayStats[selectedDay] : null;
-  const selectedStreak = selectedDay ? allDoneStreak(selectedDay, habits) : 0;
+  const selectedStreak = selectedDay ? allDoneStreak(selectedDay, filteredHabits) : 0;
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
@@ -75,6 +92,43 @@ export default function CalendarModal({ visible, habits = [], onClose, onToggleH
           <Text style={styles.headerTitle}>Habit Calendar</Text>
           <View style={{ width: 34 }} />
         </View>
+
+        {/* Habit filter — "All habits" or any combination, applied to the grid,
+            day-detail panel, streak, and monthly summary below. */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.filterScroll}
+          contentContainerStyle={styles.filterRow}
+        >
+          <Pressable
+            style={[styles.filterChip, filterHabitIds.size === 0 && styles.filterChipSelected]}
+            onPress={() => setFilterHabitIds(new Set())}
+          >
+            <Text style={[styles.filterChipText, filterHabitIds.size === 0 && styles.filterChipTextSelected]}>
+              All habits
+            </Text>
+          </Pressable>
+          {habits.map((habit) => {
+            const selected = filterHabitIds.has(habit.id);
+            return (
+              <Pressable
+                key={habit.id}
+                style={[styles.filterChip, selected && styles.filterChipSelected]}
+                onPress={() => toggleFilterHabit(habit.id)}
+              >
+                <MaterialCommunityIcons
+                  name={categoryIcon(habit.category)}
+                  size={14}
+                  color={selected ? colors.accent : colors.textSecondary}
+                />
+                <Text style={[styles.filterChipText, selected && styles.filterChipTextSelected]} numberOfLines={1}>
+                  {habit.name}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
 
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           {/* Month navigation */}
@@ -126,7 +180,7 @@ export default function CalendarModal({ visible, habits = [], onClose, onToggleH
                 const isSelected = cell.key === selectedDay;
                 const stats = dayStats[cell.key];
                 const heatColor = heatColors(dayHeatRatio(stats), colors);
-                const hasOtherActivity = stats.entries.some((e) => !e.isDaily);
+                const hasOtherActivity = stats.entries.some((e) => !e.isDaily && e.done);
 
                 return (
                   <Pressable
@@ -210,15 +264,14 @@ export default function CalendarModal({ visible, habits = [], onClose, onToggleH
               {selectedStats.entries.length === 0 ? (
                 <Text style={styles.detailEmpty}>Nothing logged — and that's okay.</Text>
               ) : (
-                selectedStats.entries.map(({ habit, value, isDaily, done }) => {
-                  // Backdating is scoped to BOOLEAN daily-target habits for now —
-                  // those already have a clear per-day done/not-done state.
-                  // COUNT habits (what amount? which check-in to undo?) and
-                  // weekly/monthly-only habits (no "due this day" concept) stay
-                  // view-only here; see HabitsScreen for the handler.
+                selectedStats.entries.map(({ habit, value, done }) => {
+                  // Backdating works for any BOOLEAN habit now, daily-target
+                  // or weekly/monthly-only — a weekly habit's check-in is
+                  // just as much a single day-level fact as a daily one's.
+                  // COUNT habits stay view-only (what amount? which check-in
+                  // to undo from a bare tap?); see HabitsScreen for the handler.
                   const canToggle =
                     Boolean(onToggleHabitDay) &&
-                    isDaily &&
                     habit.trackingMode !== 'COUNT' &&
                     selectedDay <= todayKey;
 
@@ -234,15 +287,13 @@ export default function CalendarModal({ visible, habits = [], onClose, onToggleH
                       <View style={styles.detailText}>
                         <Text style={styles.detailHabitName}>{habit.name}</Text>
                         <Text style={styles.detailMeta}>
-                          {isDaily
-                            ? done
-                              ? value > 1
-                                ? `Completed · logged ${value}×`
-                                : 'Completed'
-                              : canToggle
-                                ? 'Tap to log it for this day'
-                                : 'Not yet logged'
-                            : `Logged${value > 1 ? ` ${value}×` : ''} today`}
+                          {done
+                            ? value > 1
+                              ? `Completed · logged ${value}×`
+                              : 'Completed'
+                            : canToggle
+                              ? 'Tap to log it for this day'
+                              : 'Not yet logged'}
                         </Text>
                       </View>
                       <MaterialCommunityIcons
@@ -278,7 +329,7 @@ export default function CalendarModal({ visible, habits = [], onClose, onToggleH
           <MonthlySummary
             year={year}
             month={month}
-            habits={habits}
+            habits={filteredHabits}
             dayStats={dayStats}
             styles={styles}
             colors={colors}
@@ -316,7 +367,7 @@ function MonthlySummary({ year, month, habits, dayStats, styles, colors }) {
       if (!existedOn(h, key)) continue;
       possibleDays++;
       const stats = dayStats[key];
-      if (stats && stats.entries.some((e) => e.habit.id === h.id)) count++;
+      if (stats && stats.entries.some((e) => e.habit.id === h.id && e.done)) count++;
     }
     const pct = possibleDays > 0 ? Math.round((count / possibleDays) * 100) : 0;
     return { habit: h, count, pct };
@@ -475,6 +526,42 @@ function makeStyles(colors, typography) {
   },
   scroll: {
     paddingBottom: spacing.xxl,
+  },
+  filterScroll: {
+    flexGrow: 0,
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+  },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.pill,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: spacing.xs + 2,
+    maxWidth: 160,
+  },
+  filterChipSelected: {
+    backgroundColor: colors.accentSoft,
+    borderColor: colors.accent,
+  },
+  filterChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  filterChipTextSelected: {
+    color: colors.accent,
   },
   monthNav: {
     flexDirection: 'row',

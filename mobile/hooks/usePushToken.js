@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Platform } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
@@ -26,6 +26,15 @@ function isExpoGo() {
   return Constants.appOwnership === 'expo';
 }
 
+// TEMPORARY, beta-only: every bail-out point below was previously a silent
+// no-op (console.log gated behind __DEV__, which is false in a release
+// build) — made push-registration failures undiagnosable in production.
+// Surfaces the exact failure point as an alert instead. Remove once reminder
+// delivery is confirmed working end-to-end for real users.
+function debugAlert(message) {
+  Alert.alert('[debug] Push registration', message);
+}
+
 /**
  * Registers this device for habit-reminder push notifications once the user
  * is signed in, from inside a development build or standalone app. Sends
@@ -33,8 +42,6 @@ function isExpoGo() {
  * itself (see isExpoGo above) — Expo Go dropped remote-push support on
  * Android in SDK 53 and this app isn't in a development build yet, so there
  * is nothing safe to register from there regardless of platform.
- * Silent no-op on any other failure in this chain — a missing reminder is
- * never worth surfacing an error over.
  */
 export function usePushToken(enabled) {
   const registeredToken = useRef(null);
@@ -50,7 +57,10 @@ export function usePushToken(enabled) {
 
     async function register() {
       try {
-        if (!Device.isDevice) return; // simulators/emulators don't have push capability
+        if (!Device.isDevice) {
+          debugAlert('Skipped: not a physical device.');
+          return;
+        }
 
         const Notifications = await import('expo-notifications');
         Notifications.setNotificationHandler({
@@ -75,23 +85,30 @@ export function usePushToken(enabled) {
           const requested = await Notifications.requestPermissionsAsync();
           status = requested.status;
         }
-        if (status !== 'granted' || cancelled) return;
+        if (status !== 'granted' || cancelled) {
+          debugAlert(`Skipped: notification permission status is "${status}".`);
+          return;
+        }
 
         const projectId = Constants.expoConfig?.extra?.eas?.projectId;
         if (!projectId) {
           // No EAS project linked yet (`eas init`) — can't mint a token without one.
-          if (__DEV__) console.log('[habituate] Skipping push registration: no EAS projectId configured.');
+          debugAlert('Skipped: no EAS projectId configured.');
           return;
         }
 
         const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
-        if (cancelled || !token) return;
+        if (cancelled || !token) {
+          debugAlert('Skipped: getExpoPushTokenAsync returned no token.');
+          return;
+        }
 
         await api.registerPushToken(token, Platform.OS);
         registeredToken.current = token;
         AsyncStorage.setItem(STORAGE_KEY, token).catch(() => {});
+        debugAlert(`Registered push token ending in …${token.slice(-8)}`);
       } catch (err) {
-        if (__DEV__) console.log('[habituate] Push registration skipped:', err?.message);
+        debugAlert(`Push registration failed: ${err?.message || err}`);
       }
     }
 

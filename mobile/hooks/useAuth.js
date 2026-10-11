@@ -154,7 +154,7 @@ export function AuthProvider({ children }) {
       if (isErrorWithCode(err) && err.code === statusCodes.SIGN_IN_CANCELLED) {
         // Same as the picker-cancel case above — nothing to surface.
       } else {
-        setError(friendlyError(err));
+        setError(friendlyGoogleError(err));
       }
     } finally {
       setGoogleLoading(false);
@@ -236,4 +236,32 @@ function friendlyError(err) {
     default:
       return 'Something went wrong. Please try again.';
   }
+}
+
+/**
+ * Google Sign-In errors come from two different sources with two different
+ * code formats: the native GoogleSignin SDK (statusCodes.* strings, or raw
+ * native codes like '10'/DEVELOPER_ERROR for a misconfigured OAuth client)
+ * before a credential ever reaches Firebase, and Firebase's own auth/* codes
+ * after signInWithCredential. friendlyError() only knows the second kind, so
+ * anything else fell through to a useless generic message — this surfaces
+ * the real code/message instead, which matters while this flow is still
+ * being debugged during beta.
+ */
+function friendlyGoogleError(err) {
+  if (typeof err.code === 'string' && err.code.startsWith('auth/')) {
+    return friendlyError(err);
+  }
+  if (isErrorWithCode(err)) {
+    switch (err.code) {
+      case statusCodes.PLAY_SERVICES_NOT_AVAILABLE:
+        return 'Google Play Services isn\'t available or needs an update on this device.';
+      case statusCodes.IN_PROGRESS:
+        return 'A sign-in is already in progress — wait a moment and try again.';
+      case statusCodes.SIGN_IN_REQUIRED:
+        return 'Please sign in with Google again.';
+    }
+  }
+  const detail = err.message || err.code || String(err);
+  return `Google sign-in failed: ${detail}`;
 }

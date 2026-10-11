@@ -35,6 +35,12 @@
         "projectId": "6d99f64f-b6e9-43e7-b998-865c86257b89"
       }
     },
-    "owner": "sawandasarj"
+    "owner": "sawandasarj",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/6d99f64f-b6e9-43e7-b998-865c86257b89"
+    }
   }
 }

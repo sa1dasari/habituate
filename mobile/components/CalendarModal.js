@@ -95,40 +95,41 @@ export default function CalendarModal({ visible, habits = [], onClose, onToggleH
 
         {/* Habit filter — "All habits" or any combination, applied to the grid,
             day-detail panel, streak, and monthly summary below. */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.filterScroll}
-          contentContainerStyle={styles.filterRow}
-        >
-          <Pressable
-            style={[styles.filterChip, filterHabitIds.size === 0 && styles.filterChipSelected]}
-            onPress={() => setFilterHabitIds(new Set())}
+        <View style={styles.filterScroll}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterRow}
           >
-            <Text style={[styles.filterChipText, filterHabitIds.size === 0 && styles.filterChipTextSelected]}>
-              All habits
-            </Text>
-          </Pressable>
-          {habits.map((habit) => {
-            const selected = filterHabitIds.has(habit.id);
-            return (
-              <Pressable
-                key={habit.id}
-                style={[styles.filterChip, selected && styles.filterChipSelected]}
-                onPress={() => toggleFilterHabit(habit.id)}
-              >
-                <MaterialCommunityIcons
-                  name={categoryIcon(habit.category)}
-                  size={14}
-                  color={selected ? colors.accent : colors.textSecondary}
-                />
-                <Text style={[styles.filterChipText, selected && styles.filterChipTextSelected]} numberOfLines={1}>
-                  {habit.name}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+            <Pressable
+              style={[styles.filterChip, filterHabitIds.size === 0 && styles.filterChipSelected]}
+              onPress={() => setFilterHabitIds(new Set())}
+            >
+              <Text style={[styles.filterChipText, filterHabitIds.size === 0 && styles.filterChipTextSelected]}>
+                All habits
+              </Text>
+            </Pressable>
+            {habits.map((habit) => {
+              const selected = filterHabitIds.has(habit.id);
+              return (
+                <Pressable
+                  key={habit.id}
+                  style={[styles.filterChip, selected && styles.filterChipSelected]}
+                  onPress={() => toggleFilterHabit(habit.id)}
+                >
+                  <MaterialCommunityIcons
+                    name={categoryIcon(habit.category)}
+                    size={14}
+                    color={selected ? colors.accent : colors.textSecondary}
+                  />
+                  <Text style={[styles.filterChipText, selected && styles.filterChipTextSelected]} numberOfLines={1}>
+                    {habit.name}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
 
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           {/* Month navigation */}

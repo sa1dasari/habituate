@@ -14,7 +14,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://REPLACE-WITH-YOUR-RAILWAY-URL.up.railway.app"
+        "EXPO_PUBLIC_API_URL": "https://habituate-production.up.railway.app"
       }
     },
     "production": {

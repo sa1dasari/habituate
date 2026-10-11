@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
+import * as Updates from 'expo-updates';
 import {
   Nunito_400Regular,
   Nunito_600SemiBold,
@@ -164,6 +165,28 @@ export default function App() {
       SplashScreen.hideAsync().catch(() => {});
     }
   }, [ready]);
+
+  // Without this, a newly published OTA update only downloads on this
+  // launch and doesn't actually take effect until the NEXT cold start —
+  // expo-updates' documented default behavior, but confusing in practice
+  // (two force-closes needed per fix). Checking and reloading eagerly here
+  // means a single reopen is enough. Runs silently in the background so a
+  // normal launch with no pending update isn't slowed down by the check;
+  // isEnabled is false in Expo Go / dev builds, where this would no-op anyway.
+  useEffect(() => {
+    if (!Updates.isEnabled) return;
+    (async () => {
+      try {
+        const result = await Updates.checkForUpdateAsync();
+        if (result.isAvailable) {
+          await Updates.fetchUpdateAsync();
+          await Updates.reloadAsync();
+        }
+      } catch {
+        // Offline, or check failed — fall through on whatever's already running.
+      }
+    })();
+  }, []);
 
   if (!ready) {
     return null;

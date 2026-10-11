@@ -29,6 +29,12 @@
       "expo-splash-screen",
       "expo-notifications",
       "expo-sharing"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "6d99f64f-b6e9-43e7-b998-865c86257b89"
+      }
+    },
+    "owner": "sawandasarj"
   }
 }

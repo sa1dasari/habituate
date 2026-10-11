@@ -16,8 +16,11 @@ import {
   signOut as firebaseSignOut,
   updateProfile,
 } from 'firebase/auth';
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
+import {
+  GoogleSignin,
+  isErrorWithCode,
+  statusCodes,
+} from '@react-native-google-signin/google-signin';
 import { auth } from '../firebase';
 import {
   clearBiometricCredentials,
@@ -28,7 +31,14 @@ import {
   saveBiometricCredentials,
 } from '../utils/biometricAuth';
 
-WebBrowser.maybeCompleteAuthSession();
+// webClientId must be the WEB-type OAuth client — Google Play Services uses
+// it to mint a Firebase-usable idToken, while the app itself is attested via
+// the ANDROID-type client already registered in Google Cloud Console
+// (package name + signing cert), matched automatically, never referenced
+// here directly. Configure once, not per-render.
+GoogleSignin.configure({
+  webClientId: process.env.EXPO_PUBLIC_FIREBASE_WEB_CLIENT_ID || '',
+});
 
 const AuthContext = createContext(null);
 
@@ -54,28 +64,12 @@ export function AuthProvider({ children }) {
     })();
   }, []);
 
-  const [googleRequest, googleResponse, googlePromptAsync] = Google.useAuthRequest({
-    clientId: process.env.EXPO_PUBLIC_FIREBASE_WEB_CLIENT_ID || '',
-    iosClientId: process.env.EXPO_PUBLIC_FIREBASE_IOS_CLIENT_ID || '',
-    androidClientId: process.env.EXPO_PUBLIC_FIREBASE_ANDROID_CLIENT_ID || '',
-  });
-
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser ?? null);
     });
     return unsubscribe;
   }, []);
-
-  useEffect(() => {
-    if (googleResponse?.type === 'success') {
-      const { id_token } = googleResponse.params;
-      const credential = GoogleAuthProvider.credential(id_token);
-      signInWithCredential(auth, credential)
-        .catch(err => setError(friendlyError(err)))
-        .finally(() => setGoogleLoading(false));
-    }
-  }, [googleResponse]);
 
   const signIn = useCallback(async (email, password) => {
     setError(null);
@@ -147,19 +141,25 @@ export function AuthProvider({ children }) {
     setError(null);
     setGoogleLoading(true);
     try {
-      const result = await googlePromptAsync();
-      // A dismiss/cancel resolves rather than throwing, and there's no
-      // 'success' response coming to clear the flag via the effect above —
-      // without this, backing out of the picker left both sign-in buttons
-      // disabled until the app reloaded.
-      if (result?.type !== 'success') {
-        setGoogleLoading(false);
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      const response = await GoogleSignin.signIn();
+      if (response.type !== 'success') {
+        // User backed out of the picker — not an app-level error.
+        return;
       }
+      const { idToken } = response.data;
+      const credential = GoogleAuthProvider.credential(idToken);
+      await signInWithCredential(auth, credential);
     } catch (err) {
-      setError(friendlyError(err));
+      if (isErrorWithCode(err) && err.code === statusCodes.SIGN_IN_CANCELLED) {
+        // Same as the picker-cancel case above — nothing to surface.
+      } else {
+        setError(friendlyError(err));
+      }
+    } finally {
       setGoogleLoading(false);
     }
-  }, [googlePromptAsync]);
+  }, []);
 
   const signInWithBiometrics = useCallback(async () => {
     setError(null);

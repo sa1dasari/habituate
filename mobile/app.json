@@ -35,6 +35,12 @@
         {
           "faceIDPermission": "Allow Habituate to use Face ID to sign you in."
         }
+      ],
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.333041480638-tfsv80qi9e39rc7akr29hhpae8vk507l"
+        }
       ]
     ],
     "extra": {

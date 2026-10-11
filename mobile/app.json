@@ -28,7 +28,14 @@
       "expo-font",
       "expo-splash-screen",
       "expo-notifications",
-      "expo-sharing"
+      "expo-sharing",
+      "expo-secure-store",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow Habituate to use Face ID to sign you in."
+        }
+      ]
     ],
     "extra": {
       "eas": {

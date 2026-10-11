@@ -18,7 +18,17 @@ import { radii, spacing } from '../theme';
 export default function LoginScreen({ onGoToSignup }) {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
-  const { signIn, signInWithGoogle, error, googleLoading, clearError } = useAuth();
+  const {
+    signIn,
+    signInWithGoogle,
+    signInWithBiometrics,
+    error,
+    googleLoading,
+    biometricLoading,
+    biometricAvailable,
+    biometricLabel,
+    clearError,
+  } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -81,9 +91,9 @@ export default function LoginScreen({ onGoToSignup }) {
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
             <Pressable
-              style={[styles.button, (loading || googleLoading) && styles.buttonDisabled]}
+              style={[styles.button, (loading || googleLoading || biometricLoading) && styles.buttonDisabled]}
               onPress={handleSignIn}
-              disabled={loading || googleLoading}
+              disabled={loading || googleLoading || biometricLoading}
             >
               {loading ? (
                 <ActivityIndicator color="#fff" />
@@ -101,7 +111,7 @@ export default function LoginScreen({ onGoToSignup }) {
             <Pressable
               style={[styles.googleButton, googleLoading && styles.buttonDisabled]}
               onPress={signInWithGoogle}
-              disabled={googleLoading || loading}
+              disabled={googleLoading || loading || biometricLoading}
             >
               {googleLoading ? (
                 <ActivityIndicator color={colors.accent} />
@@ -109,6 +119,20 @@ export default function LoginScreen({ onGoToSignup }) {
                 <Text style={styles.googleButtonText}>Sign in with Google</Text>
               )}
             </Pressable>
+
+            {biometricAvailable ? (
+              <Pressable
+                style={[styles.googleButton, biometricLoading && styles.buttonDisabled]}
+                onPress={signInWithBiometrics}
+                disabled={biometricLoading || loading || googleLoading}
+              >
+                {biometricLoading ? (
+                  <ActivityIndicator color={colors.accent} />
+                ) : (
+                  <Text style={styles.googleButtonText}>Sign in with {biometricLabel}</Text>
+                )}
+              </Pressable>
+            ) : null}
 
             <Pressable style={styles.switchLink} onPress={onGoToSignup}>
               <Text style={styles.switchText}>

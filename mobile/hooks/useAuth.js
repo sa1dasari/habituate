@@ -19,6 +19,14 @@ import {
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { auth } from '../firebase';
+import {
+  clearBiometricCredentials,
+  getBiometricCredentials,
+  getBiometricLabel,
+  getSavedBiometricEmail,
+  isBiometricHardwareAvailable,
+  saveBiometricCredentials,
+} from '../utils/biometricAuth';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -28,6 +36,23 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(undefined); // undefined = loading, null = signed out
   const [error, setError] = useState(null);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [biometricLoading, setBiometricLoading] = useState(false);
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [biometricLabel, setBiometricLabel] = useState('Fingerprint');
+
+  // Re-checked on mount only — availability can't meaningfully change within
+  // one app session (hardware/enrollment don't flip, and saved credentials
+  // only change via this same hook's own save/clear calls).
+  useEffect(() => {
+    (async () => {
+      const hardwareOk = await isBiometricHardwareAvailable();
+      if (!hardwareOk) return;
+      const savedEmail = await getSavedBiometricEmail();
+      if (!savedEmail) return;
+      setBiometricAvailable(true);
+      setBiometricLabel(await getBiometricLabel());
+    })();
+  }, []);
 
   const [googleRequest, googleResponse, googlePromptAsync] = Google.useAuthRequest({
     clientId: process.env.EXPO_PUBLIC_FIREBASE_WEB_CLIENT_ID || '',
@@ -60,6 +85,18 @@ export function AuthProvider({ children }) {
       setError(friendlyError(err));
       throw err;
     }
+    // Fire-and-forget: lets the login screen offer fingerprint sign-in next
+    // time, without blocking this sign-in on it or surfacing its own errors.
+    isBiometricHardwareAvailable().then((available) => {
+      if (!available) return;
+      saveBiometricCredentials(email, password)
+        .then(getBiometricLabel)
+        .then((label) => {
+          setBiometricAvailable(true);
+          setBiometricLabel(label);
+        })
+        .catch(() => {});
+    });
   }, []);
 
   const signUp = useCallback(async (email, password, displayName) => {
@@ -124,6 +161,31 @@ export function AuthProvider({ children }) {
     }
   }, [googlePromptAsync]);
 
+  const signInWithBiometrics = useCallback(async () => {
+    setError(null);
+    setBiometricLoading(true);
+    try {
+      const credentials = await getBiometricCredentials();
+      if (!credentials) {
+        // Cancelled/failed OS prompt — not an app-level error.
+        return;
+      }
+      try {
+        await signInWithEmailAndPassword(auth, credentials.email, credentials.password);
+      } catch (err) {
+        // The saved password no longer works (changed elsewhere) — drop the
+        // stale credential rather than keep offering a button that can't work.
+        if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+          await clearBiometricCredentials();
+          setBiometricAvailable(false);
+        }
+        setError(friendlyError(err));
+      }
+    } finally {
+      setBiometricLoading(false);
+    }
+  }, []);
+
   const clearError = useCallback(() => setError(null), []);
 
   return createElement(AuthContext.Provider, {
@@ -135,6 +197,10 @@ export function AuthProvider({ children }) {
       signOut,
       signInWithGoogle,
       googleLoading,
+      signInWithBiometrics,
+      biometricLoading,
+      biometricAvailable,
+      biometricLabel,
       clearError,
       updateDisplayName,
       updatePhotoURL,

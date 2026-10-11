@@ -3,13 +3,12 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import FlameIcon from '../components/FlameIcon';
 import AvatarImage from '../components/AvatarImage';
 import EditProfileModal from '../components/EditProfileModal';
 import { categoryIcon } from '../constants/habitCategories';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useAuth } from '../hooks/useAuth';
-import { useHabits, summarizeHabits } from '../hooks/useHabits';
+import { useHabits } from '../hooks/useHabits';
 import { useGoals } from '../hooks/useGoals';
 import { useGroupActivity } from '../hooks/useGroupActivity';
 import { unregisterPushToken } from '../hooks/usePushToken';
@@ -68,7 +67,6 @@ export default function ProfileScreen() {
 
   const displayName = user?.displayName || 'there';
   const firstName = displayName.split(' ')[0];
-  const summary = useMemo(() => summarizeHabits(habits), [habits]);
   const weeklyConsistency = useMemo(() => computeConsistency(habits, 'weekly').percent, [habits]);
 
   const handleExport = async (format) => {
@@ -134,9 +132,6 @@ export default function ProfileScreen() {
               {habits.length} {habits.length === 1 ? 'habit' : 'habits'} tracked · {weeklyConsistency}% weekly
               consistency
             </Text>
-          </View>
-          <View style={styles.flameBadge}>
-            <FlameIcon width={22} height={22} streak={summary.topStreak} />
           </View>
         </View>
 
@@ -317,14 +312,6 @@ function makeStyles(colors, typography) {
     heroText: { flex: 1 },
     heroTitle: { fontSize: 15, fontWeight: '700', color: colors.textPrimary },
     heroSubtitle: { ...typography.meta, marginTop: 2 },
-    flameBadge: {
-      width: 40,
-      height: 40,
-      borderRadius: radii.pill,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: colors.safeSoft,
-    },
     card: {
       backgroundColor: colors.surface,
       borderRadius: radii.lg,

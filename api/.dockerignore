@@ -1,0 +1,5 @@
+target/
+*.json
+!pom.xml
+.idea/
+*.iml

@@ -147,7 +147,15 @@ export function AuthProvider({ children }) {
         // User backed out of the picker — not an app-level error.
         return;
       }
-      const { idToken } = response.data;
+      // A cached/already-remembered account sometimes short-circuits the
+      // native picker and comes back without an idToken (confirmed:
+      // auth/argument-error from GoogleAuthProvider.credential(null) on a
+      // repeat sign-in after a fresh one worked fine) — getTokens() forces
+      // Play Services to actually hand one over.
+      let { idToken } = response.data;
+      if (!idToken) {
+        idToken = (await GoogleSignin.getTokens()).idToken;
+      }
       const credential = GoogleAuthProvider.credential(idToken);
       await signInWithCredential(auth, credential);
     } catch (err) {

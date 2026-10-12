@@ -142,19 +142,34 @@ export function AuthProvider({ children }) {
     setGoogleLoading(true);
     try {
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-      const response = await GoogleSignin.signIn();
+      let response = await GoogleSignin.signIn();
       if (response.type !== 'success') {
         // User backed out of the picker — not an app-level error.
         return;
       }
       // A cached/already-remembered account sometimes short-circuits the
       // native picker and comes back without an idToken (confirmed:
-      // auth/argument-error from GoogleAuthProvider.credential(null) on a
-      // repeat sign-in after a fresh one worked fine) — getTokens() forces
-      // Play Services to actually hand one over.
-      let { idToken } = response.data;
+      // auth/argument-error from GoogleAuthProvider.credential(null)).
+      // getTokens() alone wasn't enough to recover it either — the signed-in
+      // state itself is stale, not just this one response — so as a last
+      // resort, force a full native sign-out and a completely fresh sign-in
+      // (user sees the account picker again), which gets a real OAuth
+      // exchange instead of whatever Play Services had cached.
+      let idToken = response.data.idToken;
       if (!idToken) {
-        idToken = (await GoogleSignin.getTokens()).idToken;
+        try {
+          idToken = (await GoogleSignin.getTokens()).idToken;
+        } catch {
+          idToken = null;
+        }
+      }
+      if (!idToken) {
+        await GoogleSignin.signOut();
+        response = await GoogleSignin.signIn();
+        if (response.type !== 'success') {
+          return;
+        }
+        idToken = response.data.idToken;
       }
       const credential = GoogleAuthProvider.credential(idToken);
       await signInWithCredential(auth, credential);

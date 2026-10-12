@@ -32,6 +32,10 @@ api/src/main/resources/application-secrets.properties
 mobile/.env.local
 mobile/.env
 
-# Firebase native config files (contain project identifiers — keep out of root)
-google-services.json
+# google-services.json is intentionally tracked (mobile/google-services.json) —
+# EAS Build's archive step excludes gitignored files even when force-added, and
+# the native Google Sign-In config plugin needs this file present to build.
+# Content is public client identifiers (API key, OAuth client IDs), same
+# category already committed in mobile/firebase.js — not secrets; Firebase's
+# security model is Security Rules + server-side token verification.
 GoogleService-Info.plist

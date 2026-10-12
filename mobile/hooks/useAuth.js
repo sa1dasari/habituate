@@ -249,8 +249,20 @@ function friendlyError(err) {
  * being debugged during beta.
  */
 function friendlyGoogleError(err) {
-  if (typeof err.code === 'string' && err.code.startsWith('auth/')) {
-    return friendlyError(err);
+  // Only auth/* codes that are actually reachable from a Google credential
+  // sign-in get a hand-written message — unlike friendlyError()'s full list
+  // (invalid-email, weak-password, etc.), which is for email/password and
+  // mostly can't occur here. Everything else — including any other auth/*
+  // code — shows the raw code/message rather than silently collapsing into
+  // friendlyError()'s generic default, which is what was hiding the real
+  // cause behind an identical "Something went wrong" every time.
+  switch (err.code) {
+    case 'auth/too-many-requests':
+      return 'Too many attempts — take a short break and try again.';
+    case 'auth/network-request-failed':
+      return 'Network issue — check your connection and try again.';
+    case 'auth/user-disabled':
+      return 'This account has been disabled.';
   }
   if (isErrorWithCode(err)) {
     switch (err.code) {
@@ -263,5 +275,5 @@ function friendlyGoogleError(err) {
     }
   }
   const detail = err.message || err.code || String(err);
-  return `Google sign-in failed: ${detail}`;
+  return `Google sign-in failed [${err.code || 'no-code'}]: ${detail}`;
 }

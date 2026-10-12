@@ -38,22 +38,20 @@ import {
 // (package name + signing cert), matched automatically, never referenced
 // here directly.
 //
-// Confirmed via a plain browser OAuth request against this exact
-// webClientId (bypassing the app and Play Services entirely) that Google's
-// server mints a fully valid idToken for this account without issue — so
-// the Cloud Console config (client, scopes, consent screen) is NOT the
-// problem. Every in-app attempt has still returned a missing idToken
-// regardless. configure() is a fire-and-forget native bridge call with no
-// promise to await; called once here at module-load time, there's a real
-// possibility the native side hasn't actually applied it yet by the time a
-// user taps "Sign in" moments after the app opens — a GoogleSignInOptions
-// built before webClientId lands natively silently never calls
-// requestIdToken() at all. configureGoogleSignIn() is re-called defensively
-// right before every sign-in attempt (see signInWithGoogle) as well as here.
+// Deliberately NOT passing a `scopes` option: an earlier attempt added
+// `scopes: ['openid', 'profile', 'email']` on a theory (this library uses
+// Credential Manager, which needs 'openid' explicit) that turned out to be
+// wrong — confirmed via source inspection that this version uses the
+// legacy GoogleSignInOptions/GoogleSignInClient API, where requestIdToken()
+// handles the ID token exchange independently of requestScopes() entirely.
+// Per user report, sign-in worked cleanly through multiple login/logout
+// cycles on the very first install (webClientId alone, no scopes option)
+// and only started failing with auth/argument-error after that scopes
+// change shipped via OTA — a raw 'openid' string is not a valid scope URI
+// for this API and was likely corrupting the whole scope request silently.
 function configureGoogleSignIn() {
   GoogleSignin.configure({
     webClientId: process.env.EXPO_PUBLIC_FIREBASE_WEB_CLIENT_ID || '',
-    scopes: ['openid', 'profile', 'email'],
   });
 }
 configureGoogleSignIn();

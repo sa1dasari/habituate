@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "333041480638",
+    "project_id": "habituate-ae85f",
+    "storage_bucket": "habituate-ae85f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:333041480638:android:e3fe2875dc0195b2ca3fef",
+        "android_client_info": {
+          "package_name": "com.habituate.mobile"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "333041480638-jmvmtridg0d61ai6jm815squifu3hg3v.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.habituate.mobile",
+            "certificate_hash": "99129af60dea5cf966b5045a3dc4f9e0805f4aa4"
+          }
+        },
+        {
+          "client_id": "333041480638-jv7tbvidulqorb3jf2921ig3hob05171.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCiyNtsx-rrbIWwPiQQvDAIfNYyUULCvDM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "333041480638-jv7tbvidulqorb3jf2921ig3hob05171.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "333041480638-tfsv80qi9e39rc7akr29hhpae8vk507l.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.habituate.mobile"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

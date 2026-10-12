@@ -13,6 +13,7 @@
     },
     "android": {
       "package": "com.habituate.mobile",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#FDFDF5",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -36,12 +37,7 @@
           "faceIDPermission": "Allow Habituate to use Face ID to sign you in."
         }
       ],
-      [
-        "@react-native-google-signin/google-signin",
-        {
-          "iosUrlScheme": "com.googleusercontent.apps.333041480638-tfsv80qi9e39rc7akr29hhpae8vk507l"
-        }
-      ]
+      "@react-native-google-signin/google-signin"
     ],
     "extra": {
       "eas": {

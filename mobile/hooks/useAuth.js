@@ -36,16 +36,27 @@ import {
 // it to mint a Firebase-usable idToken, while the app itself is attested via
 // the ANDROID-type client already registered in Google Cloud Console
 // (package name + signing cert), matched automatically, never referenced
-// here directly. Configure once, not per-render.
-GoogleSignin.configure({
-  webClientId: process.env.EXPO_PUBLIC_FIREBASE_WEB_CLIENT_ID || '',
-  // Library default scopes are just ['email', 'profile'] — ID tokens are an
-  // OpenID Connect concept, and a server can legitimately decline to issue
-  // one without 'openid' explicitly requested. Every idToken we've gotten
-  // back so far (fresh sign-in, cached sign-in, forced re-auth) has been
-  // null, which this is the one untried explanation for.
-  scopes: ['openid', 'profile', 'email'],
-});
+// here directly.
+//
+// Confirmed via a plain browser OAuth request against this exact
+// webClientId (bypassing the app and Play Services entirely) that Google's
+// server mints a fully valid idToken for this account without issue — so
+// the Cloud Console config (client, scopes, consent screen) is NOT the
+// problem. Every in-app attempt has still returned a missing idToken
+// regardless. configure() is a fire-and-forget native bridge call with no
+// promise to await; called once here at module-load time, there's a real
+// possibility the native side hasn't actually applied it yet by the time a
+// user taps "Sign in" moments after the app opens — a GoogleSignInOptions
+// built before webClientId lands natively silently never calls
+// requestIdToken() at all. configureGoogleSignIn() is re-called defensively
+// right before every sign-in attempt (see signInWithGoogle) as well as here.
+function configureGoogleSignIn() {
+  GoogleSignin.configure({
+    webClientId: process.env.EXPO_PUBLIC_FIREBASE_WEB_CLIENT_ID || '',
+    scopes: ['openid', 'profile', 'email'],
+  });
+}
+configureGoogleSignIn();
 
 const AuthContext = createContext(null);
 
@@ -148,6 +159,7 @@ export function AuthProvider({ children }) {
     setError(null);
     setGoogleLoading(true);
     try {
+      configureGoogleSignIn();
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
       let response = await GoogleSignin.signIn();
       if (response.type !== 'success') {

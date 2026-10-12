@@ -157,6 +157,12 @@ export function AuthProvider({ children }) {
     setGoogleLoading(true);
     try {
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      // Without this, Play Services can silently resolve signIn() to a
+      // cached on-device session with no account picker shown at all and no
+      // fresh OAuth exchange — confirmed: that path returns a null idToken.
+      // Signing out first guarantees a real picker and a real exchange every
+      // time, rather than reactively retrying only after detecting a miss.
+      await GoogleSignin.signOut().catch(() => {});
       const response = await GoogleSignin.signIn();
       if (response.type !== 'success') {
         // User backed out of the picker — not an app-level error.

@@ -6,6 +6,7 @@ import {
   useEffect,
   useState,
 } from 'react';
+import { Alert } from 'react-native';
 import {
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
@@ -38,6 +39,12 @@ import {
 // here directly. Configure once, not per-render.
 GoogleSignin.configure({
   webClientId: process.env.EXPO_PUBLIC_FIREBASE_WEB_CLIENT_ID || '',
+  // Library default scopes are just ['email', 'profile'] — ID tokens are an
+  // OpenID Connect concept, and a server can legitimately decline to issue
+  // one without 'openid' explicitly requested. Every idToken we've gotten
+  // back so far (fresh sign-in, cached sign-in, forced re-auth) has been
+  // null, which this is the one untried explanation for.
+  scopes: ['openid', 'profile', 'email'],
 });
 
 const AuthContext = createContext(null);
@@ -156,13 +163,18 @@ export function AuthProvider({ children }) {
       // (user sees the account picker again), which gets a real OAuth
       // exchange instead of whatever Play Services had cached.
       let idToken = response.data.idToken;
+      const stage1 = idToken ? 'present' : 'MISSING';
+      let stage2 = 'skipped';
       if (!idToken) {
         try {
           idToken = (await GoogleSignin.getTokens()).idToken;
-        } catch {
+          stage2 = idToken ? 'present' : 'MISSING';
+        } catch (e) {
           idToken = null;
+          stage2 = `threw: ${e?.message || e}`;
         }
       }
+      let stage3 = 'skipped';
       if (!idToken) {
         await GoogleSignin.signOut();
         response = await GoogleSignin.signIn();
@@ -170,6 +182,16 @@ export function AuthProvider({ children }) {
           return;
         }
         idToken = response.data.idToken;
+        stage3 = idToken ? 'present' : 'MISSING';
+      }
+      // TEMPORARY, beta-only diagnostic: every stage has returned MISSING so
+      // far despite a genuinely fresh, explicit account selection — this
+      // shows exactly which one(s) failed this attempt instead of guessing.
+      if (!idToken) {
+        Alert.alert(
+          'Google sign-in idToken trace',
+          `initial signIn(): ${stage1}\ngetTokens(): ${stage2}\nforced re-auth: ${stage3}`
+        );
       }
       const credential = GoogleAuthProvider.credential(idToken);
       await signInWithCredential(auth, credential);

@@ -6,7 +6,6 @@ import {
   useEffect,
   useState,
 } from 'react';
-import { Alert } from 'react-native';
 import {
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
@@ -157,52 +156,13 @@ export function AuthProvider({ children }) {
     setError(null);
     setGoogleLoading(true);
     try {
-      configureGoogleSignIn();
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-      let response = await GoogleSignin.signIn();
+      const response = await GoogleSignin.signIn();
       if (response.type !== 'success') {
         // User backed out of the picker — not an app-level error.
         return;
       }
-      // A cached/already-remembered account sometimes short-circuits the
-      // native picker and comes back without an idToken (confirmed:
-      // auth/argument-error from GoogleAuthProvider.credential(null)).
-      // getTokens() alone wasn't enough to recover it either — the signed-in
-      // state itself is stale, not just this one response — so as a last
-      // resort, force a full native sign-out and a completely fresh sign-in
-      // (user sees the account picker again), which gets a real OAuth
-      // exchange instead of whatever Play Services had cached.
-      let idToken = response.data.idToken;
-      const stage1 = idToken ? 'present' : 'MISSING';
-      let stage2 = 'skipped';
-      if (!idToken) {
-        try {
-          idToken = (await GoogleSignin.getTokens()).idToken;
-          stage2 = idToken ? 'present' : 'MISSING';
-        } catch (e) {
-          idToken = null;
-          stage2 = `threw: ${e?.message || e}`;
-        }
-      }
-      let stage3 = 'skipped';
-      if (!idToken) {
-        await GoogleSignin.signOut();
-        response = await GoogleSignin.signIn();
-        if (response.type !== 'success') {
-          return;
-        }
-        idToken = response.data.idToken;
-        stage3 = idToken ? 'present' : 'MISSING';
-      }
-      // TEMPORARY, beta-only diagnostic: every stage has returned MISSING so
-      // far despite a genuinely fresh, explicit account selection — this
-      // shows exactly which one(s) failed this attempt instead of guessing.
-      if (!idToken) {
-        Alert.alert(
-          'Google sign-in idToken trace',
-          `initial signIn(): ${stage1}\ngetTokens(): ${stage2}\nforced re-auth: ${stage3}`
-        );
-      }
+      const { idToken } = response.data;
       const credential = GoogleAuthProvider.credential(idToken);
       await signInWithCredential(auth, credential);
     } catch (err) {

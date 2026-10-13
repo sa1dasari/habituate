@@ -9,19 +9,11 @@ import { categoryIcon } from '../constants/habitCategories';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useAuth } from '../hooks/useAuth';
 import { useHabits } from '../hooks/useHabits';
-import { useGoals } from '../hooks/useGoals';
 import { useGroupActivity } from '../hooks/useGroupActivity';
 import { unregisterPushToken } from '../hooks/usePushToken';
-import { buildExportData, shareExport, toCsv, toJson } from '../utils/dataExport';
 import { computeConsistency } from '../utils/consistency';
 import { timeAgo } from '../utils/date';
 import { radii, shadow, spacing } from '../theme';
-
-const MODE_OPTIONS = [
-  { value: 'light', label: 'Light', icon: 'white-balance-sunny' },
-  { value: 'dark', label: 'Dark', icon: 'weather-night' },
-  { value: 'system', label: 'System', icon: 'theme-light-dark' },
-];
 
 const HABIT_SUMMARY_LIMIT = 3;
 const ACTIVITY_LIMIT = 5;
@@ -55,35 +47,17 @@ function Card({ title, actionLabel, onAction, children, styles }) {
 
 export default function ProfileScreen() {
   const navigation = useNavigation();
-  const { colors, typography, mode, setMode } = useAppTheme();
+  const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const { user, signOut } = useAuth();
   const { habits } = useHabits();
-  const { goals } = useGoals();
   const { activity, loading: activityLoading, toggleCheer } = useGroupActivity();
 
   const [editVisible, setEditVisible] = useState(false);
-  const [exporting, setExporting] = useState(null); // 'json' | 'csv' | null
 
   const displayName = user?.displayName || 'there';
   const firstName = displayName.split(' ')[0];
   const weeklyConsistency = useMemo(() => computeConsistency(habits, 'weekly').percent, [habits]);
-
-  const handleExport = async (format) => {
-    setExporting(format);
-    try {
-      const data = buildExportData(habits, goals);
-      if (format === 'json') {
-        await shareExport(toJson(data), 'habituate-export.json', 'application/json');
-      } else {
-        await shareExport(toCsv(data), 'habituate-checkins.csv', 'text/csv');
-      }
-    } catch (err) {
-      Alert.alert("Couldn't export", err instanceof Error ? err.message : 'Something went wrong — try again.');
-    } finally {
-      setExporting(null);
-    }
-  };
 
   const handleToggleCheer = async (item) => {
     const ok = await toggleCheer(item);
@@ -209,53 +183,13 @@ export default function ProfileScreen() {
           )}
         </Card>
 
-        <Card title="Appearance" styles={styles}>
-          <Text style={styles.cardNote}>System follows your phone's setting until you override it.</Text>
-          <View style={styles.themeRow}>
-            {MODE_OPTIONS.map((option) => {
-              const active = mode === option.value;
-              return (
-                <Pressable
-                  key={option.value}
-                  style={[styles.themePill, active && styles.themePillActive]}
-                  onPress={() => setMode(option.value)}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${option.label} appearance`}
-                  accessibilityState={{ selected: active }}
-                >
-                  <MaterialCommunityIcons
-                    name={option.icon}
-                    size={18}
-                    color={active ? colors.accent : colors.textSecondary}
-                  />
-                  <Text style={[styles.themePillText, active && styles.themePillTextActive]}>{option.label}</Text>
-                </Pressable>
-              );
-            })}
+        <Pressable style={styles.settingsRow} onPress={() => navigation.navigate('AccountSettings')}>
+          <View style={styles.settingsRowIcon}>
+            <MaterialCommunityIcons name="cog-outline" size={18} color={colors.accent} />
           </View>
-        </Card>
-
-        <Card title="Data Export" styles={styles}>
-          <Text style={styles.cardNote}>A copy of your habits, check-ins, and goals — yours to keep.</Text>
-          <View style={styles.exportRow}>
-            <Pressable style={styles.secondaryButton} disabled={!!exporting} onPress={() => handleExport('json')}>
-              {exporting === 'json' ? (
-                <ActivityIndicator size="small" color={colors.textSecondary} />
-              ) : (
-                <MaterialCommunityIcons name="code-json" size={16} color={colors.textSecondary} />
-              )}
-              <Text style={styles.secondaryButtonText}>Export JSON</Text>
-            </Pressable>
-            <Pressable style={styles.secondaryButton} disabled={!!exporting} onPress={() => handleExport('csv')}>
-              {exporting === 'csv' ? (
-                <ActivityIndicator size="small" color={colors.textSecondary} />
-              ) : (
-                <MaterialCommunityIcons name="table" size={16} color={colors.textSecondary} />
-              )}
-              <Text style={styles.secondaryButtonText}>Export CSV</Text>
-            </Pressable>
-          </View>
-        </Card>
+          <Text style={styles.settingsRowLabel}>Account Settings</Text>
+          <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textMuted} />
+        </Pressable>
 
         <Pressable style={styles.signOutBtn} onPress={handleSignOut}>
           <MaterialCommunityIcons name="logout" size={16} color={colors.atRisk} />
@@ -384,36 +318,26 @@ function makeStyles(colors, typography) {
       justifyContent: 'center',
       backgroundColor: colors.background,
     },
-    themeRow: { flexDirection: 'row', gap: spacing.sm },
-    themePill: {
-      flex: 1,
+    settingsRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'center',
-      gap: spacing.xs,
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: radii.sm,
-      paddingVertical: spacing.sm + 2,
-      backgroundColor: colors.background,
+      gap: spacing.md,
+      backgroundColor: colors.surface,
+      borderRadius: radii.lg,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      marginBottom: spacing.lg,
+      ...shadow,
     },
-    themePillActive: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
-    themePillText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
-    themePillTextActive: { color: colors.accent },
-    exportRow: { flexDirection: 'row', gap: spacing.sm },
-    secondaryButton: {
-      flex: 1,
-      flexDirection: 'row',
+    settingsRowIcon: {
+      width: 32,
+      height: 32,
+      borderRadius: radii.md,
+      backgroundColor: colors.accentSoft,
       alignItems: 'center',
       justifyContent: 'center',
-      gap: spacing.xs,
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: radii.sm,
-      paddingVertical: spacing.sm + 2,
-      backgroundColor: colors.background,
     },
-    secondaryButtonText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
+    settingsRowLabel: { flex: 1, fontSize: 14, fontWeight: '600', color: colors.textPrimary },
     signOutBtn: {
       flexDirection: 'row',
       alignItems: 'center',

@@ -7,4 +7,6 @@ import java.util.List;
 
 public interface StreakFreezeRepository extends JpaRepository<StreakFreeze, Long> {
     List<StreakFreeze> findByGroupIdAndUsedOnDateAfter(Long groupId, LocalDate after);
+
+    void deleteByGroupId(Long groupId);
 }

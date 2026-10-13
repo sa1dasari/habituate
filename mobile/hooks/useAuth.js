@@ -8,12 +8,17 @@ import {
 } from 'react';
 import {
   createUserWithEmailAndPassword,
+  FacebookAuthProvider,
+  fetchSignInMethodsForEmail,
   GoogleAuthProvider,
+  linkWithCredential,
+  OAuthProvider,
   onAuthStateChanged,
   sendPasswordResetEmail,
   signInWithCredential,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
+  unlink,
   updateProfile,
 } from 'firebase/auth';
 import {
@@ -21,7 +26,11 @@ import {
   isErrorWithCode,
   statusCodes,
 } from '@react-native-google-signin/google-signin';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import { AccessToken, LoginManager } from 'react-native-fbsdk-next';
 import { auth } from '../firebase';
+import api from '../api/client';
+import { labelForProviderId } from '../utils/providerLabels';
 import {
   clearBiometricCredentials,
   getBiometricCredentials,
@@ -43,11 +52,6 @@ import {
 // wrong — confirmed via source inspection that this version uses the
 // legacy GoogleSignInOptions/GoogleSignInClient API, where requestIdToken()
 // handles the ID token exchange independently of requestScopes() entirely.
-// Per user report, sign-in worked cleanly through multiple login/logout
-// cycles on the very first install (webClientId alone, no scopes option)
-// and only started failing with auth/argument-error after that scopes
-// change shipped via OTA — a raw 'openid' string is not a valid scope URI
-// for this API and was likely corrupting the whole scope request silently.
 function configureGoogleSignIn() {
   GoogleSignin.configure({
     webClientId: process.env.EXPO_PUBLIC_FIREBASE_WEB_CLIENT_ID || '',
@@ -61,6 +65,11 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(undefined); // undefined = loading, null = signed out
   const [error, setError] = useState(null);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [facebookLoading, setFacebookLoading] = useState(false);
+  const [appleLoading, setAppleLoading] = useState(false);
+  const [appleAvailable, setAppleAvailable] = useState(false);
+  const [linking, setLinking] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const [biometricLoading, setBiometricLoading] = useState(false);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricLabel, setBiometricLabel] = useState('Fingerprint');
@@ -76,6 +85,18 @@ export function AuthProvider({ children }) {
       if (!savedEmail) return;
       setBiometricAvailable(true);
       setBiometricLabel(await getBiometricLabel());
+    })();
+  }, []);
+
+  // Apple Sign-In is iOS-only and feature-detected — simply doesn't render on
+  // Android/unsupported iOS versions rather than branching on Platform.OS.
+  useEffect(() => {
+    (async () => {
+      try {
+        setAppleAvailable(await AppleAuthentication.isAvailableAsync());
+      } catch {
+        setAppleAvailable(false);
+      }
     })();
   }, []);
 
@@ -156,29 +177,100 @@ export function AuthProvider({ children }) {
     setError(null);
     setGoogleLoading(true);
     try {
-      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-      // Without this, Play Services can silently resolve signIn() to a
-      // cached on-device session with no account picker shown at all and no
-      // fresh OAuth exchange — confirmed: that path returns a null idToken.
-      // Signing out first guarantees a real picker and a real exchange every
-      // time, rather than reactively retrying only after detecting a miss.
-      await GoogleSignin.signOut().catch(() => {});
-      const response = await GoogleSignin.signIn();
-      if (response.type !== 'success') {
-        // User backed out of the picker — not an app-level error.
-        return;
-      }
-      const { idToken } = response.data;
-      const credential = GoogleAuthProvider.credential(idToken);
+      const credential = await getGoogleCredential();
+      if (!credential) return; // user backed out of the picker
       await signInWithCredential(auth, credential);
     } catch (err) {
       if (isErrorWithCode(err) && err.code === statusCodes.SIGN_IN_CANCELLED) {
-        // Same as the picker-cancel case above — nothing to surface.
+        // nothing to surface
       } else {
-        setError(friendlyGoogleError(err));
+        await handleSignInError(err, setError, friendlyGoogleError);
       }
     } finally {
       setGoogleLoading(false);
+    }
+  }, []);
+
+  const signInWithFacebook = useCallback(async () => {
+    setError(null);
+    setFacebookLoading(true);
+    try {
+      const credential = await getFacebookCredential();
+      if (!credential) return; // user cancelled the native Facebook dialog
+      await signInWithCredential(auth, credential);
+    } catch (err) {
+      await handleSignInError(err, setError, friendlyFacebookError);
+    } finally {
+      setFacebookLoading(false);
+    }
+  }, []);
+
+  const signInWithApple = useCallback(async () => {
+    setError(null);
+    setAppleLoading(true);
+    try {
+      const credential = await getAppleCredential();
+      if (!credential) return; // user cancelled the native Apple sheet
+      await signInWithCredential(auth, credential);
+    } catch (err) {
+      await handleSignInError(err, setError, friendlyAppleError);
+    } finally {
+      setAppleLoading(false);
+    }
+  }, []);
+
+  /**
+   * Links a new provider credential onto the CURRENTLY signed-in user, under
+   * the same Firebase UID — this is the whole "only 1 account" mechanism.
+   * providerType is 'google' | 'facebook' | 'apple'.
+   */
+  const linkProvider = useCallback(async (providerType) => {
+    setError(null);
+    setLinking(true);
+    try {
+      const credential = await acquireCredential(providerType);
+      if (!credential) return;
+      await linkWithCredential(auth.currentUser, credential);
+      setUser({ ...auth.currentUser });
+    } catch (err) {
+      if (err.code === 'auth/provider-already-linked') {
+        // already linked to this account — treat as a no-op
+      } else if (err.code === 'auth/credential-already-in-use') {
+        setError('That account is already linked to a different Habituate account.');
+      } else {
+        await handleSignInError(err, setError, friendlyErrorFor(providerType));
+      }
+    } finally {
+      setLinking(false);
+    }
+  }, []);
+
+  /** providerId is the Firebase providerData id: 'password' | 'google.com' | 'facebook.com' | 'apple.com'. */
+  const unlinkProvider = useCallback(async (providerId) => {
+    setError(null);
+    const providerCount = (auth.currentUser?.providerData || []).length;
+    if (providerCount <= 1) {
+      setError('Link another sign-in method before removing this one.');
+      return;
+    }
+    setLinking(true);
+    try {
+      await unlink(auth.currentUser, providerId);
+      setUser({ ...auth.currentUser });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not unlink that sign-in method — try again.');
+    } finally {
+      setLinking(false);
+    }
+  }, []);
+
+  /** Deletes the backend's copy of everything this user owns, then the Firebase user itself. */
+  const deleteAccount = useCallback(async () => {
+    setDeletingAccount(true);
+    try {
+      await api.deleteAccount();
+    } finally {
+      setDeletingAccount(false);
     }
   }, []);
 
@@ -218,6 +310,16 @@ export function AuthProvider({ children }) {
       signOut,
       signInWithGoogle,
       googleLoading,
+      signInWithFacebook,
+      facebookLoading,
+      signInWithApple,
+      appleLoading,
+      appleAvailable,
+      linkProvider,
+      unlinkProvider,
+      linking,
+      deleteAccount,
+      deletingAccount,
       signInWithBiometrics,
       biometricLoading,
       biometricAvailable,
@@ -235,6 +337,113 @@ export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth must be used inside <AuthProvider>');
   return ctx;
+}
+
+/** Resolves a Firebase-ready credential for sign-in or linking, or null if the user backed out. */
+async function acquireCredential(providerType) {
+  switch (providerType) {
+    case 'google':
+      return getGoogleCredential();
+    case 'facebook':
+      return getFacebookCredential();
+    case 'apple':
+      return getAppleCredential();
+    default:
+      throw new Error(`Unknown provider: ${providerType}`);
+  }
+}
+
+async function getGoogleCredential() {
+  await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+  // Without this, Play Services can silently resolve signIn() to a cached
+  // on-device session with no account picker shown at all and no fresh OAuth
+  // exchange — confirmed: that path returns a null idToken.
+  await GoogleSignin.signOut().catch(() => {});
+  const response = await GoogleSignin.signIn();
+  if (response.type !== 'success') return null;
+  return GoogleAuthProvider.credential(response.data.idToken);
+}
+
+// Native Facebook SDK (react-native-fbsdk-next), not a browser-based OAuth
+// flow — Facebook's "Valid OAuth Redirect URIs" field only accepts https://
+// URLs (confirmed: it's specifically for their web login flow), which rules
+// out a plain custom-scheme AuthSession redirect without extra hosted-page
+// infrastructure. The native SDK handles its own app-switch/webview redirect
+// internally via the fb<APP_ID> scheme, which Facebook permits without that
+// https restriction.
+async function getFacebookCredential() {
+  const result = await LoginManager.logInWithPermissions(['public_profile', 'email']);
+  if (result.isCancelled) return null;
+  const data = await AccessToken.getCurrentAccessToken();
+  if (!data) return null;
+  return FacebookAuthProvider.credential(data.accessToken);
+}
+
+async function getAppleCredential() {
+  try {
+    const appleCredential = await AppleAuthentication.signInAsync({
+      requestedScopes: [
+        AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+        AppleAuthentication.AppleAuthenticationScope.EMAIL,
+      ],
+    });
+    const provider = new OAuthProvider('apple.com');
+    return provider.credential({ idToken: appleCredential.identityToken });
+  } catch (err) {
+    if (err.code === 'ERR_REQUEST_CANCELED') return null;
+    throw err;
+  }
+}
+
+/**
+ * The fragile "fresh sign-in on a different provider, same email" collision.
+ * We deliberately don't attempt automatic credential merging here (recovering
+ * the original pending credential reliably across RN/Firebase-JS-SDK
+ * versions is exactly the kind of fragile corner that made Google Sign-In
+ * painful to debug) — instead this surfaces which provider the account
+ * already uses, and the user links the new one manually from Account
+ * Settings once signed in with the existing provider.
+ */
+async function collisionMessage(err) {
+  const email = err?.customData?.email;
+  if (!email) return null;
+  try {
+    const methods = await fetchSignInMethodsForEmail(auth, email);
+    if (!methods || methods.length === 0) return null;
+    const existing = methods.map(labelForProviderId).join(' or ');
+    return (
+      `An account with this email already exists, signed in with ${existing}. ` +
+      `Please sign in with ${existing} first, then link this method from Account Settings → Login & Security.`
+    );
+  } catch {
+    return null;
+  }
+}
+
+async function handleSignInError(err, setError, friendlyMapper) {
+  if (err?.code === 'auth/account-exists-with-different-credential') {
+    const message = await collisionMessage(err);
+    setError(
+      message ||
+        'An account with this email already exists using a different sign-in method. ' +
+          'Sign in with that method first, then link this one from Account Settings → Login & Security.'
+    );
+    return;
+  }
+  setError(friendlyMapper(err));
+}
+
+function friendlyErrorFor(providerType) {
+  switch (providerType) {
+    case 'google':
+      return friendlyGoogleError;
+    case 'facebook':
+      return friendlyFacebookError;
+    case 'apple':
+      return friendlyAppleError;
+    default:
+      return (err) => (err instanceof Error ? err.message : 'Something went wrong. Please try again.');
+  }
 }
 
 /** Maps Firebase error codes to user-friendly, non-punitive messages. */
@@ -270,13 +479,6 @@ function friendlyError(err) {
  * being debugged during beta.
  */
 function friendlyGoogleError(err) {
-  // Only auth/* codes that are actually reachable from a Google credential
-  // sign-in get a hand-written message — unlike friendlyError()'s full list
-  // (invalid-email, weak-password, etc.), which is for email/password and
-  // mostly can't occur here. Everything else — including any other auth/*
-  // code — shows the raw code/message rather than silently collapsing into
-  // friendlyError()'s generic default, which is what was hiding the real
-  // cause behind an identical "Something went wrong" every time.
   switch (err.code) {
     case 'auth/too-many-requests':
       return 'Too many attempts — take a short break and try again.';
@@ -297,4 +499,32 @@ function friendlyGoogleError(err) {
   }
   const detail = err.message || err.code || String(err);
   return `Google sign-in failed [${err.code || 'no-code'}]: ${detail}`;
+}
+
+/** Same reasoning as friendlyGoogleError — kept as its own mapper rather than a shared one, for the same debuggability reason. */
+function friendlyFacebookError(err) {
+  switch (err.code) {
+    case 'auth/too-many-requests':
+      return 'Too many attempts — take a short break and try again.';
+    case 'auth/network-request-failed':
+      return 'Network issue — check your connection and try again.';
+    case 'auth/user-disabled':
+      return 'This account has been disabled.';
+  }
+  const detail = err.message || err.code || String(err);
+  return `Facebook sign-in failed [${err.code || 'no-code'}]: ${detail}`;
+}
+
+/** Same reasoning as friendlyGoogleError — kept as its own mapper rather than a shared one, for the same debuggability reason. */
+function friendlyAppleError(err) {
+  switch (err.code) {
+    case 'auth/too-many-requests':
+      return 'Too many attempts — take a short break and try again.';
+    case 'auth/network-request-failed':
+      return 'Network issue — check your connection and try again.';
+    case 'auth/user-disabled':
+      return 'This account has been disabled.';
+  }
+  const detail = err.message || err.code || String(err);
+  return `Apple sign-in failed [${err.code || 'no-code'}]: ${detail}`;
 }

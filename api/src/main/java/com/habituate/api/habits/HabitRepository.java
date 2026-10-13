@@ -12,4 +12,6 @@ public interface HabitRepository extends JpaRepository<Habit, Long> {
     List<Habit> findByUserIdOrderByCreatedAtDesc(String userId);
 
     List<Habit> findByReminderEnabledTrueAndArchivedFalseAndScheduledTimeIsNotNull();
+
+    void deleteByUserId(String userId);
 }

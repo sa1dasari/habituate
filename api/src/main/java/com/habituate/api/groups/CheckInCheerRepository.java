@@ -9,4 +9,8 @@ public interface CheckInCheerRepository extends JpaRepository<CheckInCheer, Long
     Optional<CheckInCheer> findByCheckInIdAndUserId(Long checkInId, String userId);
 
     List<CheckInCheer> findByCheckInIdIn(List<Long> checkInIds);
+
+    void deleteByUserId(String userId);
+
+    void deleteByCheckInIdIn(List<Long> checkInIds);
 }

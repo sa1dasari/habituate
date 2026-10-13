@@ -13,6 +13,10 @@ public interface CheckInRepository extends JpaRepository<CheckIn, Long> {
 
     void deleteByHabitId(Long habitId);
 
+    List<CheckIn> findByUserId(String userId);
+
+    void deleteByUserId(String userId);
+
     boolean existsByHabitIdAndOccurredAtBetween(Long habitId, Instant start, Instant end);
 
     /** Who's actually been active — the nightly insights job only bothers with these users. */

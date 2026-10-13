@@ -16,4 +16,8 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, Long> 
 
     /** Looked up by HabitService.createCheckIn to tag a check-in with groupId when its habit is group-linked. */
     Optional<GroupMember> findByHabitIdAndStatus(Long habitId, String status);
+
+    void deleteByUserId(String userId);
+
+    void deleteByGroupId(Long groupId);
 }

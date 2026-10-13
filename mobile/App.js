@@ -28,10 +28,10 @@ import {
   HabitsScreen,
   InsightsScreen,
   LoginScreen,
-  ProfileScreen,
   SignupScreen,
   TodayScreen,
 } from './screens';
+import ProfileStack from './navigation/ProfileStack';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -79,7 +79,7 @@ function Tabs() {
       <Tab.Screen name="Habits" component={HabitsScreen} />
       <Tab.Screen name="Insights" component={InsightsScreen} />
       <Tab.Screen name="Community" component={CommunityScreen} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen name="Profile" component={ProfileStack} />
     </Tab.Navigator>
   );
 }

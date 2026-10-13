@@ -37,7 +37,17 @@
           "faceIDPermission": "Allow Habituate to use Face ID to sign you in."
         }
       ],
-      "@react-native-google-signin/google-signin"
+      "@react-native-google-signin/google-signin",
+      "expo-apple-authentication",
+      [
+        "react-native-fbsdk-next",
+        {
+          "appID": "1296690482527392",
+          "clientToken": "5468ab3a36ffffeee58502ca741f90f0",
+          "displayName": "Habituate",
+          "scheme": "fb1296690482527392"
+        }
+      ]
     ],
     "extra": {
       "eas": {

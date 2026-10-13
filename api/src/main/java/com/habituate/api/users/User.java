@@ -32,6 +32,15 @@ public class User {
     @Column
     private LocalDate dateOfBirth;
 
+    @Column
+    private String phoneNumber;
+
+    @Column
+    private String address;
+
+    @Column
+    private String gender;
+
     @Column(nullable = false)
     private Instant updatedAt;
 
@@ -62,6 +71,30 @@ public class User {
 
     public void setDateOfBirth(LocalDate dateOfBirth) {
         this.dateOfBirth = dateOfBirth;
+    }
+
+    public String getPhoneNumber() {
+        return phoneNumber;
+    }
+
+    public void setPhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
+    }
+
+    public String getAddress() {
+        return address;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
+    }
+
+    public String getGender() {
+        return gender;
+    }
+
+    public void setGender(String gender) {
+        this.gender = gender;
     }
 
     public Instant getUpdatedAt() {

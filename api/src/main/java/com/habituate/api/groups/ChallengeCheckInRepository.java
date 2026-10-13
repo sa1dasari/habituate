@@ -13,4 +13,8 @@ public interface ChallengeCheckInRepository extends JpaRepository<ChallengeCheck
             Long challengeId, String userId, Instant start, Instant end);
 
     long countByChallengeIdAndUserId(Long challengeId, String userId);
+
+    void deleteByChallengeId(Long challengeId);
+
+    void deleteByUserId(String userId);
 }

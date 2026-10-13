@@ -1,11 +1,34 @@
 package com.habituate.api.users;
 
+import com.google.firebase.FirebaseApp;
+import com.google.firebase.auth.FirebaseAuth;
+import com.habituate.api.checkins.CheckIn;
+import com.habituate.api.checkins.CheckInRepository;
+import com.habituate.api.coach.CoachMessageRepository;
+import com.habituate.api.feedback.FeedbackRepository;
+import com.habituate.api.goals.GoalRepository;
+import com.habituate.api.groups.Challenge;
+import com.habituate.api.groups.ChallengeCheckInRepository;
+import com.habituate.api.groups.ChallengeParticipantRepository;
+import com.habituate.api.groups.ChallengeRepository;
+import com.habituate.api.groups.CheckInCheerRepository;
+import com.habituate.api.groups.FriendshipRepository;
+import com.habituate.api.groups.Group;
+import com.habituate.api.groups.GroupMemberRepository;
+import com.habituate.api.groups.GroupRepository;
+import com.habituate.api.groups.GroupStreakRepository;
+import com.habituate.api.groups.StreakFreezeRepository;
+import com.habituate.api.habits.HabitRepository;
+import com.habituate.api.notifications.PushTokenRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.List;
 
 /**
  * User-facing profile fields that don't belong in Firebase Auth (which only
@@ -17,30 +40,150 @@ import java.time.format.DateTimeParseException;
 @Service
 public class UserProfileService {
 
+    private static final Logger log = LoggerFactory.getLogger(UserProfileService.class);
     private static final int MAX_AGE_YEARS = 130;
 
     private final UserRepository userRepository;
+    private final CheckInCheerRepository checkInCheerRepository;
+    private final ChallengeCheckInRepository challengeCheckInRepository;
+    private final CheckInRepository checkInRepository;
+    private final HabitRepository habitRepository;
+    private final GoalRepository goalRepository;
+    private final CoachMessageRepository coachMessageRepository;
+    private final PushTokenRepository pushTokenRepository;
+    private final FeedbackRepository feedbackRepository;
+    private final GroupMemberRepository groupMemberRepository;
+    private final GroupRepository groupRepository;
+    private final GroupStreakRepository groupStreakRepository;
+    private final StreakFreezeRepository streakFreezeRepository;
+    private final ChallengeRepository challengeRepository;
+    private final ChallengeParticipantRepository challengeParticipantRepository;
+    private final FriendshipRepository friendshipRepository;
 
-    public UserProfileService(UserRepository userRepository) {
+    public UserProfileService(UserRepository userRepository,
+                               CheckInCheerRepository checkInCheerRepository,
+                               ChallengeCheckInRepository challengeCheckInRepository,
+                               CheckInRepository checkInRepository,
+                               HabitRepository habitRepository,
+                               GoalRepository goalRepository,
+                               CoachMessageRepository coachMessageRepository,
+                               PushTokenRepository pushTokenRepository,
+                               FeedbackRepository feedbackRepository,
+                               GroupMemberRepository groupMemberRepository,
+                               GroupRepository groupRepository,
+                               GroupStreakRepository groupStreakRepository,
+                               StreakFreezeRepository streakFreezeRepository,
+                               ChallengeRepository challengeRepository,
+                               ChallengeParticipantRepository challengeParticipantRepository,
+                               FriendshipRepository friendshipRepository) {
         this.userRepository = userRepository;
+        this.checkInCheerRepository = checkInCheerRepository;
+        this.challengeCheckInRepository = challengeCheckInRepository;
+        this.checkInRepository = checkInRepository;
+        this.habitRepository = habitRepository;
+        this.goalRepository = goalRepository;
+        this.coachMessageRepository = coachMessageRepository;
+        this.pushTokenRepository = pushTokenRepository;
+        this.feedbackRepository = feedbackRepository;
+        this.groupMemberRepository = groupMemberRepository;
+        this.groupRepository = groupRepository;
+        this.groupStreakRepository = groupStreakRepository;
+        this.streakFreezeRepository = streakFreezeRepository;
+        this.challengeRepository = challengeRepository;
+        this.challengeParticipantRepository = challengeParticipantRepository;
+        this.friendshipRepository = friendshipRepository;
     }
 
     public UserProfileResponse getProfile(String userId) {
         return userRepository.findById(userId)
-                .map(u -> new UserProfileResponse(u.getTimezone(), u.getDateOfBirth()))
-                .orElse(new UserProfileResponse(null, null));
+                .map(this::toResponse)
+                .orElse(new UserProfileResponse(null, null, null, null, null));
     }
 
+    /** The client always sends its current value for every field on save — not a sparse/partial patch. */
     @Transactional
-    public UserProfileResponse updateDateOfBirth(String userId, String dateOfBirthValue) {
-        LocalDate dateOfBirth = parseDateOfBirth(dateOfBirthValue);
-
+    public UserProfileResponse updateProfile(String userId, UpdateUserProfileRequest request) {
         User user = userRepository.findById(userId).orElseGet(() -> new User(userId, null));
-        user.setDateOfBirth(dateOfBirth);
+        user.setDateOfBirth(parseDateOfBirth(request.dateOfBirth()));
+        user.setPhoneNumber(blankToNull(request.phoneNumber()));
+        user.setAddress(blankToNull(request.address()));
+        user.setGender(blankToNull(request.gender()));
         user.setUpdatedAt(Instant.now());
         userRepository.save(user);
 
-        return new UserProfileResponse(user.getTimezone(), user.getDateOfBirth());
+        return toResponse(user);
+    }
+
+    private UserProfileResponse toResponse(User user) {
+        return new UserProfileResponse(
+                user.getTimezone(), user.getDateOfBirth(), user.getPhoneNumber(), user.getAddress(), user.getGender());
+    }
+
+    private String blankToNull(String value) {
+        if (value == null) return null;
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    /**
+     * Deletes every row this user owns, then the Firebase Auth user itself —
+     * required for Apple/Google Play store review once account creation exists.
+     * Deliberate tradeoff: deleting the creator of a shared group or challenge
+     * deletes it entirely for every other member/participant too, since there's
+     * no ownership-transfer feature to reassign it to someone else instead.
+     * The Firebase deleteUser call is last and its failure is swallowed (logged,
+     * not re-thrown) — the local data is already gone and can't be un-deleted,
+     * so surfacing an error at that point would only confuse the user without
+     * being able to undo anything.
+     */
+    @Transactional
+    public void deleteAccount(String userId) {
+        List<Long> ownCheckInIds = checkInRepository.findByUserId(userId).stream()
+                .map(CheckIn::getId)
+                .toList();
+        if (!ownCheckInIds.isEmpty()) {
+            checkInCheerRepository.deleteByCheckInIdIn(ownCheckInIds);
+        }
+        checkInCheerRepository.deleteByUserId(userId);
+        challengeCheckInRepository.deleteByUserId(userId);
+        checkInRepository.deleteByUserId(userId);
+        habitRepository.deleteByUserId(userId);
+        goalRepository.deleteByUserId(userId);
+        coachMessageRepository.deleteByUserId(userId);
+        pushTokenRepository.deleteByUserId(userId);
+        feedbackRepository.deleteByUserId(userId);
+        groupMemberRepository.deleteByUserId(userId);
+
+        for (Group group : groupRepository.findByCreatedBy(userId)) {
+            groupMemberRepository.deleteByGroupId(group.getId());
+            groupStreakRepository.deleteByGroupId(group.getId());
+            streakFreezeRepository.deleteByGroupId(group.getId());
+            groupRepository.deleteById(group.getId());
+        }
+
+        for (Challenge challenge : challengeRepository.findByCreatedBy(userId)) {
+            challengeParticipantRepository.deleteByChallengeId(challenge.getId());
+            challengeCheckInRepository.deleteByChallengeId(challenge.getId());
+            challengeRepository.deleteById(challenge.getId());
+        }
+        challengeParticipantRepository.deleteByUserId(userId);
+
+        friendshipRepository.deleteByRequesterIdOrRecipientId(userId, userId);
+
+        userRepository.deleteById(userId);
+
+        deleteFirebaseUserQuietly(userId);
+    }
+
+    private void deleteFirebaseUserQuietly(String userId) {
+        if (FirebaseApp.getApps().isEmpty()) {
+            return; // dev fallback (demo-user) — no Firebase project configured
+        }
+        try {
+            FirebaseAuth.getInstance().deleteUser(userId);
+        } catch (Exception e) {
+            log.warn("Could not delete Firebase user {}: {}", userId, e.getMessage());
+        }
     }
 
     private LocalDate parseDateOfBirth(String value) {

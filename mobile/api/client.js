@@ -256,6 +256,11 @@ export const api = {
     request(`/api/coach/messages/${messageId}/proposal/reject`, { method: 'POST' }),
 
   clearCoachMessages: () => request('/api/coach/messages', { method: 'DELETE' }),
+
+  submitFeedback: (feedback) =>
+    request('/api/feedback', { method: 'POST', body: JSON.stringify(feedback) }),
+
+  deleteAccount: () => request('/api/users/me', { method: 'DELETE' }),
 };
 
 export default api;

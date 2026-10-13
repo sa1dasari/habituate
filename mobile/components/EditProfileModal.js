@@ -14,7 +14,7 @@ import { useAppTheme } from '../hooks/useAppTheme';
 import { useAuth } from '../hooks/useAuth';
 import { radii, spacing } from '../theme';
 
-/** Display name, profile photo, date of birth, and (email/password accounts only) a password-reset link. */
+/** Display name, profile photo, date of birth, phone, address, gender, and (email/password accounts only) a password-reset link. */
 export default function EditProfileModal({ visible, onClose }) {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
@@ -23,6 +23,9 @@ export default function EditProfileModal({ visible, onClose }) {
   const [name, setName] = useState('');
   const [photoURL, setPhotoURL] = useState(null);
   const [dateOfBirth, setDateOfBirth] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [address, setAddress] = useState('');
+  const [gender, setGender] = useState('');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(false);
@@ -39,7 +42,11 @@ export default function EditProfileModal({ visible, onClose }) {
     api
       .getUserProfile()
       .then((profile) => {
-        if (!cancelled) setDateOfBirth(profile?.dateOfBirth || '');
+        if (cancelled) return;
+        setDateOfBirth(profile?.dateOfBirth || '');
+        setPhoneNumber(profile?.phoneNumber || '');
+        setAddress(profile?.address || '');
+        setGender(profile?.gender || '');
       })
       .catch(() => {})
       .finally(() => {
@@ -138,7 +145,12 @@ export default function EditProfileModal({ visible, onClose }) {
       if (photoURL !== (user?.photoURL || null)) {
         await updatePhotoURL(photoURL);
       }
-      await api.updateUserProfile({ dateOfBirth: dateOfBirth || null });
+      await api.updateUserProfile({
+        dateOfBirth: dateOfBirth || null,
+        phoneNumber: phoneNumber || null,
+        address: address || null,
+        gender: gender || null,
+      });
       onClose();
     } catch (err) {
       Alert.alert("Couldn't save", err instanceof Error ? err.message : 'Something went wrong — try again.');
@@ -196,6 +208,36 @@ export default function EditProfileModal({ visible, onClose }) {
           ) : (
             <DatePicker value={dateOfBirth} onChange={setDateOfBirth} maximumDate={new Date()} placeholder="Not set" />
           )}
+
+          <Text style={styles.label}>Phone number</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Not set"
+            placeholderTextColor={colors.textMuted}
+            value={phoneNumber}
+            onChangeText={setPhoneNumber}
+            keyboardType="phone-pad"
+            autoComplete="tel"
+          />
+
+          <Text style={styles.label}>Address</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Not set"
+            placeholderTextColor={colors.textMuted}
+            value={address}
+            onChangeText={setAddress}
+            autoComplete="street-address"
+          />
+
+          <Text style={styles.label}>Gender</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Not set"
+            placeholderTextColor={colors.textMuted}
+            value={gender}
+            onChangeText={setGender}
+          />
 
           {isPasswordAccount ? (
             <Pressable style={styles.secondaryButton} onPress={handleResetPassword}>

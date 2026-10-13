@@ -11,4 +11,6 @@ public interface ChallengeRepository extends JpaRepository<Challenge, Long> {
     /** Browse only ever surfaces PUBLIC challenges — PRIVATE ones are reachable by id only (no invite system yet). */
     List<Challenge> findByVisibilityAndPeriodEndGreaterThanEqualOrderByPeriodStartAsc(
             String visibility, LocalDate notBefore);
+
+    List<Challenge> findByCreatedBy(String createdBy);
 }

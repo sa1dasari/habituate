@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AppleAuthenticationButton, AppleAuthenticationButtonStyle, AppleAuthenticationButtonType } from 'expo-apple-authentication';
 import { useAuth } from '../hooks/useAuth';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { radii, spacing } from '../theme';
@@ -21,14 +22,20 @@ export default function LoginScreen({ onGoToSignup }) {
   const {
     signIn,
     signInWithGoogle,
+    signInWithFacebook,
+    signInWithApple,
     signInWithBiometrics,
     error,
     googleLoading,
+    facebookLoading,
+    appleLoading,
+    appleAvailable,
     biometricLoading,
     biometricAvailable,
     biometricLabel,
     clearError,
   } = useAuth();
+  const anyOauthLoading = googleLoading || facebookLoading || appleLoading || biometricLoading;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -91,9 +98,9 @@ export default function LoginScreen({ onGoToSignup }) {
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
             <Pressable
-              style={[styles.button, (loading || googleLoading || biometricLoading) && styles.buttonDisabled]}
+              style={[styles.button, (loading || anyOauthLoading) && styles.buttonDisabled]}
               onPress={handleSignIn}
-              disabled={loading || googleLoading || biometricLoading}
+              disabled={loading || anyOauthLoading}
             >
               {loading ? (
                 <ActivityIndicator color="#fff" />
@@ -111,7 +118,7 @@ export default function LoginScreen({ onGoToSignup }) {
             <Pressable
               style={[styles.googleButton, googleLoading && styles.buttonDisabled]}
               onPress={signInWithGoogle}
-              disabled={googleLoading || loading || biometricLoading}
+              disabled={loading || anyOauthLoading}
             >
               {googleLoading ? (
                 <ActivityIndicator color={colors.accent} />
@@ -120,11 +127,33 @@ export default function LoginScreen({ onGoToSignup }) {
               )}
             </Pressable>
 
+            <Pressable
+              style={[styles.googleButton, facebookLoading && styles.buttonDisabled]}
+              onPress={signInWithFacebook}
+              disabled={loading || anyOauthLoading}
+            >
+              {facebookLoading ? (
+                <ActivityIndicator color={colors.accent} />
+              ) : (
+                <Text style={styles.googleButtonText}>Continue with Facebook</Text>
+              )}
+            </Pressable>
+
+            {appleAvailable ? (
+              <AppleAuthenticationButton
+                buttonType={AppleAuthenticationButtonType.SIGN_IN}
+                buttonStyle={AppleAuthenticationButtonStyle.BLACK}
+                cornerRadius={radii.md}
+                style={styles.appleButton}
+                onPress={signInWithApple}
+              />
+            ) : null}
+
             {biometricAvailable ? (
               <Pressable
                 style={[styles.googleButton, biometricLoading && styles.buttonDisabled]}
                 onPress={signInWithBiometrics}
-                disabled={biometricLoading || loading || googleLoading}
+                disabled={loading || anyOauthLoading}
               >
                 {biometricLoading ? (
                   <ActivityIndicator color={colors.accent} />
@@ -218,6 +247,7 @@ function makeStyles(colors, typography) {
     justifyContent: 'center',
   },
   googleButtonText: { color: colors.textPrimary, fontSize: 16, fontWeight: '600' },
+  appleButton: { height: 48, marginTop: spacing.sm },
     switchLink: { alignItems: 'center', marginTop: spacing.lg },
     switchText: { ...typography.body, color: colors.textSecondary },
     switchAction: { color: colors.accent, fontWeight: '600' },

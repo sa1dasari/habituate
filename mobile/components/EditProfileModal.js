@@ -7,12 +7,16 @@ import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system/legacy';
 import { ref, getDownloadURL } from 'firebase/storage';
 import DatePicker from './DatePicker';
+import SelectField from './SelectField';
 import AvatarImage from './AvatarImage';
 import { auth, storage } from '../firebase';
 import api from '../api/client';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useAuth } from '../hooks/useAuth';
 import { radii, spacing } from '../theme';
+
+const SELF_DESCRIBE = 'Self-describe';
+const GENDER_OPTIONS = ['Woman', 'Man', 'Non-binary', 'Prefer not to say', SELF_DESCRIBE];
 
 /** Display name, profile photo, date of birth, phone, address, gender, and (email/password accounts only) a password-reset link. */
 export default function EditProfileModal({ visible, onClose }) {
@@ -31,6 +35,11 @@ export default function EditProfileModal({ visible, onClose }) {
   const [loadingProfile, setLoadingProfile] = useState(false);
 
   const isPasswordAccount = (user?.providerData || []).some((p) => p.providerId === 'password');
+
+  // A fixed list covers the common cases via a dropdown, while "Self-describe"
+  // falls back to free text — the backend column stays plain text regardless.
+  const isCustomGender = !!gender && !GENDER_OPTIONS.slice(0, -1).includes(gender);
+  const genderSelection = isCustomGender ? SELF_DESCRIBE : gender || null;
 
   useEffect(() => {
     if (!visible || !user) return;
@@ -231,13 +240,24 @@ export default function EditProfileModal({ visible, onClose }) {
           />
 
           <Text style={styles.label}>Gender</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Not set"
-            placeholderTextColor={colors.textMuted}
-            value={gender}
-            onChangeText={setGender}
-          />
+          <View style={{ marginBottom: genderSelection === SELF_DESCRIBE ? spacing.sm : spacing.lg }}>
+            <SelectField
+              value={genderSelection}
+              onChange={(option) => setGender(option === SELF_DESCRIBE ? '' : option)}
+              options={GENDER_OPTIONS}
+              placeholder="Not set"
+              title="Gender"
+            />
+          </View>
+          {genderSelection === SELF_DESCRIBE ? (
+            <TextInput
+              style={styles.input}
+              placeholder="Describe how you identify"
+              placeholderTextColor={colors.textMuted}
+              value={gender}
+              onChangeText={setGender}
+            />
+          ) : null}
 
           {isPasswordAccount ? (
             <Pressable style={styles.secondaryButton} onPress={handleResetPassword}>

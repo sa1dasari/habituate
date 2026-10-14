@@ -11,6 +11,7 @@ import CreateGroupModal from '../components/CreateGroupModal';
 import CreateChallengeModal from '../components/CreateChallengeModal';
 import SharedHabitDetailModal from '../components/SharedHabitDetailModal';
 import ChallengeDetailModal from '../components/ChallengeDetailModal';
+import AddFriendModal from '../components/AddFriendModal';
 import AvatarImage from '../components/AvatarImage';
 import { useAuth } from '../hooks/useAuth';
 import { useAppTheme } from '../hooks/useAppTheme';
@@ -34,6 +35,7 @@ export default function CommunityScreen() {
   const [createChallengeVisible, setCreateChallengeVisible] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState(null);
   const [selectedChallengeId, setSelectedChallengeId] = useState(null);
+  const [friendsVisible, setFriendsVisible] = useState(false);
 
   const loading = groupsLoading || challengesLoading;
   // Looked up by id each render (not the tapped object itself) so the detail
@@ -62,14 +64,24 @@ export default function CommunityScreen() {
             <Text style={styles.subtitle}>Shared habits, group streaks, and challenges</Text>
           </View>
 
-          <Pressable
-            style={styles.avatar}
-            accessibilityRole="button"
-            accessibilityLabel="Open profile"
-            onPress={() => navigation.navigate('Profile')}
-          >
-            <AvatarImage uri={user?.photoURL} name={user?.displayName} size={48} style={styles.avatarPhoto} />
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable
+              style={styles.iconButton}
+              accessibilityRole="button"
+              accessibilityLabel="Friends"
+              onPress={() => setFriendsVisible(true)}
+            >
+              <MaterialCommunityIcons name="account-multiple-plus-outline" size={20} color={colors.accent} />
+            </Pressable>
+            <Pressable
+              style={styles.avatar}
+              accessibilityRole="button"
+              accessibilityLabel="Open profile"
+              onPress={() => navigation.navigate('Profile')}
+            >
+              <AvatarImage uri={user?.photoURL} name={user?.displayName} size={48} style={styles.avatarPhoto} />
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.sectionHeader}>
@@ -173,9 +185,12 @@ export default function CommunityScreen() {
             <ChallengeCard
               key={challenge.id}
               name={challenge.name}
+              mode={challenge.mode}
               myProgress={challenge.myProgress}
               targetCount={challenge.targetCount}
               progressPercent={challenge.progressPercent}
+              teamProgress={challenge.teamProgress}
+              teamProgressPercent={challenge.teamProgressPercent}
               participants={challenge.participants}
               participantCount={challenge.participantCount}
               joined={challenge.joined}
@@ -213,6 +228,7 @@ export default function CommunityScreen() {
         challenge={selectedChallenge}
         onClose={() => setSelectedChallengeId(null)}
       />
+      <AddFriendModal visible={friendsVisible} onClose={() => setFriendsVisible(false)} />
     </SafeAreaView>
   );
 }
@@ -240,6 +256,15 @@ function makeStyles(colors, typography) {
     headerText: { flex: 1 },
     title: { ...typography.screenTitle },
     subtitle: { ...typography.meta, marginTop: 2 },
+    headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+    iconButton: {
+      width: 40,
+      height: 40,
+      borderRadius: radii.pill,
+      backgroundColor: colors.accentSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     avatar: {
       width: 48,
       height: 48,

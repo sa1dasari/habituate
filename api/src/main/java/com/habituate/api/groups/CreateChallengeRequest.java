@@ -3,6 +3,7 @@ package com.habituate.api.groups;
 /**
  * periodStart/periodEnd as "YYYY-MM-DD" — computed client-side, same convention as goals' periodStart.
  * visibility: "PUBLIC" or "PRIVATE" (case-insensitive, normalized server-side; defaults to PRIVATE).
+ * mode: "INDIVIDUAL" or "RAID" (case-insensitive, normalized server-side; defaults to INDIVIDUAL).
  */
 public record CreateChallengeRequest(
         String name,
@@ -10,6 +11,7 @@ public record CreateChallengeRequest(
         Integer targetCount,
         String periodStart,
         String periodEnd,
-        String visibility
+        String visibility,
+        String mode
 ) {
 }

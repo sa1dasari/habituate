@@ -30,6 +30,7 @@ export default function ChallengeDetailModal({ visible, challenge, onClose }) {
   if (!challenge) return null;
 
   const people = Array.isArray(challenge.participants) ? challenge.participants : [];
+  const isRaid = challenge.mode === 'RAID';
 
   const handleToggle = async () => {
     const ok = await toggleCheckIn(challenge);
@@ -68,19 +69,30 @@ export default function ChallengeDetailModal({ visible, challenge, onClose }) {
                 />
                 <Text style={styles.metaText}>{VISIBILITY_LABEL[challenge.visibility] || 'Private'}</Text>
               </View>
+              {isRaid ? (
+                <View style={styles.metaBadge}>
+                  <MaterialCommunityIcons name="sword-cross" size={13} color={colors.warning} />
+                  <Text style={[styles.metaText, { color: colors.warning }]}>Raid — team goal</Text>
+                </View>
+              ) : null}
             </View>
 
             {challenge.joined ? (
               <>
                 <Text style={styles.progressLabel}>
-                  {challenge.myProgress}/{challenge.targetCount} days · {challenge.progressPercent}%
+                  {isRaid
+                    ? `Team: ${challenge.teamProgress}/${challenge.targetCount} · you: ${challenge.myProgress} · ${challenge.teamProgressPercent}%`
+                    : `${challenge.myProgress}/${challenge.targetCount} days · ${challenge.progressPercent}%`}
                 </Text>
                 <View style={styles.progressTrack}>
                   <LinearGradient
-                    colors={gradients.accent}
+                    colors={isRaid ? gradients.warm : gradients.accent}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
-                    style={[styles.progressFill, { width: `${Math.max(4, challenge.progressPercent)}%` }]}
+                    style={[
+                      styles.progressFill,
+                      { width: `${Math.max(4, isRaid ? challenge.teamProgressPercent : challenge.progressPercent)}%` },
+                    ]}
                   />
                 </View>
 

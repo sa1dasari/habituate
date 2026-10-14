@@ -3,8 +3,8 @@ import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import StreakIndicator from './StreakIndicator';
+import InviteFriendsSheet from './InviteFriendsSheet';
 import { useAppTheme } from '../hooks/useAppTheme';
-import { useFriends } from '../hooks/useFriends';
 import { useGroups } from '../hooks/useGroups';
 import { radii, shadow, spacing } from '../theme';
 
@@ -29,9 +29,8 @@ function initials(name) {
 export default function SharedHabitDetailModal({ visible, group, onClose }) {
   const { colors, resolveStreakState, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
-  const { friends } = useFriends();
   const { inviteToGroup, busy } = useGroups();
-  const [inviting, setInviting] = useState(false);
+  const [inviteVisible, setInviteVisible] = useState(false);
 
   if (!group) return null;
 
@@ -40,8 +39,8 @@ export default function SharedHabitDetailModal({ visible, group, onClose }) {
 
   const handleInvite = async (friendUserId) => {
     const ok = await inviteToGroup(group.id, friendUserId);
-    if (ok) setInviting(false);
-    else Alert.alert("Couldn't send invite", 'Something went wrong — try again.');
+    if (!ok) Alert.alert("Couldn't send invite", 'Something went wrong — try again.');
+    return ok;
   };
 
   return (
@@ -91,31 +90,21 @@ export default function SharedHabitDetailModal({ visible, group, onClose }) {
           })}
 
           <View style={styles.inviteSection}>
-            {inviting ? (
-              friends.length === 0 ? (
-                <Text style={styles.emptyNote}>Add a friend from the Community page first.</Text>
-              ) : (
-                friends.map((friend) => (
-                  <Pressable
-                    key={friend.id}
-                    style={styles.habitRow}
-                    disabled={busy}
-                    onPress={() => handleInvite(friend.otherUserId)}
-                  >
-                    <MaterialCommunityIcons name="account-plus-outline" size={18} color={colors.accent} />
-                    <Text style={styles.habitRowText}>{friend.otherUserName || friend.otherUserEmail}</Text>
-                  </Pressable>
-                ))
-              )
-            ) : (
-              <Pressable style={styles.secondaryButton} onPress={() => setInviting(true)}>
-                <MaterialCommunityIcons name="account-plus-outline" size={16} color={colors.textSecondary} />
-                <Text style={styles.secondaryButtonText}>Invite a friend</Text>
-              </Pressable>
-            )}
+            <Pressable style={styles.secondaryButton} onPress={() => setInviteVisible(true)}>
+              <MaterialCommunityIcons name="account-plus-outline" size={16} color={colors.textSecondary} />
+              <Text style={styles.secondaryButtonText}>Invite a friend</Text>
+            </Pressable>
           </View>
         </ScrollView>
       </SafeAreaView>
+
+      <InviteFriendsSheet
+        visible={inviteVisible}
+        onClose={() => setInviteVisible(false)}
+        onInvite={handleInvite}
+        busy={busy}
+        title={`Invite to ${group.name}`}
+      />
     </Modal>
   );
 }
@@ -183,9 +172,6 @@ function makeStyles(colors, typography) {
     avatarText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
     memberName: { fontSize: 14, color: colors.textPrimary },
     inviteSection: { marginTop: spacing.lg },
-    emptyNote: { ...typography.meta },
-    habitRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm },
-    habitRowText: { fontSize: 14, color: colors.textPrimary },
     secondaryButton: {
       flexDirection: 'row',
       alignItems: 'center',

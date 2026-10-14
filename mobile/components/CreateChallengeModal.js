@@ -25,6 +25,11 @@ const VISIBILITY_OPTIONS = [
   { value: 'PUBLIC', label: 'Public', icon: 'earth' },
 ];
 
+const MODE_OPTIONS = [
+  { value: 'INDIVIDUAL', label: 'Individual', icon: 'account-outline' },
+  { value: 'RAID', label: 'Raid (team)', icon: 'sword-cross' },
+];
+
 /** Dedicated create flow, reached only via a "+ Create" affordance — never via Browse. */
 export default function CreateChallengeModal({ visible, onClose }) {
   const { colors, typography } = useAppTheme();
@@ -35,6 +40,7 @@ export default function CreateChallengeModal({ visible, onClose }) {
   const [targetCount, setTargetCount] = useState(5);
   const [lengthDays, setLengthDays] = useState(7);
   const [visibility, setVisibility] = useState('PRIVATE');
+  const [mode, setMode] = useState('INDIVIDUAL');
 
   const periodEndPreview = toDateKey(new Date(Date.now() + lengthDays * 24 * 60 * 60 * 1000));
 
@@ -43,6 +49,7 @@ export default function CreateChallengeModal({ visible, onClose }) {
     setTargetCount(5);
     setLengthDays(7);
     setVisibility('PRIVATE');
+    setMode('INDIVIDUAL');
   };
 
   const handleCreate = async () => {
@@ -57,6 +64,7 @@ export default function CreateChallengeModal({ visible, onClose }) {
       periodStart: toDateKey(new Date()),
       periodEnd: periodEndPreview,
       visibility,
+      mode,
     });
     if (ok) {
       reset();

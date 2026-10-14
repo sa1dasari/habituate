@@ -14,6 +14,9 @@ public interface ChallengeCheckInRepository extends JpaRepository<ChallengeCheck
 
     long countByChallengeIdAndUserId(Long challengeId, String userId);
 
+    /** Raid mode: every participant's logged days pooled into one shared total. */
+    long countByChallengeId(Long challengeId);
+
     void deleteByChallengeId(Long challengeId);
 
     void deleteByUserId(String userId);

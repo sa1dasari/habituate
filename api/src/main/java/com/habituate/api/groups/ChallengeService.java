@@ -54,9 +54,10 @@ public class ChallengeService {
             throw new IllegalArgumentException("A challenge can run at most " + MAX_PERIOD_DAYS + " days");
         }
         String visibility = normalizeVisibility(request.visibility());
+        String mode = normalizeMode(request.mode());
 
         Challenge challenge = challengeRepository.save(new Challenge(
-                name, request.description(), userId, targetCount, periodStart, periodEnd, visibility));
+                name, request.description(), userId, targetCount, periodStart, periodEnd, visibility, mode));
         participantRepository.save(new ChallengeParticipant(challenge.getId(), userId));
 
         return toResponse(challenge, userId, resolveZone(timezone));
@@ -150,6 +151,17 @@ public class ChallengeService {
         throw new IllegalArgumentException("Invalid visibility, expected PUBLIC or PRIVATE: " + value);
     }
 
+    private String normalizeMode(String value) {
+        if (value == null || value.isBlank()) {
+            return Challenge.INDIVIDUAL;
+        }
+        String upper = value.trim().toUpperCase();
+        if (upper.equals(Challenge.INDIVIDUAL) || upper.equals(Challenge.RAID)) {
+            return upper;
+        }
+        throw new IllegalArgumentException("Invalid mode, expected INDIVIDUAL or RAID: " + value);
+    }
+
     private LocalDate parseDate(String value, String field) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(field + " is required");
@@ -191,14 +203,17 @@ public class ChallengeService {
         int target = challenge.getTargetCount() == null ? 1 : challenge.getTargetCount();
         int percent = target > 0 ? Math.min(100, Math.round((myProgress * 100f) / target)) : 0;
 
+        int teamProgress = (int) checkInRepository.countByChallengeId(challenge.getId());
+        int teamPercent = target > 0 ? Math.min(100, Math.round((teamProgress * 100f) / target)) : 0;
+
         List<GroupResponse.Participant> participantDtos = participants.stream()
                 .map(p -> new GroupResponse.Participant(userLookupService.resolve(p.getUserId()).displayName()))
                 .toList();
 
         return new ChallengeResponse(
                 challenge.getId(), challenge.getName(), challenge.getDescription(), target,
-                challenge.getPeriodStart(), challenge.getPeriodEnd(), challenge.getVisibility(),
-                myProgress, percent, mine.isPresent(), checkedInToday,
+                challenge.getPeriodStart(), challenge.getPeriodEnd(), challenge.getVisibility(), challenge.getMode(),
+                myProgress, percent, teamProgress, teamPercent, mine.isPresent(), checkedInToday,
                 participantDtos, participants.size()
         );
     }

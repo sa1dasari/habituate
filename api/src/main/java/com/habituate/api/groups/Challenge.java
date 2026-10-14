@@ -30,6 +30,13 @@ public class Challenge {
     public static final String PUBLIC = "PUBLIC";
     public static final String PRIVATE = "PRIVATE";
 
+    /** INDIVIDUAL: each participant's own progress counts separately (the original design).
+     * RAID: everyone's check-ins pool into one shared target — named so it reads instantly as
+     * a team activity, not a generic "cooperative" flag, and leaves room for a future third
+     * mode (e.g. a 1v1 "Duel") without another schema change. */
+    public static final String INDIVIDUAL = "INDIVIDUAL";
+    public static final String RAID = "RAID";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -55,6 +62,9 @@ public class Challenge {
     @Column(nullable = false, columnDefinition = "varchar(255) default 'PRIVATE'")
     private String visibility;
 
+    @Column(nullable = false, columnDefinition = "varchar(255) not null default 'INDIVIDUAL'")
+    private String mode = INDIVIDUAL;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -63,6 +73,11 @@ public class Challenge {
 
     public Challenge(String name, String description, String createdBy, Integer targetCount,
                       LocalDate periodStart, LocalDate periodEnd, String visibility) {
+        this(name, description, createdBy, targetCount, periodStart, periodEnd, visibility, INDIVIDUAL);
+    }
+
+    public Challenge(String name, String description, String createdBy, Integer targetCount,
+                      LocalDate periodStart, LocalDate periodEnd, String visibility, String mode) {
         this.name = name;
         this.description = description;
         this.createdBy = createdBy;
@@ -70,6 +85,7 @@ public class Challenge {
         this.periodStart = periodStart;
         this.periodEnd = periodEnd;
         this.visibility = visibility;
+        this.mode = mode == null ? INDIVIDUAL : mode;
     }
 
     @PrePersist
@@ -107,6 +123,10 @@ public class Challenge {
 
     public String getVisibility() {
         return visibility;
+    }
+
+    public String getMode() {
+        return mode;
     }
 
     public Instant getCreatedAt() {

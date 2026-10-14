@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, TextInput } from 'react-native';
-import Animated, { LinearTransition } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import StreakIndicator from './StreakIndicator';
@@ -47,7 +46,6 @@ export default function HabitCard({
   checked = false,
   disabled = false,
   variant = 'detailed',
-  effortLevel = 'MODERATE',
   onToggle,
   onAdd,
   onRemoveLast,
@@ -104,21 +102,13 @@ export default function HabitCard({
   );
 
   if (variant === 'today') {
-    // "Morphing" home cards: a QUICK habit (e.g. vitamins) reads as a
-    // compact, low-visual-weight row — no progress bar even if one would
-    // otherwise show, smaller icon tile. An INTENSE habit (e.g. gym 3x/week)
-    // gets a taller, heavier treatment — bigger icon tile, progress bar
-    // always visible. MODERATE is today's existing card, unchanged.
-    const isQuick = effortLevel === 'QUICK';
-    const isIntense = effortLevel === 'INTENSE';
-
     const time = formatTime(scheduledTime);
     const subtitle = [time, progressLabel].filter(Boolean).join('  ·  ') || cadence;
     // Weekly and monthly habits always carry a bar (even a 1x/week target),
     // daily ones only when the target is more than a single check-in.
     // cadenceType itself is always 'DAILY' now, so periodNoun — not
     // cadenceType — is what actually distinguishes a period-focused card.
-    const showBar = !isQuick && (periodNoun !== 'today' || periodTarget > 1 || isIntense);
+    const showBar = periodNoun !== 'today' || periodTarget > 1;
     const percent = periodTarget > 0
       ? Math.min(100, Math.round((periodDone / periodTarget) * 100))
       : 0;
@@ -144,23 +134,18 @@ export default function HabitCard({
     );
 
     return (
-      <Animated.View layout={LinearTransition.springify().damping(16)} style={styles.cardShell}>
+      <View style={styles.cardShell}>
         <Pressable
-          style={({ pressed }) => [
-            styles.cardRow,
-            isQuick && styles.cardRowQuick,
-            isIntense && styles.cardRowIntense,
-            pressed && onPress ? styles.cardPressed : null,
-          ]}
+          style={({ pressed }) => [styles.cardRow, pressed && onPress ? styles.cardPressed : null]}
           onPress={onPress}
           accessibilityRole={onPress ? 'button' : undefined}
           accessibilityState={onPress ? { expanded } : undefined}
           accessibilityHint={onPress ? 'Shows when this habit was logged' : undefined}
         >
-          <View style={[styles.iconTile, isQuick && styles.iconTileQuick, isIntense && styles.iconTileIntense]}>
+          <View style={styles.iconTile}>
             <MaterialCommunityIcons
               name={categoryIcon(category)}
-              size={isQuick ? 18 : isIntense ? 26 : 22}
+              size={22}
               color={colors.textSecondary}
             />
           </View>
@@ -287,7 +272,7 @@ export default function HabitCard({
             )}
           </View>
         ) : null}
-      </Animated.View>
+      </View>
     );
   }
 
@@ -415,15 +400,6 @@ function makeStyles(colors, typography) {
     gap: spacing.md,
     padding: spacing.lg,
   },
-  // "Morphing" home cards (variant="today" only): QUICK is a lower-weight
-  // compact row, INTENSE is a taller, heavier one — MODERATE keeps cardRow
-  // exactly as-is.
-  cardRowQuick: {
-    paddingVertical: spacing.sm + 2,
-  },
-  cardRowIntense: {
-    paddingVertical: spacing.lg + spacing.sm,
-  },
   barTrack: {
     height: 6,
     borderRadius: radii.pill,
@@ -479,8 +455,6 @@ function makeStyles(colors, typography) {
     justifyContent: 'center',
     backgroundColor: colors.background,
   },
-  iconTileQuick: { width: 34, height: 34 },
-  iconTileIntense: { width: 54, height: 54 },
   name: {
     ...typography.cardTitle,
   },

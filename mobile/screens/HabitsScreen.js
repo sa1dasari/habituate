@@ -53,17 +53,7 @@ const emptyForm = {
   featuredGoal: false,
   scheduledTime: '',
   reminderEnabled: false,
-  // Drives the "morphing" home-card treatment. Null on a new habit lets the
-  // server infer a default from category/target shape; editing an existing
-  // habit always carries its current (possibly user-corrected) value.
-  effortLevel: null,
 };
-
-const EFFORT_OPTIONS = [
-  { value: 'QUICK', label: 'Quick' },
-  { value: 'MODERATE', label: 'Moderate' },
-  { value: 'INTENSE', label: 'Intense' },
-];
 
 const emptyGoalForm = {
   id: null,
@@ -102,7 +92,6 @@ function formFromHabit(habit) {
     featuredGoal: Boolean(habit.featuredGoal),
     scheduledTime: habit.scheduledTime || '',
     reminderEnabled: Boolean(habit.reminderEnabled),
-    effortLevel: habit.effortLevel || null,
   };
 }
 
@@ -345,7 +334,6 @@ export default function HabitsScreen() {
       featuredGoal: (weeklyTarget > 0 || monthlyTarget > 0) && form.featuredGoal,
       scheduledTime,
       reminderEnabled: Boolean(scheduledTime) && form.reminderEnabled,
-      effortLevel: form.effortLevel,
     };
 
     try {
@@ -574,30 +562,6 @@ export default function HabitsScreen() {
                 : 'One check-in a day, on or off — right for habits like "meditate" or "read".'}
             </Text>
 
-            <Text style={styles.label}>How much effort does this take?</Text>
-            <View style={styles.modeRow}>
-              {EFFORT_OPTIONS.map((option) => (
-                <Pressable
-                  key={option.value}
-                  style={[styles.modePill, form.effortLevel === option.value && styles.modePillActive]}
-                  onPress={() => setForm({ ...form, effortLevel: option.value })}
-                >
-                  <Text
-                    style={[
-                      styles.modePillText,
-                      form.effortLevel === option.value && styles.modePillTextActive,
-                    ]}
-                  >
-                    {option.label}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-            <Text style={styles.targetHint}>
-              {form.effortLevel
-                ? 'Shows up as a bigger or smaller card on Today.'
-                : "Leave unset and we'll guess from your targets — you can correct it anytime."}
-            </Text>
 
             <Text style={styles.sectionDivider}>Goals (optional)</Text>
             <Text style={styles.goalsHint}>

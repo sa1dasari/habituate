@@ -11,7 +11,6 @@ public record UpdateHabitRequest(
         Boolean featuredGoal,
         String scheduledTime,
         Boolean reminderEnabled,
-        Boolean archived,
-        String effortLevel
+        Boolean archived
 ) {
 }

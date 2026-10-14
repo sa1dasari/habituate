@@ -22,7 +22,6 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -112,45 +111,7 @@ public class HabitService {
         habit.setReminderEnabled(
                 Boolean.TRUE.equals(request.reminderEnabled()) && habit.getScheduledTime() != null
         );
-        habit.setEffortLevel(
-                normalizeEffortLevel(request.effortLevel())
-                        .orElseGet(() -> inferEffortLevel(habit))
-        );
         return toResponse(habitRepository.save(habit));
-    }
-
-    /**
-     * Default classification when the client doesn't send one, used to drive
-     * the "morphing" home-card treatment. A guess, not a measurement — the
-     * user can always correct it afterward via updateHabit.
-     */
-    private String inferEffortLevel(Habit habit) {
-        boolean hasWeekly = habit.getWeeklyTarget() != null && habit.getWeeklyTarget() > 0;
-        boolean hasMonthly = habit.getMonthlyTarget() != null && habit.getMonthlyTarget() > 0;
-        boolean isCount = "COUNT".equals(habit.getTrackingMode());
-
-        if (!hasWeekly && !hasMonthly) {
-            // A single daily tap with no period target — e.g. vitamins.
-            return Habit.QUICK;
-        }
-        boolean highCountTarget = isCount && hasMonthly && habit.getMonthlyTarget() >= 20;
-        boolean recurringCommitment = hasWeekly && hasMonthly;
-        if (highCountTarget || recurringCommitment) {
-            // e.g. "50 applications this month", or gym 3x/week AND 10x/month.
-            return Habit.INTENSE;
-        }
-        return Habit.MODERATE;
-    }
-
-    private Optional<String> normalizeEffortLevel(String value) {
-        if (value == null || value.isBlank()) {
-            return Optional.empty();
-        }
-        String upper = value.trim().toUpperCase();
-        if (upper.equals(Habit.QUICK) || upper.equals(Habit.MODERATE) || upper.equals(Habit.INTENSE)) {
-            return Optional.of(upper);
-        }
-        throw new IllegalArgumentException("Invalid effortLevel, expected QUICK, MODERATE, or INTENSE: " + value);
     }
 
     public HabitResponse updateHabit(String userId, Long habitId, UpdateHabitRequest request) {
@@ -198,7 +159,6 @@ public class HabitService {
         if (request.archived() != null) {
             habit.setArchived(request.archived());
         }
-        normalizeEffortLevel(request.effortLevel()).ifPresent(habit::setEffortLevel);
 
         return toResponse(habitRepository.save(habit));
     }

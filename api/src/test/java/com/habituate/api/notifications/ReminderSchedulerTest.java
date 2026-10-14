@@ -75,7 +75,7 @@ class ReminderSchedulerTest {
 
         habitId = habitService.createHabit(userId, new CreateHabitRequest(
                 "Morning Walk", "General", "DAILY", 1, null, null, "BOOLEAN", null,
-                scheduled.toString().substring(0, 5), true, null)).id();
+                scheduled.toString().substring(0, 5), true)).id();
 
         reminderScheduler.sendDueReminders(now);
 
@@ -96,7 +96,7 @@ class ReminderSchedulerTest {
         pushTokenRepository.save(new PushToken(userId, token, "ios"));
 
         habitId = habitService.createHabit(userId, new CreateHabitRequest(
-                "Evening Read", "General", "DAILY", 1, null, null, "BOOLEAN", null, "21:00", true, null)).id();
+                "Evening Read", "General", "DAILY", 1, null, null, "BOOLEAN", null, "21:00", true)).id();
 
         Instant notScheduledTime = ZonedDateTime.now(zone).withHour(9).withMinute(0).withSecond(0).withNano(0)
                 .toInstant();
@@ -114,7 +114,7 @@ class ReminderSchedulerTest {
         pushTokenRepository.save(new PushToken(userId, token, "ios"));
 
         habitId = habitService.createHabit(userId, new CreateHabitRequest(
-                "Stretch", "General", "DAILY", 1, null, null, "BOOLEAN", null, "08:00", true, null)).id();
+                "Stretch", "General", "DAILY", 1, null, null, "BOOLEAN", null, "08:00", true)).id();
 
         reminderScheduler.sendDueReminders(Instant.now());
 

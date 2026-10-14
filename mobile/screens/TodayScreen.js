@@ -263,7 +263,6 @@ export default function TodayScreen() {
         category={habit.category}
         cadenceType={habit.cadenceType}
         trackingMode={habit.trackingMode}
-        effortLevel={habit.effortLevel}
         todayCount={habit.todayCount}
         scheduledTime={habit.scheduledTime}
         progressLabel={habit.progressLabel}

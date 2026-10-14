@@ -10,7 +10,6 @@ public record CreateHabitRequest(
         String trackingMode,
         Boolean featuredGoal,
         String scheduledTime,
-        Boolean reminderEnabled,
-        String effortLevel
+        Boolean reminderEnabled
 ) {
 }

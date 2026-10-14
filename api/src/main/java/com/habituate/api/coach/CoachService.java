@@ -195,7 +195,7 @@ public class CoachService {
                 creation.name(), creation.category(), "DAILY",
                 creation.cadenceTarget(), creation.weeklyTarget(), creation.monthlyTarget(),
                 creation.trackingMode(), null, null, null
-        , null));
+        ));
 
         // Points the citation/habitId at the habit that now actually exists,
         // so the rest of the UI (and any later turn in this same thread) can

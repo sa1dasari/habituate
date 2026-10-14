@@ -48,7 +48,7 @@ class HabitServiceCheckInTransactionTest {
         userId = "transaction-test-user";
         habitId = habitService.createHabit(userId, new CreateHabitRequest(
                 "Test Habit", "General", "DAILY", 1, null, null, "BOOLEAN", null, null, null
-        , null)).id();
+        )).id();
 
         doThrow(new IllegalStateException("simulated broker outage"))
                 .when(checkInEventPublisher).publishCreated(org.mockito.ArgumentMatchers.any());
@@ -66,7 +66,7 @@ class HabitServiceCheckInTransactionTest {
         userId = "transaction-test-user";
         habitId = habitService.createHabit(userId, new CreateHabitRequest(
                 "Test Habit", "General", "DAILY", 1, null, null, "BOOLEAN", null, null, null
-        , null)).id();
+        )).id();
 
         CheckIn checkIn = habitService.createCheckIn(userId, habitId, new CheckInRequest(null, 1, "manual"));
 

@@ -53,7 +53,7 @@ class HabitServiceCheckInTimezoneTest {
     void duplicateGuard_usesClientZone_notHardcodedUtc() {
         userId = "tz-checkin-test-user";
         habitId = habitService.createHabit(userId, new CreateHabitRequest(
-                "Test Habit", "General", "DAILY", 1, null, null, "BOOLEAN", null, null, null, null)).id();
+                "Test Habit", "General", "DAILY", 1, null, null, "BOOLEAN", null, null, null)).id();
 
         // The habit's own createdAt guard would otherwise reject backdating
         // 5 days on a habit created "just now" — JPA won't update createdAt

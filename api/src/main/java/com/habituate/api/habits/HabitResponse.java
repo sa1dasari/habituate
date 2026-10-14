@@ -20,8 +20,7 @@ public record HabitResponse(
         Instant createdAt,
         Instant updatedAt,
         int currentStreak,
-        int longestStreak,
-        String effortLevel
+        int longestStreak
 ) {
     public static HabitResponse from(Habit habit, int currentStreak, int longestStreak) {
         return new HabitResponse(
@@ -43,8 +42,7 @@ public record HabitResponse(
                 habit.getCreatedAt(),
                 habit.getUpdatedAt(),
                 currentStreak,
-                longestStreak,
-                habit.getEffortLevel()
+                longestStreak
         );
     }
 }

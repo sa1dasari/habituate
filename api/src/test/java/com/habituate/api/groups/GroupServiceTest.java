@@ -76,7 +76,7 @@ class GroupServiceTest {
 
     private Long createHabit(String userId, String name) {
         Long id = habitService.createHabit(userId, new CreateHabitRequest(
-                name, "General", "DAILY", 1, null, null, "BOOLEAN", null, null, null, null)).id();
+                name, "General", "DAILY", 1, null, null, "BOOLEAN", null, null, null)).id();
         habitIds.add(id);
         habitOwners.put(id, userId);
         return id;

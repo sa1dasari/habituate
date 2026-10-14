@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -16,6 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import HabitCard from '../components/HabitCard';
 import GoalsSummaryCard from '../components/GoalsSummaryCard';
 import AvatarImage from '../components/AvatarImage';
+import api from '../api/client';
 import { useAuth } from '../hooks/useAuth';
 import { useCelebration } from '../hooks/useCelebration';
 import { useFeaturedGoalReviews } from '../hooks/useFeaturedGoalReviews';
@@ -69,6 +70,21 @@ export default function TodayScreen() {
   const displayName = user?.displayName || 'there';
   const { celebrate: showCelebration } = useCelebration();
   const [expandedId, setExpandedId] = useState(null);
+  const [shieldsAvailable, setShieldsAvailable] = useState(0);
+
+  // Best-effort — a missing shield count is never worth surfacing an error over.
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getShields()
+      .then((result) => {
+        if (!cancelled) setShieldsAvailable(result?.available || 0);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [habits]);
 
   const featuredHabits = useMemo(() => habits.filter((h) => h.featuredGoal), [habits]);
   const { reviews: habitGoalReviews } = useFeaturedGoalReviews(featuredHabits);
@@ -281,6 +297,13 @@ export default function TodayScreen() {
             <Text style={styles.name}>{displayName}</Text>
           </View>
 
+          {shieldsAvailable > 0 ? (
+            <View style={styles.shieldBadge} accessibilityLabel={`${shieldsAvailable} Shield Days banked`}>
+              <MaterialCommunityIcons name="shield-check" size={14} color={colors.safe} />
+              <Text style={styles.shieldBadgeText}>{shieldsAvailable}</Text>
+            </View>
+          ) : null}
+
           <Pressable
             style={styles.avatar}
             accessibilityRole="button"
@@ -388,6 +411,17 @@ function makeStyles(colors, typography) {
   },
   headerText: { flex: 1 },
   greeting: { fontSize: 14, color: colors.textSecondary },
+  shieldBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.safeSoft,
+    borderRadius: radii.pill,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: spacing.xs,
+    marginRight: spacing.sm,
+  },
+  shieldBadgeText: { fontSize: 12, fontWeight: '800', color: colors.safe },
   name: { ...typography.screenTitle, marginTop: 2 },
   avatar: {
     width: 48,

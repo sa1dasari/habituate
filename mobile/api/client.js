@@ -143,6 +143,8 @@ export const api = {
 
   listHabits: () => request('/api/habits'),
 
+  getShields: () => request('/api/habits/shields'),
+
   listArchivedHabits: () => request('/api/habits?archived=true'),
 
   createHabit: (habit) =>

@@ -55,6 +55,20 @@ public class Habit {
     @Column(nullable = false, columnDefinition = "varchar(255) not null default 'BOOLEAN'")
     private String trackingMode = "BOOLEAN";
 
+    public static final String QUICK = "QUICK";
+    public static final String MODERATE = "MODERATE";
+    public static final String INTENSE = "INTENSE";
+
+    /**
+     * Drives the "morphing" home-card treatment (asymmetrical card sizing) —
+     * computed once at creation time from category/target shape (see
+     * HabitService.inferEffortLevel), then stored as a plain column so it's
+     * cheap to query and the user can correct it later rather than having it
+     * silently re-derived and changing underneath them.
+     */
+    @Column(nullable = false, columnDefinition = "varchar(255) not null default 'MODERATE'")
+    private String effortLevel = MODERATE;
+
     /**
      * Pins this habit's existing weekly/monthly target into the Habits page's
      * Goals section. Deliberately not automatic for every habit with a period
@@ -171,6 +185,14 @@ public class Habit {
 
     public void setTrackingMode(String trackingMode) {
         this.trackingMode = trackingMode;
+    }
+
+    public String getEffortLevel() {
+        return effortLevel;
+    }
+
+    public void setEffortLevel(String effortLevel) {
+        this.effortLevel = effortLevel;
     }
 
     public boolean isFeaturedGoal() {

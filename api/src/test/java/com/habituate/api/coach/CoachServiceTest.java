@@ -70,7 +70,7 @@ class CoachServiceTest {
     private Long createHabit(String name) {
         HabitResponse habit = habitService.createHabit(userId, new CreateHabitRequest(
                 name, "General", "DAILY", 1, 3, null, "BOOLEAN", null, null, null
-        ));
+        , null));
         return habit.id();
     }
 

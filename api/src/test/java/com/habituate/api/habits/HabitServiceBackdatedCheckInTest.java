@@ -43,7 +43,7 @@ class HabitServiceBackdatedCheckInTest {
     void createCheckIn_allowsBackdatingToTheDayTheHabitWasCreated() {
         userId = "backdate-test-user";
         HabitResponse habit = habitService.createHabit(userId, new CreateHabitRequest(
-                "Test Habit", "General", "DAILY", 1, null, null, "BOOLEAN", null, null, null));
+                "Test Habit", "General", "DAILY", 1, null, null, "BOOLEAN", null, null, null, null));
         habitId = habit.id();
 
         CheckIn checkIn = habitService.createCheckIn(
@@ -56,7 +56,7 @@ class HabitServiceBackdatedCheckInTest {
     void createCheckIn_rejectsBackdatingBeforeTheHabitExisted() {
         userId = "backdate-test-user";
         HabitResponse habit = habitService.createHabit(userId, new CreateHabitRequest(
-                "Test Habit", "General", "DAILY", 1, null, null, "BOOLEAN", null, null, null));
+                "Test Habit", "General", "DAILY", 1, null, null, "BOOLEAN", null, null, null, null));
         habitId = habit.id();
 
         Instant beforeCreation = habit.createdAt().minus(1, ChronoUnit.DAYS);
@@ -70,7 +70,7 @@ class HabitServiceBackdatedCheckInTest {
     void createCheckIn_rejectsFutureDates() {
         userId = "backdate-test-user";
         habitId = habitService.createHabit(userId, new CreateHabitRequest(
-                "Test Habit", "General", "DAILY", 1, null, null, "BOOLEAN", null, null, null)).id();
+                "Test Habit", "General", "DAILY", 1, null, null, "BOOLEAN", null, null, null, null)).id();
 
         Instant tomorrow = Instant.now().plus(1, ChronoUnit.DAYS);
 

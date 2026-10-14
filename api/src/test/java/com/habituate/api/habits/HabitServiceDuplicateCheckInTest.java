@@ -41,7 +41,7 @@ class HabitServiceDuplicateCheckInTest {
         userId = "duplicate-checkin-test-user";
         habitId = habitService.createHabit(userId, new CreateHabitRequest(
                 "Test Habit", "General", "DAILY", 1, null, null, "BOOLEAN", null, null, null
-        )).id();
+        , null)).id();
 
         habitService.createCheckIn(userId, habitId, new CheckInRequest(null, 1, "manual"));
 
@@ -55,7 +55,7 @@ class HabitServiceDuplicateCheckInTest {
         userId = "duplicate-checkin-test-user";
         habitId = habitService.createHabit(userId, new CreateHabitRequest(
                 "Test Habit", "General", "DAILY", 1, null, null, "COUNT", null, null, null
-        )).id();
+        , null)).id();
 
         habitService.createCheckIn(userId, habitId, new CheckInRequest(null, 5, "manual"));
         habitService.createCheckIn(userId, habitId, new CheckInRequest(null, 3, "manual"));

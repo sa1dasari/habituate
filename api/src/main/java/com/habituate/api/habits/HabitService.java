@@ -8,6 +8,8 @@ import com.habituate.api.common.ForbiddenException;
 import com.habituate.api.events.CheckInEventPublisher;
 import com.habituate.api.groups.GroupMember;
 import com.habituate.api.groups.GroupMemberRepository;
+import com.habituate.api.groups.StreakFreeze;
+import com.habituate.api.groups.StreakFreezeRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +23,7 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class HabitService {
@@ -29,16 +32,25 @@ public class HabitService {
     private final CheckInRepository checkInRepository;
     private final CheckInEventPublisher checkInEventPublisher;
     private final GroupMemberRepository groupMemberRepository;
+    private final StreakFreezeRepository streakFreezeRepository;
+    private final ShieldAwardService shieldAwardService;
+    private final ShieldAwardRepository shieldAwardRepository;
 
     public HabitService(
             HabitRepository habitRepository,
             CheckInRepository checkInRepository,
             CheckInEventPublisher checkInEventPublisher,
-            GroupMemberRepository groupMemberRepository) {
+            GroupMemberRepository groupMemberRepository,
+            StreakFreezeRepository streakFreezeRepository,
+            ShieldAwardService shieldAwardService,
+            ShieldAwardRepository shieldAwardRepository) {
         this.habitRepository = habitRepository;
         this.checkInRepository = checkInRepository;
         this.checkInEventPublisher = checkInEventPublisher;
         this.groupMemberRepository = groupMemberRepository;
+        this.streakFreezeRepository = streakFreezeRepository;
+        this.shieldAwardService = shieldAwardService;
+        this.shieldAwardRepository = shieldAwardRepository;
     }
 
     public List<HabitResponse> listHabits(String userId, String timezone) {
@@ -72,7 +84,12 @@ public class HabitService {
     private HabitResponse toResponse(Habit habit, ZoneId zone) {
         List<CheckIn> checkIns = checkInRepository.findByUserIdAndHabitIdOrderByOccurredAtAsc(
                 habit.getUserId(), habit.getId());
-        StreakCalculator.Streaks streaks = StreakCalculator.compute(checkIns, zone);
+        // Shield Day freezes count as a non-breaking gap, same as a real check-in day.
+        var frozenDays = streakFreezeRepository.findByHabitId(habit.getId()).stream()
+                .map(StreakFreeze::getUsedOnDate)
+                .collect(Collectors.toSet());
+        StreakCalculator.Streaks streaks = StreakCalculator.compute(checkIns, zone, Instant.now(), frozenDays);
+        shieldAwardService.awardIfEligible(habit.getUserId(), habit.getId(), streaks.current());
         return HabitResponse.from(habit, streaks.current(), streaks.longest());
     }
 
@@ -218,6 +235,8 @@ public class HabitService {
     public void deleteHabit(String userId, Long habitId) {
         Habit habit = requireOwnedHabit(userId, habitId);
         checkInRepository.deleteByHabitId(habit.getId());
+        streakFreezeRepository.deleteByHabitId(habit.getId());
+        shieldAwardRepository.deleteByHabitId(habit.getId());
         habitRepository.delete(habit);
     }
 
@@ -230,6 +249,11 @@ public class HabitService {
         }
 
         return habit;
+    }
+
+    /** Shield Days currently banked, available to auto-protect a habit's streak — see ShieldAwardService. */
+    public int getShieldsAvailable(String userId) {
+        return shieldAwardService.getAvailable(userId);
     }
 
     public List<CheckIn> listCheckIns(String userId, Long habitId) {

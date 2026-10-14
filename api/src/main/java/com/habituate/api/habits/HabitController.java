@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
@@ -65,6 +66,12 @@ public class HabitController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteHabit(HttpServletRequest req, @PathVariable Long habitId) {
         habitService.deleteHabit(userId(req), habitId);
+    }
+
+    /** Shield Days currently banked — see ShieldAwardService. */
+    @GetMapping("/habits/shields")
+    public Map<String, Integer> getShields(HttpServletRequest req) {
+        return Map.of("available", habitService.getShieldsAvailable(userId(req)));
     }
 
     @GetMapping("/habits/{habitId}/check-ins")

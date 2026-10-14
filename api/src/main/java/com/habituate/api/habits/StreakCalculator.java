@@ -6,6 +6,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
@@ -38,11 +39,23 @@ public final class StreakCalculator {
 
     /** @param now injectable so tests can pin "today" instead of racing the wall clock. */
     public static Streaks compute(List<CheckIn> checkIns, ZoneId zone, Instant now) {
-        if (checkIns == null || checkIns.isEmpty()) return new Streaks(0, 0);
+        return compute(checkIns, zone, now, Collections.emptySet());
+    }
+
+    /** @param extraQualifyingDays Shield Day freezes — treated as a non-breaking gap, same as a real check-in day. */
+    public static Streaks compute(List<CheckIn> checkIns, ZoneId zone, Instant now, Set<LocalDate> extraQualifyingDays) {
+        if ((checkIns == null || checkIns.isEmpty()) && (extraQualifyingDays == null || extraQualifyingDays.isEmpty())) {
+            return new Streaks(0, 0);
+        }
 
         Set<LocalDate> days = new TreeSet<>();
-        for (CheckIn c : checkIns) {
-            days.add(toDate(c.getOccurredAt(), zone));
+        if (checkIns != null) {
+            for (CheckIn c : checkIns) {
+                days.add(toDate(c.getOccurredAt(), zone));
+            }
+        }
+        if (extraQualifyingDays != null) {
+            days.addAll(extraQualifyingDays);
         }
 
         LocalDate today = now.atZone(zone).toLocalDate();

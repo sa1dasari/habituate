@@ -19,6 +19,7 @@ import com.habituate.api.groups.GroupRepository;
 import com.habituate.api.groups.GroupStreakRepository;
 import com.habituate.api.groups.StreakFreezeRepository;
 import com.habituate.api.habits.HabitRepository;
+import com.habituate.api.habits.ShieldAwardRepository;
 import com.habituate.api.notifications.PushTokenRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,6 +60,7 @@ public class UserProfileService {
     private final ChallengeRepository challengeRepository;
     private final ChallengeParticipantRepository challengeParticipantRepository;
     private final FriendshipRepository friendshipRepository;
+    private final ShieldAwardRepository shieldAwardRepository;
 
     public UserProfileService(UserRepository userRepository,
                                CheckInCheerRepository checkInCheerRepository,
@@ -75,7 +77,8 @@ public class UserProfileService {
                                StreakFreezeRepository streakFreezeRepository,
                                ChallengeRepository challengeRepository,
                                ChallengeParticipantRepository challengeParticipantRepository,
-                               FriendshipRepository friendshipRepository) {
+                               FriendshipRepository friendshipRepository,
+                               ShieldAwardRepository shieldAwardRepository) {
         this.userRepository = userRepository;
         this.checkInCheerRepository = checkInCheerRepository;
         this.challengeCheckInRepository = challengeCheckInRepository;
@@ -92,6 +95,7 @@ public class UserProfileService {
         this.challengeRepository = challengeRepository;
         this.challengeParticipantRepository = challengeParticipantRepository;
         this.friendshipRepository = friendshipRepository;
+        this.shieldAwardRepository = shieldAwardRepository;
     }
 
     public UserProfileResponse getProfile(String userId) {
@@ -148,6 +152,8 @@ public class UserProfileService {
         challengeCheckInRepository.deleteByUserId(userId);
         checkInRepository.deleteByUserId(userId);
         habitRepository.deleteByUserId(userId);
+        streakFreezeRepository.deleteByUserId(userId); // personal Shield Day freezes
+        shieldAwardRepository.deleteByUserId(userId);
         goalRepository.deleteByUserId(userId);
         coachMessageRepository.deleteByUserId(userId);
         pushTokenRepository.deleteByUserId(userId);

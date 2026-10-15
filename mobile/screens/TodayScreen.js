@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -16,7 +16,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import HabitCard from '../components/HabitCard';
 import GoalsSummaryCard from '../components/GoalsSummaryCard';
 import AvatarImage from '../components/AvatarImage';
-import api from '../api/client';
 import { useAuth } from '../hooks/useAuth';
 import { useCelebration } from '../hooks/useCelebration';
 import { useFeaturedGoalReviews } from '../hooks/useFeaturedGoalReviews';
@@ -80,21 +79,6 @@ export default function TodayScreen() {
   const displayName = user?.displayName || 'there';
   const { celebrate: showCelebration } = useCelebration();
   const [expandedId, setExpandedId] = useState(null);
-  const [shieldsAvailable, setShieldsAvailable] = useState(0);
-
-  // Best-effort — a missing shield count is never worth surfacing an error over.
-  useEffect(() => {
-    let cancelled = false;
-    api
-      .getShields()
-      .then((result) => {
-        if (!cancelled) setShieldsAvailable(result?.available || 0);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [habits]);
 
   const featuredHabits = useMemo(() => habits.filter((h) => h.featuredGoal), [habits]);
   const { reviews: habitGoalReviews } = useFeaturedGoalReviews(featuredHabits);

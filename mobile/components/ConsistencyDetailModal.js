@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { categoryIcon } from '../constants/habitCategories';
+import TreeRingChart from './TreeRingChart';
 import { CONSISTENCY_PERIODS, habitHistorySummary, habitPeriodHistory } from '../utils/consistency';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { gradients, radii, shadow, spacing } from '../theme';
@@ -215,23 +216,17 @@ export default function ConsistencyDetailModal({ visible, habits = [], initialPe
                     </View>
 
                     {hasAnyWindow ? (
-                      <>
-                        <View style={styles.chartRow}>
-                          {bucketLabels.map((label, bucketIndex) => (
-                            <View key={bucketIndex} style={styles.barColumn}>
-                              <View style={styles.barGroup}>
-                                {selectedHistories.map(({ habit, history: h }, habitIndex) => {
-                                  const bucket = h.buckets[bucketIndex];
-                                  const pct = maxBucketValue > 0 ? Math.round((bucket.value / maxBucketValue) * 100) : 0;
-                                  const colorSet = BAR_COLOR_SETS[habitIndex % BAR_COLOR_SETS.length];
-                                  return (
-                                    <View
-                                      key={habit.id}
-                                      style={[
-                                        styles.barTrack,
-                                        selectedHistories.length > 1 && styles.barTrackMulti,
-                                      ]}
-                                    >
+                      selectedHistories.length === 1 ? (
+                        <>
+                          <View style={styles.chartRow}>
+                            {bucketLabels.map((label, bucketIndex) => {
+                              const bucket = selectedHistories[0].history.buckets[bucketIndex];
+                              const pct = maxBucketValue > 0 ? Math.round((bucket.value / maxBucketValue) * 100) : 0;
+                              const colorSet = BAR_COLOR_SETS[0];
+                              return (
+                                <View key={bucketIndex} style={styles.barColumn}>
+                                  <View style={styles.barGroup}>
+                                    <View style={styles.barTrack}>
                                       {bucket.value > 0 ? (
                                         <LinearGradient
                                           colors={colorSet}
@@ -241,15 +236,13 @@ export default function ConsistencyDetailModal({ visible, habits = [], initialPe
                                         />
                                       ) : null}
                                     </View>
-                                  );
-                                })}
-                              </View>
-                              <Text style={styles.barAxisLabel}>{label}</Text>
-                            </View>
-                          ))}
-                        </View>
+                                  </View>
+                                  <Text style={styles.barAxisLabel}>{label}</Text>
+                                </View>
+                              );
+                            })}
+                          </View>
 
-                        {selectedHistories.length === 1 ? (
                           <View style={styles.bucketValueRow}>
                             {selectedHistories[0].history.buckets.map((bucket, i) => (
                               <View key={i} style={styles.bucketValuePill}>
@@ -259,10 +252,28 @@ export default function ConsistencyDetailModal({ visible, habits = [], initialPe
                               </View>
                             ))}
                           </View>
-                        ) : (
+                        </>
+                      ) : (
+                        <>
+                          <TreeRingChart
+                            selectedHistories={selectedHistories}
+                            colorSets={BAR_COLOR_SETS}
+                            trackColor={colors.ringTrack}
+                            labelColor={colors.textMuted}
+                            size={272}
+                          />
+
+                          <Text style={styles.ringHint}>Tap a habit below to see its own history</Text>
+
                           <View style={styles.legendRow}>
                             {selectedHistories.map(({ habit }, i) => (
-                              <View key={habit.id} style={styles.legendItem}>
+                              <Pressable
+                                key={habit.id}
+                                style={styles.legendItem}
+                                accessibilityRole="button"
+                                accessibilityLabel={`View ${habit.name} alone`}
+                                onPress={() => setSelectedHabitIds([habit.id])}
+                              >
                                 <View
                                   style={[
                                     styles.legendDot,
@@ -272,11 +283,11 @@ export default function ConsistencyDetailModal({ visible, habits = [], initialPe
                                 <Text style={styles.legendText} numberOfLines={1}>
                                   {habit.name}
                                 </Text>
-                              </View>
+                              </Pressable>
                             ))}
                           </View>
-                        )}
-                      </>
+                        </>
+                      )
                     ) : (
                       <Text style={styles.emptyText}>No history yet in this window.</Text>
                     )}
@@ -409,8 +420,8 @@ function makeStyles(colors, typography) {
       borderRadius: radii.sm,
       overflow: 'hidden',
     },
-    barTrackMulti: { width: 12 },
     barFill: { width: '100%', borderRadius: radii.sm },
+    ringHint: { ...typography.meta, textAlign: 'center', marginTop: spacing.sm },
     barAxisLabel: { fontSize: 11, fontWeight: '600', color: colors.textMuted, marginTop: spacing.sm },
     bucketValueRow: {
       flexDirection: 'row',

@@ -47,13 +47,40 @@ export function FriendsProvider({ children }) {
 
   const sendRequest = useCallback((email) => run(() => api.sendFriendRequest(email)), [run]);
 
+  const sendRequestByUsername = useCallback(
+    (username) => run(() => api.sendFriendRequestByUsername(username)),
+    [run]
+  );
+
   const acceptRequest = useCallback((friendshipId) => run(() => api.acceptFriendRequest(friendshipId)), [run]);
 
   const declineRequest = useCallback((friendshipId) => run(() => api.declineFriendRequest(friendshipId)), [run]);
 
   const value = useMemo(
-    () => ({ friends, pendingRequests, loading, busy, error, refresh, sendRequest, acceptRequest, declineRequest }),
-    [friends, pendingRequests, loading, busy, error, refresh, sendRequest, acceptRequest, declineRequest]
+    () => ({
+      friends,
+      pendingRequests,
+      loading,
+      busy,
+      error,
+      refresh,
+      sendRequest,
+      sendRequestByUsername,
+      acceptRequest,
+      declineRequest,
+    }),
+    [
+      friends,
+      pendingRequests,
+      loading,
+      busy,
+      error,
+      refresh,
+      sendRequest,
+      sendRequestByUsername,
+      acceptRequest,
+      declineRequest,
+    ]
   );
 
   return createElement(FriendsContext.Provider, { value }, children);

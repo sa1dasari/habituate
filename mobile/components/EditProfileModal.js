@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -17,6 +17,8 @@ import { radii, spacing } from '../theme';
 
 const SELF_DESCRIBE = 'Self-describe';
 const GENDER_OPTIONS = ['Woman', 'Man', 'Non-binary', 'Prefer not to say', SELF_DESCRIBE];
+const USERNAME_PATTERN = /^[a-z0-9_]{3,20}$/;
+const USERNAME_CHECK_DEBOUNCE_MS = 400;
 
 /** Display name, profile photo, date of birth, phone, address, gender, and (email/password accounts only) a password-reset link. */
 export default function EditProfileModal({ visible, onClose }) {
@@ -26,6 +28,10 @@ export default function EditProfileModal({ visible, onClose }) {
 
   const [name, setName] = useState('');
   const [photoURL, setPhotoURL] = useState(null);
+  const [username, setUsername] = useState('');
+  const [originalUsername, setOriginalUsername] = useState('');
+  const [usernameStatus, setUsernameStatus] = useState('idle'); // idle | checking | available | taken | invalid
+  const usernameDebounceRef = useRef(null);
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [address, setAddress] = useState('');
@@ -56,6 +62,8 @@ export default function EditProfileModal({ visible, onClose }) {
         setPhoneNumber(profile?.phoneNumber || '');
         setAddress(profile?.address || '');
         setGender(profile?.gender || '');
+        setUsername(profile?.username || '');
+        setOriginalUsername(profile?.username || '');
       })
       .catch(() => {})
       .finally(() => {
@@ -65,6 +73,33 @@ export default function EditProfileModal({ visible, onClose }) {
       cancelled = true;
     };
   }, [visible, user]);
+
+  useEffect(() => {
+    if (usernameDebounceRef.current) clearTimeout(usernameDebounceRef.current);
+    const normalized = username.trim().toLowerCase();
+    if (normalized === originalUsername) {
+      setUsernameStatus('idle');
+      return;
+    }
+    if (!normalized) {
+      setUsernameStatus('invalid');
+      return;
+    }
+    if (!USERNAME_PATTERN.test(normalized)) {
+      setUsernameStatus('invalid');
+      return;
+    }
+    setUsernameStatus('checking');
+    usernameDebounceRef.current = setTimeout(async () => {
+      try {
+        const result = await api.getUsernameAvailable(normalized);
+        setUsernameStatus(result?.available ? 'available' : 'taken');
+      } catch {
+        setUsernameStatus('idle');
+      }
+    }, USERNAME_CHECK_DEBOUNCE_MS);
+    return () => clearTimeout(usernameDebounceRef.current);
+  }, [username, originalUsername]);
 
   const handlePickPhoto = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -146,6 +181,13 @@ export default function EditProfileModal({ visible, onClose }) {
       Alert.alert('Name it', 'Enter a display name.');
       return;
     }
+    const normalizedUsername = username.trim().toLowerCase();
+    if (normalizedUsername !== originalUsername) {
+      if (usernameStatus !== 'available') {
+        Alert.alert('Check your username', 'Pick an available username before saving.');
+        return;
+      }
+    }
     setSaving(true);
     try {
       if (trimmed !== (user?.displayName || '')) {
@@ -153,6 +195,9 @@ export default function EditProfileModal({ visible, onClose }) {
       }
       if (photoURL !== (user?.photoURL || null)) {
         await updatePhotoURL(photoURL);
+      }
+      if (normalizedUsername !== originalUsername) {
+        await api.setUsername(normalizedUsername);
       }
       await api.updateUserProfile({
         dateOfBirth: dateOfBirth || null,
@@ -210,6 +255,33 @@ export default function EditProfileModal({ visible, onClose }) {
             value={name}
             onChangeText={setName}
           />
+
+          <Text style={styles.label}>Username</Text>
+          <View style={styles.usernameRow}>
+            <Text style={styles.atSign}>@</Text>
+            <TextInput
+              style={styles.usernameInput}
+              placeholder="yourname"
+              placeholderTextColor={colors.textMuted}
+              value={username}
+              onChangeText={setUsername}
+              autoCapitalize="none"
+              autoCorrect={false}
+              maxLength={20}
+            />
+            {usernameStatus === 'checking' ? <ActivityIndicator size="small" color={colors.accent} /> : null}
+            {usernameStatus === 'available' ? (
+              <MaterialCommunityIcons name="check-circle" size={18} color={colors.safe} />
+            ) : null}
+            {usernameStatus === 'taken' || usernameStatus === 'invalid' ? (
+              <MaterialCommunityIcons name="close-circle" size={18} color={colors.atRisk} />
+            ) : null}
+          </View>
+          {usernameStatus === 'taken' || usernameStatus === 'invalid' ? (
+            <Text style={styles.usernameHintError}>
+              {usernameStatus === 'taken' ? 'Already taken.' : 'Letters, numbers, underscore only — 3-20 characters.'}
+            </Text>
+          ) : null}
 
           <Text style={styles.label}>Date of birth</Text>
           {loadingProfile ? (
@@ -331,6 +403,21 @@ function makeStyles(colors, typography) {
       color: colors.textPrimary,
       marginBottom: spacing.lg,
     },
+    usernameRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      backgroundColor: colors.surface,
+      borderRadius: radii.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm + 2,
+      marginBottom: spacing.xs,
+    },
+    atSign: { fontSize: 15, fontWeight: '700', color: colors.textMuted },
+    usernameInput: { flex: 1, fontSize: 16, color: colors.textPrimary },
+    usernameHintError: { ...typography.meta, color: colors.atRisk, marginBottom: spacing.lg },
     secondaryButton: {
       flexDirection: 'row',
       alignItems: 'center',

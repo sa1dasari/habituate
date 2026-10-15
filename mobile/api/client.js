@@ -201,6 +201,9 @@ export const api = {
   sendFriendRequest: (email) =>
     request('/api/friendships', { method: 'POST', body: JSON.stringify({ email }) }),
 
+  sendFriendRequestByUsername: (username) =>
+    request('/api/friendships/by-username', { method: 'POST', body: JSON.stringify({ username }) }),
+
   acceptFriendRequest: (friendshipId) =>
     request(`/api/friendships/${friendshipId}/accept`, { method: 'POST' }),
 
@@ -254,6 +257,22 @@ export const api = {
 
   updateUserProfile: (changes) =>
     request('/api/users/me', { method: 'PATCH', body: JSON.stringify(changes) }),
+
+  getUsernameAvailable: (value) =>
+    request(`/api/users/username/available?value=${encodeURIComponent(value)}`),
+
+  setUsername: (username) =>
+    request('/api/users/username', { method: 'PATCH', body: JSON.stringify({ username }) }),
+
+  searchUsers: (q) => request(`/api/users/search?q=${encodeURIComponent(q)}`),
+
+  listNotifications: () => request('/api/notifications'),
+
+  getUnreadNotificationCount: () => request('/api/notifications/unread-count'),
+
+  markNotificationRead: (id) => request(`/api/notifications/${id}/read`, { method: 'POST' }),
+
+  markAllNotificationsRead: () => request('/api/notifications/read-all', { method: 'POST' }),
 
   uncheerCheckIn: (checkInId) => request(`/api/groups/activity/${checkInId}/cheer`, { method: 'DELETE' }),
 

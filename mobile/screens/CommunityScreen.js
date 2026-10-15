@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import SharedHabitCard from '../components/SharedHabitCard';
 import ChallengeCard from '../components/ChallengeCard';
@@ -12,19 +11,17 @@ import CreateChallengeModal from '../components/CreateChallengeModal';
 import SharedHabitDetailModal from '../components/SharedHabitDetailModal';
 import ChallengeDetailModal from '../components/ChallengeDetailModal';
 import AddFriendModal from '../components/AddFriendModal';
-import AvatarImage from '../components/AvatarImage';
-import { useAuth } from '../hooks/useAuth';
+import NotificationCenterModal from '../components/NotificationCenterModal';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useGroups } from '../hooks/useGroups';
 import { useChallenges } from '../hooks/useChallenges';
+import { useNotifications } from '../hooks/useNotifications';
 import { radii, spacing } from '../theme';
 
 export default function CommunityScreen() {
-  const navigation = useNavigation();
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
 
-  const { user } = useAuth();
   const { groups, loading: groupsLoading, refresh: refreshGroups } = useGroups();
   const {
     challenges,
@@ -42,6 +39,8 @@ export default function CommunityScreen() {
   const [selectedGroupId, setSelectedGroupId] = useState(null);
   const [selectedChallengeId, setSelectedChallengeId] = useState(null);
   const [friendsVisible, setFriendsVisible] = useState(false);
+  const [notificationsVisible, setNotificationsVisible] = useState(false);
+  const { unreadCount } = useNotifications();
 
   const loading = groupsLoading || challengesLoading;
   // Looked up by id each render (not the tapped object itself) so the detail
@@ -83,12 +82,17 @@ export default function CommunityScreen() {
               <MaterialCommunityIcons name="account-multiple-plus-outline" size={20} color={colors.accent} />
             </Pressable>
             <Pressable
-              style={styles.avatar}
+              style={styles.iconButton}
               accessibilityRole="button"
-              accessibilityLabel="Open profile"
-              onPress={() => navigation.navigate('Profile')}
+              accessibilityLabel="Notifications"
+              onPress={() => setNotificationsVisible(true)}
             >
-              <AvatarImage uri={user?.photoURL} name={user?.displayName} size={48} style={styles.avatarPhoto} />
+              <MaterialCommunityIcons name="bell-outline" size={20} color={colors.accent} />
+              {unreadCount > 0 ? (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+                </View>
+              ) : null}
             </Pressable>
           </View>
         </View>
@@ -239,6 +243,12 @@ export default function CommunityScreen() {
         onClose={() => setSelectedChallengeId(null)}
       />
       <AddFriendModal visible={friendsVisible} onClose={() => setFriendsVisible(false)} />
+      <NotificationCenterModal
+        visible={notificationsVisible}
+        onClose={() => setNotificationsVisible(false)}
+        onOpenGroup={setSelectedGroupId}
+        onOpenChallenge={setSelectedChallengeId}
+      />
     </SafeAreaView>
   );
 }
@@ -275,6 +285,21 @@ function makeStyles(colors, typography) {
       alignItems: 'center',
       justifyContent: 'center',
     },
+    notificationBadge: {
+      position: 'absolute',
+      top: -2,
+      right: -2,
+      minWidth: 18,
+      height: 18,
+      borderRadius: radii.pill,
+      backgroundColor: colors.atRisk,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 3,
+      borderWidth: 1.5,
+      borderColor: colors.background,
+    },
+    notificationBadgeText: { fontSize: 10, fontWeight: '800', color: '#FFFFFF' },
     avatar: {
       width: 48,
       height: 48,

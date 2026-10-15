@@ -19,11 +19,14 @@ import { FriendsProvider } from './hooks/useFriends';
 import { GroupsProvider } from './hooks/useGroups';
 import { ChallengesProvider } from './hooks/useChallenges';
 import { GroupActivityProvider } from './hooks/useGroupActivity';
+import { NotificationsProvider } from './hooks/useNotifications';
 import { CelebrationProvider } from './hooks/useCelebration';
 import { ThemeProvider, useAppTheme } from './hooks/useAppTheme';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { usePushToken } from './hooks/usePushToken';
+import api from './api/client';
 import {
+  ChooseUsernameScreen,
   CommunityScreen,
   HabitsScreen,
   InsightsScreen,
@@ -88,8 +91,29 @@ function AppGate() {
   const { user } = useAuth();
   const { colors, effectiveMode } = useAppTheme();
   const [showSignup, setShowSignup] = useState(false);
+  // undefined = not checked yet, null = checked and missing, string = set
+  const [username, setUsername] = useState(undefined);
 
   usePushToken(!!user);
+
+  useEffect(() => {
+    if (!user) {
+      setUsername(undefined);
+      return;
+    }
+    let cancelled = false;
+    api
+      .getUserProfile()
+      .then((profile) => {
+        if (!cancelled) setUsername(profile?.username || null);
+      })
+      .catch(() => {
+        if (!cancelled) setUsername(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   // user === undefined means Firebase hasn't resolved the auth state yet
   if (user === undefined) {
@@ -104,6 +128,20 @@ function AppGate() {
     return showSignup
       ? <SignupScreen onGoToLogin={() => setShowSignup(false)} />
       : <LoginScreen onGoToSignup={() => setShowSignup(true)} />;
+  }
+
+  if (username === undefined) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+        <ActivityIndicator size="large" color={colors.accent} />
+      </View>
+    );
+  }
+
+  // Mandatory for every account going forward — existing accounts predate
+  // this field, so this gate is also how they get backfilled on next sign-in.
+  if (!username) {
+    return <ChooseUsernameScreen onDone={() => setUsername('set')} />;
   }
 
   const navigationTheme = {
@@ -125,11 +163,13 @@ function AppGate() {
           <GroupsProvider>
             <ChallengesProvider>
               <GroupActivityProvider>
-                <CelebrationProvider>
-                  <NavigationContainer theme={navigationTheme}>
-                    <Tabs />
-                  </NavigationContainer>
-                </CelebrationProvider>
+                <NotificationsProvider>
+                  <CelebrationProvider>
+                    <NavigationContainer theme={navigationTheme}>
+                      <Tabs />
+                    </NavigationContainer>
+                  </CelebrationProvider>
+                </NotificationsProvider>
               </GroupActivityProvider>
             </ChallengesProvider>
           </GroupsProvider>

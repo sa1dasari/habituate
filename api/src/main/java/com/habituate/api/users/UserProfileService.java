@@ -20,6 +20,7 @@ import com.habituate.api.groups.GroupStreakRepository;
 import com.habituate.api.groups.StreakFreezeRepository;
 import com.habituate.api.habits.HabitRepository;
 import com.habituate.api.habits.ShieldAwardRepository;
+import com.habituate.api.notifications.AppNotificationRepository;
 import com.habituate.api.notifications.PushTokenRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,6 +44,7 @@ public class UserProfileService {
 
     private static final Logger log = LoggerFactory.getLogger(UserProfileService.class);
     private static final int MAX_AGE_YEARS = 130;
+    private static final java.util.regex.Pattern USERNAME_PATTERN = java.util.regex.Pattern.compile("^[a-z0-9_]{3,20}$");
 
     private final UserRepository userRepository;
     private final CheckInCheerRepository checkInCheerRepository;
@@ -61,6 +63,7 @@ public class UserProfileService {
     private final ChallengeParticipantRepository challengeParticipantRepository;
     private final FriendshipRepository friendshipRepository;
     private final ShieldAwardRepository shieldAwardRepository;
+    private final AppNotificationRepository appNotificationRepository;
 
     public UserProfileService(UserRepository userRepository,
                                CheckInCheerRepository checkInCheerRepository,
@@ -78,7 +81,8 @@ public class UserProfileService {
                                ChallengeRepository challengeRepository,
                                ChallengeParticipantRepository challengeParticipantRepository,
                                FriendshipRepository friendshipRepository,
-                               ShieldAwardRepository shieldAwardRepository) {
+                               ShieldAwardRepository shieldAwardRepository,
+                               AppNotificationRepository appNotificationRepository) {
         this.userRepository = userRepository;
         this.checkInCheerRepository = checkInCheerRepository;
         this.challengeCheckInRepository = challengeCheckInRepository;
@@ -96,12 +100,63 @@ public class UserProfileService {
         this.challengeParticipantRepository = challengeParticipantRepository;
         this.friendshipRepository = friendshipRepository;
         this.shieldAwardRepository = shieldAwardRepository;
+        this.appNotificationRepository = appNotificationRepository;
     }
 
     public UserProfileResponse getProfile(String userId) {
         return userRepository.findById(userId)
                 .map(this::toResponse)
-                .orElse(new UserProfileResponse(null, null, null, null, null));
+                .orElse(new UserProfileResponse(null, null, null, null, null, null));
+    }
+
+    public boolean isUsernameAvailable(String username) {
+        String normalized = normalizeUsername(username);
+        return normalized != null && !userRepository.existsByUsernameIgnoreCase(normalized);
+    }
+
+    /** Idempotent re-save of the same username (no-op) is allowed — lets a client retry a
+     * flaky request safely without it looking like a "username taken" error. */
+    @Transactional
+    public UserProfileResponse setUsername(String userId, String username) {
+        String normalized = normalizeUsername(username);
+        if (normalized == null) {
+            throw new IllegalArgumentException(
+                    "Username must be 3-20 characters, lowercase letters/numbers/underscore only");
+        }
+
+        User user = userRepository.findById(userId).orElseGet(() -> new User(userId, null));
+        if (normalized.equals(user.getUsername())) {
+            return toResponse(user);
+        }
+        if (userRepository.existsByUsernameIgnoreCase(normalized)) {
+            throw new IllegalArgumentException("That username is already taken: " + normalized);
+        }
+
+        user.setUsername(normalized);
+        user.setUpdatedAt(Instant.now());
+        userRepository.save(user);
+        return toResponse(user);
+    }
+
+    /** Excludes the searching user themselves — searching your own username to "find" yourself
+     * isn't a useful result in an add-a-friend flow. */
+    public List<UserSearchResult> searchByUsername(String userId, String query) {
+        String trimmed = query == null ? "" : query.trim().toLowerCase();
+        if (trimmed.length() < 2) {
+            return List.of();
+        }
+        return userRepository.findTop10ByUsernameContainingIgnoreCaseAndIdNot(trimmed, userId).stream()
+                .filter(u -> u.getUsername() != null)
+                .map(u -> new UserSearchResult(u.getId(), u.getUsername()))
+                .toList();
+    }
+
+    private String normalizeUsername(String value) {
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.trim().toLowerCase();
+        return USERNAME_PATTERN.matcher(normalized).matches() ? normalized : null;
     }
 
     /** The client always sends its current value for every field on save — not a sparse/partial patch. */
@@ -119,8 +174,8 @@ public class UserProfileService {
     }
 
     private UserProfileResponse toResponse(User user) {
-        return new UserProfileResponse(
-                user.getTimezone(), user.getDateOfBirth(), user.getPhoneNumber(), user.getAddress(), user.getGender());
+        return new UserProfileResponse(user.getTimezone(), user.getDateOfBirth(), user.getPhoneNumber(),
+                user.getAddress(), user.getGender(), user.getUsername());
     }
 
     private String blankToNull(String value) {
@@ -158,6 +213,7 @@ public class UserProfileService {
         coachMessageRepository.deleteByUserId(userId);
         pushTokenRepository.deleteByUserId(userId);
         feedbackRepository.deleteByUserId(userId);
+        appNotificationRepository.deleteByUserId(userId);
         groupMemberRepository.deleteByUserId(userId);
 
         for (Group group : groupRepository.findByCreatedBy(userId)) {

@@ -2,6 +2,8 @@ package com.habituate.api.groups;
 
 import com.habituate.api.common.DuplicateCheckInException;
 import com.habituate.api.common.ForbiddenException;
+import com.habituate.api.notifications.AppNotification;
+import com.habituate.api.notifications.AppNotificationService;
 import com.habituate.api.notifications.ExpoPushMessage;
 import com.habituate.api.notifications.ExpoPushService;
 import com.habituate.api.notifications.PushTokenRepository;
@@ -34,6 +36,7 @@ public class ChallengeService {
     private final FriendshipService friendshipService;
     private final PushTokenRepository pushTokenRepository;
     private final ExpoPushService expoPushService;
+    private final AppNotificationService appNotificationService;
 
     public ChallengeService(
             ChallengeRepository challengeRepository,
@@ -42,7 +45,8 @@ public class ChallengeService {
             UserLookupService userLookupService,
             FriendshipService friendshipService,
             PushTokenRepository pushTokenRepository,
-            ExpoPushService expoPushService) {
+            ExpoPushService expoPushService,
+            AppNotificationService appNotificationService) {
         this.challengeRepository = challengeRepository;
         this.participantRepository = participantRepository;
         this.checkInRepository = checkInRepository;
@@ -50,6 +54,7 @@ public class ChallengeService {
         this.friendshipService = friendshipService;
         this.pushTokenRepository = pushTokenRepository;
         this.expoPushService = expoPushService;
+        this.appNotificationService = appNotificationService;
     }
 
     @Transactional
@@ -122,16 +127,17 @@ public class ChallengeService {
 
         participantRepository.save(new ChallengeParticipant(challengeId, friendUserId));
 
+        String inviterName = userLookupService.resolve(userId).displayName();
+        String title = "You're invited to a challenge";
+        String body = inviterName + " invited you to \"" + challenge.getName() + "\"";
+
         List<ExpoPushMessage> messages = pushTokenRepository.findByUserId(friendUserId).stream()
-                .map(token -> new ExpoPushMessage(
-                        token.getToken(),
-                        "You're invited to a challenge",
-                        userLookupService.resolve(userId).displayName() + " invited you to \"" + challenge.getName() + "\"",
-                        Map.of("challengeId", challengeId)))
+                .map(token -> new ExpoPushMessage(token.getToken(), title, body, Map.of("challengeId", challengeId)))
                 .toList();
         if (!messages.isEmpty()) {
             expoPushService.send(messages);
         }
+        appNotificationService.notify(friendUserId, AppNotification.CHALLENGE_INVITE, title, body, null, challengeId, null);
 
         return toResponse(challenge, userId, resolveZone(timezone));
     }
@@ -154,7 +160,20 @@ public class ChallengeService {
             }
             checkInRepository.save(new ChallengeCheckIn(challengeId, userId, Instant.now()));
         }
+        notifyOtherParticipantsOfCheckIn(challenge, userId);
         return toResponse(challenge, userId, zone);
+    }
+
+    /** Best-effort fan-out — notifyAll never throws, so a notification failure can't
+     * undo a check-in that already succeeded. */
+    private void notifyOtherParticipantsOfCheckIn(Challenge challenge, String loggedByUserId) {
+        String actorName = userLookupService.resolve(loggedByUserId).displayName();
+        List<String> otherParticipantIds = participantRepository.findByChallengeId(challenge.getId()).stream()
+                .map(ChallengeParticipant::getUserId)
+                .filter(id -> !id.equals(loggedByUserId))
+                .toList();
+        appNotificationService.notifyAll(otherParticipantIds, AppNotification.CHALLENGE_CHECKIN, "Logged today",
+                actorName + " logged today for \"" + challenge.getName() + "\"", null, challenge.getId(), null);
     }
 
     /** Undoes today's most recent log. For a BOOLEAN challenge that's "the" entry for today

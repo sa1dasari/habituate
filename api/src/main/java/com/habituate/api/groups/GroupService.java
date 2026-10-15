@@ -5,6 +5,8 @@ import com.habituate.api.common.ForbiddenException;
 import com.habituate.api.habits.Habit;
 import com.habituate.api.habits.HabitRepository;
 import com.habituate.api.habits.StreakCalculator;
+import com.habituate.api.notifications.AppNotification;
+import com.habituate.api.notifications.AppNotificationService;
 import com.habituate.api.notifications.ExpoPushMessage;
 import com.habituate.api.notifications.ExpoPushService;
 import com.habituate.api.notifications.PushToken;
@@ -35,6 +37,7 @@ public class GroupService {
     private final UserRepository userRepository;
     private final PushTokenRepository pushTokenRepository;
     private final ExpoPushService expoPushService;
+    private final AppNotificationService appNotificationService;
 
     public GroupService(
             GroupRepository groupRepository,
@@ -46,7 +49,8 @@ public class GroupService {
             CheckInRepository checkInRepository,
             UserRepository userRepository,
             PushTokenRepository pushTokenRepository,
-            ExpoPushService expoPushService) {
+            ExpoPushService expoPushService,
+            AppNotificationService appNotificationService) {
         this.groupRepository = groupRepository;
         this.groupMemberRepository = groupMemberRepository;
         this.groupStreakRepository = groupStreakRepository;
@@ -57,6 +61,7 @@ public class GroupService {
         this.userRepository = userRepository;
         this.pushTokenRepository = pushTokenRepository;
         this.expoPushService = expoPushService;
+        this.appNotificationService = appNotificationService;
     }
 
     @Transactional
@@ -114,6 +119,15 @@ public class GroupService {
 
         Group group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new EntityNotFoundException("Group not found: " + groupId));
+
+        String joinerName = userLookupService.resolve(userId).displayName();
+        List<String> otherMemberIds = groupMemberRepository.findByGroupIdAndStatus(groupId, GroupMember.ACTIVE).stream()
+                .map(GroupMember::getUserId)
+                .filter(id -> !id.equals(userId))
+                .toList();
+        appNotificationService.notifyAll(otherMemberIds, AppNotification.GROUP_JOINED,
+                "New member joined", joinerName + " joined \"" + group.getName() + "\"", groupId, null, null);
+
         return toResponse(group, userId);
     }
 
@@ -131,19 +145,19 @@ public class GroupService {
         requireActiveMember(userId, groupId);
         requireActiveMember(targetUserId, groupId);
 
-        List<PushToken> tokens = pushTokenRepository.findByUserId(targetUserId);
-        if (tokens.isEmpty()) {
-            return;
-        }
         String nudgerName = userLookupService.resolve(userId).displayName();
-        List<ExpoPushMessage> messages = tokens.stream()
-                .map(token -> new ExpoPushMessage(
-                        token.getToken(),
-                        "A nudge from " + nudgerName,
-                        "Don't forget your habit in \"" + group.getName() + "\" today!",
-                        Map.of("groupId", groupId)))
-                .toList();
-        expoPushService.send(messages);
+        String title = "A nudge from " + nudgerName;
+        String body = "Don't forget your habit in \"" + group.getName() + "\" today!";
+
+        List<PushToken> tokens = pushTokenRepository.findByUserId(targetUserId);
+        if (!tokens.isEmpty()) {
+            List<ExpoPushMessage> messages = tokens.stream()
+                    .map(token -> new ExpoPushMessage(token.getToken(), title, body, Map.of("groupId", groupId)))
+                    .toList();
+            expoPushService.send(messages);
+        }
+
+        appNotificationService.notify(targetUserId, AppNotification.NUDGE, title, body, groupId, null, null);
     }
 
     public List<GroupResponse> listMyGroups(String userId) {

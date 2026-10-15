@@ -29,6 +29,16 @@ public class User {
     @Column
     private String timezone;
 
+    /** Mandatory for every account going forward, but nullable at the DB level: existing
+     * accounts predate this field, and this project's own convention (ddl-auto=update, no
+     * migration tool) is to enforce "mandatory" at the app layer rather than a backfill
+     * migration — the mobile app gates entry behind a "choose a username" screen whenever
+     * GET /api/users/me comes back with username=null. Stored canonically lowercase (like
+     * Reddit, not case-preserving like Twitter) so uniqueness is just a plain unique index,
+     * no second normalized column needed. */
+    @Column(unique = true)
+    private String username;
+
     @Column
     private LocalDate dateOfBirth;
 
@@ -63,6 +73,14 @@ public class User {
 
     public void setTimezone(String timezone) {
         this.timezone = timezone;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
     }
 
     public LocalDate getDateOfBirth() {

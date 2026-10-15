@@ -10,6 +10,9 @@ import com.habituate.api.groups.GroupMember;
 import com.habituate.api.groups.GroupMemberRepository;
 import com.habituate.api.groups.StreakFreeze;
 import com.habituate.api.groups.StreakFreezeRepository;
+import com.habituate.api.groups.UserLookupService;
+import com.habituate.api.notifications.AppNotification;
+import com.habituate.api.notifications.AppNotificationService;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,6 +37,8 @@ public class HabitService {
     private final StreakFreezeRepository streakFreezeRepository;
     private final ShieldAwardService shieldAwardService;
     private final ShieldAwardRepository shieldAwardRepository;
+    private final UserLookupService userLookupService;
+    private final AppNotificationService appNotificationService;
 
     public HabitService(
             HabitRepository habitRepository,
@@ -42,7 +47,9 @@ public class HabitService {
             GroupMemberRepository groupMemberRepository,
             StreakFreezeRepository streakFreezeRepository,
             ShieldAwardService shieldAwardService,
-            ShieldAwardRepository shieldAwardRepository) {
+            ShieldAwardRepository shieldAwardRepository,
+            UserLookupService userLookupService,
+            AppNotificationService appNotificationService) {
         this.habitRepository = habitRepository;
         this.checkInRepository = checkInRepository;
         this.checkInEventPublisher = checkInEventPublisher;
@@ -50,6 +57,8 @@ public class HabitService {
         this.streakFreezeRepository = streakFreezeRepository;
         this.shieldAwardService = shieldAwardService;
         this.shieldAwardRepository = shieldAwardRepository;
+        this.userLookupService = userLookupService;
+        this.appNotificationService = appNotificationService;
     }
 
     public List<HabitResponse> listHabits(String userId, String timezone) {
@@ -342,12 +351,27 @@ public class HabitService {
         // check-in so GroupStreakConsumer's checkin-events listener can filter
         // to it — per CLAUDE.md, a group is just a filtered consumer of the
         // same stream, not a separate check-in path.
-        groupMemberRepository.findByHabitIdAndStatus(habitId, GroupMember.ACTIVE)
-                .ifPresent(member -> checkIn.setGroupId(member.getGroupId()));
+        groupMemberRepository.findByHabitIdAndStatus(habitId, GroupMember.ACTIVE).ifPresent(member -> {
+            checkIn.setGroupId(member.getGroupId());
+            notifyGroupmatesOfCheckIn(member.getGroupId(), userId, habit.getName());
+        });
 
         CheckIn saved = checkInRepository.save(checkIn);
         checkInEventPublisher.publishCreated(saved);
         return saved;
+    }
+
+    /** Best-effort fan-out to every *other* active member of this shared habit's group —
+     * notifyAll itself never throws, matching the convention that a notification-write
+     * failure must never roll back the check-in that triggered it. */
+    private void notifyGroupmatesOfCheckIn(Long groupId, String checkedInUserId, String habitName) {
+        String actorName = userLookupService.resolve(checkedInUserId).displayName();
+        List<String> otherMemberIds = groupMemberRepository.findByGroupIdAndStatus(groupId, GroupMember.ACTIVE).stream()
+                .map(GroupMember::getUserId)
+                .filter(id -> !id.equals(checkedInUserId))
+                .toList();
+        appNotificationService.notifyAll(otherMemberIds, AppNotification.GROUP_CHECKIN, "Checked in today",
+                actorName + " checked in for \"" + habitName + "\" today", groupId, null, null);
     }
 
     @Transactional

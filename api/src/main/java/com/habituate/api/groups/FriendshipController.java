@@ -43,6 +43,13 @@ public class FriendshipController {
         return friendshipService.sendRequest(userId(req), request.email());
     }
 
+    @PostMapping("/by-username")
+    @ResponseStatus(HttpStatus.CREATED)
+    public FriendshipResponse sendRequestByUsername(
+            HttpServletRequest req, @RequestBody CreateFriendRequestByUsername request) {
+        return friendshipService.sendRequestByUsername(userId(req), request.username());
+    }
+
     @PostMapping("/{id}/accept")
     public FriendshipResponse accept(HttpServletRequest req, @PathVariable Long id) {
         return friendshipService.respond(userId(req), id, true);

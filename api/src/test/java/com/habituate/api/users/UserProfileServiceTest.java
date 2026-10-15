@@ -40,6 +40,7 @@ class UserProfileServiceTest {
         assertThat(profile.phoneNumber()).isNull();
         assertThat(profile.address()).isNull();
         assertThat(profile.gender()).isNull();
+        assertThat(profile.username()).isNull();
     }
 
     @Test
@@ -117,5 +118,55 @@ class UserProfileServiceTest {
         assertThat(cleared.phoneNumber()).isNull();
         assertThat(cleared.address()).isNull();
         assertThat(cleared.gender()).isNull();
+    }
+
+    @Test
+    void setUsername_normalizesToLowercaseAndPersists() {
+        userId = "profile-test-user-9";
+        UserProfileResponse updated = userProfileService.setUsername(userId, "  CoolUser_42 ".trim());
+        assertThat(updated.username()).isEqualTo("cooluser_42");
+
+        UserProfileResponse fetched = userProfileService.getProfile(userId);
+        assertThat(fetched.username()).isEqualTo("cooluser_42");
+    }
+
+    @Test
+    void setUsername_rejectsInvalidFormat() {
+        userId = "profile-test-user-10";
+        assertThatThrownBy(() -> userProfileService.setUsername(userId, "no"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> userProfileService.setUsername(userId, "has spaces"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void setUsername_rejectsAlreadyTakenCaseInsensitive() {
+        userId = "profile-test-user-11a";
+        userProfileService.setUsername(userId, "takenname");
+
+        String other = "profile-test-user-11b";
+        assertThatThrownBy(() -> userProfileService.setUsername(other, "TakenName"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void isUsernameAvailable_falseWhenTaken() {
+        userId = "profile-test-user-12";
+        userProfileService.setUsername(userId, "takentwo");
+        assertThat(userProfileService.isUsernameAvailable("takentwo")).isFalse();
+        assertThat(userProfileService.isUsernameAvailable("definitely_free")).isTrue();
+    }
+
+    @Test
+    void searchByUsername_findsPartialMatchExcludingSelf() {
+        userId = "profile-test-user-13a";
+        userProfileService.setUsername(userId, "searchable_person");
+
+        String other = "profile-test-user-13b";
+        var results = userProfileService.searchByUsername(other, "searchable");
+        assertThat(results).anyMatch(r -> r.userId().equals(userId));
+
+        var selfSearch = userProfileService.searchByUsername(userId, "searchable");
+        assertThat(selfSearch).noneMatch(r -> r.userId().equals(userId));
     }
 }

@@ -101,16 +101,22 @@ export function HabitsProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  // How many Shield Days the user has banked right now — fetched alongside
+  // habits so both TodayScreen's shield icon and HabitsScreen's info modal
+  // can read it from one place instead of each fetching it separately.
+  const [shieldsAvailable, setShieldsAvailable] = useState(0);
 
   const refresh = useCallback(async () => {
     try {
       setLoading(true);
-      const [active, archived] = await Promise.all([
+      const [active, archived, shields] = await Promise.all([
         api.listHabits(),
         api.listArchivedHabits(),
+        api.getShields().catch(() => ({ available: 0 })),
       ]);
       setHabits(await Promise.all((active || []).map(hydrate)));
       setArchivedHabits(archived || []);
+      setShieldsAvailable(shields?.available || 0);
       setError('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not load habits');
@@ -295,6 +301,7 @@ export function HabitsProvider({ children }) {
       addCheckIn,
       removeLastCheckIn,
       toggleShield,
+      shieldsAvailable,
       archiveHabit,
       restoreHabit,
       deleteHabit,
@@ -313,6 +320,7 @@ export function HabitsProvider({ children }) {
       addCheckIn,
       removeLastCheckIn,
       toggleShield,
+      shieldsAvailable,
       archiveHabit,
       restoreHabit,
       deleteHabit,

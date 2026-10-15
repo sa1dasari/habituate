@@ -63,8 +63,18 @@ export default function TodayScreen() {
   const navigation = useNavigation();
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
-  const { habits, loading, busy, error, refresh, toggleCheckIn, addCheckIn, removeLastCheckIn, toggleShield } =
-    useHabits();
+  const {
+    habits,
+    loading,
+    busy,
+    error,
+    refresh,
+    toggleCheckIn,
+    addCheckIn,
+    removeLastCheckIn,
+    toggleShield,
+    shieldsAvailable,
+  } = useHabits();
   const { goals } = useGoals();
   const { user } = useAuth();
   const displayName = user?.displayName || 'there';
@@ -181,15 +191,22 @@ export default function TodayScreen() {
     [toggleCheckIn, celebrate]
   );
 
+  // Deactivating is always just an API call (frees a shield back up). Activating
+  // needs a shield actually banked first — if none are, don't fail the request,
+  // send the user to the Shield Days info page (Habits tab) to see how to earn one.
   const handleToggleShield = useCallback(
     async (habit) => {
+      if (!habit.shieldedToday && shieldsAvailable <= 0) {
+        navigation.navigate('Habits', { openShieldInfo: true });
+        return;
+      }
       try {
         await toggleShield(habit.id);
       } catch (err) {
         Alert.alert("Couldn't update shield", err instanceof Error ? err.message : 'Unknown error');
       }
     },
-    [toggleShield]
+    [toggleShield, shieldsAvailable, navigation]
   );
 
   const handleAdd = useCallback(

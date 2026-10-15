@@ -287,6 +287,16 @@ export default function HabitsScreen() {
     }, [route.params?.scrollToGoals, navigation])
   );
 
+  // Coming from the Today page's shield icon when the user has none banked
+  // yet — open the rules modal directly instead of landing on a blank list.
+  useFocusEffect(
+    useCallback(() => {
+      if (!route.params?.openShieldInfo) return;
+      setShowShieldInfo(true);
+      navigation.setParams({ openShieldInfo: undefined });
+    }, [route.params?.openShieldInfo, navigation])
+  );
+
   // The form renders above the list, so bring it into view when editing a habit
   // the user had to scroll down to reach.
   const scrollToForm = () => {

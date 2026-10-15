@@ -4,9 +4,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import StreakIndicator from './StreakIndicator';
 import InviteFriendsSheet from './InviteFriendsSheet';
+import CreateGroupModal from './CreateGroupModal';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useAuth } from '../hooks/useAuth';
 import { useGroups } from '../hooks/useGroups';
+import { useHabits } from '../hooks/useHabits';
 import { radii, shadow, spacing } from '../theme';
 
 const RULE_LABEL = {
@@ -32,18 +34,31 @@ export default function SharedHabitDetailModal({ visible, group, onClose }) {
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const { user } = useAuth();
   const { inviteToGroup, nudge, busy } = useGroups();
+  const { toggleCheckIn, busy: habitsBusy } = useHabits();
   const [inviteVisible, setInviteVisible] = useState(false);
+  const [editVisible, setEditVisible] = useState(false);
 
   if (!group) return null;
 
   const state = resolveStreakState(group.streakStatus);
   const people = Array.isArray(group.participants) ? group.participants : [];
   const isIndependent = group.trackingMode === 'INDEPENDENT';
+  const myParticipant = people.find((p) => typeof p === 'object' && p && user && p.userId === user.uid);
+  const myCheckedInToday = myParticipant ? myParticipant.checkedInToday : false;
 
   const handleInvite = async (friendUserId) => {
     const ok = await inviteToGroup(group.id, friendUserId);
     if (!ok) Alert.alert("Couldn't send invite", 'Something went wrong — try again.');
     return ok;
+  };
+
+  const handleToggleMyCheckIn = async () => {
+    if (!group.myHabitId) return;
+    try {
+      await toggleCheckIn(group.myHabitId);
+    } catch (err) {
+      Alert.alert('Could not update check-in', err instanceof Error ? err.message : 'Unknown error');
+    }
   };
 
   const handleNudge = async (targetUserId, label) => {
@@ -65,7 +80,13 @@ export default function SharedHabitDetailModal({ visible, group, onClose }) {
           <Text style={styles.headerTitle} numberOfLines={1}>
             {group.name}
           </Text>
-          <View style={{ width: 34 }} />
+          {group.canEdit ? (
+            <Pressable onPress={() => setEditVisible(true)} hitSlop={12} style={styles.closeBtn}>
+              <MaterialCommunityIcons name="pencil-outline" size={20} color={colors.accent} />
+            </Pressable>
+          ) : (
+            <View style={{ width: 34 }} />
+          )}
         </View>
 
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -105,6 +126,25 @@ export default function SharedHabitDetailModal({ visible, group, onClose }) {
             <Text style={styles.longestStreak}>
               {group.visibilityLevel === 'STATUS_ONLY' ? 'Status only — amounts hidden from groupmates' : 'Full details visible to groupmates'}
             </Text>
+
+            {group.myHabitId ? (
+              <Pressable
+                style={[styles.logButton, myCheckedInToday && styles.logButtonActive]}
+                disabled={habitsBusy}
+                accessibilityRole="button"
+                accessibilityLabel={myCheckedInToday ? 'Unlog today' : 'Log today'}
+                onPress={handleToggleMyCheckIn}
+              >
+                <MaterialCommunityIcons
+                  name={myCheckedInToday ? 'check' : 'plus'}
+                  size={16}
+                  color={myCheckedInToday ? '#FFFFFF' : colors.accent}
+                />
+                <Text style={[styles.logButtonText, myCheckedInToday && styles.logButtonTextActive]}>
+                  {myCheckedInToday ? 'Checked in today' : 'Check in today'}
+                </Text>
+              </Pressable>
+            ) : null}
           </View>
 
           <Text style={styles.sectionTitle}>
@@ -114,6 +154,7 @@ export default function SharedHabitDetailModal({ visible, group, onClose }) {
             const label = typeof person === 'string' ? person : person && person.name;
             const personUserId = typeof person === 'object' && person ? person.userId : null;
             const personStreak = typeof person === 'object' && person ? person.currentStreak : null;
+            const personCheckedInToday = typeof person === 'object' && person ? person.checkedInToday : false;
             const isSelf = personUserId && user && personUserId === user.uid;
             return (
               <View key={`${label}-${index}`} style={styles.memberRow}>
@@ -122,6 +163,9 @@ export default function SharedHabitDetailModal({ visible, group, onClose }) {
                 </View>
                 <Text style={styles.memberName}>{label}</Text>
                 {isIndependent ? <Text style={styles.memberStreak}>🔥 {personStreak ?? 0}</Text> : null}
+                {personCheckedInToday ? (
+                  <MaterialCommunityIcons name="check-circle" size={16} color={colors.safe} style={{ marginRight: spacing.xs }} />
+                ) : null}
                 {group.nudgesEnabled && !isSelf && personUserId ? (
                   <Pressable
                     style={styles.nudgeBtn}
@@ -152,6 +196,7 @@ export default function SharedHabitDetailModal({ visible, group, onClose }) {
         busy={busy}
         title={`Invite to ${group.name}`}
       />
+      <CreateGroupModal visible={editVisible} group={group} onClose={() => setEditVisible(false)} />
     </Modal>
   );
 }
@@ -200,6 +245,19 @@ function makeStyles(colors, typography) {
     },
     statusText: { fontSize: 11, fontWeight: '700' },
     longestStreak: { ...typography.meta, marginTop: spacing.md },
+    logButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.xs,
+      backgroundColor: colors.accentSoft,
+      borderRadius: radii.pill,
+      paddingVertical: spacing.sm,
+      marginTop: spacing.md,
+    },
+    logButtonActive: { backgroundColor: colors.accent },
+    logButtonText: { fontSize: 13, fontWeight: '700', color: colors.accent },
+    logButtonTextActive: { color: '#FFFFFF' },
     sectionTitle: { ...typography.sectionTitle, marginBottom: spacing.md },
     memberRow: {
       flexDirection: 'row',

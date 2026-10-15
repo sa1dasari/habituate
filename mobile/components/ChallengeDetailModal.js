@@ -3,6 +3,7 @@ import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import CreateChallengeModal from './CreateChallengeModal';
 import InviteFriendsSheet from './InviteFriendsSheet';
 import NumberStepper from './NumberStepper';
 import { useAppTheme } from '../hooks/useAppTheme';
@@ -46,6 +47,7 @@ export default function ChallengeDetailModal({ visible, challenge, onClose }) {
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const { toggleCheckIn, addChallengeEntry, inviteToChallenge, busy } = useChallenges();
   const [inviteVisible, setInviteVisible] = useState(false);
+  const [editVisible, setEditVisible] = useState(false);
   const [entryAmount, setEntryAmount] = useState(1);
 
   if (!challenge) return null;
@@ -71,9 +73,16 @@ export default function ChallengeDetailModal({ visible, challenge, onClose }) {
           <Text style={styles.headerTitle} numberOfLines={1}>
             {challenge.name}
           </Text>
-          <Pressable onPress={() => setInviteVisible(true)} hitSlop={12} style={styles.closeBtn}>
-            <MaterialCommunityIcons name="account-plus-outline" size={22} color={colors.accent} />
-          </Pressable>
+          <View style={styles.headerActions}>
+            {challenge.canEdit ? (
+              <Pressable onPress={() => setEditVisible(true)} hitSlop={12} style={styles.closeBtn}>
+                <MaterialCommunityIcons name="pencil-outline" size={20} color={colors.accent} />
+              </Pressable>
+            ) : null}
+            <Pressable onPress={() => setInviteVisible(true)} hitSlop={12} style={styles.closeBtn}>
+              <MaterialCommunityIcons name="account-plus-outline" size={22} color={colors.accent} />
+            </Pressable>
+          </View>
         </View>
 
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -163,12 +172,30 @@ export default function ChallengeDetailModal({ visible, challenge, onClose }) {
           </Text>
           {people.map((person, index) => {
             const label = typeof person === 'string' ? person : person && person.name;
+            const progress = typeof person === 'object' && person ? person.progress : null;
+            const percent = typeof person === 'object' && person ? person.progressPercent : null;
+            const theirCheckedInToday = typeof person === 'object' && person ? person.checkedInToday : false;
             return (
               <View key={`${label}-${index}`} style={styles.memberRow}>
                 <View style={[styles.avatar, { backgroundColor: AVATAR_COLORS[index % AVATAR_COLORS.length] }]}>
                   <Text style={styles.avatarText}>{initials(label)}</Text>
                 </View>
-                <Text style={styles.memberName}>{label}</Text>
+                <View style={styles.memberInfo}>
+                  <Text style={styles.memberName}>{label}</Text>
+                  {progress != null ? (
+                    <View style={styles.memberProgressTrack}>
+                      <View style={[styles.memberProgressFill, { width: `${Math.max(4, percent || 0)}%` }]} />
+                    </View>
+                  ) : null}
+                </View>
+                {progress != null ? (
+                  <Text style={styles.memberProgressText}>
+                    {progress}/{challenge.targetCount}
+                  </Text>
+                ) : null}
+                {!isCount && theirCheckedInToday ? (
+                  <MaterialCommunityIcons name="check-circle" size={16} color={colors.safe} />
+                ) : null}
               </View>
             );
           })}
@@ -182,6 +209,7 @@ export default function ChallengeDetailModal({ visible, challenge, onClose }) {
         busy={busy}
         title="Invite to challenge"
       />
+      <CreateChallengeModal visible={editVisible} challenge={challenge} onClose={() => setEditVisible(false)} />
     </Modal>
   );
 }
@@ -200,6 +228,7 @@ function makeStyles(colors, typography) {
       borderBottomColor: colors.border,
     },
     headerTitle: { ...typography.sectionTitle, flex: 1, textAlign: 'center' },
+    headerActions: { flexDirection: 'row', alignItems: 'center' },
     closeBtn: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
     scroll: { padding: spacing.lg, paddingBottom: spacing.xxl },
     heroCard: {
@@ -270,6 +299,17 @@ function makeStyles(colors, typography) {
       justifyContent: 'center',
     },
     avatarText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
+    memberInfo: { flex: 1 },
     memberName: { fontSize: 14, color: colors.textPrimary },
+    memberProgressTrack: {
+      height: 4,
+      borderRadius: radii.pill,
+      backgroundColor: colors.ringTrack,
+      overflow: 'hidden',
+      marginTop: 4,
+      width: '80%',
+    },
+    memberProgressFill: { height: '100%', borderRadius: radii.pill, backgroundColor: colors.accent },
+    memberProgressText: { fontSize: 12, fontWeight: '700', color: colors.textSecondary, marginRight: spacing.xs },
   });
 }

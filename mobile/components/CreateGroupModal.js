@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -28,12 +28,14 @@ const VISIBILITY_OPTIONS = [
   { value: 'STATUS_ONLY', label: 'Status only', hint: 'Groupmates only see completed / not' },
 ];
 
-/** Dedicated create flow, reached only via a "+ Create" affordance — never via See all. */
-export default function CreateGroupModal({ visible, onClose }) {
+/** Dedicated create/edit flow. Pass `group` to edit an existing shared habit's settings
+ * (reached from its detail modal, creator-only) — omit it for the "+ Create" flow. */
+export default function CreateGroupModal({ visible, onClose, group = null }) {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
-  const { busy, createGroup } = useGroups();
+  const { busy, createGroup, updateGroup } = useGroups();
   const { habits } = useHabits();
+  const isEditing = !!group;
 
   const [groupName, setGroupName] = useState('');
   const [selectedHabitId, setSelectedHabitId] = useState(null);
@@ -55,7 +57,46 @@ export default function CreateGroupModal({ visible, onClose }) {
     setSkipDaysPerMonth(1);
   };
 
+  useEffect(() => {
+    if (!visible) return;
+    if (!group) {
+      reset();
+      return;
+    }
+    setGroupName(group.name || '');
+    setRule((group.rule || 'any_member').toUpperCase());
+    setGoalAlignment(group.goalAlignment || 'UNIFIED');
+    setTrackingMode(group.trackingMode || 'COOPERATIVE');
+    setVisibilityLevel(group.visibilityLevel || 'FULL_DETAILS');
+    setNudgesEnabled(group.nudgesEnabled !== false);
+    setSkipDaysPerMonth(group.skipDaysPerMonth ?? 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, group]);
+
   const handleCreate = async () => {
+    if (isEditing) {
+      const trimmedName = groupName.trim();
+      if (!trimmedName) {
+        Alert.alert('Name it', 'Give the shared habit a name.');
+        return;
+      }
+      const ok = await updateGroup(group.id, {
+        name: trimmedName,
+        streakRule: rule,
+        goalAlignment,
+        trackingMode,
+        visibilityLevel,
+        nudgesEnabled,
+        skipDaysPerMonth,
+      });
+      if (ok) {
+        onClose();
+      } else {
+        Alert.alert("Couldn't save changes", 'Something went wrong — try again.');
+      }
+      return;
+    }
+
     if (!selectedHabitId) {
       Alert.alert('Pick a habit', 'Choose which of your habits this shared habit tracks.');
       return;
@@ -92,33 +133,37 @@ export default function CreateGroupModal({ visible, onClose }) {
           <Pressable onPress={handleClose} hitSlop={12} style={styles.closeBtn}>
             <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
           </Pressable>
-          <Text style={styles.headerTitle}>Create a Shared Habit</Text>
+          <Text style={styles.headerTitle}>{isEditing ? 'Edit Shared Habit' : 'Create a Shared Habit'}</Text>
           <View style={{ width: 34 }} />
         </View>
 
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          <Text style={styles.helperText}>
-            Pick one of your own habits — friends you invite will link their own habit to the same group.
-          </Text>
+          {isEditing ? null : (
+            <>
+              <Text style={styles.helperText}>
+                Pick one of your own habits — friends you invite will link their own habit to the same group.
+              </Text>
 
-          {habits.length === 0 ? (
-            <Text style={styles.emptyNote}>Create a habit first on the Habits tab.</Text>
-          ) : (
-            habits.map((habit) => (
-              <Pressable key={habit.id} style={styles.habitRow} onPress={() => setSelectedHabitId(habit.id)}>
-                <MaterialCommunityIcons
-                  name={selectedHabitId === habit.id ? 'radiobox-marked' : 'radiobox-blank'}
-                  size={18}
-                  color={selectedHabitId === habit.id ? colors.accent : colors.textMuted}
-                />
-                <Text style={styles.habitRowText}>{habit.name}</Text>
-              </Pressable>
-            ))
+              {habits.length === 0 ? (
+                <Text style={styles.emptyNote}>Create a habit first on the Habits tab.</Text>
+              ) : (
+                habits.map((habit) => (
+                  <Pressable key={habit.id} style={styles.habitRow} onPress={() => setSelectedHabitId(habit.id)}>
+                    <MaterialCommunityIcons
+                      name={selectedHabitId === habit.id ? 'radiobox-marked' : 'radiobox-blank'}
+                      size={18}
+                      color={selectedHabitId === habit.id ? colors.accent : colors.textMuted}
+                    />
+                    <Text style={styles.habitRowText}>{habit.name}</Text>
+                  </Pressable>
+                ))
+              )}
+            </>
           )}
 
           <TextInput
             style={styles.input}
-            placeholder="Name (optional)"
+            placeholder={isEditing ? 'Name' : 'Name (optional)'}
             placeholderTextColor={colors.textMuted}
             value={groupName}
             onChangeText={setGroupName}
@@ -220,10 +265,10 @@ export default function CreateGroupModal({ visible, onClose }) {
 
           <Pressable
             style={[styles.primaryButton, styles.fullWidthButton]}
-            disabled={busy || !selectedHabitId}
+            disabled={busy || (!isEditing && !selectedHabitId)}
             onPress={handleCreate}
           >
-            <Text style={styles.primaryButtonText}>Create</Text>
+            <Text style={styles.primaryButtonText}>{isEditing ? 'Save changes' : 'Create'}</Text>
           </Pressable>
         </ScrollView>
       </SafeAreaView>

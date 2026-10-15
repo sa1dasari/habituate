@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -53,11 +53,19 @@ const ICON_OPTIONS = [
 
 const COLOR_OPTIONS = ['#2563EB', '#7C3AED', '#0891B2', '#DB2777', '#EA580C', '#16A34A', '#CA8A04', '#64748B'];
 
-/** Dedicated create flow, reached only via a "+ Create" affordance — never via Browse. */
-export default function CreateChallengeModal({ visible, onClose }) {
+function daysBetween(fromKey, toKey) {
+  const from = new Date(fromKey);
+  const to = new Date(toKey);
+  return Math.max(1, Math.round((to.getTime() - from.getTime()) / (24 * 60 * 60 * 1000)));
+}
+
+/** Dedicated create/edit flow. Pass `challenge` to edit an existing one (reached from its
+ * detail modal, creator-only) — omit it for the "+ Create" flow, never reached via Browse. */
+export default function CreateChallengeModal({ visible, onClose, challenge = null }) {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
-  const { busy, createChallenge } = useChallenges();
+  const { busy, createChallenge: createChallengeAction, updateChallenge } = useChallenges();
+  const isEditing = !!challenge;
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -73,7 +81,10 @@ export default function CreateChallengeModal({ visible, onClose }) {
   const [customDays, setCustomDays] = useState([1, 3, 5]);
   const [reminderTime, setReminderTime] = useState('');
 
-  const periodEndPreview = toDateKey(new Date(Date.now() + lengthDays * 24 * 60 * 60 * 1000));
+  // periodEnd is computed relative to the challenge's own (fixed) periodStart when editing,
+  // not "today" — otherwise saving an edit would silently shift the whole challenge forward.
+  const basePeriodStart = isEditing ? challenge.periodStart : toDateKey(new Date());
+  const periodEndPreview = toDateKey(new Date(new Date(basePeriodStart).getTime() + lengthDays * 24 * 60 * 60 * 1000));
 
   const reset = () => {
     setName('');
@@ -91,6 +102,28 @@ export default function CreateChallengeModal({ visible, onClose }) {
     setReminderTime('');
   };
 
+  useEffect(() => {
+    if (!visible) return;
+    if (!challenge) {
+      reset();
+      return;
+    }
+    setName(challenge.name || '');
+    setDescription(challenge.description || '');
+    setIcon(challenge.icon || ICON_OPTIONS[0]);
+    setColor(challenge.color || COLOR_OPTIONS[0]);
+    setTrackingMode(challenge.trackingMode || 'BOOLEAN');
+    setTargetCount(challenge.targetCount || 5);
+    setOpenEnded(!challenge.periodEnd);
+    setLengthDays(challenge.periodEnd ? daysBetween(challenge.periodStart, challenge.periodEnd) : 7);
+    setVisibility(challenge.visibility || 'PRIVATE');
+    setCadenceType(challenge.cadenceType || 'DAILY');
+    setWeeklyQuota(challenge.weeklyQuota || 3);
+    setCustomDays(challenge.customDays ? challenge.customDays.split(',').map(Number) : [1, 3, 5]);
+    setReminderTime(challenge.reminderTime || '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, challenge]);
+
   const toggleCustomDay = (day) => {
     setCustomDays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day].sort()));
   };
@@ -105,26 +138,27 @@ export default function CreateChallengeModal({ visible, onClose }) {
       Alert.alert('Pick some days', 'Choose at least one day for a custom-days cadence.');
       return;
     }
-    const ok = await createChallenge({
+    const payload = {
       name: trimmedName,
       description: description.trim() || null,
       icon,
       color,
       trackingMode,
       targetCount,
-      periodStart: toDateKey(new Date()),
+      periodStart: basePeriodStart,
       periodEnd: openEnded ? null : periodEndPreview,
       visibility,
       cadenceType,
       weeklyQuota: cadenceType === 'WEEKLY_QUOTA' ? weeklyQuota : null,
       customDays: cadenceType === 'CUSTOM_DAYS' ? customDays.join(',') : null,
       reminderTime: reminderTime || null,
-    });
+    };
+    const ok = isEditing ? await updateChallenge(challenge.id, payload) : await createChallengeAction(payload);
     if (ok) {
       reset();
       onClose();
     } else {
-      Alert.alert("Couldn't create challenge", 'Something went wrong — try again.');
+      Alert.alert(isEditing ? "Couldn't save changes" : "Couldn't create challenge", 'Something went wrong — try again.');
     }
   };
 
@@ -140,7 +174,7 @@ export default function CreateChallengeModal({ visible, onClose }) {
           <Pressable onPress={handleClose} hitSlop={12} style={styles.closeBtn}>
             <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
           </Pressable>
-          <Text style={styles.headerTitle}>Create a Challenge</Text>
+          <Text style={styles.headerTitle}>{isEditing ? 'Edit Challenge' : 'Create a Challenge'}</Text>
           <View style={{ width: 34 }} />
         </View>
 
@@ -185,12 +219,17 @@ export default function CreateChallengeModal({ visible, onClose }) {
             ))}
           </View>
 
-          <Text style={styles.fieldLabel}>Log style</Text>
+          <Text style={styles.fieldLabel}>Log style{isEditing ? ' (fixed after creation)' : ''}</Text>
           <View style={styles.visibilityRow}>
             {TRACKING_MODE_OPTIONS.map((option) => (
               <Pressable
                 key={option.value}
-                style={[styles.visibilityOption, trackingMode === option.value && styles.visibilityOptionActive]}
+                style={[
+                  styles.visibilityOption,
+                  trackingMode === option.value && styles.visibilityOptionActive,
+                  isEditing && styles.visibilityOptionDisabled,
+                ]}
+                disabled={isEditing}
                 onPress={() => setTrackingMode(option.value)}
               >
                 <MaterialCommunityIcons
@@ -322,7 +361,7 @@ export default function CreateChallengeModal({ visible, onClose }) {
           </View>
 
           <Pressable style={styles.primaryButton} disabled={busy} onPress={handleCreate}>
-            <Text style={styles.primaryButtonText}>Create & join</Text>
+            <Text style={styles.primaryButtonText}>{isEditing ? 'Save changes' : 'Create & join'}</Text>
           </Pressable>
         </ScrollView>
       </SafeAreaView>
@@ -419,6 +458,7 @@ function makeStyles(colors, typography) {
       backgroundColor: colors.background,
     },
     visibilityOptionActive: { backgroundColor: colors.accentSoft },
+    visibilityOptionDisabled: { opacity: 0.5 },
     visibilityOptionText: { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
     visibilityOptionTextActive: { color: colors.accent },
     primaryButton: {

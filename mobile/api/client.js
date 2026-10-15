@@ -216,6 +216,9 @@ export const api = {
 
   createGroup: (group) => request('/api/groups', { method: 'POST', body: JSON.stringify(group) }),
 
+  updateGroup: (groupId, group) =>
+    request(`/api/groups/${groupId}`, { method: 'PATCH', body: JSON.stringify(group) }),
+
   inviteToGroup: (groupId, friendUserId) =>
     request(`/api/groups/${groupId}/invite`, { method: 'POST', body: JSON.stringify({ friendUserId }) }),
 
@@ -231,6 +234,9 @@ export const api = {
 
   createChallenge: (challenge) =>
     request('/api/challenges', { method: 'POST', body: JSON.stringify(challenge) }),
+
+  updateChallenge: (challengeId, challenge) =>
+    request(`/api/challenges/${challengeId}`, { method: 'PATCH', body: JSON.stringify(challenge) }),
 
   joinChallenge: (challengeId) => request(`/api/challenges/${challengeId}/join`, { method: 'POST' }),
 

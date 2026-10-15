@@ -55,7 +55,7 @@ class StreakFreezeSchedulerTest {
         LocalDate lastQualified = dayToCheck.minusDays(1); // qualified the day before, missed dayToCheck
         groupId = newGroupWithStreak(5, lastQualified);
 
-        scheduler.evaluateGroup(groupId, dayToCheck);
+        scheduler.evaluateGroup(groupId, 1, dayToCheck);
 
         GroupStreak result = groupStreakRepository.findById(groupId).orElseThrow();
         assertThat(result.getStatus()).isEqualTo(GroupStreak.FROZEN);
@@ -73,7 +73,7 @@ class StreakFreezeSchedulerTest {
         groupId = newGroupWithStreak(5, lastQualified);
         streakFreezeRepository.save(new StreakFreeze(groupId, dayToCheck.minusDays(10), StreakFreeze.GROUP_GRACE));
 
-        scheduler.evaluateGroup(groupId, dayToCheck);
+        scheduler.evaluateGroup(groupId, 1, dayToCheck);
 
         GroupStreak result = groupStreakRepository.findById(groupId).orElseThrow();
         assertThat(result.getStatus()).isEqualTo(GroupStreak.ACTIVE);
@@ -85,7 +85,7 @@ class StreakFreezeSchedulerTest {
         LocalDate dayToCheck = LocalDate.of(2026, 2, 1);
         groupId = newGroupWithStreak(5, dayToCheck); // already qualified today
 
-        scheduler.evaluateGroup(groupId, dayToCheck);
+        scheduler.evaluateGroup(groupId, 1, dayToCheck);
 
         GroupStreak result = groupStreakRepository.findById(groupId).orElseThrow();
         assertThat(result.getStatus()).isEqualTo(GroupStreak.ACTIVE);
@@ -97,10 +97,41 @@ class StreakFreezeSchedulerTest {
         LocalDate dayToCheck = LocalDate.of(2026, 2, 1);
         groupId = newGroupWithStreak(0, null);
 
-        scheduler.evaluateGroup(groupId, dayToCheck);
+        scheduler.evaluateGroup(groupId, 1, dayToCheck);
 
         GroupStreak result = groupStreakRepository.findById(groupId).orElseThrow();
         assertThat(result.getCurrentStreak()).isEqualTo(0);
         assertThat(result.getStatus()).isEqualTo(GroupStreak.ACTIVE);
+    }
+
+    @Test
+    void appliesFreeze_whenUnderConfiguredSkipDaysLimit() {
+        LocalDate dayToCheck = LocalDate.of(2026, 2, 1);
+        LocalDate lastQualified = dayToCheck.minusDays(1);
+        groupId = newGroupWithStreak(5, lastQualified);
+        // One freeze already used this window — still under a 3-skip-day allowance.
+        streakFreezeRepository.save(new StreakFreeze(groupId, dayToCheck.minusDays(10), StreakFreeze.GROUP_GRACE));
+
+        scheduler.evaluateGroup(groupId, 3, dayToCheck);
+
+        GroupStreak result = groupStreakRepository.findById(groupId).orElseThrow();
+        assertThat(result.getStatus()).isEqualTo(GroupStreak.FROZEN);
+        assertThat(result.getCurrentStreak()).isEqualTo(5);
+    }
+
+    @Test
+    void resetsStreak_whenConfiguredSkipDaysLimitExhausted() {
+        LocalDate dayToCheck = LocalDate.of(2026, 2, 1);
+        LocalDate lastQualified = dayToCheck.minusDays(1);
+        groupId = newGroupWithStreak(5, lastQualified);
+        streakFreezeRepository.save(new StreakFreeze(groupId, dayToCheck.minusDays(5), StreakFreeze.GROUP_GRACE));
+        streakFreezeRepository.save(new StreakFreeze(groupId, dayToCheck.minusDays(10), StreakFreeze.GROUP_GRACE));
+        streakFreezeRepository.save(new StreakFreeze(groupId, dayToCheck.minusDays(15), StreakFreeze.GROUP_GRACE));
+
+        scheduler.evaluateGroup(groupId, 3, dayToCheck);
+
+        GroupStreak result = groupStreakRepository.findById(groupId).orElseThrow();
+        assertThat(result.getStatus()).isEqualTo(GroupStreak.ACTIVE);
+        assertThat(result.getCurrentStreak()).isEqualTo(0);
     }
 }

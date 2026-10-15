@@ -1,13 +1,25 @@
 package com.habituate.api.groups;
 
+import com.habituate.api.checkins.CheckInRepository;
 import com.habituate.api.common.ForbiddenException;
 import com.habituate.api.habits.Habit;
 import com.habituate.api.habits.HabitRepository;
+import com.habituate.api.habits.StreakCalculator;
+import com.habituate.api.notifications.ExpoPushMessage;
+import com.habituate.api.notifications.ExpoPushService;
+import com.habituate.api.notifications.PushToken;
+import com.habituate.api.notifications.PushTokenRepository;
+import com.habituate.api.users.User;
+import com.habituate.api.users.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DateTimeException;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -19,6 +31,10 @@ public class GroupService {
     private final FriendshipService friendshipService;
     private final HabitRepository habitRepository;
     private final UserLookupService userLookupService;
+    private final CheckInRepository checkInRepository;
+    private final UserRepository userRepository;
+    private final PushTokenRepository pushTokenRepository;
+    private final ExpoPushService expoPushService;
 
     public GroupService(
             GroupRepository groupRepository,
@@ -26,13 +42,21 @@ public class GroupService {
             GroupStreakRepository groupStreakRepository,
             FriendshipService friendshipService,
             HabitRepository habitRepository,
-            UserLookupService userLookupService) {
+            UserLookupService userLookupService,
+            CheckInRepository checkInRepository,
+            UserRepository userRepository,
+            PushTokenRepository pushTokenRepository,
+            ExpoPushService expoPushService) {
         this.groupRepository = groupRepository;
         this.groupMemberRepository = groupMemberRepository;
         this.groupStreakRepository = groupStreakRepository;
         this.friendshipService = friendshipService;
         this.habitRepository = habitRepository;
         this.userLookupService = userLookupService;
+        this.checkInRepository = checkInRepository;
+        this.userRepository = userRepository;
+        this.pushTokenRepository = pushTokenRepository;
+        this.expoPushService = expoPushService;
     }
 
     @Transactional
@@ -44,8 +68,14 @@ public class GroupService {
         requireOwnedHabit(userId, request.habitId());
 
         String streakRule = normalizeStreakRule(request.streakRule());
+        String goalAlignment = normalizeOneOf(request.goalAlignment(), Group.UNIFIED, Group.UNIFIED, Group.SPLIT);
+        String trackingMode = normalizeOneOf(request.trackingMode(), Group.COOPERATIVE, Group.COOPERATIVE, Group.INDEPENDENT);
+        String visibilityLevel = normalizeOneOf(request.visibilityLevel(), Group.FULL_DETAILS, Group.FULL_DETAILS, Group.STATUS_ONLY);
+        boolean nudgesEnabled = request.nudgesEnabled() == null || request.nudgesEnabled();
+        int skipDaysPerMonth = request.skipDaysPerMonth() == null ? 1 : Math.max(0, Math.min(3, request.skipDaysPerMonth()));
 
-        Group group = groupRepository.save(new Group(name, userId, streakRule));
+        Group group = groupRepository.save(new Group(
+                name, userId, streakRule, goalAlignment, trackingMode, visibilityLevel, nudgesEnabled, skipDaysPerMonth));
         groupMemberRepository.save(new GroupMember(group.getId(), userId, request.habitId(), GroupMember.ACTIVE));
         groupStreakRepository.save(new GroupStreak(group.getId()));
 
@@ -85,6 +115,35 @@ public class GroupService {
         Group group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new EntityNotFoundException("Group not found: " + groupId));
         return toResponse(group, userId);
+    }
+
+    /** "Nudge" permission: any active member may push a reminder to another active member,
+     * only when the group's creator left nudges enabled at creation time. */
+    public void nudge(String userId, Long groupId, String targetUserId) {
+        if (userId.equals(targetUserId)) {
+            throw new IllegalArgumentException("Can't nudge yourself");
+        }
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new EntityNotFoundException("Group not found: " + groupId));
+        if (!group.isNudgesEnabled()) {
+            throw new ForbiddenException("Nudges are turned off for this group");
+        }
+        requireActiveMember(userId, groupId);
+        requireActiveMember(targetUserId, groupId);
+
+        List<PushToken> tokens = pushTokenRepository.findByUserId(targetUserId);
+        if (tokens.isEmpty()) {
+            return;
+        }
+        String nudgerName = userLookupService.resolve(userId).displayName();
+        List<ExpoPushMessage> messages = tokens.stream()
+                .map(token -> new ExpoPushMessage(
+                        token.getToken(),
+                        "A nudge from " + nudgerName,
+                        "Don't forget your habit in \"" + group.getName() + "\" today!",
+                        Map.of("groupId", groupId)))
+                .toList();
+        expoPushService.send(messages);
     }
 
     public List<GroupResponse> listMyGroups(String userId) {
@@ -141,11 +200,44 @@ public class GroupService {
         throw new IllegalArgumentException("Invalid streakRule, expected ALL_MEMBERS or ANY_MEMBER: " + value);
     }
 
+    private String normalizeOneOf(String value, String fallback, String optionA, String optionB) {
+        if (value == null || value.isBlank()) {
+            return fallback;
+        }
+        String upper = value.trim().toUpperCase();
+        if (upper.equals(optionA) || upper.equals(optionB)) {
+            return upper;
+        }
+        throw new IllegalArgumentException("Invalid value, expected " + optionA + " or " + optionB + ": " + value);
+    }
+
+    private ZoneId resolveZone(String userId) {
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null || user.getTimezone() == null) {
+            return ZoneOffset.UTC;
+        }
+        try {
+            return ZoneId.of(user.getTimezone());
+        } catch (DateTimeException e) {
+            return ZoneOffset.UTC;
+        }
+    }
+
     private GroupResponse toResponse(Group group, String viewingUserId) {
         List<GroupMember> activeMembers = groupMemberRepository.findByGroupIdAndStatus(group.getId(), GroupMember.ACTIVE);
+        boolean independent = Group.INDEPENDENT.equals(group.getTrackingMode());
 
         List<GroupResponse.Participant> participants = activeMembers.stream()
-                .map(m -> new GroupResponse.Participant(userLookupService.resolve(m.getUserId()).displayName()))
+                .map(m -> {
+                    String displayName = userLookupService.resolve(m.getUserId()).displayName();
+                    if (!independent || m.getHabitId() == null) {
+                        return new GroupResponse.Participant(displayName, m.getUserId(), null);
+                    }
+                    List<com.habituate.api.checkins.CheckIn> checkIns =
+                            checkInRepository.findByUserIdAndHabitIdOrderByOccurredAtAsc(m.getUserId(), m.getHabitId());
+                    int currentStreak = StreakCalculator.compute(checkIns, resolveZone(m.getUserId())).current();
+                    return new GroupResponse.Participant(displayName, m.getUserId(), currentStreak);
+                })
                 .toList();
 
         Optional<Long> myHabitId = activeMembers.stream()
@@ -161,11 +253,16 @@ public class GroupService {
                 group.getName(),
                 participants,
                 activeMembers.size(),
-                streak.getCurrentStreak(),
-                streak.getLongestStreak(),
-                streak.getStatus(),
+                independent ? 0 : streak.getCurrentStreak(),
+                independent ? 0 : streak.getLongestStreak(),
+                independent ? GroupStreak.ACTIVE : streak.getStatus(),
                 group.getStreakRule().toLowerCase(),
-                myHabitId.orElse(null)
+                myHabitId.orElse(null),
+                group.getGoalAlignment(),
+                group.getTrackingMode(),
+                group.getVisibilityLevel(),
+                group.isNudgesEnabled(),
+                group.getSkipDaysPerMonth()
         );
     }
 }

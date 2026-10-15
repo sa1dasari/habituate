@@ -54,4 +54,10 @@ public class GroupController {
             HttpServletRequest req, @PathVariable Long groupId, @RequestBody AcceptGroupInviteRequest request) {
         return groupService.acceptInvite(userId(req), groupId, request.habitId());
     }
+
+    @PostMapping("/{groupId}/nudge")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void nudge(HttpServletRequest req, @PathVariable Long groupId, @RequestBody NudgeRequest request) {
+        groupService.nudge(userId(req), groupId, request.targetUserId());
+    }
 }

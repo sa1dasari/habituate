@@ -138,6 +138,7 @@ export default function CommunityScreen() {
               streak={group.streak}
               streakStatus={group.streakStatus}
               rule={group.rule}
+              trackingMode={group.trackingMode}
               onPress={() => setSelectedGroupId(group.id)}
             />
           ))

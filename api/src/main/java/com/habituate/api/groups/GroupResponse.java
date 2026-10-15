@@ -8,6 +8,11 @@ import java.util.List;
  * rule/streakStatus are sent lowercase ('all_members'/'any_member',
  * 'safe'/'at_risk'/'frozen') to match SharedHabitCard's RULE_LABEL keys and
  * useAppTheme().resolveStreakState() exactly — no new vocabulary invented.
+ *
+ * streak/longestStreak/streakStatus stay meaningful only for a COOPERATIVE
+ * group (the shared counter); for an INDEPENDENT group there's no shared
+ * counter at all, and each Participant instead carries their own
+ * currentStreak so the card can show personal streaks side-by-side.
  */
 public record GroupResponse(
         Long id,
@@ -18,8 +23,18 @@ public record GroupResponse(
         int longestStreak,
         String streakStatus,
         String rule,
-        Long myHabitId
+        Long myHabitId,
+        String goalAlignment,
+        String trackingMode,
+        String visibilityLevel,
+        boolean nudgesEnabled,
+        int skipDaysPerMonth
 ) {
-    public record Participant(String name) {
+    /** currentStreak is null for a COOPERATIVE group (not computed — the shared counter above is authoritative);
+     * populated per-member only when trackingMode is INDEPENDENT. */
+    public record Participant(String name, String userId, Integer currentStreak) {
+        public Participant(String name) {
+            this(name, null, null);
+        }
     }
 }

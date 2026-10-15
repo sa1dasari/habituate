@@ -162,7 +162,10 @@ export default function ProfileScreen() {
                 </View>
                 <View style={styles.activityText}>
                   <Text style={styles.activityLine} numberOfLines={2}>
-                    <Text style={styles.activityName}>{item.userName}</Text> completed {item.habitName}
+                    <Text style={styles.activityName}>{item.userName}</Text>{' '}
+                    {item.value != null && item.value > 1
+                      ? `logged ${item.value} for ${item.habitName}`
+                      : `completed ${item.habitName}`}
                   </Text>
                   <Text style={styles.activityMeta}>{timeAgo(item.occurredAt)}</Text>
                 </View>

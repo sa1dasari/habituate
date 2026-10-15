@@ -65,6 +65,9 @@ public class GroupStreakConsumer {
             log.warn("Group {} not found during streak recompute — skipping", groupId);
             return;
         }
+        if (Group.INDEPENDENT.equals(group.getTrackingMode())) {
+            return; // no shared counter to maintain — each member's own streak is personal
+        }
 
         List<GroupMember> activeMembers = groupMemberRepository.findByGroupIdAndStatus(groupId, GroupMember.ACTIVE);
         if (activeMembers.isEmpty()) {

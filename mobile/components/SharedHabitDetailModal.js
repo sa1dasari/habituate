@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import StreakIndicator from './StreakIndicator';
 import InviteFriendsSheet from './InviteFriendsSheet';
 import { useAppTheme } from '../hooks/useAppTheme';
+import { useAuth } from '../hooks/useAuth';
 import { useGroups } from '../hooks/useGroups';
 import { radii, shadow, spacing } from '../theme';
 
@@ -29,18 +30,29 @@ function initials(name) {
 export default function SharedHabitDetailModal({ visible, group, onClose }) {
   const { colors, resolveStreakState, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
-  const { inviteToGroup, busy } = useGroups();
+  const { user } = useAuth();
+  const { inviteToGroup, nudge, busy } = useGroups();
   const [inviteVisible, setInviteVisible] = useState(false);
 
   if (!group) return null;
 
   const state = resolveStreakState(group.streakStatus);
   const people = Array.isArray(group.participants) ? group.participants : [];
+  const isIndependent = group.trackingMode === 'INDEPENDENT';
 
   const handleInvite = async (friendUserId) => {
     const ok = await inviteToGroup(group.id, friendUserId);
     if (!ok) Alert.alert("Couldn't send invite", 'Something went wrong — try again.');
     return ok;
+  };
+
+  const handleNudge = async (targetUserId, label) => {
+    try {
+      await nudge(group.id, targetUserId);
+      Alert.alert('Nudge sent', `${label} will get a reminder.`);
+    } catch (err) {
+      Alert.alert("Couldn't send nudge", err?.message || 'Something went wrong — try again.');
+    }
   };
 
   return (
@@ -58,20 +70,41 @@ export default function SharedHabitDetailModal({ visible, group, onClose }) {
 
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           <View style={styles.heroCard}>
-            <StreakIndicator streak={group.streak} status={group.streakStatus} showLabel />
+            {!isIndependent ? <StreakIndicator streak={group.streak} status={group.streakStatus} showLabel /> : null}
             <View style={styles.heroRow}>
+              {!isIndependent ? (
+                <View style={styles.ruleBadge}>
+                  <MaterialCommunityIcons name="shield-check-outline" size={13} color={colors.textSecondary} />
+                  <Text style={styles.ruleText}>{RULE_LABEL[group.rule] || RULE_LABEL.any_member}</Text>
+                </View>
+              ) : (
+                <View style={styles.ruleBadge}>
+                  <MaterialCommunityIcons name="account-multiple-outline" size={13} color={colors.textSecondary} />
+                  <Text style={styles.ruleText}>Independent streaks</Text>
+                </View>
+              )}
               <View style={styles.ruleBadge}>
-                <MaterialCommunityIcons name="shield-check-outline" size={13} color={colors.textSecondary} />
-                <Text style={styles.ruleText}>{RULE_LABEL[group.rule] || RULE_LABEL.any_member}</Text>
+                <MaterialCommunityIcons name="target" size={13} color={colors.textSecondary} />
+                <Text style={styles.ruleText}>{group.goalAlignment === 'SPLIT' ? 'Split goal' : 'Unified goal'}</Text>
               </View>
-              <View style={[styles.statusBadge, { backgroundColor: state.background }]}>
-                <MaterialCommunityIcons name={state.icon} size={13} color={state.color} />
-                <Text style={[styles.statusText, { color: state.color }]}>{state.label}</Text>
-              </View>
+              {!isIndependent ? (
+                <View style={[styles.statusBadge, { backgroundColor: state.background }]}>
+                  <MaterialCommunityIcons name={state.icon} size={13} color={state.color} />
+                  <Text style={[styles.statusText, { color: state.color }]}>{state.label}</Text>
+                </View>
+              ) : null}
             </View>
-            {group.longestStreak != null ? (
+            {!isIndependent && group.longestStreak != null ? (
               <Text style={styles.longestStreak}>Longest streak: {group.longestStreak}d</Text>
             ) : null}
+            {!isIndependent ? (
+              <Text style={styles.longestStreak}>
+                {group.skipDaysPerMonth} skip day{group.skipDaysPerMonth === 1 ? '' : 's'} allowed a month
+              </Text>
+            ) : null}
+            <Text style={styles.longestStreak}>
+              {group.visibilityLevel === 'STATUS_ONLY' ? 'Status only — amounts hidden from groupmates' : 'Full details visible to groupmates'}
+            </Text>
           </View>
 
           <Text style={styles.sectionTitle}>
@@ -79,12 +112,26 @@ export default function SharedHabitDetailModal({ visible, group, onClose }) {
           </Text>
           {people.map((person, index) => {
             const label = typeof person === 'string' ? person : person && person.name;
+            const personUserId = typeof person === 'object' && person ? person.userId : null;
+            const personStreak = typeof person === 'object' && person ? person.currentStreak : null;
+            const isSelf = personUserId && user && personUserId === user.uid;
             return (
               <View key={`${label}-${index}`} style={styles.memberRow}>
                 <View style={[styles.avatar, { backgroundColor: AVATAR_COLORS[index % AVATAR_COLORS.length] }]}>
                   <Text style={styles.avatarText}>{initials(label)}</Text>
                 </View>
                 <Text style={styles.memberName}>{label}</Text>
+                {isIndependent ? <Text style={styles.memberStreak}>🔥 {personStreak ?? 0}</Text> : null}
+                {group.nudgesEnabled && !isSelf && personUserId ? (
+                  <Pressable
+                    style={styles.nudgeBtn}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Nudge ${label}`}
+                    onPress={() => handleNudge(personUserId, label)}
+                  >
+                    <MaterialCommunityIcons name="hand-wave-outline" size={16} color={colors.accent} />
+                  </Pressable>
+                ) : null}
               </View>
             );
           })}
@@ -132,7 +179,7 @@ function makeStyles(colors, typography) {
       marginBottom: spacing.xl,
       ...shadow,
     },
-    heroRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
+    heroRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.md },
     ruleBadge: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -170,7 +217,16 @@ function makeStyles(colors, typography) {
       justifyContent: 'center',
     },
     avatarText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
-    memberName: { fontSize: 14, color: colors.textPrimary },
+    memberName: { fontSize: 14, color: colors.textPrimary, flex: 1 },
+    memberStreak: { fontSize: 13, fontWeight: '700', color: colors.textSecondary, marginRight: spacing.sm },
+    nudgeBtn: {
+      width: 30,
+      height: 30,
+      borderRadius: radii.pill,
+      backgroundColor: colors.accentSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     inviteSection: { marginTop: spacing.lg },
     secondaryButton: {
       flexDirection: 'row',

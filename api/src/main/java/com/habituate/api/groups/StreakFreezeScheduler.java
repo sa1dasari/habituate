@@ -23,7 +23,7 @@ import java.util.List;
 public class StreakFreezeScheduler {
 
     private static final Logger log = LoggerFactory.getLogger(StreakFreezeScheduler.class);
-    private static final int FREEZE_COOLDOWN_DAYS = 30;
+    private static final int FREEZE_WINDOW_DAYS = 30;
 
     private final GroupRepository groupRepository;
     private final GroupStreakRepository groupStreakRepository;
@@ -43,12 +43,17 @@ public class StreakFreezeScheduler {
         LocalDate yesterday = LocalDate.now(ZoneOffset.UTC).minusDays(1);
         log.info("Running streak-freeze sweep for {}", yesterday);
         for (Group group : groupRepository.findAll()) {
-            evaluateGroup(group.getId(), yesterday);
+            if (Group.INDEPENDENT.equals(group.getTrackingMode())) {
+                continue; // no shared counter to protect
+            }
+            evaluateGroup(group.getId(), group.getSkipDaysPerMonth(), yesterday);
         }
     }
 
-    /** Public so it can be called directly from tests instead of waiting for the cron. */
-    public void evaluateGroup(Long groupId, LocalDate dayToCheck) {
+    /** Public so it can be called directly from tests instead of waiting for the cron.
+     * @param skipDaysPerMonth how many group-grace freezes this group allows in a rolling
+     *                         30-day window (the "Missed Day Rules" setting) before the streak resets. */
+    public void evaluateGroup(Long groupId, int skipDaysPerMonth, LocalDate dayToCheck) {
         GroupStreak streak = groupStreakRepository.findById(groupId).orElse(null);
         if (streak == null || streak.getCurrentStreak() == 0) {
             return; // nothing to protect
@@ -57,10 +62,10 @@ public class StreakFreezeScheduler {
             return; // already qualified on (or after) dayToCheck — nothing to close out
         }
 
-        LocalDate cooldownCutoff = dayToCheck.minusDays(FREEZE_COOLDOWN_DAYS);
-        List<StreakFreeze> recentFreezes = streakFreezeRepository.findByGroupIdAndUsedOnDateAfter(groupId, cooldownCutoff);
+        LocalDate windowCutoff = dayToCheck.minusDays(FREEZE_WINDOW_DAYS);
+        List<StreakFreeze> recentFreezes = streakFreezeRepository.findByGroupIdAndUsedOnDateAfter(groupId, windowCutoff);
 
-        if (recentFreezes.isEmpty()) {
+        if (recentFreezes.size() < skipDaysPerMonth) {
             streakFreezeRepository.save(new StreakFreeze(groupId, dayToCheck, StreakFreeze.GROUP_GRACE));
             // Treat the frozen day as if it qualified so the chain isn't
             // broken once a real check-in resumes — only the status reads

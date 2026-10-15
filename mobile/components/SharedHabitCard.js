@@ -22,6 +22,7 @@ export default function SharedHabitCard({
   streak = 0,
   streakStatus = 'safe',
   rule = 'any_member',
+  trackingMode = 'COOPERATIVE',
   onPress,
 }) {
   const { colors, resolveStreakState } = useAppTheme();
@@ -30,6 +31,7 @@ export default function SharedHabitCard({
   const people = Array.isArray(participants) ? participants : [];
   const total = participantCount != null ? participantCount : people.length;
   const Container = onPress ? Pressable : View;
+  const isIndependent = trackingMode === 'INDEPENDENT';
 
   return (
     <Container
@@ -43,31 +45,56 @@ export default function SharedHabitCard({
           {name}
         </Text>
         <View style={styles.topRowRight}>
-          <StreakIndicator streak={streak} status={streakStatus} compact />
+          {!isIndependent ? <StreakIndicator streak={streak} status={streakStatus} compact /> : null}
           {onPress ? (
             <MaterialCommunityIcons name="chevron-right" size={18} color={colors.textMuted} />
           ) : null}
         </View>
       </View>
 
-      <View style={styles.middleRow}>
-        <AvatarStack people={people} total={total} />
+      {isIndependent ? (
+        <View style={styles.personalStreakRow}>
+          {people.map((person, index) => {
+            const label = typeof person === 'string' ? person : person && person.name;
+            const personStreak = typeof person === 'object' && person ? person.currentStreak : null;
+            return (
+              <View key={`${label}-${index}`} style={styles.personalStreakChip}>
+                <MaterialCommunityIcons name="fire" size={13} color={colors.accent} />
+                <Text style={styles.personalStreakText} numberOfLines={1}>
+                  {label} · {personStreak ?? 0}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      ) : (
+        <View style={styles.middleRow}>
+          <AvatarStack people={people} total={total} />
 
-        <Text style={styles.participantCount}>
-          {total} {total === 1 ? 'member' : 'members'}
-        </Text>
-      </View>
+          <Text style={styles.participantCount}>
+            {total} {total === 1 ? 'member' : 'members'}
+          </Text>
+        </View>
+      )}
 
       <View style={styles.bottomRow}>
         <View style={styles.ruleBadge}>
-          <MaterialCommunityIcons name="shield-check-outline" size={13} color={colors.textSecondary} />
-          <Text style={styles.ruleText}>{RULE_LABEL[rule] || RULE_LABEL.any_member}</Text>
+          <MaterialCommunityIcons
+            name={isIndependent ? 'account-multiple-outline' : 'shield-check-outline'}
+            size={13}
+            color={colors.textSecondary}
+          />
+          <Text style={styles.ruleText}>
+            {isIndependent ? 'Independent streaks' : RULE_LABEL[rule] || RULE_LABEL.any_member}
+          </Text>
         </View>
 
-        <View style={[styles.statusBadge, { backgroundColor: state.background }]}>
-          <MaterialCommunityIcons name={state.icon} size={13} color={state.color} />
-          <Text style={[styles.statusText, { color: state.color }]}>{state.label}</Text>
-        </View>
+        {!isIndependent ? (
+          <View style={[styles.statusBadge, { backgroundColor: state.background }]}>
+            <MaterialCommunityIcons name={state.icon} size={13} color={state.color} />
+            <Text style={[styles.statusText, { color: state.color }]}>{state.label}</Text>
+          </View>
+        ) : null}
       </View>
     </Container>
   );
@@ -111,6 +138,27 @@ function makeStyles(colors) {
   participantCount: {
     fontSize: 12,
     color: colors.textSecondary,
+  },
+  personalStreakRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    marginTop: spacing.md,
+  },
+  personalStreakChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.accentSoft,
+    borderRadius: radii.pill,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    maxWidth: '100%',
+  },
+  personalStreakText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.accent,
   },
   bottomRow: {
     flexDirection: 'row',

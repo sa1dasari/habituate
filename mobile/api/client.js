@@ -219,6 +219,9 @@ export const api = {
   acceptGroupInvite: (groupId, habitId) =>
     request(`/api/groups/${groupId}/accept`, { method: 'POST', body: JSON.stringify({ habitId }) }),
 
+  nudgeGroupMember: (groupId, targetUserId) =>
+    request(`/api/groups/${groupId}/nudge`, { method: 'POST', body: JSON.stringify({ targetUserId }) }),
+
   listMyChallenges: () => request('/api/challenges'),
 
   browseChallenges: () => request('/api/challenges/browse'),

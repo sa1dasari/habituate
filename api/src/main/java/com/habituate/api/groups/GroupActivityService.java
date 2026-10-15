@@ -22,18 +22,21 @@ public class GroupActivityService {
     private final HabitRepository habitRepository;
     private final CheckInCheerRepository checkInCheerRepository;
     private final UserLookupService userLookupService;
+    private final GroupRepository groupRepository;
 
     public GroupActivityService(
             CheckInRepository checkInRepository,
             GroupMemberRepository groupMemberRepository,
             HabitRepository habitRepository,
             CheckInCheerRepository checkInCheerRepository,
-            UserLookupService userLookupService) {
+            UserLookupService userLookupService,
+            GroupRepository groupRepository) {
         this.checkInRepository = checkInRepository;
         this.groupMemberRepository = groupMemberRepository;
         this.habitRepository = habitRepository;
         this.checkInCheerRepository = checkInCheerRepository;
         this.userLookupService = userLookupService;
+        this.groupRepository = groupRepository;
     }
 
     /** Recent check-ins from the viewer's own groupmates — never their own, never a non-groupmate's. */
@@ -60,16 +63,25 @@ public class GroupActivityService {
         Map<Long, List<CheckInCheer>> cheersByCheckInId = checkInCheerRepository.findByCheckInIdIn(checkInIds).stream()
                 .collect(Collectors.groupingBy(CheckInCheer::getCheckInId));
 
+        Map<Long, Group> groupsById = groupRepository
+                .findAllById(checkIns.stream().map(CheckIn::getGroupId).filter(java.util.Objects::nonNull).distinct().toList())
+                .stream()
+                .collect(Collectors.toMap(Group::getId, Function.identity()));
+
         return checkIns.stream()
                 .map(checkIn -> {
                     Habit habit = habitsById.get(checkIn.getHabitId());
                     List<CheckInCheer> cheers = cheersByCheckInId.getOrDefault(checkIn.getId(), List.of());
+                    Group group = groupsById.get(checkIn.getGroupId());
+                    // STATUS_ONLY groups never surface the logged amount — only a binary completed/not.
+                    boolean fullDetails = group == null || Group.FULL_DETAILS.equals(group.getVisibilityLevel());
                     return new GroupActivityItem(
                             checkIn.getId(),
                             checkIn.getUserId(),
                             userLookupService.resolve(checkIn.getUserId()).displayName(),
                             habit != null ? habit.getName() : "a habit",
                             checkIn.getOccurredAt(),
+                            fullDetails ? checkIn.getValue() : null,
                             cheers.size(),
                             cheers.stream().anyMatch(c -> c.getUserId().equals(viewingUserId)));
                 })

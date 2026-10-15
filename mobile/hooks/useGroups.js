@@ -74,6 +74,10 @@ export function GroupsProvider({ children }) {
     [runExclusive]
   );
 
+  // Not run() — a nudge has no local state to refresh, so busy/error from a
+  // concurrent create/invite elsewhere shouldn't be tied to this action.
+  const nudge = useCallback((groupId, targetUserId) => api.nudgeGroupMember(groupId, targetUserId), []);
+
   const value = useMemo(
     () => ({
       groups,
@@ -85,8 +89,9 @@ export function GroupsProvider({ children }) {
       createGroup,
       inviteToGroup,
       acceptInvite,
+      nudge,
     }),
-    [groups, pendingInvites, loading, busy, error, refresh, createGroup, inviteToGroup, acceptInvite]
+    [groups, pendingInvites, loading, busy, error, refresh, createGroup, inviteToGroup, acceptInvite, nudge]
   );
 
   return createElement(GroupsContext.Provider, { value }, children);

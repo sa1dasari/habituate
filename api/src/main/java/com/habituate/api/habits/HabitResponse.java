@@ -20,9 +20,12 @@ public record HabitResponse(
         Instant createdAt,
         Instant updatedAt,
         int currentStreak,
-        int longestStreak
+        int longestStreak,
+        boolean shieldedToday,
+        boolean shieldEligible
 ) {
-    public static HabitResponse from(Habit habit, int currentStreak, int longestStreak) {
+    public static HabitResponse from(
+            Habit habit, int currentStreak, int longestStreak, boolean shieldedToday, boolean shieldEligible) {
         return new HabitResponse(
                 habit.getId(),
                 habit.getUserId(),
@@ -42,7 +45,9 @@ public record HabitResponse(
                 habit.getCreatedAt(),
                 habit.getUpdatedAt(),
                 currentStreak,
-                longestStreak
+                longestStreak,
+                shieldedToday,
+                shieldEligible
         );
     }
 }

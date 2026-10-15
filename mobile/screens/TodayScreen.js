@@ -63,7 +63,7 @@ export default function TodayScreen() {
   const navigation = useNavigation();
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
-  const { habits, loading, busy, error, refresh, toggleCheckIn, addCheckIn, removeLastCheckIn } =
+  const { habits, loading, busy, error, refresh, toggleCheckIn, addCheckIn, removeLastCheckIn, toggleShield } =
     useHabits();
   const { goals } = useGoals();
   const { user } = useAuth();
@@ -181,6 +181,17 @@ export default function TodayScreen() {
     [toggleCheckIn, celebrate]
   );
 
+  const handleToggleShield = useCallback(
+    async (habit) => {
+      try {
+        await toggleShield(habit.id);
+      } catch (err) {
+        Alert.alert("Couldn't update shield", err instanceof Error ? err.message : 'Unknown error');
+      }
+    },
+    [toggleShield]
+  );
+
   const handleAdd = useCallback(
     async (habit) => {
       try {
@@ -274,9 +285,12 @@ export default function TodayScreen() {
         checkIns={habit.checkIns}
         expanded={expandedId === habit.id}
         checked={habit.checkedInToday}
+        shieldedToday={habit.shieldedToday}
+        shieldEligible={habit.shieldEligible}
         disabled={busy}
         onPress={() => setExpandedId((current) => (current === habit.id ? null : habit.id))}
         onToggle={() => handleToggle(habit)}
+        onToggleShield={() => handleToggleShield(habit)}
         onAdd={() => handleAdd(habit)}
         onRemoveLast={() => handleRemoveLast(habit.id)}
         onLogAmount={(amount) => handleLogAmount(habit, amount)}

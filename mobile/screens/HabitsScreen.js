@@ -16,6 +16,7 @@ import CalendarModal from '../components/CalendarModal';
 import Dropdown from '../components/Dropdown';
 import GoalCard from '../components/GoalCard';
 import HabitCard from '../components/HabitCard';
+import ShieldInfoModal from '../components/ShieldInfoModal';
 import TimePicker from '../components/TimePicker';
 import {
   DEFAULT_HABIT_CATEGORY,
@@ -145,6 +146,7 @@ export default function HabitsScreen() {
   const [showForm, setShowForm] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
+  const [showShieldInfo, setShowShieldInfo] = useState(false);
   const [goalForm, setGoalForm] = useState(emptyGoalForm);
   const [showGoalForm, setShowGoalForm] = useState(false);
   const scrollRef = useRef(null);
@@ -483,6 +485,14 @@ export default function HabitsScreen() {
           <View style={styles.titleActions}>
             <Pressable
               style={styles.iconButton}
+              onPress={() => setShowShieldInfo(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Shield Days"
+            >
+              <MaterialCommunityIcons name="shield-check-outline" size={22} color={colors.accent} />
+            </Pressable>
+            <Pressable
+              style={styles.iconButton}
               onPress={() => setShowCalendar(true)}
               accessibilityRole="button"
               accessibilityLabel="Open habit calendar"
@@ -505,6 +515,8 @@ export default function HabitsScreen() {
           onToggleHabitDay={handleToggleCalendarDay}
           busy={busy}
         />
+
+        <ShieldInfoModal visible={showShieldInfo} onClose={() => setShowShieldInfo(false)} />
 
         {showForm ? (
           <View style={styles.formCard}>

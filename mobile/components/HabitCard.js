@@ -46,12 +46,15 @@ export default function HabitCard({
   checked = false,
   disabled = false,
   variant = 'detailed',
+  shieldedToday = false,
+  shieldEligible = false,
   onToggle,
   onAdd,
   onRemoveLast,
   onLogAmount,
   onPress,
   onEdit,
+  onToggleShield,
 }) {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
@@ -172,6 +175,28 @@ export default function HabitCard({
               </View>
             ) : null}
           </View>
+
+          {onToggleShield && (shieldEligible || shieldedToday) ? (
+            <Pressable
+              onPress={onToggleShield}
+              disabled={disabled}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={shieldedToday ? `Remove shield from ${name}` : `Shield ${name} for today`}
+              style={({ pressed }) => [
+                styles.shieldToggle,
+                shieldedToday && styles.shieldToggleActive,
+                pressed && !disabled ? styles.checkPressed : null,
+                disabled ? styles.checkDisabled : null,
+              ]}
+            >
+              <MaterialCommunityIcons
+                name={shieldedToday ? 'shield-check' : 'shield-outline'}
+                size={18}
+                color={shieldedToday ? colors.safe : colors.textMuted}
+              />
+            </Pressable>
+          ) : null}
 
           {countMode ? (
             stepper(true)
@@ -514,6 +539,17 @@ function makeStyles(colors, typography) {
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.background,
+  },
+  shieldToggle: {
+    width: 32,
+    height: 32,
+    borderRadius: radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.background,
+  },
+  shieldToggleActive: {
+    backgroundColor: colors.safeSoft,
   },
   check: {
     width: 44,

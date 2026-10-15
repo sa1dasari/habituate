@@ -89,7 +89,12 @@ public class HabitService {
                 .collect(Collectors.toSet());
         StreakCalculator.Streaks streaks = StreakCalculator.compute(checkIns, zone, Instant.now(), frozenDays);
         shieldAwardService.awardIfEligible(habit.getUserId(), habit.getId(), streaks.current());
-        return HabitResponse.from(habit, streaks.current(), streaks.longest());
+
+        LocalDate today = Instant.now().atZone(zone).toLocalDate();
+        boolean shieldedToday = frozenDays.contains(today);
+        boolean shieldEligible = streaks.current() >= ShieldAwardService.MILESTONE_INTERVAL;
+
+        return HabitResponse.from(habit, streaks.current(), streaks.longest(), shieldedToday, shieldEligible);
     }
 
     private HabitResponse toResponse(Habit habit) {
@@ -214,6 +219,56 @@ public class HabitService {
     /** Shield Days currently banked, available to auto-protect a habit's streak — see ShieldAwardService. */
     public int getShieldsAvailable(String userId) {
         return shieldAwardService.getAvailable(userId);
+    }
+
+    /**
+     * Manually protects this habit's streak for today — the proactive
+     * version of what PersonalStreakFreezeScheduler otherwise does
+     * automatically overnight (e.g. for a known vacation/sick day, rather
+     * than waiting to find out tomorrow). Same eligibility rules as the
+     * automatic path: a banked shield is required, and — new rule for the
+     * manual path specifically — the streak must already be 7+ days, so
+     * this can't be used to protect a streak that barely exists yet.
+     */
+    @Transactional
+    public HabitResponse activateShield(String userId, Long habitId, String timezone) {
+        Habit habit = requireOwnedHabit(userId, habitId);
+        ZoneId zone = resolveZone(timezone);
+        LocalDate today = Instant.now().atZone(zone).toLocalDate();
+
+        if (streakFreezeRepository.findByHabitIdAndUsedOnDate(habitId, today).isPresent()) {
+            throw new IllegalArgumentException("This habit is already shielded today");
+        }
+
+        List<CheckIn> checkIns = checkInRepository.findByUserIdAndHabitIdOrderByOccurredAtAsc(userId, habitId);
+        var frozenDays = streakFreezeRepository.findByHabitId(habitId).stream()
+                .map(StreakFreeze::getUsedOnDate)
+                .collect(Collectors.toSet());
+        StreakCalculator.Streaks streaks = StreakCalculator.compute(checkIns, zone, Instant.now(), frozenDays);
+        if (streaks.current() < ShieldAwardService.MILESTONE_INTERVAL) {
+            throw new IllegalArgumentException(
+                    "Streak must be " + ShieldAwardService.MILESTONE_INTERVAL + "+ days to shield it manually");
+        }
+        if (shieldAwardService.getAvailable(userId) <= 0) {
+            throw new IllegalArgumentException("No Shield Days available");
+        }
+
+        streakFreezeRepository.save(new StreakFreeze(userId, habitId, today, StreakFreeze.PERSONAL_GRACE));
+        return toResponse(habit, zone);
+    }
+
+    /** Undoes activateShield — deletes today's freeze (manual or automatic), refunding the shield either way. */
+    @Transactional
+    public HabitResponse deactivateShield(String userId, Long habitId, String timezone) {
+        Habit habit = requireOwnedHabit(userId, habitId);
+        ZoneId zone = resolveZone(timezone);
+        LocalDate today = Instant.now().atZone(zone).toLocalDate();
+
+        streakFreezeRepository.findByHabitIdAndUsedOnDate(habitId, today)
+                .filter(freeze -> StreakFreeze.PERSONAL_GRACE.equals(freeze.getSource()))
+                .ifPresent(streakFreezeRepository::delete);
+
+        return toResponse(habit, zone);
     }
 
     public List<CheckIn> listCheckIns(String userId, Long habitId) {

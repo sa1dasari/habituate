@@ -253,6 +253,25 @@ export function HabitsProvider({ children }) {
     [habits, runExclusive]
   );
 
+  // Toggles today's manual shield for a habit — activate requires a 7+ day
+  // streak and a banked shield (enforced server-side); deactivate just
+  // refunds whichever shield (manual or automatic) is currently protecting
+  // today. runExclusive's per-habit lock avoids a fast double-tap racing
+  // itself the same way toggleCheckIn already guards against.
+  const toggleShield = useCallback(
+    (habitId) =>
+      runExclusive(habitId, async () => {
+        const habit = habits.find((item) => item.id === habitId);
+        if (!habit) return;
+        if (habit.shieldedToday) {
+          await api.deactivateShield(habitId);
+        } else {
+          await api.activateShield(habitId);
+        }
+      }),
+    [habits, runExclusive]
+  );
+
   const archiveHabit = useCallback((habitId) => run(() => api.archiveHabit(habitId)), [run]);
 
   const restoreHabit = useCallback((habitId) => run(() => api.restoreHabit(habitId)), [run]);
@@ -275,6 +294,7 @@ export function HabitsProvider({ children }) {
       toggleCheckIn,
       addCheckIn,
       removeLastCheckIn,
+      toggleShield,
       archiveHabit,
       restoreHabit,
       deleteHabit,
@@ -292,6 +312,7 @@ export function HabitsProvider({ children }) {
       toggleCheckIn,
       addCheckIn,
       removeLastCheckIn,
+      toggleShield,
       archiveHabit,
       restoreHabit,
       deleteHabit,

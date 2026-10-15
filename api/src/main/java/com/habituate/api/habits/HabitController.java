@@ -74,6 +74,23 @@ public class HabitController {
         return Map.of("available", habitService.getShieldsAvailable(userId(req)));
     }
 
+    /** Manually protects this habit's streak for today — requires a 7+ day streak and a banked shield. */
+    @PostMapping("/habits/{habitId}/shield")
+    public HabitResponse activateShield(
+            HttpServletRequest req,
+            @PathVariable Long habitId,
+            @RequestHeader(value = "X-Timezone", required = false) String timezone) {
+        return habitService.activateShield(userId(req), habitId, timezone);
+    }
+
+    @DeleteMapping("/habits/{habitId}/shield")
+    public HabitResponse deactivateShield(
+            HttpServletRequest req,
+            @PathVariable Long habitId,
+            @RequestHeader(value = "X-Timezone", required = false) String timezone) {
+        return habitService.deactivateShield(userId(req), habitId, timezone);
+    }
+
     @GetMapping("/habits/{habitId}/check-ins")
     public List<CheckInResponse> listCheckIns(HttpServletRequest req, @PathVariable Long habitId) {
         return habitService.listCheckIns(userId(req), habitId).stream()

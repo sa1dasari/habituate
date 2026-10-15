@@ -145,6 +145,10 @@ export const api = {
 
   getShields: () => request('/api/habits/shields'),
 
+  activateShield: (habitId) => request(`/api/habits/${habitId}/shield`, { method: 'POST' }),
+
+  deactivateShield: (habitId) => request(`/api/habits/${habitId}/shield`, { method: 'DELETE' }),
+
   listArchivedHabits: () => request('/api/habits?archived=true'),
 
   createHabit: (habit) =>

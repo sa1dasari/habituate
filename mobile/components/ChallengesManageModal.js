@@ -52,7 +52,7 @@ export default function ChallengesManageModal({ visible, onClose }) {
                   )}
                 </View>
                 <Text style={styles.cardMeta}>
-                  Target {challenge.targetCount} days · ends {challenge.periodEnd}
+                  Target {challenge.targetCount} days · {challenge.periodEnd ? `ends ${challenge.periodEnd}` : 'open-ended'}
                 </Text>
                 <AvatarStack people={challenge.participants} total={challenge.participantCount} size={22} />
               </View>

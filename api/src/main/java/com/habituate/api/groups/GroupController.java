@@ -4,6 +4,7 @@ import com.habituate.api.config.FirebaseAuthFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -41,6 +42,12 @@ public class GroupController {
     @ResponseStatus(HttpStatus.CREATED)
     public GroupResponse createGroup(HttpServletRequest req, @RequestBody CreateGroupRequest request) {
         return groupService.createGroup(userId(req), request);
+    }
+
+    @PatchMapping("/{groupId}")
+    public GroupResponse updateGroup(
+            HttpServletRequest req, @PathVariable Long groupId, @RequestBody CreateGroupRequest request) {
+        return groupService.updateGroup(userId(req), groupId, request);
     }
 
     @PostMapping("/{groupId}/invite")

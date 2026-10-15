@@ -1,5 +1,6 @@
 package com.habituate.api.groups;
 
+import com.habituate.api.checkins.CheckIn;
 import com.habituate.api.checkins.CheckInRepository;
 import com.habituate.api.common.ForbiddenException;
 import com.habituate.api.habits.Habit;
@@ -18,6 +19,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.DateTimeException;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -83,6 +86,37 @@ public class GroupService {
                 name, userId, streakRule, goalAlignment, trackingMode, visibilityLevel, nudgesEnabled, skipDaysPerMonth));
         groupMemberRepository.save(new GroupMember(group.getId(), userId, request.habitId(), GroupMember.ACTIVE));
         groupStreakRepository.save(new GroupStreak(group.getId()));
+
+        return toResponse(group, userId);
+    }
+
+    /** Only the group's creator may edit its settings — no co-admin concept yet, same
+     * single-owner model Challenge/Habit already use. habitId/streakRule's effect on the
+     * *shared* counter and goalAlignment/trackingMode can all be changed after creation;
+     * switching trackingMode between COOPERATIVE and INDEPENDENT is allowed since neither
+     * stores derived state that the other mode would corrupt (the shared counter just stops
+     * being read/written, it isn't deleted). */
+    @Transactional
+    public GroupResponse updateGroup(String userId, Long groupId, CreateGroupRequest request) {
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new EntityNotFoundException("Group not found: " + groupId));
+        if (!userId.equals(group.getCreatedBy())) {
+            throw new ForbiddenException("Only the creator can edit this shared habit");
+        }
+
+        String name = request.name() == null ? "" : request.name().trim();
+        if (name.isBlank()) {
+            throw new IllegalArgumentException("Group name is required");
+        }
+
+        group.setName(name);
+        group.setStreakRule(normalizeStreakRule(request.streakRule()));
+        group.setGoalAlignment(normalizeOneOf(request.goalAlignment(), Group.UNIFIED, Group.UNIFIED, Group.SPLIT));
+        group.setTrackingMode(normalizeOneOf(request.trackingMode(), Group.COOPERATIVE, Group.COOPERATIVE, Group.INDEPENDENT));
+        group.setVisibilityLevel(normalizeOneOf(request.visibilityLevel(), Group.FULL_DETAILS, Group.FULL_DETAILS, Group.STATUS_ONLY));
+        group.setNudgesEnabled(request.nudgesEnabled() == null || request.nudgesEnabled());
+        group.setSkipDaysPerMonth(request.skipDaysPerMonth() == null ? 1 : Math.max(0, Math.min(3, request.skipDaysPerMonth())));
+        groupRepository.save(group);
 
         return toResponse(group, userId);
     }
@@ -241,16 +275,22 @@ public class GroupService {
         List<GroupMember> activeMembers = groupMemberRepository.findByGroupIdAndStatus(group.getId(), GroupMember.ACTIVE);
         boolean independent = Group.INDEPENDENT.equals(group.getTrackingMode());
 
+        LocalDate today = LocalDate.now(ZoneOffset.UTC);
+        Instant dayStart = today.atStartOfDay(ZoneOffset.UTC).toInstant();
+        Instant dayEnd = today.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
+
         List<GroupResponse.Participant> participants = activeMembers.stream()
                 .map(m -> {
                     String displayName = userLookupService.resolve(m.getUserId()).displayName();
+                    boolean checkedInToday = m.getHabitId() != null
+                            && checkInRepository.existsByHabitIdAndOccurredAtBetween(m.getHabitId(), dayStart, dayEnd);
                     if (!independent || m.getHabitId() == null) {
-                        return new GroupResponse.Participant(displayName, m.getUserId(), null);
+                        return new GroupResponse.Participant(displayName, m.getUserId(), null, checkedInToday);
                     }
-                    List<com.habituate.api.checkins.CheckIn> checkIns =
+                    List<CheckIn> checkIns =
                             checkInRepository.findByUserIdAndHabitIdOrderByOccurredAtAsc(m.getUserId(), m.getHabitId());
                     int currentStreak = StreakCalculator.compute(checkIns, resolveZone(m.getUserId())).current();
-                    return new GroupResponse.Participant(displayName, m.getUserId(), currentStreak);
+                    return new GroupResponse.Participant(displayName, m.getUserId(), currentStreak, checkedInToday);
                 })
                 .toList();
 
@@ -276,7 +316,8 @@ public class GroupService {
                 group.getTrackingMode(),
                 group.getVisibilityLevel(),
                 group.isNudgesEnabled(),
-                group.getSkipDaysPerMonth()
+                group.getSkipDaysPerMonth(),
+                viewingUserId.equals(group.getCreatedBy())
         );
     }
 }

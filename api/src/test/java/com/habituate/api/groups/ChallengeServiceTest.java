@@ -274,6 +274,61 @@ class ChallengeServiceTest {
     }
 
     @Test
+    void create_marksCreatorAsCanEditOthersNot() {
+        stubResolve();
+        ChallengeResponse created = challengeService.create("challenge-test-user-12a",
+                basicRequest("Edit Test", 5, "2026-01-01", "2026-01-07", null), "UTC");
+        challengeId = created.id();
+        assertThat(created.canEdit()).isTrue();
+
+        challengeService.join("challenge-test-user-12b", challengeId, "UTC");
+        ChallengeResponse theirsView = challengeService.listMine("challenge-test-user-12b", "UTC").stream()
+                .filter(c -> c.id().equals(challengeId)).findFirst().orElseThrow();
+        assertThat(theirsView.canEdit()).isFalse();
+    }
+
+    @Test
+    void update_onlyCreatorMayEdit() {
+        stubResolve();
+        ChallengeResponse created = challengeService.create("challenge-test-user-13a",
+                basicRequest("Before Edit", 5, "2026-01-01", "2026-01-07", null), "UTC");
+        challengeId = created.id();
+
+        assertThatThrownBy(() -> challengeService.update("challenge-test-user-13b", challengeId,
+                basicRequest("Hacked Name", 5, null, "2026-01-07", null), "UTC"))
+                .isInstanceOf(ForbiddenException.class);
+
+        ChallengeResponse updated = challengeService.update("challenge-test-user-13a", challengeId,
+                new CreateChallengeRequest("After Edit", "New desc", 10, null, "2026-02-01", "PUBLIC",
+                        "water", "#2563EB", null, "DAILY", null, null, null), "UTC");
+
+        assertThat(updated.name()).isEqualTo("After Edit");
+        assertThat(updated.description()).isEqualTo("New desc");
+        assertThat(updated.targetCount()).isEqualTo(10);
+        assertThat(updated.periodEnd()).isEqualTo(LocalDate.of(2026, 2, 1));
+        assertThat(updated.visibility()).isEqualTo("PUBLIC");
+        assertThat(updated.icon()).isEqualTo("water");
+    }
+
+    @Test
+    void toResponse_exposesEveryParticipantsOwnProgress() {
+        stubResolve();
+        ChallengeResponse created = challengeService.create("challenge-test-user-14a",
+                basicRequest("Shared Visibility", 5, "2026-01-01", "2026-01-07", null), "UTC");
+        challengeId = created.id();
+
+        challengeService.join("challenge-test-user-14b", challengeId, "UTC");
+        challengeService.logCheckIn("challenge-test-user-14a", challengeId, null, "UTC");
+        ChallengeResponse afterLog = challengeService.logCheckIn("challenge-test-user-14b", challengeId, null, "UTC");
+
+        assertThat(afterLog.participants()).hasSize(2);
+        assertThat(afterLog.participants()).anyMatch(p ->
+                p.userId().equals("challenge-test-user-14a") && p.progress() == 1 && p.checkedInToday());
+        assertThat(afterLog.participants()).anyMatch(p ->
+                p.userId().equals("challenge-test-user-14b") && p.progress() == 1 && p.checkedInToday());
+    }
+
+    @Test
     void invite_rejectsNonFriend() {
         stubResolve();
         when(friendshipService.areFriends("challenge-test-user-11a", "challenge-test-user-11b")).thenReturn(false);

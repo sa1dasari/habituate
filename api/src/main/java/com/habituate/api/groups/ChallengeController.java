@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -48,6 +49,15 @@ public class ChallengeController {
             @RequestBody CreateChallengeRequest request,
             @RequestHeader(value = "X-Timezone", required = false) String timezone) {
         return challengeService.create(userId(req), request, timezone);
+    }
+
+    @PatchMapping("/{challengeId}")
+    public ChallengeResponse update(
+            HttpServletRequest req,
+            @PathVariable Long challengeId,
+            @RequestBody CreateChallengeRequest request,
+            @RequestHeader(value = "X-Timezone", required = false) String timezone) {
+        return challengeService.update(userId(req), challengeId, request, timezone);
     }
 
     @PostMapping("/{challengeId}/join")

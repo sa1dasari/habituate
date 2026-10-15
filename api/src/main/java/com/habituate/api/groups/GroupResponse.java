@@ -28,13 +28,17 @@ public record GroupResponse(
         String trackingMode,
         String visibilityLevel,
         boolean nudgesEnabled,
-        int skipDaysPerMonth
+        int skipDaysPerMonth,
+        boolean canEdit
 ) {
     /** currentStreak is null for a COOPERATIVE group (not computed — the shared counter above is authoritative);
-     * populated per-member only when trackingMode is INDEPENDENT. */
-    public record Participant(String name, String userId, Integer currentStreak) {
+     * populated per-member only when trackingMode is INDEPENDENT. checkedInToday is always
+     * populated (whether or not this member's own linked habit has a check-in for today, UTC-
+     * bucketed — same caveat already documented on GroupStreakConsumer) so the card/detail view
+     * can show who's already checked in today regardless of tracking mode. */
+    public record Participant(String name, String userId, Integer currentStreak, boolean checkedInToday) {
         public Participant(String name) {
-            this(name, null, null);
+            this(name, null, null, false);
         }
     }
 }

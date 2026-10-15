@@ -99,6 +99,62 @@ public class ChallengeService {
         return toResponse(challenge, userId, resolveZone(timezone));
     }
 
+    /** Only the creator may edit. periodStart and trackingMode are deliberately not editable:
+     * changing the start date after people have logged against it doesn't make sense, and
+     * flipping BOOLEAN/COUNT mid-challenge would make every already-logged entry's meaning
+     * ambiguous (a BOOLEAN "1" isn't a COUNT amount). periodEnd may still change (including to
+     * null, i.e. switching to open-ended) and the same MAX_PERIOD_DAYS/ordering checks apply. */
+    @Transactional
+    public ChallengeResponse update(String userId, Long challengeId, CreateChallengeRequest request, String timezone) {
+        Challenge challenge = challengeRepository.findById(challengeId)
+                .orElseThrow(() -> new EntityNotFoundException("Challenge not found: " + challengeId));
+        if (!userId.equals(challenge.getCreatedBy())) {
+            throw new ForbiddenException("Only the creator can edit this challenge");
+        }
+
+        String name = request.name() == null ? "" : request.name().trim();
+        if (name.isBlank()) {
+            throw new IllegalArgumentException("Challenge name is required");
+        }
+        Integer targetCount = request.targetCount() == null || request.targetCount() < 1 ? 1 : request.targetCount();
+        LocalDate periodEnd = parseOptionalDate(request.periodEnd(), "periodEnd");
+        if (periodEnd != null) {
+            if (periodEnd.isBefore(challenge.getPeriodStart())) {
+                throw new IllegalArgumentException("periodEnd cannot be before periodStart");
+            }
+            if (ChronoUnit.DAYS.between(challenge.getPeriodStart(), periodEnd) > MAX_PERIOD_DAYS) {
+                throw new IllegalArgumentException("A challenge can run at most " + MAX_PERIOD_DAYS + " days");
+            }
+        }
+        String visibility = normalizeVisibility(request.visibility());
+        String cadenceType = normalizeCadenceType(request.cadenceType());
+        Integer weeklyQuota = null;
+        String customDays = null;
+        if (Challenge.WEEKLY_QUOTA.equals(cadenceType)) {
+            if (request.weeklyQuota() == null || request.weeklyQuota() < 1 || request.weeklyQuota() > 7) {
+                throw new IllegalArgumentException("weeklyQuota must be between 1 and 7 for a weekly-quota cadence");
+            }
+            weeklyQuota = request.weeklyQuota();
+        } else if (Challenge.CUSTOM_DAYS.equals(cadenceType)) {
+            customDays = normalizeCustomDays(request.customDays());
+        }
+
+        challenge.setName(name);
+        challenge.setDescription(request.description());
+        challenge.setTargetCount(targetCount);
+        challenge.setPeriodEnd(periodEnd);
+        challenge.setVisibility(visibility);
+        challenge.setIcon(blankToNull(request.icon()));
+        challenge.setColor(blankToNull(request.color()));
+        challenge.setCadenceType(cadenceType);
+        challenge.setWeeklyQuota(weeklyQuota);
+        challenge.setCustomDays(customDays);
+        challenge.setReminderTime(parseOptionalTime(request.reminderTime()));
+        challengeRepository.save(challenge);
+
+        return toResponse(challenge, userId, resolveZone(timezone));
+    }
+
     @Transactional
     public ChallengeResponse join(String userId, Long challengeId, String timezone) {
         Challenge challenge = challengeRepository.findById(challengeId)
@@ -320,41 +376,46 @@ public class ChallengeService {
 
     private ChallengeResponse toResponse(Challenge challenge, String viewingUserId, ZoneId zone) {
         List<ChallengeParticipant> participants = participantRepository.findByChallengeId(challenge.getId());
-
-        Optional<ChallengeParticipant> mine = participants.stream()
-                .filter(p -> p.getUserId().equals(viewingUserId))
-                .findFirst();
-
         boolean isCount = Challenge.COUNT.equals(challenge.getTrackingMode());
-        int myProgress = 0;
-        boolean checkedInToday = false;
-        if (mine.isPresent()) {
-            if (isCount) {
-                myProgress = checkInRepository.findByChallengeIdAndUserId(challenge.getId(), viewingUserId)
-                        .stream().mapToInt(ChallengeCheckIn::getValue).sum();
-            } else {
-                myProgress = (int) checkInRepository.countByChallengeIdAndUserId(challenge.getId(), viewingUserId);
-                checkedInToday = checkInRepository.existsByChallengeIdAndUserIdAndOccurredAtBetween(
-                        challenge.getId(), viewingUserId,
-                        LocalDate.now(zone).atStartOfDay(zone).toInstant(),
-                        LocalDate.now(zone).plusDays(1).atStartOfDay(zone).toInstant());
-            }
-        }
-
         int target = challenge.getTargetCount() == null ? 1 : challenge.getTargetCount();
-        int percent = target > 0 ? Math.min(100, Math.round((myProgress * 100f) / target)) : 0;
+        Instant dayStart = LocalDate.now(zone).atStartOfDay(zone).toInstant();
+        Instant dayEnd = LocalDate.now(zone).plusDays(1).atStartOfDay(zone).toInstant();
 
-        List<GroupResponse.Participant> participantDtos = participants.stream()
-                .map(p -> new GroupResponse.Participant(userLookupService.resolve(p.getUserId()).displayName()))
+        List<ChallengeResponse.Participant> participantDtos = participants.stream()
+                .map(p -> {
+                    String userId = p.getUserId();
+                    int progress;
+                    boolean checkedInToday;
+                    if (isCount) {
+                        progress = checkInRepository.findByChallengeIdAndUserId(challenge.getId(), userId)
+                                .stream().mapToInt(ChallengeCheckIn::getValue).sum();
+                        checkedInToday = false;
+                    } else {
+                        progress = (int) checkInRepository.countByChallengeIdAndUserId(challenge.getId(), userId);
+                        checkedInToday = checkInRepository.existsByChallengeIdAndUserIdAndOccurredAtBetween(
+                                challenge.getId(), userId, dayStart, dayEnd);
+                    }
+                    int percent = target > 0 ? Math.min(100, Math.round((progress * 100f) / target)) : 0;
+                    String name = userLookupService.resolve(userId).displayName();
+                    return new ChallengeResponse.Participant(userId, name, progress, percent, checkedInToday);
+                })
                 .toList();
+
+        Optional<ChallengeResponse.Participant> mine = participantDtos.stream()
+                .filter(p -> p.userId().equals(viewingUserId))
+                .findFirst();
+        int myProgress = mine.map(ChallengeResponse.Participant::progress).orElse(0);
+        int myPercent = mine.map(ChallengeResponse.Participant::progressPercent).orElse(0);
+        boolean myCheckedInToday = mine.map(ChallengeResponse.Participant::checkedInToday).orElse(false);
 
         return new ChallengeResponse(
                 challenge.getId(), challenge.getName(), challenge.getDescription(), target,
                 challenge.getPeriodStart(), challenge.getPeriodEnd(), challenge.getVisibility(),
                 challenge.getIcon(), challenge.getColor(), challenge.getTrackingMode(), challenge.getCadenceType(),
                 challenge.getWeeklyQuota(), challenge.getCustomDays(), challenge.getReminderTime(),
-                myProgress, percent, mine.isPresent(), checkedInToday,
-                participantDtos, participants.size()
+                myProgress, myPercent, mine.isPresent(), myCheckedInToday,
+                participantDtos, participants.size(),
+                viewingUserId.equals(challenge.getCreatedBy())
         );
     }
 }

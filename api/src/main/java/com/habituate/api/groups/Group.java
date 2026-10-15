@@ -105,6 +105,10 @@ public class Group {
         return name;
     }
 
+    public void setName(String name) {
+        this.name = name;
+    }
+
     public String getCreatedBy() {
         return createdBy;
     }
@@ -113,24 +117,48 @@ public class Group {
         return streakRule;
     }
 
+    public void setStreakRule(String streakRule) {
+        this.streakRule = streakRule;
+    }
+
     public String getGoalAlignment() {
         return goalAlignment;
+    }
+
+    public void setGoalAlignment(String goalAlignment) {
+        this.goalAlignment = goalAlignment;
     }
 
     public String getTrackingMode() {
         return trackingMode;
     }
 
+    public void setTrackingMode(String trackingMode) {
+        this.trackingMode = trackingMode;
+    }
+
     public String getVisibilityLevel() {
         return visibilityLevel;
+    }
+
+    public void setVisibilityLevel(String visibilityLevel) {
+        this.visibilityLevel = visibilityLevel;
     }
 
     public boolean isNudgesEnabled() {
         return nudgesEnabled;
     }
 
+    public void setNudgesEnabled(boolean nudgesEnabled) {
+        this.nudgesEnabled = nudgesEnabled;
+    }
+
     public int getSkipDaysPerMonth() {
         return skipDaysPerMonth;
+    }
+
+    public void setSkipDaysPerMonth(int skipDaysPerMonth) {
+        this.skipDaysPerMonth = skipDaysPerMonth;
     }
 
     public Instant getCreatedAt() {

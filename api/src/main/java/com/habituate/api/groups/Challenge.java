@@ -143,8 +143,16 @@ public class Challenge {
         return name;
     }
 
+    public void setName(String name) {
+        this.name = name;
+    }
+
     public String getDescription() {
         return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
     }
 
     public String getCreatedBy() {
@@ -155,6 +163,10 @@ public class Challenge {
         return targetCount;
     }
 
+    public void setTargetCount(Integer targetCount) {
+        this.targetCount = targetCount;
+    }
+
     public LocalDate getPeriodStart() {
         return periodStart;
     }
@@ -163,16 +175,32 @@ public class Challenge {
         return periodEnd;
     }
 
+    public void setPeriodEnd(LocalDate periodEnd) {
+        this.periodEnd = periodEnd;
+    }
+
     public String getVisibility() {
         return visibility;
+    }
+
+    public void setVisibility(String visibility) {
+        this.visibility = visibility;
     }
 
     public String getIcon() {
         return icon;
     }
 
+    public void setIcon(String icon) {
+        this.icon = icon;
+    }
+
     public String getColor() {
         return color;
+    }
+
+    public void setColor(String color) {
+        this.color = color;
     }
 
     public String getTrackingMode() {
@@ -183,16 +211,32 @@ public class Challenge {
         return cadenceType;
     }
 
+    public void setCadenceType(String cadenceType) {
+        this.cadenceType = cadenceType;
+    }
+
     public Integer getWeeklyQuota() {
         return weeklyQuota;
+    }
+
+    public void setWeeklyQuota(Integer weeklyQuota) {
+        this.weeklyQuota = weeklyQuota;
     }
 
     public String getCustomDays() {
         return customDays;
     }
 
+    public void setCustomDays(String customDays) {
+        this.customDays = customDays;
+    }
+
     public LocalTime getReminderTime() {
         return reminderTime;
+    }
+
+    public void setReminderTime(LocalTime reminderTime) {
+        this.reminderTime = reminderTime;
     }
 
     public Instant getCreatedAt() {

@@ -100,6 +100,33 @@ class GroupServiceTest {
         assertThat(response.rule()).isEqualTo("all_members");
         assertThat(response.streak()).isEqualTo(0);
         assertThat(response.streakStatus()).isEqualTo("active");
+        assertThat(response.canEdit()).isTrue();
+    }
+
+    @Test
+    void updateGroup_onlyCreatorMayEdit() {
+        stubResolve();
+        String owner = "group-test-user-15a";
+        String other = "group-test-user-15b";
+        Long habitId = createHabit(owner, "Edit Habit");
+
+        GroupResponse created = groupService.createGroup(owner, new CreateGroupRequest("Before", habitId, "ALL_MEMBERS"));
+        groupIds.add(created.id());
+
+        assertThatThrownBy(() -> groupService.updateGroup(other, created.id(),
+                new CreateGroupRequest("Hacked", null, "ANY_MEMBER")))
+                .isInstanceOf(ForbiddenException.class);
+
+        GroupResponse updated = groupService.updateGroup(owner, created.id(), new CreateGroupRequest(
+                "After", null, "ANY_MEMBER", "SPLIT", "INDEPENDENT", "STATUS_ONLY", false, 2));
+
+        assertThat(updated.name()).isEqualTo("After");
+        assertThat(updated.rule()).isEqualTo("any_member");
+        assertThat(updated.goalAlignment()).isEqualTo("SPLIT");
+        assertThat(updated.trackingMode()).isEqualTo("INDEPENDENT");
+        assertThat(updated.visibilityLevel()).isEqualTo("STATUS_ONLY");
+        assertThat(updated.nudgesEnabled()).isFalse();
+        assertThat(updated.skipDaysPerMonth()).isEqualTo(2);
     }
 
     @Test
@@ -153,6 +180,34 @@ class GroupServiceTest {
         GroupResponse afterAccept = groupService.acceptInvite(userB, group.id(), habitB);
 
         assertThat(afterAccept.participantCount()).isEqualTo(2);
+    }
+
+    @Test
+    void toResponse_exposesCheckedInTodayPerMember() {
+        stubResolve();
+        String userA = "group-test-user-16a";
+        String userB = "group-test-user-16b";
+
+        when(userLookupService.findByEmail("friend16b@example.com"))
+                .thenReturn(Optional.of(new UserProfile(userB, "User B", "friend16b@example.com")));
+        var pending = friendshipService.sendRequest(userA, "friend16b@example.com");
+        friendshipIds.add(pending.id());
+        friendshipService.respond(userB, pending.id(), true);
+
+        Long habitA = createHabit(userA, "Habit A16");
+        GroupResponse group = groupService.createGroup(userA, new CreateGroupRequest("Group16", habitA, "ALL_MEMBERS"));
+        groupIds.add(group.id());
+        groupService.invite(userA, group.id(), userB);
+        Long habitB = createHabit(userB, "Habit B16");
+        groupService.acceptInvite(userB, group.id(), habitB);
+
+        habitService.createCheckIn(userA, habitA, new com.habituate.api.checkins.CheckInRequest(null, null, null));
+
+        GroupResponse afterCheckIn = groupService.listMyGroups(userA).stream()
+                .filter(g -> g.id().equals(group.id())).findFirst().orElseThrow();
+
+        assertThat(afterCheckIn.participants()).anyMatch(p -> p.userId().equals(userA) && p.checkedInToday());
+        assertThat(afterCheckIn.participants()).anyMatch(p -> p.userId().equals(userB) && !p.checkedInToday());
     }
 
     @Test

@@ -13,12 +13,12 @@ import { gradients, radii, shadow, spacing } from '../theme';
  */
 export default function ChallengeCard({
   name = 'Challenge',
-  mode = 'INDIVIDUAL',
+  icon,
+  color,
+  trackingMode = 'BOOLEAN',
   myProgress = 0,
   targetCount = 1,
   progressPercent = 0,
-  teamProgress = 0,
-  teamProgressPercent = 0,
   participants = [],
   participantCount,
   joined = false,
@@ -31,7 +31,8 @@ export default function ChallengeCard({
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const Container = onPress ? Pressable : View;
-  const isRaid = mode === 'RAID';
+  const isCount = trackingMode === 'COUNT';
+  const accentColor = color || colors.accent;
 
   return (
     <Container
@@ -42,21 +43,16 @@ export default function ChallengeCard({
     >
       <View style={styles.topRow}>
         <View style={styles.titleRow}>
-          <View style={styles.iconBadge}>
-            <MaterialCommunityIcons name={isRaid ? 'sword-cross' : 'trophy-outline'} size={18} color={colors.accent} />
+          <View style={[styles.iconBadge, { backgroundColor: `${accentColor}22` }]}>
+            <MaterialCommunityIcons name={icon || 'trophy-outline'} size={18} color={accentColor} />
           </View>
           <Text style={styles.name} numberOfLines={1}>
             {name}
           </Text>
-          {isRaid ? (
-            <View style={styles.raidBadge}>
-              <Text style={styles.raidBadgeText}>RAID</Text>
-            </View>
-          ) : null}
         </View>
         {joined ? (
-          <Text style={styles.progressLabel}>
-            {isRaid ? `${teamProgress}/${targetCount} team` : `${myProgress}/${targetCount} days`}
+          <Text style={[styles.progressLabel, { color: accentColor }]}>
+            {myProgress}/{targetCount} {isCount ? '' : 'days'}
           </Text>
         ) : null}
       </View>
@@ -65,18 +61,16 @@ export default function ChallengeCard({
         <>
           <View style={styles.progressTrack}>
             <LinearGradient
-              colors={isRaid ? gradients.warm : gradients.accent}
+              colors={gradients.accent}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
-              style={[styles.progressFill, { width: `${Math.max(4, isRaid ? teamProgressPercent : progressPercent)}%` }]}
+              style={[styles.progressFill, { width: `${Math.max(4, progressPercent)}%` }]}
             />
           </View>
 
           <View style={styles.bottomRow}>
-            <Text style={styles.progressPercentLabel}>
-              {isRaid ? `Team progress · you: ${myProgress}` : 'Progress'}
-            </Text>
-            <Text style={styles.progressPercent}>{isRaid ? teamProgressPercent : progressPercent}%</Text>
+            <Text style={styles.progressPercentLabel}>Progress</Text>
+            <Text style={styles.progressPercent}>{progressPercent}%</Text>
           </View>
         </>
       ) : (
@@ -87,22 +81,35 @@ export default function ChallengeCard({
         <AvatarStack people={participants} total={participantCount} size={24} />
 
         {joined ? (
-          <Pressable
-            style={[styles.logButton, checkedInToday && styles.logButtonActive]}
-            disabled={busy}
-            accessibilityRole="button"
-            accessibilityLabel={checkedInToday ? `Unlog today for ${name}` : `Log today for ${name}`}
-            onPress={onToggleCheckIn}
-          >
-            <MaterialCommunityIcons
-              name={checkedInToday ? 'check' : 'plus'}
-              size={16}
-              color={checkedInToday ? '#FFFFFF' : colors.accent}
-            />
-            <Text style={[styles.logButtonText, checkedInToday && styles.logButtonTextActive]}>
-              {checkedInToday ? 'Logged today' : 'Log today'}
-            </Text>
-          </Pressable>
+          isCount ? (
+            <Pressable
+              style={styles.logButton}
+              disabled={busy}
+              accessibilityRole="button"
+              accessibilityLabel={`Add an entry for ${name}`}
+              onPress={onToggleCheckIn}
+            >
+              <MaterialCommunityIcons name="plus" size={16} color={colors.accent} />
+              <Text style={styles.logButtonText}>Log entry</Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              style={[styles.logButton, checkedInToday && styles.logButtonActive]}
+              disabled={busy}
+              accessibilityRole="button"
+              accessibilityLabel={checkedInToday ? `Unlog today for ${name}` : `Log today for ${name}`}
+              onPress={onToggleCheckIn}
+            >
+              <MaterialCommunityIcons
+                name={checkedInToday ? 'check' : 'plus'}
+                size={16}
+                color={checkedInToday ? '#FFFFFF' : colors.accent}
+              />
+              <Text style={[styles.logButtonText, checkedInToday && styles.logButtonTextActive]}>
+                {checkedInToday ? 'Logged today' : 'Log today'}
+              </Text>
+            </Pressable>
+          )
         ) : (
           <Pressable
             style={styles.joinButton}
@@ -152,13 +159,6 @@ function makeStyles(colors, typography) {
       justifyContent: 'center',
     },
     name: { ...typography.cardTitle, flexShrink: 1 },
-    raidBadge: {
-      backgroundColor: colors.warningSoft,
-      borderRadius: radii.pill,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 2,
-    },
-    raidBadgeText: { fontSize: 10, fontWeight: '800', color: colors.warning, letterSpacing: 0.5 },
     progressLabel: {
       fontSize: 13,
       fontWeight: '700',

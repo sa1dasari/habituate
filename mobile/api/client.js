@@ -228,7 +228,11 @@ export const api = {
 
   joinChallenge: (challengeId) => request(`/api/challenges/${challengeId}/join`, { method: 'POST' }),
 
-  logChallengeCheckIn: (challengeId) => request(`/api/challenges/${challengeId}/check-ins`, { method: 'POST' }),
+  inviteToChallenge: (challengeId, friendUserId) =>
+    request(`/api/challenges/${challengeId}/invite`, { method: 'POST', body: JSON.stringify({ friendUserId }) }),
+
+  logChallengeCheckIn: (challengeId, value) =>
+    request(`/api/challenges/${challengeId}/check-ins`, { method: 'POST', body: JSON.stringify({ value }) }),
 
   unlogChallengeCheckIn: (challengeId) =>
     request(`/api/challenges/${challengeId}/check-ins/today`, { method: 'DELETE' }),

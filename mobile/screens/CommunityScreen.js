@@ -26,8 +26,14 @@ export default function CommunityScreen() {
 
   const { user } = useAuth();
   const { groups, loading: groupsLoading, refresh: refreshGroups } = useGroups();
-  const { challenges, loading: challengesLoading, busy: challengesBusy, refresh: refreshChallenges, toggleCheckIn } =
-    useChallenges();
+  const {
+    challenges,
+    loading: challengesLoading,
+    busy: challengesBusy,
+    refresh: refreshChallenges,
+    toggleCheckIn,
+    addChallengeEntry,
+  } = useChallenges();
 
   const [groupsModalVisible, setGroupsModalVisible] = useState(false);
   const [challengesModalVisible, setChallengesModalVisible] = useState(false);
@@ -44,7 +50,10 @@ export default function CommunityScreen() {
   const selectedChallenge = challenges.find((c) => c.id === selectedChallengeId) || null;
 
   const handleToggleCheckIn = async (challenge) => {
-    const ok = await toggleCheckIn(challenge);
+    const ok =
+      challenge.trackingMode === 'COUNT'
+        ? await addChallengeEntry(challenge.id, 1)
+        : await toggleCheckIn(challenge);
     if (!ok) Alert.alert("Couldn't update today's log", 'Something went wrong — try again.');
   };
 
@@ -185,12 +194,12 @@ export default function CommunityScreen() {
             <ChallengeCard
               key={challenge.id}
               name={challenge.name}
-              mode={challenge.mode}
+              icon={challenge.icon}
+              color={challenge.color}
+              trackingMode={challenge.trackingMode}
               myProgress={challenge.myProgress}
               targetCount={challenge.targetCount}
               progressPercent={challenge.progressPercent}
-              teamProgress={challenge.teamProgress}
-              teamProgressPercent={challenge.teamProgressPercent}
               participants={challenge.participants}
               participantCount={challenge.participantCount}
               joined={challenge.joined}

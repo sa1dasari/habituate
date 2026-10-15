@@ -1,11 +1,14 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import InviteFriendsSheet from './InviteFriendsSheet';
+import NumberStepper from './NumberStepper';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useChallenges } from '../hooks/useChallenges';
 import { gradients, radii, shadow, spacing } from '../theme';
+import { formatTime } from '../utils/time';
 
 const AVATAR_COLORS = ['#2563EB', '#7C3AED', '#0891B2', '#DB2777', '#EA580C'];
 
@@ -21,21 +24,42 @@ function initials(name) {
 
 const VISIBILITY_LABEL = { PUBLIC: 'Public', PRIVATE: 'Private' };
 
+const WEEKDAY_LABELS = { 1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat', 7: 'Sun' };
+
+function cadenceLabel(challenge) {
+  if (challenge.cadenceType === 'WEEKLY_QUOTA') {
+    return `${challenge.weeklyQuota || 1}x a week`;
+  }
+  if (challenge.cadenceType === 'CUSTOM_DAYS' && challenge.customDays) {
+    return challenge.customDays
+      .split(',')
+      .map((d) => WEEKDAY_LABELS[Number(d.trim())])
+      .filter(Boolean)
+      .join(', ');
+  }
+  return 'Daily';
+}
+
 /** Detail view for one Challenge, opened by tapping its card — not the create/browse flow. */
 export default function ChallengeDetailModal({ visible, challenge, onClose }) {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
-  const { toggleCheckIn, busy } = useChallenges();
+  const { toggleCheckIn, addChallengeEntry, inviteToChallenge, busy } = useChallenges();
+  const [inviteVisible, setInviteVisible] = useState(false);
+  const [entryAmount, setEntryAmount] = useState(1);
 
   if (!challenge) return null;
 
   const people = Array.isArray(challenge.participants) ? challenge.participants : [];
-  const isRaid = challenge.mode === 'RAID';
+  const isCount = challenge.trackingMode === 'COUNT';
+  const accentColor = challenge.color || colors.accent;
 
   const handleToggle = async () => {
-    const ok = await toggleCheckIn(challenge);
+    const ok = isCount ? await addChallengeEntry(challenge.id, entryAmount) : await toggleCheckIn(challenge);
     if (!ok) Alert.alert("Couldn't update today's log", 'Something went wrong — try again.');
   };
+
+  const handleInvite = (friendUserId) => inviteToChallenge(challenge.id, friendUserId);
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
@@ -47,18 +71,25 @@ export default function ChallengeDetailModal({ visible, challenge, onClose }) {
           <Text style={styles.headerTitle} numberOfLines={1}>
             {challenge.name}
           </Text>
-          <View style={{ width: 34 }} />
+          <Pressable onPress={() => setInviteVisible(true)} hitSlop={12} style={styles.closeBtn}>
+            <MaterialCommunityIcons name="account-plus-outline" size={22} color={colors.accent} />
+          </Pressable>
         </View>
 
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           <View style={styles.heroCard}>
-            {challenge.description ? <Text style={styles.description}>{challenge.description}</Text> : null}
+            <View style={styles.titleRow}>
+              <View style={[styles.iconBadge, { backgroundColor: `${accentColor}22` }]}>
+                <MaterialCommunityIcons name={challenge.icon || 'trophy-outline'} size={20} color={accentColor} />
+              </View>
+              {challenge.description ? <Text style={styles.description}>{challenge.description}</Text> : null}
+            </View>
 
             <View style={styles.metaRow}>
               <View style={styles.metaBadge}>
                 <MaterialCommunityIcons name="calendar-range" size={13} color={colors.textSecondary} />
                 <Text style={styles.metaText}>
-                  {challenge.periodStart} – {challenge.periodEnd}
+                  {challenge.periodStart} – {challenge.periodEnd || 'open-ended'}
                 </Text>
               </View>
               <View style={styles.metaBadge}>
@@ -69,10 +100,14 @@ export default function ChallengeDetailModal({ visible, challenge, onClose }) {
                 />
                 <Text style={styles.metaText}>{VISIBILITY_LABEL[challenge.visibility] || 'Private'}</Text>
               </View>
-              {isRaid ? (
+              <View style={styles.metaBadge}>
+                <MaterialCommunityIcons name="repeat" size={13} color={colors.textSecondary} />
+                <Text style={styles.metaText}>{cadenceLabel(challenge)}</Text>
+              </View>
+              {challenge.reminderTime ? (
                 <View style={styles.metaBadge}>
-                  <MaterialCommunityIcons name="sword-cross" size={13} color={colors.warning} />
-                  <Text style={[styles.metaText, { color: colors.warning }]}>Raid — team goal</Text>
+                  <MaterialCommunityIcons name="bell-outline" size={13} color={colors.textSecondary} />
+                  <Text style={styles.metaText}>{formatTime(challenge.reminderTime)}</Text>
                 </View>
               ) : null}
             </View>
@@ -80,38 +115,43 @@ export default function ChallengeDetailModal({ visible, challenge, onClose }) {
             {challenge.joined ? (
               <>
                 <Text style={styles.progressLabel}>
-                  {isRaid
-                    ? `Team: ${challenge.teamProgress}/${challenge.targetCount} · you: ${challenge.myProgress} · ${challenge.teamProgressPercent}%`
-                    : `${challenge.myProgress}/${challenge.targetCount} days · ${challenge.progressPercent}%`}
+                  {challenge.myProgress}/{challenge.targetCount} {isCount ? '' : 'days'} · {challenge.progressPercent}%
                 </Text>
                 <View style={styles.progressTrack}>
                   <LinearGradient
-                    colors={isRaid ? gradients.warm : gradients.accent}
+                    colors={gradients.accent}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
-                    style={[
-                      styles.progressFill,
-                      { width: `${Math.max(4, isRaid ? challenge.teamProgressPercent : challenge.progressPercent)}%` },
-                    ]}
+                    style={[styles.progressFill, { width: `${Math.max(4, challenge.progressPercent)}%` }]}
                   />
                 </View>
 
-                <Pressable
-                  style={[styles.logButton, challenge.checkedInToday && styles.logButtonActive]}
-                  disabled={busy}
-                  accessibilityRole="button"
-                  accessibilityLabel={challenge.checkedInToday ? 'Unlog today' : 'Log today'}
-                  onPress={handleToggle}
-                >
-                  <MaterialCommunityIcons
-                    name={challenge.checkedInToday ? 'check' : 'plus'}
-                    size={16}
-                    color={challenge.checkedInToday ? '#FFFFFF' : colors.accent}
-                  />
-                  <Text style={[styles.logButtonText, challenge.checkedInToday && styles.logButtonTextActive]}>
-                    {challenge.checkedInToday ? 'Logged today' : 'Log today'}
-                  </Text>
-                </Pressable>
+                {isCount ? (
+                  <View style={styles.entryRow}>
+                    <NumberStepper value={entryAmount} onChange={setEntryAmount} min={1} max={9999} label="amount" />
+                    <Pressable style={styles.logButton} disabled={busy} onPress={handleToggle}>
+                      <MaterialCommunityIcons name="plus" size={16} color={colors.accent} />
+                      <Text style={styles.logButtonText}>Log entry</Text>
+                    </Pressable>
+                  </View>
+                ) : (
+                  <Pressable
+                    style={[styles.logButton, challenge.checkedInToday && styles.logButtonActive]}
+                    disabled={busy}
+                    accessibilityRole="button"
+                    accessibilityLabel={challenge.checkedInToday ? 'Unlog today' : 'Log today'}
+                    onPress={handleToggle}
+                  >
+                    <MaterialCommunityIcons
+                      name={challenge.checkedInToday ? 'check' : 'plus'}
+                      size={16}
+                      color={challenge.checkedInToday ? '#FFFFFF' : colors.accent}
+                    />
+                    <Text style={[styles.logButtonText, challenge.checkedInToday && styles.logButtonTextActive]}>
+                      {challenge.checkedInToday ? 'Logged today' : 'Log today'}
+                    </Text>
+                  </Pressable>
+                )}
               </>
             ) : (
               <Text style={styles.notJoinedNote}>You haven't joined this challenge.</Text>
@@ -134,6 +174,14 @@ export default function ChallengeDetailModal({ visible, challenge, onClose }) {
           })}
         </ScrollView>
       </SafeAreaView>
+
+      <InviteFriendsSheet
+        visible={inviteVisible}
+        onClose={() => setInviteVisible(false)}
+        onInvite={handleInvite}
+        busy={busy}
+        title="Invite to challenge"
+      />
     </Modal>
   );
 }
@@ -161,7 +209,15 @@ function makeStyles(colors, typography) {
       marginBottom: spacing.xl,
       ...shadow,
     },
-    description: { ...typography.body, marginBottom: spacing.md },
+    titleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
+    iconBadge: {
+      width: 36,
+      height: 36,
+      borderRadius: radii.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    description: { ...typography.body, flex: 1 },
     metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md },
     metaBadge: {
       flexDirection: 'row',
@@ -183,6 +239,7 @@ function makeStyles(colors, typography) {
     },
     progressFill: { height: '100%', borderRadius: radii.pill },
     notJoinedNote: { ...typography.meta },
+    entryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
     logButton: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -190,6 +247,7 @@ function makeStyles(colors, typography) {
       gap: spacing.xs,
       backgroundColor: colors.accentSoft,
       borderRadius: radii.pill,
+      paddingHorizontal: spacing.lg,
       paddingVertical: spacing.sm,
     },
     logButtonActive: { backgroundColor: colors.accent },

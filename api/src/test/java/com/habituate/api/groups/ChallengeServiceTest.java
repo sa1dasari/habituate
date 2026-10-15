@@ -34,6 +34,9 @@ class ChallengeServiceTest {
     @MockBean
     private UserLookupService userLookupService;
 
+    @MockBean
+    private FriendshipService friendshipService;
+
     private Long challengeId;
 
     @AfterEach
@@ -51,11 +54,17 @@ class ChallengeServiceTest {
         when(userLookupService.resolve(any())).thenAnswer(inv -> new UserProfile(inv.getArgument(0), "User " + inv.getArgument(0), null));
     }
 
+    private CreateChallengeRequest basicRequest(String name, Integer targetCount, String periodStart, String periodEnd, String visibility) {
+        return new CreateChallengeRequest(
+                name, "Do it every day", targetCount, periodStart, periodEnd, visibility,
+                null, null, null, null, null, null, null);
+    }
+
     @Test
     void create_autoJoinsCreatorWithZeroProgress() {
         stubResolve();
-        ChallengeResponse response = challengeService.create("challenge-test-user-1", new CreateChallengeRequest(
-                "Morning Routine", "Do it every day", 5, "2026-01-01", "2026-01-07", null, null), "UTC");
+        ChallengeResponse response = challengeService.create("challenge-test-user-1",
+                basicRequest("Morning Routine", 5, "2026-01-01", "2026-01-07", null), "UTC");
         challengeId = response.id();
 
         assertThat(response.joined()).isTrue();
@@ -64,27 +73,39 @@ class ChallengeServiceTest {
         assertThat(response.participantCount()).isEqualTo(1);
         assertThat(response.checkedInToday()).isFalse();
         assertThat(response.visibility()).isEqualTo("PRIVATE");
+        assertThat(response.trackingMode()).isEqualTo("BOOLEAN");
+        assertThat(response.cadenceType()).isEqualTo("DAILY");
+    }
+
+    @Test
+    void create_openEnded_whenPeriodEndOmitted() {
+        stubResolve();
+        ChallengeResponse response = challengeService.create("challenge-test-user-1b",
+                basicRequest("Open Ended", 5, "2026-01-01", null, null), "UTC");
+        challengeId = response.id();
+
+        assertThat(response.periodEnd()).isNull();
     }
 
     @Test
     void create_rejectsEndBeforeStart() {
-        assertThatThrownBy(() -> challengeService.create("challenge-test-user-2", new CreateChallengeRequest(
-                "Bad Dates", null, 5, "2026-01-07", "2026-01-01", null, null), "UTC"))
+        assertThatThrownBy(() -> challengeService.create("challenge-test-user-2",
+                basicRequest("Bad Dates", 5, "2026-01-07", "2026-01-01", null), "UTC"))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void create_rejectsRangeOverOneYear() {
-        assertThatThrownBy(() -> challengeService.create("challenge-test-user-2b", new CreateChallengeRequest(
-                "Too Long", null, 5, "2026-01-01", "2027-06-01", "PUBLIC", null), "UTC"))
+        assertThatThrownBy(() -> challengeService.create("challenge-test-user-2b",
+                basicRequest("Too Long", 5, "2026-01-01", "2027-06-01", "PUBLIC"), "UTC"))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void create_publicVisibility_appearsInBrowse() {
         stubResolve();
-        ChallengeResponse created = challengeService.create("challenge-test-user-2c", new CreateChallengeRequest(
-                "Public Challenge", null, 5, LocalDate.now().toString(), LocalDate.now().plusDays(7).toString(), "public", null),
+        ChallengeResponse created = challengeService.create("challenge-test-user-2c", basicRequest(
+                "Public Challenge", 5, LocalDate.now().toString(), LocalDate.now().plusDays(7).toString(), "public"),
                 "UTC");
         challengeId = created.id();
 
@@ -95,8 +116,8 @@ class ChallengeServiceTest {
     @Test
     void create_privateVisibility_hiddenFromBrowse() {
         stubResolve();
-        ChallengeResponse created = challengeService.create("challenge-test-user-2e", new CreateChallengeRequest(
-                "Private Challenge", null, 5, LocalDate.now().toString(), LocalDate.now().plusDays(7).toString(), null, null),
+        ChallengeResponse created = challengeService.create("challenge-test-user-2e", basicRequest(
+                "Private Challenge", 5, LocalDate.now().toString(), LocalDate.now().plusDays(7).toString(), null),
                 "UTC");
         challengeId = created.id();
 
@@ -105,14 +126,25 @@ class ChallengeServiceTest {
     }
 
     @Test
+    void create_openEnded_appearsInBrowse() {
+        stubResolve();
+        ChallengeResponse created = challengeService.create("challenge-test-user-2g",
+                basicRequest("Open Ended Public", 5, LocalDate.now().toString(), null, "PUBLIC"), "UTC");
+        challengeId = created.id();
+
+        List<ChallengeResponse> browsed = challengeService.browse("challenge-test-user-2h", "UTC");
+        assertThat(browsed).anyMatch(c -> c.id().equals(challengeId));
+    }
+
+    @Test
     void logCheckIn_thenUnlog_updatesMyProgressOnly() {
         stubResolve();
-        ChallengeResponse created = challengeService.create("challenge-test-user-3a", new CreateChallengeRequest(
-                "Shared Goal", null, 5, "2026-01-01", "2026-01-07", null, null), "UTC");
+        ChallengeResponse created = challengeService.create("challenge-test-user-3a",
+                basicRequest("Shared Goal", 5, "2026-01-01", "2026-01-07", null), "UTC");
         challengeId = created.id();
 
         challengeService.join("challenge-test-user-3b", challengeId, "UTC");
-        ChallengeResponse afterLog = challengeService.logCheckIn("challenge-test-user-3b", challengeId, "UTC");
+        ChallengeResponse afterLog = challengeService.logCheckIn("challenge-test-user-3b", challengeId, null, "UTC");
 
         assertThat(afterLog.myProgress()).isEqualTo(1);
         assertThat(afterLog.checkedInToday()).isTrue();
@@ -132,21 +164,21 @@ class ChallengeServiceTest {
     @Test
     void logCheckIn_rejectsDuplicateSameDay() {
         stubResolve();
-        ChallengeResponse created = challengeService.create("challenge-test-user-3c", new CreateChallengeRequest(
-                "Once A Day", null, 5, "2026-01-01", "2026-01-07", null, null), "UTC");
+        ChallengeResponse created = challengeService.create("challenge-test-user-3c",
+                basicRequest("Once A Day", 5, "2026-01-01", "2026-01-07", null), "UTC");
         challengeId = created.id();
 
-        challengeService.logCheckIn("challenge-test-user-3c", challengeId, "UTC");
+        challengeService.logCheckIn("challenge-test-user-3c", challengeId, null, "UTC");
 
-        assertThatThrownBy(() -> challengeService.logCheckIn("challenge-test-user-3c", challengeId, "UTC"))
+        assertThatThrownBy(() -> challengeService.logCheckIn("challenge-test-user-3c", challengeId, null, "UTC"))
                 .isInstanceOf(DuplicateCheckInException.class);
     }
 
     @Test
     void unlogCheckIn_withNothingLoggedToday_notFound() {
         stubResolve();
-        ChallengeResponse created = challengeService.create("challenge-test-user-3d", new CreateChallengeRequest(
-                "Nothing Logged", null, 5, "2026-01-01", "2026-01-07", null, null), "UTC");
+        ChallengeResponse created = challengeService.create("challenge-test-user-3d",
+                basicRequest("Nothing Logged", 5, "2026-01-01", "2026-01-07", null), "UTC");
         challengeId = created.id();
 
         assertThatThrownBy(() -> challengeService.unlogCheckIn("challenge-test-user-3d", challengeId, "UTC"))
@@ -156,19 +188,19 @@ class ChallengeServiceTest {
     @Test
     void logCheckIn_rejectsNonParticipant() {
         stubResolve();
-        ChallengeResponse created = challengeService.create("challenge-test-user-4a", new CreateChallengeRequest(
-                "Solo Challenge", null, 5, "2026-01-01", "2026-01-07", null, null), "UTC");
+        ChallengeResponse created = challengeService.create("challenge-test-user-4a",
+                basicRequest("Solo Challenge", 5, "2026-01-01", "2026-01-07", null), "UTC");
         challengeId = created.id();
 
-        assertThatThrownBy(() -> challengeService.logCheckIn("challenge-test-user-4b", challengeId, "UTC"))
+        assertThatThrownBy(() -> challengeService.logCheckIn("challenge-test-user-4b", challengeId, null, "UTC"))
                 .isInstanceOf(ForbiddenException.class);
     }
 
     @Test
     void join_rejectsDuplicateJoin() {
         stubResolve();
-        ChallengeResponse created = challengeService.create("challenge-test-user-5a", new CreateChallengeRequest(
-                "Challenge", null, 5, "2026-01-01", "2026-01-07", null, null), "UTC");
+        ChallengeResponse created = challengeService.create("challenge-test-user-5a",
+                basicRequest("Challenge", 5, "2026-01-01", "2026-01-07", null), "UTC");
         challengeId = created.id();
 
         assertThatThrownBy(() -> challengeService.join("challenge-test-user-5a", challengeId, "UTC"))
@@ -178,8 +210,8 @@ class ChallengeServiceTest {
     @Test
     void browse_includesUnjoinedPublicChallenges() {
         stubResolve();
-        ChallengeResponse created = challengeService.create("challenge-test-user-6a", new CreateChallengeRequest(
-                "Open Challenge", null, 5, LocalDate.now().toString(), LocalDate.now().plusDays(7).toString(), "PUBLIC", null),
+        ChallengeResponse created = challengeService.create("challenge-test-user-6a", basicRequest(
+                "Open Challenge", 5, LocalDate.now().toString(), LocalDate.now().plusDays(7).toString(), "PUBLIC"),
                 "UTC");
         challengeId = created.id();
 
@@ -189,21 +221,67 @@ class ChallengeServiceTest {
     }
 
     @Test
-    void create_raidMode_poolsProgressAcrossParticipants() {
+    void create_countTrackingMode_sumsLoggedValues() {
         stubResolve();
-        ChallengeResponse created = challengeService.create("challenge-test-user-7a", new CreateChallengeRequest(
-                "Team Raid", null, 10, "2026-01-01", "2026-01-07", null, Challenge.RAID), "UTC");
+        ChallengeResponse created = challengeService.create("challenge-test-user-8a", new CreateChallengeRequest(
+                "Water Goal", "Drink up", 80, "2026-01-01", "2026-01-07", null,
+                null, null, "COUNT", null, null, null, null), "UTC");
         challengeId = created.id();
-        assertThat(created.mode()).isEqualTo(Challenge.RAID);
+        assertThat(created.trackingMode()).isEqualTo("COUNT");
 
-        challengeService.join("challenge-test-user-7b", challengeId, "UTC");
-        challengeService.logCheckIn("challenge-test-user-7a", challengeId, "UTC");
-        ChallengeResponse afterOneLog = challengeService.logCheckIn("challenge-test-user-7b", challengeId, "UTC");
+        challengeService.logCheckIn("challenge-test-user-8a", challengeId, 20, "UTC");
+        ChallengeResponse afterSecondLog = challengeService.logCheckIn("challenge-test-user-8a", challengeId, 30, "UTC");
 
-        // Both participants contributed one check-in each — the team total
-        // pools both, while each person's own myProgress stays personal.
-        assertThat(afterOneLog.teamProgress()).isEqualTo(2);
-        assertThat(afterOneLog.teamProgressPercent()).isEqualTo(20);
-        assertThat(afterOneLog.myProgress()).isEqualTo(1);
+        assertThat(afterSecondLog.myProgress()).isEqualTo(50);
+        assertThat(afterSecondLog.progressPercent()).isEqualTo(63); // round(50/80*100)
+
+        ChallengeResponse afterUndo = challengeService.unlogCheckIn("challenge-test-user-8a", challengeId, "UTC");
+        assertThat(afterUndo.myProgress()).isEqualTo(20);
+    }
+
+    @Test
+    void create_weeklyQuotaCadence_requiresWeeklyQuota() {
+        assertThatThrownBy(() -> challengeService.create("challenge-test-user-9a", new CreateChallengeRequest(
+                "Gym", null, 12, "2026-01-01", "2026-01-31", null,
+                null, null, null, "WEEKLY_QUOTA", null, null, null), "UTC"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void create_customDaysCadence_storesDays() {
+        stubResolve();
+        ChallengeResponse created = challengeService.create("challenge-test-user-9b", new CreateChallengeRequest(
+                "Mon Wed Fri", null, 12, "2026-01-01", "2026-01-31", null,
+                null, null, null, "CUSTOM_DAYS", null, "1,3,5", null), "UTC");
+        challengeId = created.id();
+
+        assertThat(created.cadenceType()).isEqualTo("CUSTOM_DAYS");
+        assertThat(created.customDays()).isEqualTo("1,3,5");
+    }
+
+    @Test
+    void invite_addsFriendAsParticipant() {
+        stubResolve();
+        when(friendshipService.areFriends("challenge-test-user-10a", "challenge-test-user-10b")).thenReturn(true);
+        ChallengeResponse created = challengeService.create("challenge-test-user-10a",
+                basicRequest("Invite Test", 5, "2026-01-01", "2026-01-07", null), "UTC");
+        challengeId = created.id();
+
+        challengeService.invite("challenge-test-user-10a", challengeId, "challenge-test-user-10b", "UTC");
+
+        List<ChallengeResponse> theirView = challengeService.listMine("challenge-test-user-10b", "UTC");
+        assertThat(theirView).anyMatch(c -> c.id().equals(challengeId));
+    }
+
+    @Test
+    void invite_rejectsNonFriend() {
+        stubResolve();
+        when(friendshipService.areFriends("challenge-test-user-11a", "challenge-test-user-11b")).thenReturn(false);
+        ChallengeResponse created = challengeService.create("challenge-test-user-11a",
+                basicRequest("Invite Test 2", 5, "2026-01-01", "2026-01-07", null), "UTC");
+        challengeId = created.id();
+
+        assertThatThrownBy(() -> challengeService.invite("challenge-test-user-11a", challengeId, "challenge-test-user-11b", "UTC"))
+                .isInstanceOf(ForbiddenException.class);
     }
 }

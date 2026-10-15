@@ -49,6 +49,11 @@ export function ChallengesProvider({ children }) {
 
   const joinChallenge = useCallback((challengeId) => run(() => api.joinChallenge(challengeId)), [run]);
 
+  const inviteToChallenge = useCallback(
+    (challengeId, friendUserId) => run(() => api.inviteToChallenge(challengeId, friendUserId)),
+    [run]
+  );
+
   // Mirrors useHabits' runExclusive — a fast double-tap on the same
   // challenge's log/unlog toggle would otherwise race against stale state.
   const pendingChallengeIds = useRef(new Set());
@@ -66,8 +71,8 @@ export function ChallengesProvider({ children }) {
     [run]
   );
 
-  // Boolean-only, one log per day — toggleCheckIn picks log vs. unlog based
-  // on the challenge's own checkedInToday, same shape as a habit's toggle.
+  // BOOLEAN challenges: one log per day — toggleCheckIn picks log vs. unlog
+  // based on the challenge's own checkedInToday, same shape as a habit's toggle.
   const toggleCheckIn = useCallback(
     (challenge) =>
       runExclusive(challenge.id, () =>
@@ -76,9 +81,49 @@ export function ChallengesProvider({ children }) {
     [runExclusive]
   );
 
+  // COUNT challenges: every tap adds a new entry carrying a value — a day can
+  // hold any number of them (e.g. two 40oz water logs). Not exclusive-locked,
+  // same reasoning as useHabits' addCheckIn — rapid repeated taps should all land.
+  const addChallengeEntry = useCallback(
+    (challengeId, value = 1) => run(() => api.logChallengeCheckIn(challengeId, value)),
+    [run]
+  );
+
+  // Undoes the single most recent entry for a challenge (BOOLEAN: today's only entry).
+  const removeLastChallengeEntry = useCallback(
+    (challengeId) => runExclusive(challengeId, () => api.unlogChallengeCheckIn(challengeId)),
+    [runExclusive]
+  );
+
   const value = useMemo(
-    () => ({ challenges, browseList, loading, busy, error, refresh, createChallenge, joinChallenge, toggleCheckIn }),
-    [challenges, browseList, loading, busy, error, refresh, createChallenge, joinChallenge, toggleCheckIn]
+    () => ({
+      challenges,
+      browseList,
+      loading,
+      busy,
+      error,
+      refresh,
+      createChallenge,
+      joinChallenge,
+      inviteToChallenge,
+      toggleCheckIn,
+      addChallengeEntry,
+      removeLastChallengeEntry,
+    }),
+    [
+      challenges,
+      browseList,
+      loading,
+      busy,
+      error,
+      refresh,
+      createChallenge,
+      joinChallenge,
+      inviteToChallenge,
+      toggleCheckIn,
+      addChallengeEntry,
+      removeLastChallengeEntry,
+    ]
   );
 
   return createElement(ChallengesContext.Provider, { value }, children);

@@ -2,6 +2,9 @@ package com.habituate.api.groups;
 
 import com.habituate.api.common.DuplicateCheckInException;
 import com.habituate.api.common.ForbiddenException;
+import com.habituate.api.notifications.ExpoPushMessage;
+import com.habituate.api.notifications.ExpoPushService;
+import com.habituate.api.notifications.PushTokenRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -9,11 +12,13 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -26,16 +31,25 @@ public class ChallengeService {
     private final ChallengeParticipantRepository participantRepository;
     private final ChallengeCheckInRepository checkInRepository;
     private final UserLookupService userLookupService;
+    private final FriendshipService friendshipService;
+    private final PushTokenRepository pushTokenRepository;
+    private final ExpoPushService expoPushService;
 
     public ChallengeService(
             ChallengeRepository challengeRepository,
             ChallengeParticipantRepository participantRepository,
             ChallengeCheckInRepository checkInRepository,
-            UserLookupService userLookupService) {
+            UserLookupService userLookupService,
+            FriendshipService friendshipService,
+            PushTokenRepository pushTokenRepository,
+            ExpoPushService expoPushService) {
         this.challengeRepository = challengeRepository;
         this.participantRepository = participantRepository;
         this.checkInRepository = checkInRepository;
         this.userLookupService = userLookupService;
+        this.friendshipService = friendshipService;
+        this.pushTokenRepository = pushTokenRepository;
+        this.expoPushService = expoPushService;
     }
 
     @Transactional
@@ -46,18 +60,35 @@ public class ChallengeService {
         }
         Integer targetCount = request.targetCount() == null || request.targetCount() < 1 ? 1 : request.targetCount();
         LocalDate periodStart = parseDate(request.periodStart(), "periodStart");
-        LocalDate periodEnd = parseDate(request.periodEnd(), "periodEnd");
-        if (periodEnd.isBefore(periodStart)) {
-            throw new IllegalArgumentException("periodEnd cannot be before periodStart");
-        }
-        if (ChronoUnit.DAYS.between(periodStart, periodEnd) > MAX_PERIOD_DAYS) {
-            throw new IllegalArgumentException("A challenge can run at most " + MAX_PERIOD_DAYS + " days");
+        LocalDate periodEnd = parseOptionalDate(request.periodEnd(), "periodEnd");
+        if (periodEnd != null) {
+            if (periodEnd.isBefore(periodStart)) {
+                throw new IllegalArgumentException("periodEnd cannot be before periodStart");
+            }
+            if (ChronoUnit.DAYS.between(periodStart, periodEnd) > MAX_PERIOD_DAYS) {
+                throw new IllegalArgumentException("A challenge can run at most " + MAX_PERIOD_DAYS + " days");
+            }
         }
         String visibility = normalizeVisibility(request.visibility());
-        String mode = normalizeMode(request.mode());
+        String trackingMode = normalizeTrackingMode(request.trackingMode());
+        String cadenceType = normalizeCadenceType(request.cadenceType());
+        Integer weeklyQuota = null;
+        String customDays = null;
+        if (Challenge.WEEKLY_QUOTA.equals(cadenceType)) {
+            if (request.weeklyQuota() == null || request.weeklyQuota() < 1 || request.weeklyQuota() > 7) {
+                throw new IllegalArgumentException("weeklyQuota must be between 1 and 7 for a weekly-quota cadence");
+            }
+            weeklyQuota = request.weeklyQuota();
+        } else if (Challenge.CUSTOM_DAYS.equals(cadenceType)) {
+            customDays = normalizeCustomDays(request.customDays());
+        }
+        LocalTime reminderTime = parseOptionalTime(request.reminderTime());
+        String icon = blankToNull(request.icon());
+        String color = blankToNull(request.color());
 
         Challenge challenge = challengeRepository.save(new Challenge(
-                name, request.description(), userId, targetCount, periodStart, periodEnd, visibility, mode));
+                name, request.description(), userId, targetCount, periodStart, periodEnd, visibility,
+                icon, color, trackingMode, cadenceType, weeklyQuota, customDays, reminderTime));
         participantRepository.save(new ChallengeParticipant(challenge.getId(), userId));
 
         return toResponse(challenge, userId, resolveZone(timezone));
@@ -76,24 +107,58 @@ public class ChallengeService {
         return toResponse(challenge, userId, resolveZone(timezone));
     }
 
-    /** Boolean-only, one log per day — mirrors a BOOLEAN habit's duplicate-day guard. */
+    /** Adds a friend directly as a participant — mirrors GroupService.invite, minus the accept
+     * step, since a Challenge carries no per-member setup (like picking a habit to link). */
     @Transactional
-    public ChallengeResponse logCheckIn(String userId, Long challengeId, String timezone) {
+    public ChallengeResponse invite(String userId, Long challengeId, String friendUserId, String timezone) {
+        Challenge challenge = requireParticipant(userId, challengeId);
+
+        if (!friendshipService.areFriends(userId, friendUserId)) {
+            throw new ForbiddenException("Can only invite accepted friends to a challenge");
+        }
+        if (participantRepository.findByChallengeIdAndUserId(challengeId, friendUserId).isPresent()) {
+            throw new IllegalArgumentException("That friend has already joined this challenge");
+        }
+
+        participantRepository.save(new ChallengeParticipant(challengeId, friendUserId));
+
+        List<ExpoPushMessage> messages = pushTokenRepository.findByUserId(friendUserId).stream()
+                .map(token -> new ExpoPushMessage(
+                        token.getToken(),
+                        "You're invited to a challenge",
+                        userLookupService.resolve(userId).displayName() + " invited you to \"" + challenge.getName() + "\"",
+                        Map.of("challengeId", challengeId)))
+                .toList();
+        if (!messages.isEmpty()) {
+            expoPushService.send(messages);
+        }
+
+        return toResponse(challenge, userId, resolveZone(timezone));
+    }
+
+    /** BOOLEAN challenges: one log per day (dup-checked). COUNT challenges: any number of logs a
+     * day, each carrying a value — defaults to 1 when omitted. */
+    @Transactional
+    public ChallengeResponse logCheckIn(String userId, Long challengeId, Integer value, String timezone) {
         Challenge challenge = requireParticipant(userId, challengeId);
         ZoneId zone = resolveZone(timezone);
         LocalDate today = LocalDate.now(zone);
         Instant dayStart = today.atStartOfDay(zone).toInstant();
         Instant dayEnd = today.plusDays(1).atStartOfDay(zone).toInstant();
 
-        if (checkInRepository.existsByChallengeIdAndUserIdAndOccurredAtBetween(challengeId, userId, dayStart, dayEnd)) {
-            throw new DuplicateCheckInException("Challenge " + challengeId + " is already logged for " + today);
+        if (Challenge.COUNT.equals(challenge.getTrackingMode())) {
+            checkInRepository.save(new ChallengeCheckIn(challengeId, userId, Instant.now(), value));
+        } else {
+            if (checkInRepository.existsByChallengeIdAndUserIdAndOccurredAtBetween(challengeId, userId, dayStart, dayEnd)) {
+                throw new DuplicateCheckInException("Challenge " + challengeId + " is already logged for " + today);
+            }
+            checkInRepository.save(new ChallengeCheckIn(challengeId, userId, Instant.now()));
         }
-
-        checkInRepository.save(new ChallengeCheckIn(challengeId, userId, Instant.now()));
         return toResponse(challenge, userId, zone);
     }
 
-    /** Undoes today's log, if any — "unlog" rather than a general per-entry delete, since there's at most one a day. */
+    /** Undoes today's most recent log. For a BOOLEAN challenge that's "the" entry for today
+     * (unlog); for a COUNT challenge it's the single most recent entry, not every entry today. */
     @Transactional
     public ChallengeResponse unlogCheckIn(String userId, Long challengeId, String timezone) {
         Challenge challenge = requireParticipant(userId, challengeId);
@@ -103,7 +168,7 @@ public class ChallengeService {
         Instant dayEnd = today.plusDays(1).atStartOfDay(zone).toInstant();
 
         ChallengeCheckIn todaysCheckIn = checkInRepository
-                .findByChallengeIdAndUserIdAndOccurredAtBetween(challengeId, userId, dayStart, dayEnd)
+                .findTopByChallengeIdAndUserIdAndOccurredAtBetweenOrderByOccurredAtDesc(challengeId, userId, dayStart, dayEnd)
                 .orElseThrow(() -> new EntityNotFoundException(
                         "Challenge " + challengeId + " has no log for " + today + " to undo"));
 
@@ -133,9 +198,7 @@ public class ChallengeService {
     /** Only PUBLIC, not-yet-ended challenges — PRIVATE ones aren't discoverable, only joinable by id. */
     public List<ChallengeResponse> browse(String userId, String timezone) {
         ZoneId zone = resolveZone(timezone);
-        return challengeRepository
-                .findByVisibilityAndPeriodEndGreaterThanEqualOrderByPeriodStartAsc(Challenge.PUBLIC, LocalDate.now(zone))
-                .stream()
+        return challengeRepository.findBrowsable(Challenge.PUBLIC, LocalDate.now(zone)).stream()
                 .map(c -> toResponse(c, userId, zone))
                 .toList();
     }
@@ -151,15 +214,48 @@ public class ChallengeService {
         throw new IllegalArgumentException("Invalid visibility, expected PUBLIC or PRIVATE: " + value);
     }
 
-    private String normalizeMode(String value) {
+    private String normalizeTrackingMode(String value) {
         if (value == null || value.isBlank()) {
-            return Challenge.INDIVIDUAL;
+            return Challenge.BOOLEAN;
         }
         String upper = value.trim().toUpperCase();
-        if (upper.equals(Challenge.INDIVIDUAL) || upper.equals(Challenge.RAID)) {
+        if (upper.equals(Challenge.BOOLEAN) || upper.equals(Challenge.COUNT)) {
             return upper;
         }
-        throw new IllegalArgumentException("Invalid mode, expected INDIVIDUAL or RAID: " + value);
+        throw new IllegalArgumentException("Invalid trackingMode, expected BOOLEAN or COUNT: " + value);
+    }
+
+    private String normalizeCadenceType(String value) {
+        if (value == null || value.isBlank()) {
+            return Challenge.DAILY;
+        }
+        String upper = value.trim().toUpperCase();
+        if (upper.equals(Challenge.DAILY) || upper.equals(Challenge.WEEKLY_QUOTA) || upper.equals(Challenge.CUSTOM_DAYS)) {
+            return upper;
+        }
+        throw new IllegalArgumentException("Invalid cadenceType, expected DAILY, WEEKLY_QUOTA or CUSTOM_DAYS: " + value);
+    }
+
+    private String normalizeCustomDays(String value) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("customDays is required for a CUSTOM_DAYS cadence");
+        }
+        String[] parts = value.split(",");
+        for (String part : parts) {
+            try {
+                int day = Integer.parseInt(part.trim());
+                if (day < 1 || day > 7) {
+                    throw new NumberFormatException();
+                }
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("customDays must be a comma-separated list of 1-7: " + value);
+            }
+        }
+        return value.trim();
+    }
+
+    private String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     private LocalDate parseDate(String value, String field) {
@@ -170,6 +266,24 @@ public class ChallengeService {
             return LocalDate.parse(value.trim());
         } catch (DateTimeParseException e) {
             throw new IllegalArgumentException("Invalid " + field + ", expected YYYY-MM-DD: " + value);
+        }
+    }
+
+    private LocalDate parseOptionalDate(String value, String field) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return parseDate(value, field);
+    }
+
+    private LocalTime parseOptionalTime(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return LocalTime.parse(value.trim());
+        } catch (DateTimeParseException e) {
+            throw new IllegalArgumentException("Invalid reminderTime, expected HH:mm: " + value);
         }
     }
 
@@ -192,19 +306,24 @@ public class ChallengeService {
                 .filter(p -> p.getUserId().equals(viewingUserId))
                 .findFirst();
 
-        int myProgress = mine.isPresent()
-                ? (int) checkInRepository.countByChallengeIdAndUserId(challenge.getId(), viewingUserId)
-                : 0;
-        boolean checkedInToday = mine.isPresent() && checkInRepository.existsByChallengeIdAndUserIdAndOccurredAtBetween(
-                challenge.getId(), viewingUserId,
-                LocalDate.now(zone).atStartOfDay(zone).toInstant(),
-                LocalDate.now(zone).plusDays(1).atStartOfDay(zone).toInstant());
+        boolean isCount = Challenge.COUNT.equals(challenge.getTrackingMode());
+        int myProgress = 0;
+        boolean checkedInToday = false;
+        if (mine.isPresent()) {
+            if (isCount) {
+                myProgress = checkInRepository.findByChallengeIdAndUserId(challenge.getId(), viewingUserId)
+                        .stream().mapToInt(ChallengeCheckIn::getValue).sum();
+            } else {
+                myProgress = (int) checkInRepository.countByChallengeIdAndUserId(challenge.getId(), viewingUserId);
+                checkedInToday = checkInRepository.existsByChallengeIdAndUserIdAndOccurredAtBetween(
+                        challenge.getId(), viewingUserId,
+                        LocalDate.now(zone).atStartOfDay(zone).toInstant(),
+                        LocalDate.now(zone).plusDays(1).atStartOfDay(zone).toInstant());
+            }
+        }
 
         int target = challenge.getTargetCount() == null ? 1 : challenge.getTargetCount();
         int percent = target > 0 ? Math.min(100, Math.round((myProgress * 100f) / target)) : 0;
-
-        int teamProgress = (int) checkInRepository.countByChallengeId(challenge.getId());
-        int teamPercent = target > 0 ? Math.min(100, Math.round((teamProgress * 100f) / target)) : 0;
 
         List<GroupResponse.Participant> participantDtos = participants.stream()
                 .map(p -> new GroupResponse.Participant(userLookupService.resolve(p.getUserId()).displayName()))
@@ -212,8 +331,10 @@ public class ChallengeService {
 
         return new ChallengeResponse(
                 challenge.getId(), challenge.getName(), challenge.getDescription(), target,
-                challenge.getPeriodStart(), challenge.getPeriodEnd(), challenge.getVisibility(), challenge.getMode(),
-                myProgress, percent, teamProgress, teamPercent, mine.isPresent(), checkedInToday,
+                challenge.getPeriodStart(), challenge.getPeriodEnd(), challenge.getVisibility(),
+                challenge.getIcon(), challenge.getColor(), challenge.getTrackingMode(), challenge.getCadenceType(),
+                challenge.getWeeklyQuota(), challenge.getCustomDays(), challenge.getReminderTime(),
+                myProgress, percent, mine.isPresent(), checkedInToday,
                 participantDtos, participants.size()
         );
     }

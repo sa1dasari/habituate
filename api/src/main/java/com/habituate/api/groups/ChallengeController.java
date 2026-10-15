@@ -58,12 +58,23 @@ public class ChallengeController {
         return challengeService.join(userId(req), challengeId, timezone);
     }
 
+    @PostMapping("/{challengeId}/invite")
+    public ChallengeResponse invite(
+            HttpServletRequest req,
+            @PathVariable Long challengeId,
+            @RequestBody InviteToChallengeRequest request,
+            @RequestHeader(value = "X-Timezone", required = false) String timezone) {
+        return challengeService.invite(userId(req), challengeId, request.friendUserId(), timezone);
+    }
+
     @PostMapping("/{challengeId}/check-ins")
     public ChallengeResponse logCheckIn(
             HttpServletRequest req,
             @PathVariable Long challengeId,
+            @RequestBody(required = false) LogChallengeCheckInRequest request,
             @RequestHeader(value = "X-Timezone", required = false) String timezone) {
-        return challengeService.logCheckIn(userId(req), challengeId, timezone);
+        Integer value = request == null ? null : request.value();
+        return challengeService.logCheckIn(userId(req), challengeId, value, timezone);
     }
 
     @DeleteMapping("/{challengeId}/check-ins/today")

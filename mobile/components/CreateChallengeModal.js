@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import NumberStepper from './NumberStepper';
+import TimePicker from './TimePicker';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useChallenges } from '../hooks/useChallenges';
 import { toDateKey } from '../utils/date';
@@ -25,10 +26,32 @@ const VISIBILITY_OPTIONS = [
   { value: 'PUBLIC', label: 'Public', icon: 'earth' },
 ];
 
-const MODE_OPTIONS = [
-  { value: 'INDIVIDUAL', label: 'Individual', icon: 'account-outline' },
-  { value: 'RAID', label: 'Raid (team)', icon: 'sword-cross' },
+const TRACKING_MODE_OPTIONS = [
+  { value: 'BOOLEAN', label: 'Check-off', icon: 'check-circle-outline' },
+  { value: 'COUNT', label: 'Quantitative', icon: 'counter' },
 ];
+
+const CADENCE_OPTIONS = [
+  { value: 'DAILY', label: 'Daily' },
+  { value: 'WEEKLY_QUOTA', label: 'Weekly quota' },
+  { value: 'CUSTOM_DAYS', label: 'Custom days' },
+];
+
+const WEEKDAYS = [
+  { value: 1, label: 'M' },
+  { value: 2, label: 'T' },
+  { value: 3, label: 'W' },
+  { value: 4, label: 'T' },
+  { value: 5, label: 'F' },
+  { value: 6, label: 'S' },
+  { value: 7, label: 'S' },
+];
+
+const ICON_OPTIONS = [
+  'trophy-outline', 'run', 'water', 'book-open-outline', 'dumbbell', 'food-apple-outline', 'meditation', 'star-outline',
+];
+
+const COLOR_OPTIONS = ['#2563EB', '#7C3AED', '#0891B2', '#DB2777', '#EA580C', '#16A34A', '#CA8A04', '#64748B'];
 
 /** Dedicated create flow, reached only via a "+ Create" affordance — never via Browse. */
 export default function CreateChallengeModal({ visible, onClose }) {
@@ -37,19 +60,39 @@ export default function CreateChallengeModal({ visible, onClose }) {
   const { busy, createChallenge } = useChallenges();
 
   const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [icon, setIcon] = useState(ICON_OPTIONS[0]);
+  const [color, setColor] = useState(COLOR_OPTIONS[0]);
+  const [trackingMode, setTrackingMode] = useState('BOOLEAN');
   const [targetCount, setTargetCount] = useState(5);
   const [lengthDays, setLengthDays] = useState(7);
+  const [openEnded, setOpenEnded] = useState(false);
   const [visibility, setVisibility] = useState('PRIVATE');
-  const [mode, setMode] = useState('INDIVIDUAL');
+  const [cadenceType, setCadenceType] = useState('DAILY');
+  const [weeklyQuota, setWeeklyQuota] = useState(3);
+  const [customDays, setCustomDays] = useState([1, 3, 5]);
+  const [reminderTime, setReminderTime] = useState('');
 
   const periodEndPreview = toDateKey(new Date(Date.now() + lengthDays * 24 * 60 * 60 * 1000));
 
   const reset = () => {
     setName('');
+    setDescription('');
+    setIcon(ICON_OPTIONS[0]);
+    setColor(COLOR_OPTIONS[0]);
+    setTrackingMode('BOOLEAN');
     setTargetCount(5);
     setLengthDays(7);
+    setOpenEnded(false);
     setVisibility('PRIVATE');
-    setMode('INDIVIDUAL');
+    setCadenceType('DAILY');
+    setWeeklyQuota(3);
+    setCustomDays([1, 3, 5]);
+    setReminderTime('');
+  };
+
+  const toggleCustomDay = (day) => {
+    setCustomDays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day].sort()));
   };
 
   const handleCreate = async () => {
@@ -58,13 +101,24 @@ export default function CreateChallengeModal({ visible, onClose }) {
       Alert.alert('Name it', 'Give the challenge a name.');
       return;
     }
+    if (cadenceType === 'CUSTOM_DAYS' && customDays.length === 0) {
+      Alert.alert('Pick some days', 'Choose at least one day for a custom-days cadence.');
+      return;
+    }
     const ok = await createChallenge({
       name: trimmedName,
+      description: description.trim() || null,
+      icon,
+      color,
+      trackingMode,
       targetCount,
       periodStart: toDateKey(new Date()),
-      periodEnd: periodEndPreview,
+      periodEnd: openEnded ? null : periodEndPreview,
       visibility,
-      mode,
+      cadenceType,
+      weeklyQuota: cadenceType === 'WEEKLY_QUOTA' ? weeklyQuota : null,
+      customDays: cadenceType === 'CUSTOM_DAYS' ? customDays.join(',') : null,
+      reminderTime: reminderTime || null,
     });
     if (ok) {
       reset();
@@ -98,35 +152,152 @@ export default function CreateChallengeModal({ visible, onClose }) {
             value={name}
             onChangeText={setName}
           />
+          <TextInput
+            style={[styles.input, styles.multilineInput]}
+            placeholder="Description / rules of engagement (optional)"
+            placeholderTextColor={colors.textMuted}
+            value={description}
+            onChangeText={setDescription}
+            multiline
+          />
 
-          <View style={styles.row}>
-            <Text style={styles.inputLabel}>Target (days to hit)</Text>
-            <NumberStepper value={targetCount} onChange={setTargetCount} min={1} max={MAX_TARGET_DAYS} label="target days" />
+          <Text style={styles.fieldLabel}>Icon</Text>
+          <View style={styles.iconRow}>
+            {ICON_OPTIONS.map((option) => (
+              <Pressable
+                key={option}
+                style={[styles.iconSwatch, icon === option && { borderColor: color }]}
+                onPress={() => setIcon(option)}
+              >
+                <MaterialCommunityIcons name={option} size={18} color={icon === option ? color : colors.textSecondary} />
+              </Pressable>
+            ))}
           </View>
 
-          <Text style={styles.fieldLabel}>Length</Text>
-          <View style={styles.presetRow}>
-            {LENGTH_PRESETS.map((preset) => (
+          <Text style={styles.fieldLabel}>Color</Text>
+          <View style={styles.iconRow}>
+            {COLOR_OPTIONS.map((option) => (
               <Pressable
-                key={preset.days}
-                style={[styles.presetChip, lengthDays === preset.days && styles.presetChipActive]}
-                onPress={() => setLengthDays(preset.days)}
+                key={option}
+                style={[styles.colorSwatch, { backgroundColor: option }, color === option && styles.colorSwatchActive]}
+                onPress={() => setColor(option)}
+              />
+            ))}
+          </View>
+
+          <Text style={styles.fieldLabel}>Log style</Text>
+          <View style={styles.visibilityRow}>
+            {TRACKING_MODE_OPTIONS.map((option) => (
+              <Pressable
+                key={option.value}
+                style={[styles.visibilityOption, trackingMode === option.value && styles.visibilityOptionActive]}
+                onPress={() => setTrackingMode(option.value)}
               >
-                <Text style={[styles.presetChipText, lengthDays === preset.days && styles.presetChipTextActive]}>
-                  {preset.label}
+                <MaterialCommunityIcons
+                  name={option.icon}
+                  size={14}
+                  color={trackingMode === option.value ? colors.accent : colors.textSecondary}
+                />
+                <Text
+                  style={[styles.visibilityOptionText, trackingMode === option.value && styles.visibilityOptionTextActive]}
+                >
+                  {option.label}
                 </Text>
               </Pressable>
             ))}
           </View>
 
           <View style={styles.row}>
-            <Text style={styles.inputLabel}>Fine-tune (days, max {MAX_LENGTH_DAYS})</Text>
-            <NumberStepper value={lengthDays} onChange={setLengthDays} min={1} max={MAX_LENGTH_DAYS} label="length in days" />
+            <Text style={styles.inputLabel}>
+              {trackingMode === 'COUNT' ? 'Target (total amount)' : 'Target (days to hit)'}
+            </Text>
+            <NumberStepper value={targetCount} onChange={setTargetCount} min={1} max={MAX_TARGET_DAYS} label="target" />
+          </View>
+
+          <Text style={styles.fieldLabel}>Frequency cadence</Text>
+          <View style={styles.presetRow}>
+            {CADENCE_OPTIONS.map((option) => (
+              <Pressable
+                key={option.value}
+                style={[styles.presetChip, cadenceType === option.value && styles.presetChipActive]}
+                onPress={() => setCadenceType(option.value)}
+              >
+                <Text style={[styles.presetChipText, cadenceType === option.value && styles.presetChipTextActive]}>
+                  {option.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          {cadenceType === 'WEEKLY_QUOTA' ? (
+            <View style={styles.row}>
+              <Text style={styles.inputLabel}>Times a week</Text>
+              <NumberStepper value={weeklyQuota} onChange={setWeeklyQuota} min={1} max={7} label="times a week" />
+            </View>
+          ) : null}
+
+          {cadenceType === 'CUSTOM_DAYS' ? (
+            <View style={styles.weekdayRow}>
+              {WEEKDAYS.map((day) => (
+                <Pressable
+                  key={day.value}
+                  style={[styles.weekdayChip, customDays.includes(day.value) && styles.weekdayChipActive]}
+                  onPress={() => toggleCustomDay(day.value)}
+                >
+                  <Text
+                    style={[styles.weekdayChipText, customDays.includes(day.value) && styles.weekdayChipTextActive]}
+                  >
+                    {day.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
+
+          <Text style={styles.fieldLabel}>Duration</Text>
+          <View style={styles.presetRow}>
+            {LENGTH_PRESETS.map((preset) => (
+              <Pressable
+                key={preset.days}
+                disabled={openEnded}
+                style={[styles.presetChip, !openEnded && lengthDays === preset.days && styles.presetChipActive]}
+                onPress={() => setLengthDays(preset.days)}
+              >
+                <Text
+                  style={[
+                    styles.presetChipText,
+                    !openEnded && lengthDays === preset.days && styles.presetChipTextActive,
+                  ]}
+                >
+                  {preset.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          {!openEnded ? (
+            <View style={styles.row}>
+              <Text style={styles.inputLabel}>Fine-tune (days, max {MAX_LENGTH_DAYS})</Text>
+              <NumberStepper value={lengthDays} onChange={setLengthDays} min={1} max={MAX_LENGTH_DAYS} label="length in days" />
+            </View>
+          ) : null}
+
+          <View style={styles.switchRow}>
+            <Text style={styles.switchLabel}>Open-ended (no end date)</Text>
+            <Switch
+              value={openEnded}
+              onValueChange={setOpenEnded}
+              trackColor={{ false: colors.border, true: colors.accentSoft }}
+              thumbColor={openEnded ? colors.accent : '#FFFFFF'}
+            />
           </View>
 
           <Text style={styles.previewNote}>
-            {lengthDays} day{lengthDays === 1 ? '' : 's'} · ends {periodEndPreview}
+            {openEnded ? 'No fixed end date' : `${lengthDays} day${lengthDays === 1 ? '' : 's'} · ends ${periodEndPreview}`}
           </Text>
+
+          <Text style={styles.fieldLabel}>Reminder (optional)</Text>
+          <TimePicker value={reminderTime} onChange={setReminderTime} placeholder="Set a reminder time" />
 
           <Text style={styles.fieldLabel}>Visibility</Text>
           <View style={styles.visibilityRow}>
@@ -184,9 +355,29 @@ function makeStyles(colors, typography) {
       color: colors.textPrimary,
       marginBottom: spacing.md,
     },
+    multilineInput: { minHeight: 60, textAlignVertical: 'top' },
     row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md },
     inputLabel: { fontSize: 14, color: colors.textSecondary, flexShrink: 1 },
     fieldLabel: { fontSize: 13, fontWeight: '600', color: colors.textSecondary, marginBottom: spacing.sm },
+    iconRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md },
+    iconSwatch: {
+      width: 38,
+      height: 38,
+      borderRadius: radii.md,
+      borderWidth: 2,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.background,
+    },
+    colorSwatch: {
+      width: 28,
+      height: 28,
+      borderRadius: radii.pill,
+      borderWidth: 2,
+      borderColor: 'transparent',
+    },
+    colorSwatchActive: { borderColor: colors.textPrimary },
     presetRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md },
     presetChip: {
       paddingHorizontal: spacing.md,
@@ -197,6 +388,24 @@ function makeStyles(colors, typography) {
     presetChipActive: { backgroundColor: colors.accentSoft },
     presetChipText: { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
     presetChipTextActive: { color: colors.accent },
+    weekdayRow: { flexDirection: 'row', gap: spacing.xs, marginBottom: spacing.md },
+    weekdayChip: {
+      flex: 1,
+      paddingVertical: spacing.sm,
+      borderRadius: radii.pill,
+      backgroundColor: colors.background,
+      alignItems: 'center',
+    },
+    weekdayChipActive: { backgroundColor: colors.accentSoft },
+    weekdayChipText: { fontSize: 12, fontWeight: '700', color: colors.textSecondary },
+    weekdayChipTextActive: { color: colors.accent },
+    switchRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: spacing.sm,
+    },
+    switchLabel: { fontSize: 14, fontWeight: '600', color: colors.textPrimary },
     previewNote: { ...typography.meta, marginBottom: spacing.lg },
     visibilityRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg },
     visibilityOption: {

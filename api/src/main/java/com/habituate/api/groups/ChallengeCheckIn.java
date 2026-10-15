@@ -10,12 +10,13 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 
 /**
- * One row per day a participant logs a challenge, boolean-only (no counter
- * mode — see CLAUDE.md's Challenges note). Progress is the row count for a
- * (challengeId, userId) pair, not a stored running total, so "unlog today"
- * is just deleting the matching row — same shape as a BOOLEAN habit's
- * check-ins, deliberately not reusing the checkins.CheckIn table since a
- * Challenge carries no habit_id to hang it off of.
+ * One row per logged entry. For a BOOLEAN challenge, one per day (boolean
+ * progress = row count) — same shape as a BOOLEAN habit's check-ins,
+ * deliberately not reusing the checkins.CheckIn table since a Challenge
+ * carries no habit_id to hang it off of. For a COUNT challenge (a
+ * quantitative/time goal like "80oz water"), any number of rows per day are
+ * allowed and `value` carries the logged amount — progress is the sum,
+ * mirroring habits.tracking_mode=COUNT.
  */
 @Entity
 @Table(name = "challenge_check_ins")
@@ -34,13 +35,21 @@ public class ChallengeCheckIn {
     @Column(nullable = false)
     private Instant occurredAt;
 
+    @Column(nullable = false, columnDefinition = "integer not null default 1")
+    private Integer value = 1;
+
     public ChallengeCheckIn() {
     }
 
     public ChallengeCheckIn(Long challengeId, String userId, Instant occurredAt) {
+        this(challengeId, userId, occurredAt, 1);
+    }
+
+    public ChallengeCheckIn(Long challengeId, String userId, Instant occurredAt, Integer value) {
         this.challengeId = challengeId;
         this.userId = userId;
         this.occurredAt = occurredAt;
+        this.value = value == null || value < 1 ? 1 : value;
     }
 
     public Long getId() {
@@ -57,5 +66,9 @@ public class ChallengeCheckIn {
 
     public Instant getOccurredAt() {
         return occurredAt;
+    }
+
+    public Integer getValue() {
+        return value;
     }
 }

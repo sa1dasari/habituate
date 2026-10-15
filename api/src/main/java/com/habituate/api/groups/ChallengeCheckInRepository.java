@@ -3,6 +3,7 @@ package com.habituate.api.groups;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 public interface ChallengeCheckInRepository extends JpaRepository<ChallengeCheckIn, Long> {
@@ -12,10 +13,13 @@ public interface ChallengeCheckInRepository extends JpaRepository<ChallengeCheck
     Optional<ChallengeCheckIn> findByChallengeIdAndUserIdAndOccurredAtBetween(
             Long challengeId, String userId, Instant start, Instant end);
 
+    /** COUNT challenges allow multiple logs a day — "undo" removes the most recent one. */
+    Optional<ChallengeCheckIn> findTopByChallengeIdAndUserIdAndOccurredAtBetweenOrderByOccurredAtDesc(
+            Long challengeId, String userId, Instant start, Instant end);
+
     long countByChallengeIdAndUserId(Long challengeId, String userId);
 
-    /** Raid mode: every participant's logged days pooled into one shared total. */
-    long countByChallengeId(Long challengeId);
+    List<ChallengeCheckIn> findByChallengeIdAndUserId(Long challengeId, String userId);
 
     void deleteByChallengeId(Long challengeId);
 

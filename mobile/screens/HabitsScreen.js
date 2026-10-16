@@ -16,6 +16,7 @@ import CalendarModal from '../components/CalendarModal';
 import Dropdown from '../components/Dropdown';
 import GoalCard from '../components/GoalCard';
 import HabitCard from '../components/HabitCard';
+import ScrubberInput from '../components/ScrubberInput';
 import ShieldInfoModal from '../components/ShieldInfoModal';
 import TimePicker from '../components/TimePicker';
 import {
@@ -590,43 +591,72 @@ export default function HabitsScreen() {
               Set targets at any scale — leave blank if you don't need that level.
             </Text>
 
-            <View style={styles.targetRow}>
-              <View style={styles.targetField}>
-                <Text style={styles.label}>Times per day</Text>
-                <TextInput
-                  style={styles.input}
-                  keyboardType="number-pad"
-                  placeholder="e.g. 8"
-                  placeholderTextColor={colors.textMuted}
-                  value={form.dailyTarget}
-                  onChangeText={(v) => setForm({ ...form, dailyTarget: v.replace(/[^0-9]/g, '') })}
-                />
-                <Text style={styles.targetHint}>e.g. drink water 8× a day</Text>
-              </View>
-              <View style={styles.targetField}>
-                <Text style={styles.label}>Times per week</Text>
-                <TextInput
-                  style={styles.input}
-                  keyboardType="number-pad"
-                  placeholder="e.g. 3"
-                  placeholderTextColor={colors.textMuted}
-                  value={form.weeklyTarget}
-                  onChangeText={(v) => setForm({ ...form, weeklyTarget: v.replace(/[^0-9]/g, '') })}
-                />
-                <Text style={styles.targetHint}>e.g. gym 3× a week</Text>
-              </View>
-            </View>
+            {form.trackingMode === 'COUNT' ? (
+              <>
+                <View style={styles.targetRow}>
+                  <View style={styles.targetField}>
+                    <Text style={styles.label}>Times per day</Text>
+                    <ScrubberInput
+                      value={Number(form.dailyTarget) || 0}
+                      onChange={(n) => setForm({ ...form, dailyTarget: n > 0 ? String(n) : '' })}
+                      min={0}
+                      max={200}
+                      label="times per day"
+                    />
+                    <Text style={styles.targetHint}>e.g. drink water 8× a day · 0 = no target</Text>
+                  </View>
+                  <View style={styles.targetField}>
+                    <Text style={styles.label}>Times per week</Text>
+                    <ScrubberInput
+                      value={Number(form.weeklyTarget) || 0}
+                      onChange={(n) => setForm({ ...form, weeklyTarget: n > 0 ? String(n) : '' })}
+                      min={0}
+                      max={200}
+                      label="times per week"
+                    />
+                    <Text style={styles.targetHint}>e.g. gym 3× a week · 0 = no target</Text>
+                  </View>
+                </View>
 
-            <Text style={styles.label}>Times per month</Text>
-            <TextInput
-              style={styles.input}
-              keyboardType="number-pad"
-              placeholder="e.g. 50"
-              placeholderTextColor={colors.textMuted}
-              value={form.monthlyTarget}
-              onChangeText={(v) => setForm({ ...form, monthlyTarget: v.replace(/[^0-9]/g, '') })}
-            />
-            <Text style={styles.targetHint}>e.g. apply for 50 jobs this month</Text>
+                <Text style={styles.label}>Times per month</Text>
+                <ScrubberInput
+                  value={Number(form.monthlyTarget) || 0}
+                  onChange={(n) => setForm({ ...form, monthlyTarget: n > 0 ? String(n) : '' })}
+                  min={0}
+                  max={1000}
+                  label="times per month"
+                />
+                <Text style={styles.targetHint}>e.g. apply for 50 jobs this month · 0 = no target</Text>
+              </>
+            ) : (
+              <>
+                <View style={styles.targetRow}>
+                  <View style={styles.targetField}>
+                    <Text style={styles.label}>Times per week</Text>
+                    <TextInput
+                      style={styles.input}
+                      keyboardType="number-pad"
+                      placeholder="e.g. 3"
+                      placeholderTextColor={colors.textMuted}
+                      value={form.weeklyTarget}
+                      onChangeText={(v) => setForm({ ...form, weeklyTarget: v.replace(/[^0-9]/g, '') })}
+                    />
+                    <Text style={styles.targetHint}>e.g. gym 3× a week</Text>
+                  </View>
+                </View>
+
+                <Text style={styles.label}>Times per month</Text>
+                <TextInput
+                  style={styles.input}
+                  keyboardType="number-pad"
+                  placeholder="e.g. 50"
+                  placeholderTextColor={colors.textMuted}
+                  value={form.monthlyTarget}
+                  onChangeText={(v) => setForm({ ...form, monthlyTarget: v.replace(/[^0-9]/g, '') })}
+                />
+                <Text style={styles.targetHint}>e.g. apply for 50 jobs this month</Text>
+              </>
+            )}
 
             {Number(form.weeklyTarget) > 0 || Number(form.monthlyTarget) > 0 ? (
               <View style={styles.switchRow}>

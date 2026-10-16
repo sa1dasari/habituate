@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import NumberStepper from './NumberStepper';
+import ScrubberInput from './ScrubberInput';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useGroups } from '../hooks/useGroups';
 import { useHabits } from '../hooks/useHabits';
@@ -248,7 +248,7 @@ export default function CreateGroupModal({ visible, onClose, onDeleted, group = 
 
               <View style={styles.row}>
                 <Text style={styles.inputLabel}>Skip days allowed a month</Text>
-                <NumberStepper value={skipDaysPerMonth} onChange={setSkipDaysPerMonth} min={0} max={3} label="skip days" />
+                <ScrubberInput value={skipDaysPerMonth} onChange={setSkipDaysPerMonth} min={0} max={3} label="skip days" />
               </View>
             </>
           ) : null}

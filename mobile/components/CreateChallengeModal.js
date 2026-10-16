@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import NumberStepper from './NumberStepper';
+import ScrubberInput from './ScrubberInput';
 import TimePicker from './TimePicker';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useChallenges } from '../hooks/useChallenges';
@@ -288,7 +288,7 @@ export default function CreateChallengeModal({ visible, onClose, onDeleted, chal
           ) : (
             <View style={styles.row}>
               <Text style={styles.inputLabel}>Target (days to hit)</Text>
-              <NumberStepper value={targetCount} onChange={setTargetCount} min={1} max={MAX_TARGET_DAYS} label="target" />
+              <ScrubberInput value={targetCount} onChange={setTargetCount} min={1} max={MAX_TARGET_DAYS} label="target" />
             </View>
           )}
 
@@ -310,7 +310,7 @@ export default function CreateChallengeModal({ visible, onClose, onDeleted, chal
           {cadenceType === 'WEEKLY_QUOTA' ? (
             <View style={styles.row}>
               <Text style={styles.inputLabel}>Times a week</Text>
-              <NumberStepper value={weeklyQuota} onChange={setWeeklyQuota} min={1} max={7} label="times a week" />
+              <ScrubberInput value={weeklyQuota} onChange={setWeeklyQuota} min={1} max={7} label="times a week" />
             </View>
           ) : null}
 
@@ -356,7 +356,7 @@ export default function CreateChallengeModal({ visible, onClose, onDeleted, chal
           {!openEnded ? (
             <View style={styles.row}>
               <Text style={styles.inputLabel}>Fine-tune (days, max {MAX_LENGTH_DAYS})</Text>
-              <NumberStepper value={lengthDays} onChange={setLengthDays} min={1} max={MAX_LENGTH_DAYS} label="length in days" />
+              <ScrubberInput value={lengthDays} onChange={setLengthDays} min={1} max={MAX_LENGTH_DAYS} label="length in days" />
             </View>
           ) : null}
 

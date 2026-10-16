@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import CreateChallengeModal from './CreateChallengeModal';
 import InviteFriendsSheet from './InviteFriendsSheet';
-import NumberStepper from './NumberStepper';
+import ScrubberInput from './ScrubberInput';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useChallenges } from '../hooks/useChallenges';
 import { gradients, radii, shadow, spacing } from '../theme';
@@ -137,7 +137,7 @@ export default function ChallengeDetailModal({ visible, challenge, onClose }) {
 
                 {isCount ? (
                   <View style={styles.entryRow}>
-                    <NumberStepper value={entryAmount} onChange={setEntryAmount} min={1} max={9999} label="amount" />
+                    <ScrubberInput value={entryAmount} onChange={setEntryAmount} min={1} max={9999} label="amount" />
                     <Pressable style={styles.logButton} disabled={busy} onPress={handleToggle}>
                       <MaterialCommunityIcons name="plus" size={16} color={colors.accent} />
                       <Text style={styles.logButtonText}>Log entry</Text>

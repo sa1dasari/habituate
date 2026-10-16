@@ -41,6 +41,7 @@ public class GroupService {
     private final PushTokenRepository pushTokenRepository;
     private final ExpoPushService expoPushService;
     private final AppNotificationService appNotificationService;
+    private final StreakFreezeRepository streakFreezeRepository;
 
     public GroupService(
             GroupRepository groupRepository,
@@ -53,7 +54,8 @@ public class GroupService {
             UserRepository userRepository,
             PushTokenRepository pushTokenRepository,
             ExpoPushService expoPushService,
-            AppNotificationService appNotificationService) {
+            AppNotificationService appNotificationService,
+            StreakFreezeRepository streakFreezeRepository) {
         this.groupRepository = groupRepository;
         this.groupMemberRepository = groupMemberRepository;
         this.groupStreakRepository = groupStreakRepository;
@@ -63,6 +65,7 @@ public class GroupService {
         this.checkInRepository = checkInRepository;
         this.userRepository = userRepository;
         this.pushTokenRepository = pushTokenRepository;
+        this.streakFreezeRepository = streakFreezeRepository;
         this.expoPushService = expoPushService;
         this.appNotificationService = appNotificationService;
     }
@@ -119,6 +122,32 @@ public class GroupService {
         groupRepository.save(group);
 
         return toResponse(group, userId);
+    }
+
+    /** Creator-only, same single-owner model as everything else here — deletes the whole
+     * shared habit for every member, not just the creator's own membership (there's no
+     * ownership-transfer feature to reassign it instead, same documented tradeoff as account
+     * deletion). Each other active member gets a best-effort notification first, since the
+     * cascade below removes the group row they'd otherwise have no record of losing. */
+    @Transactional
+    public void deleteGroup(String userId, Long groupId) {
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new EntityNotFoundException("Group not found: " + groupId));
+        if (!userId.equals(group.getCreatedBy())) {
+            throw new ForbiddenException("Only the creator can delete this shared habit");
+        }
+
+        List<String> otherMemberIds = groupMemberRepository.findByGroupIdAndStatus(groupId, GroupMember.ACTIVE).stream()
+                .map(GroupMember::getUserId)
+                .filter(id -> !id.equals(userId))
+                .toList();
+        appNotificationService.notifyAll(otherMemberIds, AppNotification.GROUP_DELETED, "Shared habit deleted",
+                "\"" + group.getName() + "\" was deleted by its creator", null, null, null);
+
+        groupMemberRepository.deleteByGroupId(groupId);
+        groupStreakRepository.deleteByGroupId(groupId);
+        streakFreezeRepository.deleteByGroupId(groupId);
+        groupRepository.deleteById(groupId);
     }
 
     @Transactional

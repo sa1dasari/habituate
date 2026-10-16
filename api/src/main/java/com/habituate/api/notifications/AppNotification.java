@@ -31,8 +31,10 @@ public class AppNotification {
     public static final String FRIEND_REQUEST_ACCEPTED = "FRIEND_REQUEST_ACCEPTED";
     public static final String GROUP_JOINED = "GROUP_JOINED";
     public static final String GROUP_CHECKIN = "GROUP_CHECKIN";
+    public static final String GROUP_DELETED = "GROUP_DELETED";
     public static final String CHALLENGE_INVITE = "CHALLENGE_INVITE";
     public static final String CHALLENGE_CHECKIN = "CHALLENGE_CHECKIN";
+    public static final String CHALLENGE_DELETED = "CHALLENGE_DELETED";
     public static final String NUDGE = "NUDGE";
 
     @Id

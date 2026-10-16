@@ -211,6 +211,25 @@ class GroupServiceTest {
     }
 
     @Test
+    void deleteGroup_onlyCreatorMayDelete() {
+        stubResolve();
+        String owner = "group-test-user-17a";
+        String other = "group-test-user-17b";
+        Long habitId = createHabit(owner, "Delete Habit");
+
+        GroupResponse created = groupService.createGroup(owner, new CreateGroupRequest("To Delete", habitId, "ALL_MEMBERS"));
+        groupIds.add(created.id());
+
+        assertThatThrownBy(() -> groupService.deleteGroup(other, created.id()))
+                .isInstanceOf(ForbiddenException.class);
+
+        groupService.deleteGroup(owner, created.id());
+        groupIds.remove(created.id());
+
+        assertThat(groupService.listMyGroups(owner)).noneMatch(g -> g.id().equals(created.id()));
+    }
+
+    @Test
     void invite_rejectsAlreadyMember() {
         stubResolve();
         String userA = "group-test-user-5a";

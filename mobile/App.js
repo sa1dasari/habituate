@@ -13,6 +13,7 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 import { DarkTheme, DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import AvatarImage from './components/AvatarImage';
 import { HabitsProvider } from './hooks/useHabits';
 import { GoalsProvider } from './hooks/useGoals';
 import { FriendsProvider } from './hooks/useFriends';
@@ -53,6 +54,7 @@ const TAB_BAR_CONTENT_HEIGHT = 58;
 function Tabs() {
   const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
+  const { user } = useAuth();
 
   return (
     <Tab.Navigator
@@ -82,7 +84,23 @@ function Tabs() {
       <Tab.Screen name="Habits" component={HabitsScreen} />
       <Tab.Screen name="Insights" component={InsightsScreen} />
       <Tab.Screen name="Community" component={CommunityScreen} />
-      <Tab.Screen name="Profile" component={ProfileStack} />
+      <Tab.Screen
+        name="Profile"
+        component={ProfileStack}
+        options={{
+          tabBarIcon: ({ color, size, focused }) =>
+            user?.photoURL ? (
+              <AvatarImage
+                uri={user.photoURL}
+                name={user.displayName}
+                size={size + 4}
+                style={focused ? { borderWidth: 2, borderColor: color } : null}
+              />
+            ) : (
+              <MaterialCommunityIcons name={TAB_ICONS.Profile} size={size} color={color} />
+            ),
+        }}
+      />
     </Tab.Navigator>
   );
 }

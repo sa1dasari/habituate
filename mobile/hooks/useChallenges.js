@@ -52,6 +52,8 @@ export function ChallengesProvider({ children }) {
     [run]
   );
 
+  const deleteChallenge = useCallback((challengeId) => run(() => api.deleteChallenge(challengeId)), [run]);
+
   const joinChallenge = useCallback((challengeId) => run(() => api.joinChallenge(challengeId)), [run]);
 
   const inviteToChallenge = useCallback(
@@ -110,6 +112,7 @@ export function ChallengesProvider({ children }) {
       refresh,
       createChallenge,
       updateChallenge,
+      deleteChallenge,
       joinChallenge,
       inviteToChallenge,
       toggleCheckIn,
@@ -125,6 +128,7 @@ export function ChallengesProvider({ children }) {
       refresh,
       createChallenge,
       updateChallenge,
+      deleteChallenge,
       joinChallenge,
       inviteToChallenge,
       toggleCheckIn,

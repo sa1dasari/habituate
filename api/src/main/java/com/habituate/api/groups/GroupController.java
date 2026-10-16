@@ -3,6 +3,7 @@ package com.habituate.api.groups;
 import com.habituate.api.config.FirebaseAuthFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -48,6 +49,12 @@ public class GroupController {
     public GroupResponse updateGroup(
             HttpServletRequest req, @PathVariable Long groupId, @RequestBody CreateGroupRequest request) {
         return groupService.updateGroup(userId(req), groupId, request);
+    }
+
+    @DeleteMapping("/{groupId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteGroup(HttpServletRequest req, @PathVariable Long groupId) {
+        groupService.deleteGroup(userId(req), groupId);
     }
 
     @PostMapping("/{groupId}/invite")

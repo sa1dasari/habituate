@@ -13,7 +13,9 @@ import ChallengeDetailModal from '../components/ChallengeDetailModal';
 import AddFriendModal from '../components/AddFriendModal';
 import NotificationCenterModal from '../components/NotificationCenterModal';
 import { useAppTheme } from '../hooks/useAppTheme';
+import { useAuth } from '../hooks/useAuth';
 import { useGroups } from '../hooks/useGroups';
+import { useHabits } from '../hooks/useHabits';
 import { useChallenges } from '../hooks/useChallenges';
 import { useNotifications } from '../hooks/useNotifications';
 import { radii, spacing } from '../theme';
@@ -22,7 +24,9 @@ export default function CommunityScreen() {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
 
+  const { user } = useAuth();
   const { groups, loading: groupsLoading, refresh: refreshGroups } = useGroups();
+  const { toggleCheckIn: toggleHabitCheckIn, busy: habitsBusy } = useHabits();
   const {
     challenges,
     loading: challengesLoading,
@@ -47,6 +51,18 @@ export default function CommunityScreen() {
   // modal reflects the latest streak/progress after an action inside it.
   const selectedGroup = groups.find((g) => g.id === selectedGroupId) || null;
   const selectedChallenge = challenges.find((c) => c.id === selectedChallengeId) || null;
+
+  // Mirrors the fix in SharedHabitDetailModal — toggleHabitCheckIn only refreshes useHabits'
+  // own list, so the groups list (and this card's checkedInToday) needs its own refresh too.
+  const handleToggleGroupCheckIn = async (group) => {
+    if (!group.myHabitId) return;
+    try {
+      await toggleHabitCheckIn(group.myHabitId);
+      await refreshGroups();
+    } catch (err) {
+      Alert.alert('Could not update check-in', err instanceof Error ? err.message : 'Unknown error');
+    }
+  };
 
   const handleToggleCheckIn = async (challenge) => {
     const ok =
@@ -133,7 +149,11 @@ export default function CommunityScreen() {
             onPress={() => setCreateGroupVisible(true)}
           />
         ) : (
-          groups.map((group) => (
+          groups.map((group) => {
+            const myParticipant = (group.participants || []).find(
+              (p) => typeof p === 'object' && p && user && p.userId === user.uid
+            );
+            return (
             <SharedHabitCard
               key={group.id}
               name={group.name}
@@ -143,9 +163,14 @@ export default function CommunityScreen() {
               streakStatus={group.streakStatus}
               rule={group.rule}
               trackingMode={group.trackingMode}
+              myHabitId={group.myHabitId}
+              checkedInToday={myParticipant ? myParticipant.checkedInToday : false}
+              onToggleCheckIn={() => handleToggleGroupCheckIn(group)}
+              busy={habitsBusy}
               onPress={() => setSelectedGroupId(group.id)}
             />
-          ))
+            );
+          })
         )}
 
         <Pressable style={styles.ctaCard} onPress={() => setCreateGroupVisible(true)}>

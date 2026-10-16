@@ -66,6 +66,8 @@ export function GroupsProvider({ children }) {
 
   const updateGroup = useCallback((groupId, group) => run(() => api.updateGroup(groupId, group)), [run]);
 
+  const deleteGroup = useCallback((groupId) => run(() => api.deleteGroup(groupId)), [run]);
+
   const inviteToGroup = useCallback(
     (groupId, friendUserId) => runExclusive(groupId, () => api.inviteToGroup(groupId, friendUserId)),
     [runExclusive]
@@ -90,11 +92,25 @@ export function GroupsProvider({ children }) {
       refresh,
       createGroup,
       updateGroup,
+      deleteGroup,
       inviteToGroup,
       acceptInvite,
       nudge,
     }),
-    [groups, pendingInvites, loading, busy, error, refresh, createGroup, updateGroup, inviteToGroup, acceptInvite, nudge]
+    [
+      groups,
+      pendingInvites,
+      loading,
+      busy,
+      error,
+      refresh,
+      createGroup,
+      updateGroup,
+      deleteGroup,
+      inviteToGroup,
+      acceptInvite,
+      nudge,
+    ]
   );
 
   return createElement(GroupsContext.Provider, { value }, children);

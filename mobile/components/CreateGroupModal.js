@@ -30,12 +30,34 @@ const VISIBILITY_OPTIONS = [
 
 /** Dedicated create/edit flow. Pass `group` to edit an existing shared habit's settings
  * (reached from its detail modal, creator-only) — omit it for the "+ Create" flow. */
-export default function CreateGroupModal({ visible, onClose, group = null }) {
+export default function CreateGroupModal({ visible, onClose, onDeleted, group = null }) {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
-  const { busy, createGroup, updateGroup } = useGroups();
+  const { busy, createGroup, updateGroup, deleteGroup } = useGroups();
   const { habits } = useHabits();
   const isEditing = !!group;
+
+  const handleDelete = () => {
+    Alert.alert(
+      'Delete this shared habit?',
+      `This deletes "${group?.name}" for every member, not just you — there's no undo.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            const ok = await deleteGroup(group.id);
+            if (ok) {
+              onDeleted ? onDeleted() : onClose();
+            } else {
+              Alert.alert("Couldn't delete", 'Something went wrong — try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const [groupName, setGroupName] = useState('');
   const [selectedHabitId, setSelectedHabitId] = useState(null);
@@ -270,6 +292,13 @@ export default function CreateGroupModal({ visible, onClose, group = null }) {
           >
             <Text style={styles.primaryButtonText}>{isEditing ? 'Save changes' : 'Create'}</Text>
           </Pressable>
+
+          {isEditing ? (
+            <Pressable style={styles.deleteButton} disabled={busy} onPress={handleDelete}>
+              <MaterialCommunityIcons name="trash-can-outline" size={16} color={colors.atRisk} />
+              <Text style={styles.deleteButtonText}>Delete shared habit</Text>
+            </Pressable>
+          ) : null}
         </ScrollView>
       </SafeAreaView>
     </Modal>
@@ -347,6 +376,15 @@ function makeStyles(colors, typography) {
       marginBottom: spacing.md,
     },
     fullWidthButton: { marginTop: spacing.lg, alignSelf: 'stretch', alignItems: 'center' },
+    deleteButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.xs,
+      marginTop: spacing.lg,
+      paddingVertical: spacing.sm,
+    },
+    deleteButtonText: { fontSize: 13, fontWeight: '700', color: colors.atRisk },
     primaryButton: {
       backgroundColor: colors.accent,
       borderRadius: radii.pill,

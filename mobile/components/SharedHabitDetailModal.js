@@ -33,7 +33,7 @@ export default function SharedHabitDetailModal({ visible, group, onClose }) {
   const { colors, resolveStreakState, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const { user } = useAuth();
-  const { inviteToGroup, nudge, busy } = useGroups();
+  const { inviteToGroup, nudge, busy, refresh: refreshGroups } = useGroups();
   const { toggleCheckIn, busy: habitsBusy } = useHabits();
   const [inviteVisible, setInviteVisible] = useState(false);
   const [editVisible, setEditVisible] = useState(false);
@@ -52,10 +52,15 @@ export default function SharedHabitDetailModal({ visible, group, onClose }) {
     return ok;
   };
 
+  // toggleCheckIn only refreshes useHabits' own list — this modal's `group` prop comes from
+  // useGroups' separate list, which never hears about it otherwise. Without this refresh the
+  // button looked completely unresponsive: the check-in landed, but checkedInToday here never
+  // flipped, because group never got refetched.
   const handleToggleMyCheckIn = async () => {
     if (!group.myHabitId) return;
     try {
       await toggleCheckIn(group.myHabitId);
+      await refreshGroups();
     } catch (err) {
       Alert.alert('Could not update check-in', err instanceof Error ? err.message : 'Unknown error');
     }
@@ -196,7 +201,15 @@ export default function SharedHabitDetailModal({ visible, group, onClose }) {
         busy={busy}
         title={`Invite to ${group.name}`}
       />
-      <CreateGroupModal visible={editVisible} group={group} onClose={() => setEditVisible(false)} />
+      <CreateGroupModal
+        visible={editVisible}
+        group={group}
+        onClose={() => setEditVisible(false)}
+        onDeleted={() => {
+          setEditVisible(false);
+          onClose();
+        }}
+      />
     </Modal>
   );
 }

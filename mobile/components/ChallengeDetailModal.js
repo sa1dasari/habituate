@@ -209,7 +209,15 @@ export default function ChallengeDetailModal({ visible, challenge, onClose }) {
         busy={busy}
         title="Invite to challenge"
       />
-      <CreateChallengeModal visible={editVisible} challenge={challenge} onClose={() => setEditVisible(false)} />
+      <CreateChallengeModal
+        visible={editVisible}
+        challenge={challenge}
+        onClose={() => setEditVisible(false)}
+        onDeleted={() => {
+          setEditVisible(false);
+          onClose();
+        }}
+      />
     </Modal>
   );
 }

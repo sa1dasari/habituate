@@ -155,6 +155,29 @@ public class ChallengeService {
         return toResponse(challenge, userId, resolveZone(timezone));
     }
 
+    /** Creator-only — deletes the whole challenge for every participant, not just the
+     * creator's own participation, same single-owner tradeoff as Shared Habits and account
+     * deletion. Each other participant gets a best-effort notification first. */
+    @Transactional
+    public void delete(String userId, Long challengeId) {
+        Challenge challenge = challengeRepository.findById(challengeId)
+                .orElseThrow(() -> new EntityNotFoundException("Challenge not found: " + challengeId));
+        if (!userId.equals(challenge.getCreatedBy())) {
+            throw new ForbiddenException("Only the creator can delete this challenge");
+        }
+
+        List<String> otherParticipantIds = participantRepository.findByChallengeId(challengeId).stream()
+                .map(ChallengeParticipant::getUserId)
+                .filter(id -> !id.equals(userId))
+                .toList();
+        appNotificationService.notifyAll(otherParticipantIds, AppNotification.CHALLENGE_DELETED, "Challenge deleted",
+                "\"" + challenge.getName() + "\" was deleted by its creator", null, null, null);
+
+        participantRepository.deleteByChallengeId(challengeId);
+        checkInRepository.deleteByChallengeId(challengeId);
+        challengeRepository.deleteById(challengeId);
+    }
+
     @Transactional
     public ChallengeResponse join(String userId, Long challengeId, String timezone) {
         Challenge challenge = challengeRepository.findById(challengeId)

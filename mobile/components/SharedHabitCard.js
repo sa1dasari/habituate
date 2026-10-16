@@ -23,6 +23,10 @@ export default function SharedHabitCard({
   streakStatus = 'safe',
   rule = 'any_member',
   trackingMode = 'COOPERATIVE',
+  myHabitId = null,
+  checkedInToday = false,
+  onToggleCheckIn,
+  busy = false,
   onPress,
 }) {
   const { colors, resolveStreakState } = useAppTheme();
@@ -96,6 +100,25 @@ export default function SharedHabitCard({
           </View>
         ) : null}
       </View>
+
+      {myHabitId && onToggleCheckIn ? (
+        <Pressable
+          style={[styles.logButton, checkedInToday && styles.logButtonActive]}
+          disabled={busy}
+          accessibilityRole="button"
+          accessibilityLabel={checkedInToday ? 'Unlog today' : 'Check in today'}
+          onPress={onToggleCheckIn}
+        >
+          <MaterialCommunityIcons
+            name={checkedInToday ? 'check' : 'plus'}
+            size={16}
+            color={checkedInToday ? '#FFFFFF' : colors.accent}
+          />
+          <Text style={[styles.logButtonText, checkedInToday && styles.logButtonTextActive]}>
+            {checkedInToday ? 'Checked in today' : 'Check in today'}
+          </Text>
+        </Pressable>
+      ) : null}
     </Container>
   );
 }
@@ -193,5 +216,18 @@ function makeStyles(colors) {
       fontSize: 11,
       fontWeight: '700',
     },
+    logButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.xs,
+      backgroundColor: colors.accentSoft,
+      borderRadius: radii.pill,
+      paddingVertical: spacing.sm,
+      marginTop: spacing.md,
+    },
+    logButtonActive: { backgroundColor: colors.accent },
+    logButtonText: { fontSize: 13, fontWeight: '700', color: colors.accent },
+    logButtonTextActive: { color: '#FFFFFF' },
   });
 }

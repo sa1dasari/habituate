@@ -329,6 +329,22 @@ class ChallengeServiceTest {
     }
 
     @Test
+    void delete_onlyCreatorMayDelete() {
+        stubResolve();
+        ChallengeResponse created = challengeService.create("challenge-test-user-15a",
+                basicRequest("To Delete", 5, "2026-01-01", "2026-01-07", null), "UTC");
+        challengeId = created.id();
+
+        assertThatThrownBy(() -> challengeService.delete("challenge-test-user-15b", challengeId))
+                .isInstanceOf(ForbiddenException.class);
+
+        challengeService.delete("challenge-test-user-15a", challengeId);
+        assertThat(challengeService.listMine("challenge-test-user-15a", "UTC"))
+                .noneMatch(c -> c.id().equals(challengeId));
+        challengeId = null;
+    }
+
+    @Test
     void invite_rejectsNonFriend() {
         stubResolve();
         when(friendshipService.areFriends("challenge-test-user-11a", "challenge-test-user-11b")).thenReturn(false);

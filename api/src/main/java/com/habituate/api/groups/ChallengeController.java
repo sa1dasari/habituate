@@ -60,6 +60,12 @@ public class ChallengeController {
         return challengeService.update(userId(req), challengeId, request, timezone);
     }
 
+    @DeleteMapping("/{challengeId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(HttpServletRequest req, @PathVariable Long challengeId) {
+        challengeService.delete(userId(req), challengeId);
+    }
+
     @PostMapping("/{challengeId}/join")
     public ChallengeResponse join(
             HttpServletRequest req,

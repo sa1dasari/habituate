@@ -61,11 +61,33 @@ function daysBetween(fromKey, toKey) {
 
 /** Dedicated create/edit flow. Pass `challenge` to edit an existing one (reached from its
  * detail modal, creator-only) — omit it for the "+ Create" flow, never reached via Browse. */
-export default function CreateChallengeModal({ visible, onClose, challenge = null }) {
+export default function CreateChallengeModal({ visible, onClose, onDeleted, challenge = null }) {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
-  const { busy, createChallenge: createChallengeAction, updateChallenge } = useChallenges();
+  const { busy, createChallenge: createChallengeAction, updateChallenge, deleteChallenge } = useChallenges();
   const isEditing = !!challenge;
+
+  const handleDelete = () => {
+    Alert.alert(
+      'Delete this challenge?',
+      `This deletes "${challenge?.name}" for every participant, not just you — there's no undo.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            const ok = await deleteChallenge(challenge.id);
+            if (ok) {
+              onDeleted ? onDeleted() : onClose();
+            } else {
+              Alert.alert("Couldn't delete", 'Something went wrong — try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -138,13 +160,14 @@ export default function CreateChallengeModal({ visible, onClose, challenge = nul
       Alert.alert('Pick some days', 'Choose at least one day for a custom-days cadence.');
       return;
     }
+    const resolvedTargetCount = targetCount === '' || !targetCount ? 1 : targetCount;
     const payload = {
       name: trimmedName,
       description: description.trim() || null,
       icon,
       color,
       trackingMode,
-      targetCount,
+      targetCount: resolvedTargetCount,
       periodStart: basePeriodStart,
       periodEnd: openEnded ? null : periodEndPreview,
       visibility,
@@ -246,12 +269,28 @@ export default function CreateChallengeModal({ visible, onClose, challenge = nul
             ))}
           </View>
 
-          <View style={styles.row}>
-            <Text style={styles.inputLabel}>
-              {trackingMode === 'COUNT' ? 'Target (total amount)' : 'Target (days to hit)'}
-            </Text>
-            <NumberStepper value={targetCount} onChange={setTargetCount} min={1} max={MAX_TARGET_DAYS} label="target" />
-          </View>
+          {trackingMode === 'COUNT' ? (
+            <>
+              <Text style={styles.fieldLabel}>Target (total amount)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. 80"
+                placeholderTextColor={colors.textMuted}
+                value={String(targetCount)}
+                onChangeText={(text) => {
+                  const digits = text.replace(/[^0-9]/g, '');
+                  setTargetCount(digits ? Math.min(1000000, parseInt(digits, 10)) : '');
+                }}
+                onBlur={() => setTargetCount((current) => (current === '' ? 1 : current))}
+                keyboardType="number-pad"
+              />
+            </>
+          ) : (
+            <View style={styles.row}>
+              <Text style={styles.inputLabel}>Target (days to hit)</Text>
+              <NumberStepper value={targetCount} onChange={setTargetCount} min={1} max={MAX_TARGET_DAYS} label="target" />
+            </View>
+          )}
 
           <Text style={styles.fieldLabel}>Frequency cadence</Text>
           <View style={styles.presetRow}>
@@ -363,6 +402,13 @@ export default function CreateChallengeModal({ visible, onClose, challenge = nul
           <Pressable style={styles.primaryButton} disabled={busy} onPress={handleCreate}>
             <Text style={styles.primaryButtonText}>{isEditing ? 'Save changes' : 'Create & join'}</Text>
           </Pressable>
+
+          {isEditing ? (
+            <Pressable style={styles.deleteButton} disabled={busy} onPress={handleDelete}>
+              <MaterialCommunityIcons name="trash-can-outline" size={16} color={colors.atRisk} />
+              <Text style={styles.deleteButtonText}>Delete challenge</Text>
+            </Pressable>
+          ) : null}
         </ScrollView>
       </SafeAreaView>
     </Modal>
@@ -468,5 +514,14 @@ function makeStyles(colors, typography) {
       alignItems: 'center',
     },
     primaryButtonText: { fontSize: 13, fontWeight: '700', color: '#FFFFFF' },
+    deleteButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.xs,
+      marginTop: spacing.lg,
+      paddingVertical: spacing.sm,
+    },
+    deleteButtonText: { fontSize: 13, fontWeight: '700', color: colors.atRisk },
   });
 }

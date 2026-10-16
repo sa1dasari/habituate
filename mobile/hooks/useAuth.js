@@ -107,8 +107,25 @@ export function AuthProvider({ children }) {
     return unsubscribe;
   }, []);
 
-  const signIn = useCallback(async (email, password) => {
+  // `identifier` is whatever the login screen's single field holds — an email, used
+  // directly, or a username, resolved to its account's email first (Firebase's own
+  // sign-in call only ever takes an email, it has no username concept of its own).
+  const signIn = useCallback(async (identifier, password) => {
     setError(null);
+    let email = identifier;
+    if (!identifier.includes('@')) {
+      try {
+        const result = await api.resolveUsernameToEmail(identifier);
+        email = result.email;
+      } catch (err) {
+        setError(
+          err?.status === 404
+            ? 'No account found with that username.'
+            : 'Something went wrong. Please try again.'
+        );
+        throw err;
+      }
+    }
     try {
       await signInWithEmailAndPassword(auth, email, password);
     } catch (err) {

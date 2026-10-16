@@ -169,4 +169,15 @@ class UserProfileServiceTest {
         var selfSearch = userProfileService.searchByUsername(userId, "searchable");
         assertThat(selfSearch).noneMatch(r -> r.userId().equals(userId));
     }
+
+    @Test
+    void resolveEmailForUsername_emptyForUnknownUsername() {
+        assertThat(userProfileService.resolveEmailForUsername("definitely_not_a_real_username")).isEmpty();
+    }
+
+    @Test
+    void resolveEmailForUsername_emptyForBlank() {
+        assertThat(userProfileService.resolveEmailForUsername("")).isEmpty();
+        assertThat(userProfileService.resolveEmailForUsername(null)).isEmpty();
+    }
 }

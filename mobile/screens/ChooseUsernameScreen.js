@@ -96,9 +96,7 @@ export default function ChooseUsernameScreen({ onDone }) {
             <MaterialCommunityIcons name="at" size={28} color={colors.accent} />
           </View>
           <Text style={styles.title}>Choose a username</Text>
-          <Text style={styles.subtitle}>
-            Friends can find you by this to add you or share a habit — no need to know your email.
-          </Text>
+          <Text style={styles.subtitle}>Friends can find you by this to add you or share a habit.</Text>
 
           <View style={styles.inputRow}>
             <Text style={styles.atSign}>@</Text>

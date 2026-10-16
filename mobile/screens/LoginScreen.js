@@ -70,7 +70,7 @@ export default function LoginScreen({ onGoToSignup }) {
           </View>
 
           <View style={styles.form}>
-            <Text style={styles.label}>Email</Text>
+            <Text style={styles.label}>Username or email</Text>
             <TextInput
               style={styles.input}
               value={email}
@@ -79,7 +79,7 @@ export default function LoginScreen({ onGoToSignup }) {
               autoCorrect={false}
               keyboardType="email-address"
               returnKeyType="next"
-              placeholder="you@example.com"
+              placeholder="yourname or you@example.com"
               placeholderTextColor={colors.textMuted}
             />
 

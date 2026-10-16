@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Tex
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import api from '../api/client';
+import AvatarImage from './AvatarImage';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useFriends } from '../hooks/useFriends';
 import { radii, shadow, spacing } from '../theme';
@@ -143,7 +144,7 @@ export default function AddFriendModal({ visible, onClose }) {
                 const alreadySent = sentTo.has(result.username);
                 return (
                   <View key={result.userId} style={styles.resultRow}>
-                    <MaterialCommunityIcons name="account-circle-outline" size={22} color={colors.textSecondary} />
+                    <AvatarImage uri={result.photoUrl} name={result.username} size={28} fontSize={12} />
                     <Text style={styles.resultName} numberOfLines={1}>
                       @{result.username}
                     </Text>

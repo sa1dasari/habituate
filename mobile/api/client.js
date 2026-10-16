@@ -272,6 +272,11 @@ export const api = {
 
   searchUsers: (q) => request(`/api/users/search?q=${encodeURIComponent(q)}`),
 
+  // Public endpoint (no auth token needed/sent) — lets the login screen accept a
+  // username in place of an email before the user has signed in at all.
+  resolveUsernameToEmail: (username) =>
+    request(`/api/auth/username-email?username=${encodeURIComponent(username)}`),
+
   listNotifications: () => request('/api/notifications'),
 
   getUnreadNotificationCount: () => request('/api/notifications/unread-count'),

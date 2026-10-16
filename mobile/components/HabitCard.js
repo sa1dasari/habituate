@@ -157,12 +157,21 @@ export default function HabitCard({
             <Text style={styles.name} numberOfLines={1}>
               {name}
             </Text>
-            <Text
-              style={[styles.subtitle, progressComplete ? styles.subtitleComplete : null]}
-              numberOfLines={1}
-            >
-              {subtitle}
-            </Text>
+            <View style={styles.subtitleRow}>
+              {time ? (
+                <MaterialCommunityIcons
+                  name={reminderEnabled ? 'bell-outline' : 'clock-outline'}
+                  size={11}
+                  color={progressComplete ? colors.safe : colors.textMuted}
+                />
+              ) : null}
+              <Text
+                style={[styles.subtitle, progressComplete ? styles.subtitleComplete : null]}
+                numberOfLines={1}
+              >
+                {subtitle}
+              </Text>
+            </View>
 
             {showBar ? (
               <View style={styles.barTrack}>
@@ -483,10 +492,16 @@ function makeStyles(colors, typography) {
   name: {
     ...typography.cardTitle,
   },
+  subtitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
   subtitle: {
     fontSize: 13,
     color: colors.textSecondary,
-    marginTop: 2,
+    flexShrink: 1,
   },
   subtitleComplete: {
     color: colors.safe,

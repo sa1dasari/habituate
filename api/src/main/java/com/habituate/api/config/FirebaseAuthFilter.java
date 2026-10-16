@@ -42,8 +42,11 @@ public class FirebaseAuthFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
-        // Health check is always public.
-        return path.equals("/api/health") || path.startsWith("/actuator/");
+        // Health check is always public. username-email is too, deliberately — it's how the
+        // login screen turns a typed username into the email Firebase's own sign-in call
+        // needs, so it has to be reachable *before* the user has a token to send.
+        return path.equals("/api/health") || path.startsWith("/actuator/")
+                || path.equals("/api/auth/username-email");
     }
 
     @Override

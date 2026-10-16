@@ -147,8 +147,43 @@ public class UserProfileService {
         }
         return userRepository.findTop10ByUsernameContainingIgnoreCaseAndIdNot(trimmed, userId).stream()
                 .filter(u -> u.getUsername() != null)
-                .map(u -> new UserSearchResult(u.getId(), u.getUsername()))
+                .map(u -> new UserSearchResult(u.getId(), u.getUsername(), photoUrlQuietly(u.getId())))
                 .toList();
+    }
+
+    /** The only Firebase Admin lookup in this otherwise local-data-only service — photoURL has
+     * no local column (Firebase Auth owns it, same as displayName), and result sets here are
+     * capped at 10, so a per-row lookup is cheap enough not to warrant caching. Never fails the
+     * search itself: a lookup error just means that one row shows no picture. */
+    private String photoUrlQuietly(String uid) {
+        if (FirebaseApp.getApps().isEmpty()) {
+            return null;
+        }
+        try {
+            return FirebaseAuth.getInstance().getUser(uid).getPhotoUrl();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** Public (see FirebaseAuthFilter) — the login screen needs this *before* the user has a
+     * token, to turn a typed username into the email Firebase's own sign-in call requires.
+     * Returns empty for an unknown username or an account with no email on file, rather than
+     * distinguishing the two — not confirming *why* a login identifier failed is standard
+     * practice, same reasoning as a generic "invalid email or password" message. */
+    public java.util.Optional<String> resolveEmailForUsername(String username) {
+        if (username == null || username.isBlank() || FirebaseApp.getApps().isEmpty()) {
+            return java.util.Optional.empty();
+        }
+        return userRepository.findByUsernameIgnoreCase(username.trim())
+                .flatMap(user -> {
+                    try {
+                        String email = FirebaseAuth.getInstance().getUser(user.getId()).getEmail();
+                        return java.util.Optional.ofNullable(email);
+                    } catch (Exception e) {
+                        return java.util.Optional.empty();
+                    }
+                });
     }
 
     private String normalizeUsername(String value) {

@@ -12,6 +12,7 @@ import SharedHabitDetailModal from '../components/SharedHabitDetailModal';
 import ChallengeDetailModal from '../components/ChallengeDetailModal';
 import AddFriendModal from '../components/AddFriendModal';
 import NotificationCenterModal from '../components/NotificationCenterModal';
+import GroupFreezeInfoModal from '../components/GroupFreezeInfoModal';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useAuth } from '../hooks/useAuth';
 import { useGroups } from '../hooks/useGroups';
@@ -46,6 +47,7 @@ export default function CommunityScreen() {
   const [selectedChallengeId, setSelectedChallengeId] = useState(null);
   const [friendsVisible, setFriendsVisible] = useState(false);
   const [notificationsVisible, setNotificationsVisible] = useState(false);
+  const [freezeInfoVisible, setFreezeInfoVisible] = useState(false);
   const { unreadCount } = useNotifications();
 
   const loading = groupsLoading || challengesLoading;
@@ -117,7 +119,17 @@ export default function CommunityScreen() {
         </View>
 
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Shared Habits</Text>
+          <View style={styles.sectionTitleRow}>
+            <Text style={styles.sectionTitle}>Shared Habits</Text>
+            <Pressable
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Streak freezes"
+              onPress={() => setFreezeInfoVisible(true)}
+            >
+              <MaterialCommunityIcons name="snowflake" size={18} color={colors.frozen} />
+            </Pressable>
+          </View>
           <View style={styles.sectionActions}>
             <Pressable
               style={styles.createBtn}
@@ -277,6 +289,7 @@ export default function CommunityScreen() {
         onOpenGroup={setSelectedGroupId}
         onOpenChallenge={setSelectedChallengeId}
       />
+      <GroupFreezeInfoModal visible={freezeInfoVisible} onClose={() => setFreezeInfoVisible(false)} />
     </SafeAreaView>
   );
 }
@@ -345,6 +358,7 @@ function makeStyles(colors, typography) {
       justifyContent: 'space-between',
       marginBottom: spacing.md,
     },
+    sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
     sectionTitle: { ...typography.sectionTitle, fontSize: 18 },
     sectionActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
     sectionLink: { fontSize: 14, fontWeight: '600', color: colors.accent },

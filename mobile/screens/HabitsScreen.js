@@ -32,6 +32,7 @@ import {
 } from '../utils/celebration';
 import { useCelebration } from '../hooks/useCelebration';
 import { useFeaturedGoalReviews } from '../hooks/useFeaturedGoalReviews';
+import { useRegisterScrollToTop } from '../hooks/useRegisterScrollToTop';
 import { useGoals } from '../hooks/useGoals';
 import { summarizeHabits, useHabits } from '../hooks/useHabits';
 import { useAppTheme } from '../hooks/useAppTheme';
@@ -150,7 +151,7 @@ export default function HabitsScreen() {
   const [showShieldInfo, setShowShieldInfo] = useState(false);
   const [goalForm, setGoalForm] = useState(emptyGoalForm);
   const [showGoalForm, setShowGoalForm] = useState(false);
-  const scrollRef = useRef(null);
+  const scrollRef = useRegisterScrollToTop('Habits');
   const goalsSectionY = useRef(0);
 
   const isEditing = form.id != null;

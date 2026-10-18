@@ -18,11 +18,13 @@ import { useGroups } from '../hooks/useGroups';
 import { useHabits } from '../hooks/useHabits';
 import { useChallenges } from '../hooks/useChallenges';
 import { useNotifications } from '../hooks/useNotifications';
+import { useRegisterScrollToTop } from '../hooks/useRegisterScrollToTop';
 import { radii, spacing } from '../theme';
 
 export default function CommunityScreen() {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
+  const scrollRef = useRegisterScrollToTop('Community');
 
   const { user } = useAuth();
   const { groups, loading: groupsLoading, refresh: refreshGroups } = useGroups();
@@ -79,6 +81,7 @@ export default function CommunityScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={styles.container}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} />}
       >

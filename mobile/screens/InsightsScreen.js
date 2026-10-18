@@ -7,6 +7,7 @@ import ConsistencyDetailModal from '../components/ConsistencyDetailModal';
 import AskHabituateModal from '../components/AskHabituateModal';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useHabits } from '../hooks/useHabits';
+import { useRegisterScrollToTop } from '../hooks/useRegisterScrollToTop';
 import {
   CONSISTENCY_PERIODS,
   computeConsistency,
@@ -35,6 +36,7 @@ export default function InsightsScreen() {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const insets = useSafeAreaInsets();
+  const scrollRef = useRegisterScrollToTop('Insights');
 
   const { habits, refresh } = useHabits();
   const [period, setPeriod] = useState('weekly');
@@ -61,6 +63,7 @@ export default function InsightsScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={[styles.container, { paddingBottom: spacing.xl + insets.bottom }]}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />

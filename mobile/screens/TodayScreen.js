@@ -18,6 +18,7 @@ import GoalsSummaryCard from '../components/GoalsSummaryCard';
 import AvatarImage from '../components/AvatarImage';
 import { useAuth } from '../hooks/useAuth';
 import { useCelebration } from '../hooks/useCelebration';
+import { useRegisterScrollToTop } from '../hooks/useRegisterScrollToTop';
 import { useFeaturedGoalReviews } from '../hooks/useFeaturedGoalReviews';
 import { useGoals } from '../hooks/useGoals';
 import { summarizeHabits, useHabits } from '../hooks/useHabits';
@@ -62,6 +63,7 @@ export default function TodayScreen() {
   const navigation = useNavigation();
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
+  const scrollRef = useRegisterScrollToTop('Today');
   const {
     habits,
     loading,
@@ -302,6 +304,7 @@ export default function TodayScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={[styles.container, { paddingBottom: spacing.xl + insets.bottom }]}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} />}
       >

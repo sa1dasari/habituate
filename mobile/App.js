@@ -26,6 +26,7 @@ import { ThemeProvider, useAppTheme } from './hooks/useAppTheme';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { usePushToken } from './hooks/usePushToken';
 import api from './api/client';
+import { scrollToTop } from './utils/scrollToTopRegistry';
 import {
   ChooseUsernameScreen,
   CommunityScreen,
@@ -80,10 +81,26 @@ function Tabs() {
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600', lineHeight: 14 },
       })}
     >
-      <Tab.Screen name="Today" component={TodayScreen} />
-      <Tab.Screen name="Habits" component={HabitsScreen} />
-      <Tab.Screen name="Insights" component={InsightsScreen} />
-      <Tab.Screen name="Community" component={CommunityScreen} />
+      <Tab.Screen
+        name="Today"
+        component={TodayScreen}
+        listeners={{ tabPress: () => scrollToTop('Today') }}
+      />
+      <Tab.Screen
+        name="Habits"
+        component={HabitsScreen}
+        listeners={{ tabPress: () => scrollToTop('Habits') }}
+      />
+      <Tab.Screen
+        name="Insights"
+        component={InsightsScreen}
+        listeners={{ tabPress: () => scrollToTop('Insights') }}
+      />
+      <Tab.Screen
+        name="Community"
+        component={CommunityScreen}
+        listeners={{ tabPress: () => scrollToTop('Community') }}
+      />
       <Tab.Screen
         name="Profile"
         component={ProfileStack}
@@ -100,6 +117,7 @@ function Tabs() {
               <MaterialCommunityIcons name={TAB_ICONS.Profile} size={size} color={color} />
             ),
         }}
+        listeners={{ tabPress: () => scrollToTop('Profile') }}
       />
     </Tab.Navigator>
   );

@@ -11,6 +11,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useHabits } from '../hooks/useHabits';
 import { useGroupActivity } from '../hooks/useGroupActivity';
 import { unregisterPushToken } from '../hooks/usePushToken';
+import { useRegisterScrollToTop } from '../hooks/useRegisterScrollToTop';
 import { computeConsistency } from '../utils/consistency';
 import { timeAgo } from '../utils/date';
 import { radii, shadow, spacing } from '../theme';
@@ -49,6 +50,7 @@ export default function ProfileScreen() {
   const navigation = useNavigation();
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
+  const scrollRef = useRegisterScrollToTop('Profile');
   const { user, signOut } = useAuth();
   const { habits } = useHabits();
   const { activity, loading: activityLoading, toggleCheer } = useGroupActivity();
@@ -80,7 +82,7 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.container}>
         <View style={styles.header}>
           <View style={styles.headerText}>
             <Text style={styles.title}>Profile</Text>

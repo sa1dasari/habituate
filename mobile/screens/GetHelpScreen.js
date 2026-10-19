@@ -25,8 +25,8 @@ const FAQS = [
   },
 ];
 
-// TODO: confirm the real support inbox before store submission.
-const SUPPORT_EMAIL = 'support@habituate.app';
+// A real inbox the user checks — swap for a dedicated support address before store submission.
+const SUPPORT_EMAIL = 'sawandasari2@gmail.com';
 
 export default function GetHelpScreen({ navigation }) {
   const { colors, typography } = useAppTheme();

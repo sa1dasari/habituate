@@ -155,14 +155,20 @@ export default function CommunityScreen() {
             <ActivityIndicator size="small" color={colors.accent} />
           </View>
         ) : groups.length === 0 ? (
-          <EmptyCard
-            styles={styles}
-            iconColor={colors.textMuted}
-            icon="account-group-outline"
-            title="No shared habits yet"
-            body="Create one with a friend to start a group streak."
-            onPress={() => setCreateGroupVisible(true)}
-          />
+          <>
+            <EmptyCard
+              styles={styles}
+              iconColor={colors.textMuted}
+              icon="account-group-outline"
+              title="No shared habits yet"
+              body="Track a habit together with a friend and keep each other going."
+              onPress={() => setCreateGroupVisible(true)}
+            />
+            <Pressable style={styles.friendPrompt} onPress={() => setFriendsVisible(true)}>
+              <MaterialCommunityIcons name="account-plus-outline" size={15} color={colors.accent} />
+              <Text style={styles.friendPromptText}>No one to share with yet? Add a friend</Text>
+            </Pressable>
+          </>
         ) : (
           groups.map((group) => {
             const myParticipant = (group.participants || []).find(
@@ -231,7 +237,7 @@ export default function CommunityScreen() {
             iconColor={colors.textMuted}
             icon="trophy-outline"
             title="No challenges yet"
-            body="Browse public challenges or start your own."
+            body="Join a public challenge, or start one for you and your friends."
             onPress={() => setChallengesModalVisible(true)}
           />
         ) : (
@@ -383,6 +389,15 @@ function makeStyles(colors, typography) {
     },
     emptyTitle: { ...typography.cardTitle, marginTop: spacing.sm, marginBottom: spacing.xs },
     emptyBody: { ...typography.meta, textAlign: 'center' },
+    friendPrompt: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.xs,
+      paddingVertical: spacing.sm,
+      marginBottom: spacing.md,
+    },
+    friendPromptText: { fontSize: 13, fontWeight: '600', color: colors.accent },
     ctaCard: {
       flexDirection: 'row',
       alignItems: 'center',

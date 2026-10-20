@@ -67,6 +67,7 @@ export default function CreateGroupModal({ visible, onClose, onDeleted, group = 
   const [visibilityLevel, setVisibilityLevel] = useState('FULL_DETAILS');
   const [nudgesEnabled, setNudgesEnabled] = useState(true);
   const [skipDaysPerMonth, setSkipDaysPerMonth] = useState(1);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const reset = () => {
     setGroupName('');
@@ -77,6 +78,7 @@ export default function CreateGroupModal({ visible, onClose, onDeleted, group = 
     setVisibilityLevel('FULL_DETAILS');
     setNudgesEnabled(true);
     setSkipDaysPerMonth(1);
+    setAdvancedOpen(false);
   };
 
   useEffect(() => {
@@ -245,32 +247,8 @@ export default function CreateGroupModal({ visible, onClose, onDeleted, group = 
                   </Pressable>
                 ))}
               </View>
-
-              <View style={styles.row}>
-                <Text style={styles.inputLabel}>Skip days allowed a month</Text>
-                <ScrubberInput value={skipDaysPerMonth} onChange={setSkipDaysPerMonth} min={0} max={3} label="skip days" />
-              </View>
             </>
           ) : null}
-
-          <Text style={styles.fieldLabel}>Privacy & transparency</Text>
-          {VISIBILITY_OPTIONS.map((option) => (
-            <Pressable
-              key={option.value}
-              style={[styles.optionRow, visibilityLevel === option.value && styles.optionRowActive]}
-              onPress={() => setVisibilityLevel(option.value)}
-            >
-              <MaterialCommunityIcons
-                name={visibilityLevel === option.value ? 'radiobox-marked' : 'radiobox-blank'}
-                size={18}
-                color={visibilityLevel === option.value ? colors.accent : colors.textMuted}
-              />
-              <View style={styles.optionText}>
-                <Text style={styles.optionLabel}>{option.label}</Text>
-                <Text style={styles.optionHint}>{option.hint}</Text>
-              </View>
-            </Pressable>
-          ))}
 
           <View style={styles.switchRow}>
             <View style={styles.optionText}>
@@ -284,6 +262,45 @@ export default function CreateGroupModal({ visible, onClose, onDeleted, group = 
               thumbColor={nudgesEnabled ? colors.accent : '#FFFFFF'}
             />
           </View>
+
+          <Pressable style={styles.advancedToggle} onPress={() => setAdvancedOpen((v) => !v)}>
+            <Text style={styles.advancedToggleText}>Advanced settings</Text>
+            <MaterialCommunityIcons
+              name={advancedOpen ? 'chevron-up' : 'chevron-down'}
+              size={18}
+              color={colors.textSecondary}
+            />
+          </Pressable>
+
+          {advancedOpen ? (
+            <View style={styles.advancedBody}>
+              {trackingMode === 'COOPERATIVE' ? (
+                <View style={styles.row}>
+                  <Text style={styles.inputLabel}>Skip days allowed a month</Text>
+                  <ScrubberInput value={skipDaysPerMonth} onChange={setSkipDaysPerMonth} min={0} max={3} label="skip days" />
+                </View>
+              ) : null}
+
+              <Text style={styles.fieldLabel}>Privacy & transparency</Text>
+              {VISIBILITY_OPTIONS.map((option) => (
+                <Pressable
+                  key={option.value}
+                  style={[styles.optionRow, visibilityLevel === option.value && styles.optionRowActive]}
+                  onPress={() => setVisibilityLevel(option.value)}
+                >
+                  <MaterialCommunityIcons
+                    name={visibilityLevel === option.value ? 'radiobox-marked' : 'radiobox-blank'}
+                    size={18}
+                    color={visibilityLevel === option.value ? colors.accent : colors.textMuted}
+                  />
+                  <View style={styles.optionText}>
+                    <Text style={styles.optionLabel}>{option.label}</Text>
+                    <Text style={styles.optionHint}>{option.hint}</Text>
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
 
           <Pressable
             style={[styles.primaryButton, styles.fullWidthButton]}
@@ -375,6 +392,15 @@ function makeStyles(colors, typography) {
       marginTop: spacing.sm,
       marginBottom: spacing.md,
     },
+    advancedToggle: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: spacing.sm + 2,
+      marginTop: spacing.sm,
+    },
+    advancedToggleText: { fontSize: 13, fontWeight: '700', color: colors.textSecondary },
+    advancedBody: { marginTop: spacing.xs },
     fullWidthButton: { marginTop: spacing.lg, alignSelf: 'stretch', alignItems: 'center' },
     deleteButton: {
       flexDirection: 'row',

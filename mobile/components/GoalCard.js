@@ -4,7 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { daysLeftInPeriod } from '../utils/cadence';
 import { useAppTheme } from '../hooks/useAppTheme';
-import { gradients, radii, shadow, spacing } from '../theme';
+import { fonts, gradients, radii, shadow, spacing } from '../theme';
 
 const PERIOD_NOUN = { WEEKLY: 'this week', MONTHLY: 'this month' };
 
@@ -196,12 +196,13 @@ function makeStyles(colors, typography) {
     marginTop: spacing.sm,
   },
   progressText: {
+    fontFamily: fonts.regular,
     fontSize: 13,
     color: colors.textSecondary,
   },
   progressTextComplete: {
+    fontFamily: fonts.semiBold,
     color: colors.safe,
-    fontWeight: '600',
   },
   daysLeft: {
     ...typography.meta,
@@ -225,6 +226,7 @@ function makeStyles(colors, typography) {
     borderRadius: radii.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
+    fontFamily: fonts.regular,
     fontSize: 13,
     color: colors.textPrimary,
     backgroundColor: colors.background,
@@ -236,8 +238,8 @@ function makeStyles(colors, typography) {
     backgroundColor: colors.accent,
   },
   amountButtonText: {
+    fontFamily: fonts.bold,
     fontSize: 13,
-    fontWeight: '700',
     color: '#FFFFFF',
   },
   stepper: {
@@ -283,7 +285,7 @@ function makeStyles(colors, typography) {
   },
   primaryBtnText: {
     color: '#FFFFFF',
-    fontWeight: '700',
+    fontFamily: fonts.bold,
     fontSize: 13,
   },
   secondaryBtn: {
@@ -294,7 +296,7 @@ function makeStyles(colors, typography) {
   },
     secondaryBtnText: {
       color: colors.textSecondary,
-      fontWeight: '600',
+      fontFamily: fonts.semiBold,
       fontSize: 13,
     },
   });

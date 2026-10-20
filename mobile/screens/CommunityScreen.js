@@ -194,17 +194,6 @@ export default function CommunityScreen() {
           })
         )}
 
-        <Pressable style={styles.ctaCard} onPress={() => setCreateGroupVisible(true)}>
-          <View style={styles.ctaIcon}>
-            <MaterialCommunityIcons name="account-group-outline" size={20} color={colors.accent} />
-          </View>
-          <View style={styles.ctaText}>
-            <Text style={styles.ctaTitle}>Create a Shared Habit</Text>
-            <Text style={styles.ctaBody}>Invite a friend to track it together</Text>
-          </View>
-          <MaterialCommunityIcons name="chevron-right" size={22} color={colors.textMuted} />
-        </Pressable>
-
         <View style={[styles.sectionHeader, styles.laterSection]}>
           <Text style={styles.sectionTitle}>Challenges</Text>
           <View style={styles.sectionActions}>
@@ -262,16 +251,6 @@ export default function CommunityScreen() {
           ))
         )}
 
-        <Pressable style={styles.ctaCard} onPress={() => setCreateChallengeVisible(true)}>
-          <View style={styles.ctaIcon}>
-            <MaterialCommunityIcons name="trophy-outline" size={20} color={colors.accent} />
-          </View>
-          <View style={styles.ctaText}>
-            <Text style={styles.ctaTitle}>Create or Join Challenge</Text>
-            <Text style={styles.ctaBody}>Invite friends to a new goal</Text>
-          </View>
-          <MaterialCommunityIcons name="chevron-right" size={22} color={colors.textMuted} />
-        </Pressable>
       </ScrollView>
 
       <GroupsManageModal visible={groupsModalVisible} onClose={() => setGroupsModalVisible(false)} />
@@ -398,25 +377,5 @@ function makeStyles(colors, typography) {
       marginBottom: spacing.md,
     },
     friendPromptText: { fontSize: 13, fontWeight: '600', color: colors.accent },
-    ctaCard: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.md,
-      backgroundColor: colors.surface,
-      borderRadius: radii.lg,
-      padding: spacing.lg,
-      marginTop: spacing.sm,
-    },
-    ctaIcon: {
-      width: 40,
-      height: 40,
-      borderRadius: radii.md,
-      backgroundColor: colors.accentSoft,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    ctaText: { flex: 1 },
-    ctaTitle: { fontSize: 14, fontWeight: '700', color: colors.textPrimary },
-    ctaBody: { ...typography.meta, marginTop: 2 },
   });
 }

@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import ProgressRing from '../components/ProgressRing';
 import ConsistencyDetailModal from '../components/ConsistencyDetailModal';
@@ -32,7 +33,7 @@ const PERIOD_TITLES = {
  * opens AskHabituateModal — SKILLS.md Phase 10's full replacement for
  * pattern detection.
  */
-export default function InsightsScreen() {
+export default function InsightsScreen({ navigation, route }) {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const insets = useSafeAreaInsets();
@@ -59,6 +60,17 @@ export default function InsightsScreen() {
   }, [refresh]);
 
   const trend = consistency.trendDelta;
+
+  // Coming from Today's "Ask Habituate" teaser — open the chat directly
+  // instead of landing on the Insights tab and making the user find it again.
+  useFocusEffect(
+    useCallback(() => {
+      if (!route.params?.openCoach) return;
+      setCoachInitialQuestion(null);
+      setCoachVisible(true);
+      navigation.setParams({ openCoach: undefined });
+    }, [route.params?.openCoach, navigation])
+  );
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>

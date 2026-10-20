@@ -400,7 +400,7 @@ export default function TodayScreen() {
           style={({ pressed }) => [styles.coachTeaser, pressed ? styles.coachTeaserPressed : null]}
           accessibilityRole="button"
           accessibilityLabel="Ask Habituate"
-          onPress={() => navigation.navigate('Insights')}
+          onPress={() => navigation.navigate('Insights', { openCoach: true })}
         >
           <MaterialCommunityIcons name="chat-processing-outline" size={18} color={colors.accent} />
           <Text style={styles.coachTeaserText}>Ask Habituate anything about your progress</Text>

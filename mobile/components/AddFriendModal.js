@@ -25,7 +25,8 @@ const MODE_OPTIONS = [
 export default function AddFriendModal({ visible, onClose }) {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
-  const { pendingRequests, busy, sendRequest, sendRequestByUsername, acceptRequest, declineRequest } = useFriends();
+  const { friends, pendingRequests, busy, sendRequest, sendRequestByUsername, acceptRequest, declineRequest } =
+    useFriends();
   const [mode, setMode] = useState('username');
   const [email, setEmail] = useState('');
   const [query, setQuery] = useState('');
@@ -105,7 +106,26 @@ export default function AddFriendModal({ visible, onClose }) {
         </View>
 
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          <Text style={styles.label}>Add a friend</Text>
+          <Text style={styles.label}>Your friends</Text>
+          {friends.length === 0 ? (
+            <Text style={styles.hint}>No friends yet — search for one below to get started.</Text>
+          ) : (
+            friends.map((friend) => (
+              <View key={friend.id} style={styles.requestRow}>
+                <AvatarImage
+                  uri={friend.otherUserPhotoUrl}
+                  name={friend.otherUserName || friend.otherUserEmail}
+                  size={28}
+                  fontSize={12}
+                />
+                <Text style={[styles.requestName, { marginLeft: spacing.sm }]} numberOfLines={1}>
+                  {friend.otherUserName || friend.otherUserEmail}
+                </Text>
+              </View>
+            ))
+          )}
+
+          <Text style={[styles.label, styles.sectionSpacing]}>Add a friend</Text>
 
           <View style={styles.modeRow}>
             {MODE_OPTIONS.map((option) => (
@@ -185,7 +205,13 @@ export default function AddFriendModal({ visible, onClose }) {
               <Text style={[styles.label, styles.sectionSpacing]}>Pending requests</Text>
               {pendingRequests.map((request) => (
                 <View key={request.id} style={styles.requestRow}>
-                  <Text style={styles.requestName} numberOfLines={1}>
+                  <AvatarImage
+                    uri={request.otherUserPhotoUrl}
+                    name={request.otherUserName || request.otherUserEmail}
+                    size={28}
+                    fontSize={12}
+                  />
+                  <Text style={[styles.requestName, { marginLeft: spacing.sm }]} numberOfLines={1}>
                     {request.otherUserName || request.otherUserEmail}
                   </Text>
                   <View style={styles.requestActions}>

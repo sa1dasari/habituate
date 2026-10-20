@@ -15,7 +15,8 @@ class AppNotificationServiceTest {
 
     private static final List<String> TEST_USER_IDS = List.of(
             "notification-test-user-1", "notification-test-user-2", "notification-test-user-2b",
-            "notification-test-user-3", "notification-test-user-3b", "notification-test-user-4");
+            "notification-test-user-3", "notification-test-user-3b",
+            "notification-test-user-4", "notification-test-user-4b");
 
     @Autowired
     private AppNotificationService appNotificationService;
@@ -96,6 +97,29 @@ class AppNotificationServiceTest {
 
             appNotificationService.markRead(userId, notificationId);
             assertThat(appNotificationService.unreadCount(userId)).isEqualTo(0);
+        } finally {
+            deleteAllFor(otherUserId);
+        }
+    }
+
+    @Test
+    void delete_onlyAffectsOwnNotification() {
+        userId = "notification-test-user-4";
+        String otherUserId = "notification-test-user-4b";
+
+        try {
+            appNotificationService.notify(userId, AppNotification.NUDGE, "Nudge", "Body", null, null, null);
+            appNotificationService.notify(otherUserId, AppNotification.NUDGE, "Nudge", "Body", null, null, null);
+
+            Long notificationId = appNotificationService.listRecent(userId).get(0).id();
+            Long otherNotificationId = appNotificationService.listRecent(otherUserId).get(0).id();
+
+            // Attempting to delete someone else's notification must be a silent no-op.
+            appNotificationService.delete(userId, otherNotificationId);
+            assertThat(appNotificationService.listRecent(otherUserId)).hasSize(1);
+
+            appNotificationService.delete(userId, notificationId);
+            assertThat(appNotificationService.listRecent(userId)).isEmpty();
         } finally {
             deleteAllFor(otherUserId);
         }

@@ -12,7 +12,7 @@ import SharedHabitDetailModal from '../components/SharedHabitDetailModal';
 import ChallengeDetailModal from '../components/ChallengeDetailModal';
 import AddFriendModal from '../components/AddFriendModal';
 import NotificationCenterModal from '../components/NotificationCenterModal';
-import GroupFreezeInfoModal from '../components/GroupFreezeInfoModal';
+import ProtectionInfoModal from '../components/ProtectionInfoModal';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useAuth } from '../hooks/useAuth';
 import { useGroups } from '../hooks/useGroups';
@@ -274,7 +274,11 @@ export default function CommunityScreen() {
         onOpenGroup={setSelectedGroupId}
         onOpenChallenge={setSelectedChallengeId}
       />
-      <GroupFreezeInfoModal visible={freezeInfoVisible} onClose={() => setFreezeInfoVisible(false)} />
+      <ProtectionInfoModal
+        visible={freezeInfoVisible}
+        initialTab="freeze"
+        onClose={() => setFreezeInfoVisible(false)}
+      />
     </SafeAreaView>
   );
 }

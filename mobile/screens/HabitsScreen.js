@@ -17,7 +17,7 @@ import Dropdown from '../components/Dropdown';
 import GoalCard from '../components/GoalCard';
 import HabitCard from '../components/HabitCard';
 import ScrubberInput from '../components/ScrubberInput';
-import ShieldInfoModal from '../components/ShieldInfoModal';
+import ProtectionInfoModal from '../components/ProtectionInfoModal';
 import TimePicker from '../components/TimePicker';
 import {
   DEFAULT_HABIT_CATEGORY,
@@ -543,7 +543,11 @@ export default function HabitsScreen() {
           busy={busy}
         />
 
-        <ShieldInfoModal visible={showShieldInfo} onClose={() => setShowShieldInfo(false)} />
+        <ProtectionInfoModal
+          visible={showShieldInfo}
+          initialTab="shield"
+          onClose={() => setShowShieldInfo(false)}
+        />
 
         {showForm ? (
           <View style={styles.formCard}>

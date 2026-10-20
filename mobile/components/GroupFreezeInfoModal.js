@@ -8,23 +8,23 @@ import { radii, shadow, spacing } from '../theme';
 const RULES = [
   {
     icon: 'calendar-remove-outline',
-    title: 'A day doesn\'t qualify',
-    body: "Depending on the group's streak rule, a day fails to qualify when some (Any member) or all (All members) of the group don't check in.",
+    title: 'When a day doesn\'t qualify',
+    body: "Depending on your group's streak rule, a day fails to qualify if some (Any member) or all (All members) of you miss checking in.",
   },
   {
     icon: 'snowflake',
     title: 'Automatic protection',
-    body: "If a day doesn't qualify, the group's streak isn't reset right away — a freeze is applied automatically overnight if one is still available, and the day shows as frozen instead of broken.",
+    body: "If a day doesn't qualify, your group's streak isn't reset right away — a freeze is applied automatically overnight if one's still available, and the day shows as frozen instead of broken.",
   },
   {
     icon: 'account-cog-outline',
-    title: 'How many freezes a group gets',
-    body: 'Each shared habit\'s creator sets "skip days allowed a month" (0-3) when creating or editing it — that\'s how many freezes the group can use in any rolling 30-day window before a missed day actually resets the streak.',
+    title: 'How many freezes your group gets',
+    body: 'Whoever created the shared habit sets "skip days allowed a month" (0-3) in Advanced settings — that\'s how many freezes your group can use in any rolling 30-day window before a missed day actually resets the streak.',
   },
   {
     icon: 'alert-circle-outline',
     title: 'Once freezes run out',
-    body: "If a group has already used its allowance of freezes in the last 30 days, the next day that doesn't qualify resets the streak to zero — same as any streak, just given a few free passes first.",
+    body: "Once your group's used up its freezes for the last 30 days, the next day that doesn't qualify resets the streak to zero — same as any streak, just with a few free passes first.",
   },
 ];
 
@@ -49,7 +49,7 @@ export default function GroupFreezeInfoModal({ visible, onClose }) {
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           <View style={styles.countCard}>
             <MaterialCommunityIcons name="snowflake" size={32} color={colors.frozen} />
-            <Text style={styles.countLabel}>Protects a Shared Habit's group streak</Text>
+            <Text style={styles.countLabel}>Protects your Shared Habit's group streak</Text>
           </View>
 
           {RULES.map((rule) => (
@@ -65,8 +65,8 @@ export default function GroupFreezeInfoModal({ visible, onClose }) {
           ))}
 
           <Text style={styles.footnote}>
-            Open a Shared Habit and tap the pencil icon (if you created it) to change how many
-            skip days it allows a month.
+            Created this Shared Habit? Tap the pencil icon on it, then Advanced settings, to
+            change how many skip days it gets a month.
           </Text>
         </ScrollView>
       </SafeAreaView>

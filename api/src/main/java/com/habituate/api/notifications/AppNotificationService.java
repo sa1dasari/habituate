@@ -65,6 +65,13 @@ public class AppNotificationService {
     }
 
     @Transactional
+    public void delete(String userId, Long notificationId) {
+        repository.findById(notificationId)
+                .filter(n -> n.getUserId().equals(userId))
+                .ifPresent(repository::delete);
+    }
+
+    @Transactional
     public void markAllRead(String userId) {
         repository.findByUserIdAndReadFalse(userId).forEach(n -> {
             n.setRead(true);

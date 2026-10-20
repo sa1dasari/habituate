@@ -3,6 +3,7 @@ package com.habituate.api.notifications;
 import com.habituate.api.config.FirebaseAuthFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -41,6 +42,12 @@ public class AppNotificationController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void markRead(HttpServletRequest req, @PathVariable Long id) {
         appNotificationService.markRead(userId(req), id);
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(HttpServletRequest req, @PathVariable Long id) {
+        appNotificationService.delete(userId(req), id);
     }
 
     @PostMapping("/read-all")

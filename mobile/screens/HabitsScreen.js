@@ -317,6 +317,19 @@ export default function HabitsScreen() {
     setShowForm(true);
   };
 
+  // Coming from Today's empty-state "Add your first habit" CTA — open the
+  // create form directly instead of landing on a blank list the user still
+  // has to find the "+ New" button on.
+  useFocusEffect(
+    useCallback(() => {
+      if (!route.params?.openCreateHabit) return;
+      openCreate();
+      scrollToForm();
+      navigation.setParams({ openCreateHabit: undefined });
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [route.params?.openCreateHabit, navigation])
+  );
+
   const openEdit = (habit) => {
     setForm(formFromHabit(habit));
     setShowForm(true);
@@ -495,14 +508,16 @@ export default function HabitsScreen() {
         <View style={styles.titleRow}>
           <Text style={styles.title}>Habits</Text>
           <View style={styles.titleActions}>
-            <Pressable
-              style={styles.iconButton}
-              onPress={() => setShowShieldInfo(true)}
-              accessibilityRole="button"
-              accessibilityLabel="Shield Days"
-            >
-              <MaterialCommunityIcons name="shield-check-outline" size={22} color={colors.accent} />
-            </Pressable>
+            {habits.length > 0 ? (
+              <Pressable
+                style={styles.iconButton}
+                onPress={() => setShowShieldInfo(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Shield Days"
+              >
+                <MaterialCommunityIcons name="shield-check-outline" size={22} color={colors.accent} />
+              </Pressable>
+            ) : null}
             <Pressable
               style={styles.iconButton}
               onPress={() => setShowCalendar(true)}

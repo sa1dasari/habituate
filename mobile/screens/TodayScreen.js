@@ -16,6 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import HabitCard from '../components/HabitCard';
 import GoalsSummaryCard from '../components/GoalsSummaryCard';
 import AvatarImage from '../components/AvatarImage';
+import TemplateHabitsPicker from '../components/TemplateHabitsPicker';
 import { useAuth } from '../hooks/useAuth';
 import { useCelebration } from '../hooks/useCelebration';
 import { useRegisterScrollToTop } from '../hooks/useRegisterScrollToTop';
@@ -70,6 +71,7 @@ export default function TodayScreen() {
     busy,
     error,
     refresh,
+    createHabit,
     toggleCheckIn,
     addCheckIn,
     removeLastCheckIn,
@@ -221,6 +223,32 @@ export default function TodayScreen() {
     [addCheckIn, celebrate]
   );
 
+  // A first-time user's fastest path to a real habit — sensible defaults
+  // (once-a-day tracking, no targets/reminder) instead of the full create
+  // form. The habits list refreshes itself (useHabits' createHabit already
+  // triggers a refetch), so the new habit just appears in "Due Today" below.
+  const handleAddTemplateHabit = useCallback(
+    async (template) => {
+      try {
+        await createHabit({
+          name: template.name,
+          category: template.category,
+          cadenceType: 'DAILY',
+          cadenceTarget: 1,
+          weeklyTarget: null,
+          monthlyTarget: null,
+          trackingMode: 'BOOLEAN',
+          featuredGoal: false,
+          scheduledTime: '',
+          reminderEnabled: false,
+        });
+      } catch (err) {
+        Alert.alert('Could not add habit', err instanceof Error ? err.message : 'Unknown error');
+      }
+    },
+    [createHabit]
+  );
+
   const handleRemoveLast = useCallback(
     async (habitId) => {
       try {
@@ -368,6 +396,17 @@ export default function TodayScreen() {
           onPress={() => navigation.navigate('Habits', { scrollToGoals: true })}
         />
 
+        <Pressable
+          style={({ pressed }) => [styles.coachTeaser, pressed ? styles.coachTeaserPressed : null]}
+          accessibilityRole="button"
+          accessibilityLabel="Ask Habituate"
+          onPress={() => navigation.navigate('Insights')}
+        >
+          <MaterialCommunityIcons name="chat-processing-outline" size={18} color={colors.accent} />
+          <Text style={styles.coachTeaserText}>Ask Habituate anything about your progress</Text>
+          <MaterialCommunityIcons name="chevron-right" size={18} color={colors.textMuted} />
+        </Pressable>
+
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <View style={styles.sectionHeader}>
@@ -390,9 +429,18 @@ export default function TodayScreen() {
           <View style={styles.emptyCard}>
             <Text style={styles.emptyTitle}>Nothing to track yet</Text>
             <Text style={styles.emptyBody}>
-              Head to the Habits tab and add your first habit. Start with one — you can always
-              add more later.
+              Tap one below to start, or build your own on the Habits tab.
             </Text>
+            <TemplateHabitsPicker onSelect={handleAddTemplateHabit} disabled={busy} />
+            <Pressable
+              style={styles.emptyCta}
+              accessibilityRole="button"
+              accessibilityLabel="Add your first habit"
+              onPress={() => navigation.navigate('Habits', { openCreateHabit: true })}
+            >
+              <Text style={styles.emptyCtaText}>Add your first habit</Text>
+              <MaterialCommunityIcons name="arrow-right" size={16} color={colors.accent} />
+            </Pressable>
           </View>
         ) : groups.due.length === 0 ? (
           <Text style={styles.sectionNote}>
@@ -528,6 +576,26 @@ function makeStyles(colors, typography) {
     lineHeight: 19,
     color: colors.textSecondary,
     textAlign: 'center',
+    marginBottom: spacing.lg,
   },
+  emptyCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.lg,
+  },
+  emptyCtaText: { ...typography.label, color: colors.accent },
+  coachTeaser: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.accentSoft,
+    borderRadius: radii.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    marginBottom: spacing.xl,
+  },
+  coachTeaserPressed: { opacity: 0.8 },
+  coachTeaserText: { ...typography.label, color: colors.textPrimary, flex: 1 },
   });
 }

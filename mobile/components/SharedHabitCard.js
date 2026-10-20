@@ -4,7 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import StreakIndicator from './StreakIndicator';
 import AvatarStack from './AvatarStack';
 import { useAppTheme } from '../hooks/useAppTheme';
-import { radii, shadow, spacing } from '../theme';
+import { fonts, radii, shadow, spacing } from '../theme';
 
 const RULE_LABEL = {
   all_members: 'All members',
@@ -29,8 +29,8 @@ export default function SharedHabitCard({
   busy = false,
   onPress,
 }) {
-  const { colors, resolveStreakState } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, typography, resolveStreakState } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const state = resolveStreakState(streakStatus);
   const people = Array.isArray(participants) ? participants : [];
   const total = participantCount != null ? participantCount : people.length;
@@ -45,9 +45,14 @@ export default function SharedHabitCard({
       accessibilityLabel={onPress ? `Manage ${name}` : undefined}
     >
       <View style={styles.topRow}>
-        <Text style={styles.name} numberOfLines={1}>
-          {name}
-        </Text>
+        <View style={styles.titleRow}>
+          <Text style={styles.name} numberOfLines={1}>
+            {name}
+          </Text>
+          <View style={styles.socialBadge} accessibilityElementsHidden importantForAccessibility="no">
+            <MaterialCommunityIcons name="account-multiple" size={11} color={colors.accent} />
+          </View>
+        </View>
         <View style={styles.topRowRight}>
           {!isIndependent ? <StreakIndicator streak={streak} status={streakStatus} compact /> : null}
           {onPress ? (
@@ -123,7 +128,7 @@ export default function SharedHabitCard({
   );
 }
 
-function makeStyles(colors) {
+function makeStyles(colors, typography) {
   return StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
@@ -146,11 +151,25 @@ function makeStyles(colors) {
     alignItems: 'center',
     gap: spacing.xs,
   },
-  name: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.textPrimary,
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
     flexShrink: 1,
+  },
+  name: {
+    ...typography.cardTitle,
+    flexShrink: 1,
+  },
+  // Shared with ChallengeCard — the one consistent visual cue that marks a
+  // social card apart from a solo HabitCard/GoalCard by silhouette alone.
+  socialBadge: {
+    width: 18,
+    height: 18,
+    borderRadius: radii.pill,
+    backgroundColor: colors.accentSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   middleRow: {
     flexDirection: 'row',
@@ -159,8 +178,7 @@ function makeStyles(colors) {
     marginTop: spacing.md,
   },
   participantCount: {
-    fontSize: 12,
-    color: colors.textSecondary,
+    ...typography.meta,
   },
   personalStreakRow: {
     flexDirection: 'row',
@@ -179,8 +197,8 @@ function makeStyles(colors) {
     maxWidth: '100%',
   },
   personalStreakText: {
+    fontFamily: fonts.bold,
     fontSize: 11,
-    fontWeight: '700',
     color: colors.accent,
   },
   bottomRow: {
@@ -200,8 +218,8 @@ function makeStyles(colors) {
     paddingVertical: spacing.xs,
   },
   ruleText: {
+    fontFamily: fonts.semiBold,
     fontSize: 11,
-    fontWeight: '600',
     color: colors.textSecondary,
   },
   statusBadge: {
@@ -213,8 +231,8 @@ function makeStyles(colors) {
     paddingVertical: spacing.xs,
   },
     statusText: {
+      fontFamily: fonts.bold,
       fontSize: 11,
-      fontWeight: '700',
     },
     logButton: {
       flexDirection: 'row',
@@ -227,7 +245,7 @@ function makeStyles(colors) {
       marginTop: spacing.md,
     },
     logButtonActive: { backgroundColor: colors.accent },
-    logButtonText: { fontSize: 13, fontWeight: '700', color: colors.accent },
+    logButtonText: { fontFamily: fonts.bold, fontSize: 13, color: colors.accent },
     logButtonTextActive: { color: '#FFFFFF' },
   });
 }

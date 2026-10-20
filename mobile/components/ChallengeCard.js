@@ -4,7 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AvatarStack from './AvatarStack';
 import { useAppTheme } from '../hooks/useAppTheme';
-import { gradients, radii, shadow, spacing } from '../theme';
+import { fonts, gradients, radii, shadow, spacing } from '../theme';
 
 /**
  * Time-boxed challenge card — a progress bar, never a streak. No red/at-risk
@@ -49,6 +49,9 @@ export default function ChallengeCard({
           <Text style={styles.name} numberOfLines={1}>
             {name}
           </Text>
+          <View style={styles.socialBadge} accessibilityElementsHidden importantForAccessibility="no">
+            <MaterialCommunityIcons name="account-multiple" size={11} color={colors.accent} />
+          </View>
         </View>
         {joined ? (
           <Text style={[styles.progressLabel, { color: accentColor }]}>
@@ -159,9 +162,20 @@ function makeStyles(colors, typography) {
       justifyContent: 'center',
     },
     name: { ...typography.cardTitle, flexShrink: 1 },
+    // A small "this involves other people" marker shared with SharedHabitCard
+    // — the one consistent visual cue that tells a social card apart from a
+    // solo HabitCard/GoalCard by silhouette alone, not just by its copy.
+    socialBadge: {
+      width: 18,
+      height: 18,
+      borderRadius: radii.pill,
+      backgroundColor: colors.accentSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     progressLabel: {
+      fontFamily: fonts.bold,
       fontSize: 13,
-      fontWeight: '700',
       color: colors.accent,
     },
     progressTrack: {
@@ -183,8 +197,8 @@ function makeStyles(colors, typography) {
     },
     progressPercentLabel: { ...typography.meta },
     progressPercent: {
+      fontFamily: fonts.bold,
       fontSize: 13,
-      fontWeight: '700',
       color: colors.textPrimary,
     },
     notJoinedNote: {
@@ -207,8 +221,8 @@ function makeStyles(colors, typography) {
       paddingVertical: spacing.xs,
     },
     logButtonText: {
+      fontFamily: fonts.bold,
       fontSize: 12,
-      fontWeight: '700',
       color: colors.accent,
     },
     logButtonActive: {
@@ -224,8 +238,8 @@ function makeStyles(colors, typography) {
       paddingVertical: spacing.xs + 2,
     },
     joinButtonText: {
+      fontFamily: fonts.bold,
       fontSize: 12,
-      fontWeight: '700',
       color: '#FFFFFF',
     },
   });

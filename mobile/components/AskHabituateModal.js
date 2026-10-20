@@ -188,7 +188,7 @@ export default function AskHabituateModal({ visible, onClose, initialQuestion, h
 
           <View style={styles.titleRow}>
             <View style={styles.titleIcon}>
-              <MaterialCommunityIcons name="chart-bar" size={20} color={colors.safe} />
+              <MaterialCommunityIcons name="chat-processing-outline" size={20} color={colors.accent} />
             </View>
             <View>
               <Text style={styles.title}>Ask Habituate</Text>
@@ -400,11 +400,13 @@ function makeStyles(colors, typography) {
       paddingTop: spacing.sm,
       paddingBottom: spacing.md,
     },
+    // Matches InsightsScreen's entry-card identity for the coach specifically
+    // (accent, not the safe/safeSoft streak-safety pair used elsewhere here).
     titleIcon: {
       width: 40,
       height: 40,
       borderRadius: radii.md,
-      backgroundColor: colors.safeSoft,
+      backgroundColor: colors.accentSoft,
       alignItems: 'center',
       justifyContent: 'center',
     },

@@ -3,11 +3,11 @@ import { View, Text, Pressable, StyleSheet, TextInput } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import StreakIndicator from './StreakIndicator';
-import { categoryIcon } from '../constants/habitCategories';
+import { categoryColor, categoryIcon } from '../constants/habitCategories';
 import { completionSuffix, periodCheckIns } from '../utils/cadence';
 import { formatClockTime, formatDayLabel, formatTime } from '../utils/time';
 import { useAppTheme } from '../hooks/useAppTheme';
-import { gradients, radii, shadow, spacing } from '../theme';
+import { fonts, gradients, radii, shadow, spacing } from '../theme';
 
 const CADENCE_LABEL = {
   DAILY: 'Daily',
@@ -145,11 +145,11 @@ export default function HabitCard({
           accessibilityState={onPress ? { expanded } : undefined}
           accessibilityHint={onPress ? 'Shows when this habit was logged' : undefined}
         >
-          <View style={styles.iconTile}>
+          <View style={[styles.iconTile, { backgroundColor: `${categoryColor(category)}22` }]}>
             <MaterialCommunityIcons
               name={categoryIcon(category)}
               size={22}
-              color={colors.textSecondary}
+              color={categoryColor(category)}
             />
           </View>
 
@@ -453,18 +453,20 @@ function makeStyles(colors, typography) {
     backgroundColor: colors.background,
   },
   expandedLine: {
+    fontFamily: fonts.regular,
     fontSize: 13,
     color: colors.textSecondary,
     marginBottom: spacing.xs,
   },
   expandedHeading: {
+    fontFamily: fonts.bold,
     fontSize: 12,
-    fontWeight: '700',
     color: colors.textPrimary,
     marginTop: spacing.sm,
     marginBottom: spacing.xs,
   },
   expandedEmpty: {
+    fontFamily: fonts.regular,
     fontSize: 13,
     color: colors.textMuted,
   },
@@ -475,6 +477,7 @@ function makeStyles(colors, typography) {
     paddingVertical: 3,
   },
   historyText: {
+    fontFamily: fonts.regular,
     fontSize: 13,
     color: colors.textSecondary,
   },
@@ -499,13 +502,14 @@ function makeStyles(colors, typography) {
     marginTop: 2,
   },
   subtitle: {
+    fontFamily: fonts.regular,
     fontSize: 13,
     color: colors.textSecondary,
     flexShrink: 1,
   },
   subtitleComplete: {
+    fontFamily: fonts.semiBold,
     color: colors.safe,
-    fontWeight: '600',
   },
   timeRow: {
     flexDirection: 'row',
@@ -525,11 +529,12 @@ function makeStyles(colors, typography) {
     paddingVertical: 2,
   },
   chipText: {
+    fontFamily: fonts.semiBold,
     fontSize: 11,
-    fontWeight: '600',
     color: colors.textSecondary,
   },
   cadence: {
+    fontFamily: fonts.regular,
     fontSize: 12,
     color: colors.textMuted,
   },
@@ -544,6 +549,7 @@ function makeStyles(colors, typography) {
     gap: 2,
   },
   progress: {
+    fontFamily: fonts.regular,
     fontSize: 12,
     color: colors.textSecondary,
   },
@@ -628,8 +634,8 @@ function makeStyles(colors, typography) {
   stepperCount: {
     minWidth: 22,
     textAlign: 'center',
+    fontFamily: fonts.bold,
     fontSize: 15,
-    fontWeight: '700',
     color: colors.textPrimary,
   },
   amountRow: {
@@ -645,6 +651,7 @@ function makeStyles(colors, typography) {
     borderRadius: radii.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
+    fontFamily: fonts.regular,
     fontSize: 14,
     color: colors.textPrimary,
     backgroundColor: colors.surface,
@@ -656,8 +663,8 @@ function makeStyles(colors, typography) {
     backgroundColor: colors.accent,
   },
     amountButtonText: {
+      fontFamily: fonts.bold,
       fontSize: 14,
-      fontWeight: '700',
       color: '#FFFFFF',
     },
   });

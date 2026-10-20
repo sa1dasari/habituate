@@ -14,7 +14,7 @@ import {
   consistencyMessage,
   generateCoachStarterQuestions,
 } from '../utils/consistency';
-import { radii, shadow, spacing } from '../theme';
+import { fonts, radii, shadow, spacing } from '../theme';
 
 const PERIOD_LABELS = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', yearly: 'Yearly' };
 const PERIOD_TITLES = {
@@ -137,7 +137,7 @@ export default function InsightsScreen() {
             accessibilityLabel="Open Ask Habituate"
           >
             <View style={styles.coachIcon}>
-              <MaterialCommunityIcons name="chart-bar" size={18} color={colors.safe} />
+              <MaterialCommunityIcons name="chat-processing-outline" size={18} color={colors.accent} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.coachTitle}>Ask Habituate</Text>
@@ -287,19 +287,23 @@ function makeStyles(colors, typography) {
       gap: spacing.sm,
       marginBottom: spacing.md,
     },
+    // Dedicated to the coach specifically — colors.accent/accentSoft, not the
+    // colors.safe/safeSoft streak-safety pair the rest of this screen uses,
+    // so Ask Habituate doesn't visually borrow a meaning that belongs to
+    // streak state elsewhere in the app.
     coachIcon: {
       width: 36,
       height: 36,
       borderRadius: radii.md,
-      backgroundColor: colors.safeSoft,
+      backgroundColor: colors.accentSoft,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    coachTitle: { fontSize: 16, fontWeight: '800', color: colors.textPrimary },
+    coachTitle: { fontFamily: fonts.extraBold, fontSize: 16, color: colors.textPrimary },
     coachSubtitle: { ...typography.meta, marginTop: 2 },
     coachSectionLabel: {
+      fontFamily: fonts.bold,
       fontSize: 12,
-      fontWeight: '700',
       color: colors.textMuted,
       marginBottom: spacing.sm,
     },
@@ -316,11 +320,11 @@ function makeStyles(colors, typography) {
       width: 20,
       height: 20,
       borderRadius: radii.pill,
-      backgroundColor: colors.safeSoft,
+      backgroundColor: colors.accentSoft,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    coachQuestionNumberText: { fontSize: 11, fontWeight: '700', color: colors.safe },
-    coachQuestionText: { fontSize: 13, color: colors.textPrimary, flex: 1 },
+    coachQuestionNumberText: { fontFamily: fonts.bold, fontSize: 11, color: colors.accent },
+    coachQuestionText: { fontFamily: fonts.regular, fontSize: 13, color: colors.textPrimary, flex: 1 },
   });
 }

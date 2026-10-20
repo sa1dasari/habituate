@@ -2,6 +2,7 @@ package com.habituate.api.groups;
 
 import com.habituate.api.config.FirebaseAuthFilter;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -41,13 +42,13 @@ public class GroupController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public GroupResponse createGroup(HttpServletRequest req, @RequestBody CreateGroupRequest request) {
+    public GroupResponse createGroup(HttpServletRequest req, @Valid @RequestBody CreateGroupRequest request) {
         return groupService.createGroup(userId(req), request);
     }
 
     @PatchMapping("/{groupId}")
     public GroupResponse updateGroup(
-            HttpServletRequest req, @PathVariable Long groupId, @RequestBody CreateGroupRequest request) {
+            HttpServletRequest req, @PathVariable Long groupId, @Valid @RequestBody CreateGroupRequest request) {
         return groupService.updateGroup(userId(req), groupId, request);
     }
 
@@ -59,19 +60,19 @@ public class GroupController {
 
     @PostMapping("/{groupId}/invite")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void invite(HttpServletRequest req, @PathVariable Long groupId, @RequestBody InviteToGroupRequest request) {
+    public void invite(HttpServletRequest req, @PathVariable Long groupId, @Valid @RequestBody InviteToGroupRequest request) {
         groupService.invite(userId(req), groupId, request.friendUserId());
     }
 
     @PostMapping("/{groupId}/accept")
     public GroupResponse acceptInvite(
-            HttpServletRequest req, @PathVariable Long groupId, @RequestBody AcceptGroupInviteRequest request) {
+            HttpServletRequest req, @PathVariable Long groupId, @Valid @RequestBody AcceptGroupInviteRequest request) {
         return groupService.acceptInvite(userId(req), groupId, request.habitId());
     }
 
     @PostMapping("/{groupId}/nudge")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void nudge(HttpServletRequest req, @PathVariable Long groupId, @RequestBody NudgeRequest request) {
+    public void nudge(HttpServletRequest req, @PathVariable Long groupId, @Valid @RequestBody NudgeRequest request) {
         groupService.nudge(userId(req), groupId, request.targetUserId());
     }
 }

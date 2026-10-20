@@ -4,6 +4,7 @@ import com.habituate.api.checkins.CheckInRequest;
 import com.habituate.api.checkins.CheckInResponse;
 import com.habituate.api.config.FirebaseAuthFilter;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -49,7 +50,7 @@ public class HabitController {
 
     @PostMapping("/habits")
     @ResponseStatus(HttpStatus.CREATED)
-    public HabitResponse createHabit(HttpServletRequest req, @RequestBody CreateHabitRequest request) {
+    public HabitResponse createHabit(HttpServletRequest req, @Valid @RequestBody CreateHabitRequest request) {
         return habitService.createHabit(userId(req), request);
     }
 
@@ -57,7 +58,7 @@ public class HabitController {
     public HabitResponse updateHabit(
             HttpServletRequest req,
             @PathVariable Long habitId,
-            @RequestBody UpdateHabitRequest request) {
+            @Valid @RequestBody UpdateHabitRequest request) {
         return habitService.updateHabit(userId(req), habitId, request);
     }
 
@@ -103,7 +104,7 @@ public class HabitController {
     public CheckInResponse createCheckIn(
             HttpServletRequest req,
             @PathVariable Long habitId,
-            @RequestBody(required = false) CheckInRequest request,
+            @Valid @RequestBody(required = false) CheckInRequest request,
             @RequestHeader(value = "X-Timezone", required = false) String timezone) {
 
         CheckInRequest safeRequest = request == null ? new CheckInRequest(null, 1, "manual") : request;

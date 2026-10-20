@@ -2,6 +2,7 @@ package com.habituate.api.groups;
 
 import com.habituate.api.config.FirebaseAuthFilter;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -39,14 +40,14 @@ public class FriendshipController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public FriendshipResponse sendRequest(HttpServletRequest req, @RequestBody CreateFriendRequest request) {
+    public FriendshipResponse sendRequest(HttpServletRequest req, @Valid @RequestBody CreateFriendRequest request) {
         return friendshipService.sendRequest(userId(req), request.email());
     }
 
     @PostMapping("/by-username")
     @ResponseStatus(HttpStatus.CREATED)
     public FriendshipResponse sendRequestByUsername(
-            HttpServletRequest req, @RequestBody CreateFriendRequestByUsername request) {
+            HttpServletRequest req, @Valid @RequestBody CreateFriendRequestByUsername request) {
         return friendshipService.sendRequestByUsername(userId(req), request.username());
     }
 

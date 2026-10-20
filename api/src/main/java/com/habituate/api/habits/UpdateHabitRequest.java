@@ -1,15 +1,21 @@
 package com.habituate.api.habits;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Size;
+
+/** name/category/cadenceType/scheduledTime are intentionally not @NotBlank — null/blank means
+ * "don't change this field" per HabitService.updateHabit's sparse-patch handling, not "required". */
 public record UpdateHabitRequest(
-        String name,
-        String category,
-        String cadenceType,
-        Integer cadenceTarget,
-        Integer weeklyTarget,
-        Integer monthlyTarget,
-        String trackingMode,
+        @Size(max = 200) String name,
+        @Size(max = 100) String category,
+        @Size(max = 50) String cadenceType,
+        @Min(1) @Max(100000) Integer cadenceTarget,
+        @Min(1) @Max(100000) Integer weeklyTarget,
+        @Min(1) @Max(100000) Integer monthlyTarget,
+        @Size(max = 20) String trackingMode,
         Boolean featuredGoal,
-        String scheduledTime,
+        @Size(max = 10) String scheduledTime,
         Boolean reminderEnabled,
         Boolean archived
 ) {

@@ -1,4 +1,7 @@
 package com.habituate.api.groups;
 
-public record InviteToChallengeRequest(String friendUserId) {
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
+public record InviteToChallengeRequest(@NotBlank @Size(max = 128) String friendUserId) {
 }

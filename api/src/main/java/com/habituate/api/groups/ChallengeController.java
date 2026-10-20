@@ -2,6 +2,7 @@ package com.habituate.api.groups;
 
 import com.habituate.api.config.FirebaseAuthFilter;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -46,7 +47,7 @@ public class ChallengeController {
     @ResponseStatus(HttpStatus.CREATED)
     public ChallengeResponse create(
             HttpServletRequest req,
-            @RequestBody CreateChallengeRequest request,
+            @Valid @RequestBody CreateChallengeRequest request,
             @RequestHeader(value = "X-Timezone", required = false) String timezone) {
         return challengeService.create(userId(req), request, timezone);
     }
@@ -55,7 +56,7 @@ public class ChallengeController {
     public ChallengeResponse update(
             HttpServletRequest req,
             @PathVariable Long challengeId,
-            @RequestBody CreateChallengeRequest request,
+            @Valid @RequestBody CreateChallengeRequest request,
             @RequestHeader(value = "X-Timezone", required = false) String timezone) {
         return challengeService.update(userId(req), challengeId, request, timezone);
     }
@@ -78,7 +79,7 @@ public class ChallengeController {
     public ChallengeResponse invite(
             HttpServletRequest req,
             @PathVariable Long challengeId,
-            @RequestBody InviteToChallengeRequest request,
+            @Valid @RequestBody InviteToChallengeRequest request,
             @RequestHeader(value = "X-Timezone", required = false) String timezone) {
         return challengeService.invite(userId(req), challengeId, request.friendUserId(), timezone);
     }
@@ -87,7 +88,7 @@ public class ChallengeController {
     public ChallengeResponse logCheckIn(
             HttpServletRequest req,
             @PathVariable Long challengeId,
-            @RequestBody(required = false) LogChallengeCheckInRequest request,
+            @Valid @RequestBody(required = false) LogChallengeCheckInRequest request,
             @RequestHeader(value = "X-Timezone", required = false) String timezone) {
         Integer value = request == null ? null : request.value();
         return challengeService.logCheckIn(userId(req), challengeId, value, timezone);

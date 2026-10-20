@@ -289,6 +289,8 @@ export const api = {
 
   markAllNotificationsRead: () => request('/api/notifications/read-all', { method: 'POST' }),
 
+  deleteNotification: (id) => request(`/api/notifications/${id}`, { method: 'DELETE' }),
+
   uncheerCheckIn: (checkInId) => request(`/api/groups/activity/${checkInId}/cheer`, { method: 'DELETE' }),
 
   listCoachMessages: () => request('/api/coach/messages'),

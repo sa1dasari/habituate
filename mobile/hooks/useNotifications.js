@@ -53,6 +53,26 @@ export function NotificationsProvider({ children }) {
     []
   );
 
+  const deleteNotification = useCallback(
+    async (id) => {
+      let wasUnread = false;
+      setNotifications((current) => {
+        const target = current.find((n) => n.id === id);
+        wasUnread = target ? !target.read : false;
+        return current.filter((n) => n.id !== id);
+      });
+      if (wasUnread) {
+        setUnreadCount((current) => Math.max(0, current - 1));
+      }
+      try {
+        await api.deleteNotification(id);
+      } catch {
+        // Best-effort, same as markRead — a brief UI/server mismatch resolves on the next refresh.
+      }
+    },
+    []
+  );
+
   const markAllRead = useCallback(async () => {
     setNotifications((current) => current.map((n) => ({ ...n, read: true })));
     setUnreadCount(0);
@@ -63,7 +83,7 @@ export function NotificationsProvider({ children }) {
     }
   }, []);
 
-  const value = { notifications, unreadCount, loading, refresh, markRead, markAllRead };
+  const value = { notifications, unreadCount, loading, refresh, markRead, markAllRead, deleteNotification };
 
   return createElement(NotificationsContext.Provider, { value }, children);
 }

@@ -6,6 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import CreateChallengeModal from './CreateChallengeModal';
 import InviteFriendsSheet from './InviteFriendsSheet';
 import ScrubberInput from './ScrubberInput';
+import AvatarImage from './AvatarImage';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useChallenges } from '../hooks/useChallenges';
 import { gradients, radii, shadow, spacing } from '../theme';
@@ -175,10 +176,20 @@ export default function ChallengeDetailModal({ visible, challenge, onClose }) {
             const progress = typeof person === 'object' && person ? person.progress : null;
             const percent = typeof person === 'object' && person ? person.progressPercent : null;
             const theirCheckedInToday = typeof person === 'object' && person ? person.checkedInToday : false;
+            const photoUrl = typeof person === 'object' && person ? person.photoUrl : null;
             return (
               <View key={`${label}-${index}`} style={styles.memberRow}>
-                <View style={[styles.avatar, { backgroundColor: AVATAR_COLORS[index % AVATAR_COLORS.length] }]}>
-                  <Text style={styles.avatarText}>{initials(label)}</Text>
+                <View
+                  style={[
+                    styles.avatar,
+                    photoUrl ? styles.avatarPhoto : { backgroundColor: AVATAR_COLORS[index % AVATAR_COLORS.length] },
+                  ]}
+                >
+                  {photoUrl ? (
+                    <AvatarImage uri={photoUrl} name={label} size={32} fontSize={13} />
+                  ) : (
+                    <Text style={styles.avatarText}>{initials(label)}</Text>
+                  )}
                 </View>
                 <View style={styles.memberInfo}>
                   <Text style={styles.memberName}>{label}</Text>
@@ -307,6 +318,7 @@ function makeStyles(colors, typography) {
       justifyContent: 'center',
     },
     avatarText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
+    avatarPhoto: { backgroundColor: colors.surface, overflow: 'hidden' },
     memberInfo: { flex: 1 },
     memberName: { fontSize: 14, color: colors.textPrimary },
     memberProgressTrack: {

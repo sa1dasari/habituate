@@ -51,7 +51,7 @@ class ChallengeServiceTest {
     }
 
     private void stubResolve() {
-        when(userLookupService.resolve(any())).thenAnswer(inv -> new UserProfile(inv.getArgument(0), "User " + inv.getArgument(0), null));
+        when(userLookupService.resolve(any())).thenAnswer(inv -> new UserProfile(inv.getArgument(0), "User " + inv.getArgument(0), null, null));
     }
 
     private CreateChallengeRequest basicRequest(String name, Integer targetCount, String periodStart, String periodEnd, String visibility) {

@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { radii } from '../theme';
+import AvatarImage from './AvatarImage';
 
 const AVATAR_COLORS = ['#2563EB', '#7C3AED', '#0891B2', '#DB2777', '#EA580C'];
 
@@ -32,16 +33,21 @@ export default function AvatarStack({ people = [], total, max = 4, size = 28 }) 
     <View style={styles.avatars}>
       {shown.map((person, index) => {
         const label = typeof person === 'string' ? person : person && person.name;
+        const photoUrl = typeof person === 'object' && person ? person.photoUrl : null;
         return (
           <View
             key={`${label}-${index}`}
             style={[
               styles.avatar,
-              { backgroundColor: AVATAR_COLORS[index % AVATAR_COLORS.length] },
+              photoUrl ? styles.avatarPhoto : { backgroundColor: AVATAR_COLORS[index % AVATAR_COLORS.length] },
               index > 0 ? styles.avatarOverlap : null,
             ]}
           >
-            <Text style={styles.avatarText}>{initials(label)}</Text>
+            {photoUrl ? (
+              <AvatarImage uri={photoUrl} name={label} size={size} fontSize={11} />
+            ) : (
+              <Text style={styles.avatarText}>{initials(label)}</Text>
+            )}
           </View>
         );
       })}
@@ -72,6 +78,10 @@ function makeStyles(colors, size) {
     },
     avatarOverlap: {
       marginLeft: -8,
+    },
+    avatarPhoto: {
+      backgroundColor: colors.surface,
+      overflow: 'hidden',
     },
     avatarText: {
       color: '#FFFFFF',

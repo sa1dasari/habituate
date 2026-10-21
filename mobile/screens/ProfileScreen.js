@@ -159,8 +159,19 @@ export default function ProfileScreen() {
           ) : (
             activity.slice(0, ACTIVITY_LIMIT).map((item, index) => (
               <View key={item.checkInId} style={styles.activityRow}>
-                <View style={[styles.avatar, { backgroundColor: AVATAR_COLORS[index % AVATAR_COLORS.length] }]}>
-                  <Text style={styles.avatarText}>{initials(item.userName)}</Text>
+                <View
+                  style={[
+                    styles.avatar,
+                    item.userPhotoUrl
+                      ? styles.avatarPhoto
+                      : { backgroundColor: AVATAR_COLORS[index % AVATAR_COLORS.length] },
+                  ]}
+                >
+                  {item.userPhotoUrl ? (
+                    <AvatarImage uri={item.userPhotoUrl} name={item.userName} size={32} fontSize={13} />
+                  ) : (
+                    <Text style={styles.avatarText}>{initials(item.userName)}</Text>
+                  )}
                 </View>
                 <View style={styles.activityText}>
                   <Text style={styles.activityLine} numberOfLines={2}>
@@ -311,6 +322,7 @@ function makeStyles(colors, typography) {
       justifyContent: 'center',
     },
     avatarText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
+    avatarPhoto: { backgroundColor: colors.surface, overflow: 'hidden' },
     activityText: { flex: 1 },
     activityLine: { fontSize: 13, color: colors.textPrimary, lineHeight: 18 },
     activityName: { fontWeight: '700' },

@@ -67,7 +67,7 @@ public class FirebaseUserLookupService implements UserLookupService {
         } catch (Exception e) {
             // Don't cache the fallback — a transient lookup failure shouldn't stick
             // around for the full TTL, the next call should retry Firebase.
-            return new UserProfile(uid, uid, null);
+            return new UserProfile(uid, uid, null, null);
         }
     }
 
@@ -75,6 +75,6 @@ public class FirebaseUserLookupService implements UserLookupService {
         String name = (record.getDisplayName() != null && !record.getDisplayName().isBlank())
                 ? record.getDisplayName()
                 : (record.getEmail() != null ? record.getEmail() : record.getUid());
-        return new UserProfile(record.getUid(), name, record.getEmail());
+        return new UserProfile(record.getUid(), name, record.getEmail(), record.getPhotoUrl());
     }
 }

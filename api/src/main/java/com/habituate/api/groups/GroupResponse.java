@@ -36,9 +36,9 @@ public record GroupResponse(
      * populated (whether or not this member's own linked habit has a check-in for today, UTC-
      * bucketed — same caveat already documented on GroupStreakConsumer) so the card/detail view
      * can show who's already checked in today regardless of tracking mode. */
-    public record Participant(String name, String userId, Integer currentStreak, boolean checkedInToday) {
+    public record Participant(String name, String userId, Integer currentStreak, boolean checkedInToday, String photoUrl) {
         public Participant(String name) {
-            this(name, null, null, false);
+            this(name, null, null, false, null);
         }
     }
 }

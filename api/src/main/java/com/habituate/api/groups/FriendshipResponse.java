@@ -8,6 +8,7 @@ public record FriendshipResponse(
         String otherUserId,
         String otherUserName,
         String otherUserEmail,
+        String otherUserPhotoUrl,
         String status,
         Instant createdAt
 ) {

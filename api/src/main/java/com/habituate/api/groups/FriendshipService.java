@@ -135,7 +135,7 @@ public class FriendshipService {
         UserProfile other = userLookupService.resolve(otherUserId);
 
         return new FriendshipResponse(
-                friendship.getId(), otherUserId, other.displayName(), other.email(),
+                friendship.getId(), otherUserId, other.displayName(), other.email(), other.photoUrl(),
                 friendship.getStatus(), friendship.getCreatedAt());
     }
 }

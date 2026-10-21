@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import StreakIndicator from './StreakIndicator';
 import InviteFriendsSheet from './InviteFriendsSheet';
 import CreateGroupModal from './CreateGroupModal';
+import AvatarImage from './AvatarImage';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useAuth } from '../hooks/useAuth';
 import { useGroups } from '../hooks/useGroups';
@@ -160,11 +161,23 @@ export default function SharedHabitDetailModal({ visible, group, onClose }) {
             const personUserId = typeof person === 'object' && person ? person.userId : null;
             const personStreak = typeof person === 'object' && person ? person.currentStreak : null;
             const personCheckedInToday = typeof person === 'object' && person ? person.checkedInToday : false;
+            const personPhotoUrl = typeof person === 'object' && person ? person.photoUrl : null;
             const isSelf = personUserId && user && personUserId === user.uid;
             return (
               <View key={`${label}-${index}`} style={styles.memberRow}>
-                <View style={[styles.avatar, { backgroundColor: AVATAR_COLORS[index % AVATAR_COLORS.length] }]}>
-                  <Text style={styles.avatarText}>{initials(label)}</Text>
+                <View
+                  style={[
+                    styles.avatar,
+                    personPhotoUrl
+                      ? styles.avatarPhoto
+                      : { backgroundColor: AVATAR_COLORS[index % AVATAR_COLORS.length] },
+                  ]}
+                >
+                  {personPhotoUrl ? (
+                    <AvatarImage uri={personPhotoUrl} name={label} size={32} fontSize={13} />
+                  ) : (
+                    <Text style={styles.avatarText}>{initials(label)}</Text>
+                  )}
                 </View>
                 <Text style={styles.memberName}>{label}</Text>
                 {isIndependent ? <Text style={styles.memberStreak}>🔥 {personStreak ?? 0}</Text> : null}
@@ -288,6 +301,7 @@ function makeStyles(colors, typography) {
       justifyContent: 'center',
     },
     avatarText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
+    avatarPhoto: { backgroundColor: colors.surface, overflow: 'hidden' },
     memberName: { fontSize: 14, color: colors.textPrimary, flex: 1 },
     memberStreak: { fontSize: 13, fontWeight: '700', color: colors.textSecondary, marginRight: spacing.sm },
     nudgeBtn: {

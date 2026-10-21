@@ -17,6 +17,7 @@ public record GroupActivityItem(
         Long checkInId,
         String userId,
         String userName,
+        String userPhotoUrl,
         String habitName,
         Instant occurredAt,
         Integer value,

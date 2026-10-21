@@ -86,8 +86,8 @@ class GroupActivityServiceTest {
     }
 
     private Long setUpGroupOfTwo(String userA, String userB, String emailB) {
-        when(userLookupService.resolve(any())).thenAnswer(inv -> new UserProfile(inv.getArgument(0), "Name " + inv.getArgument(0), null));
-        when(userLookupService.findByEmail(emailB)).thenReturn(Optional.of(new UserProfile(userB, "User B", emailB)));
+        when(userLookupService.resolve(any())).thenAnswer(inv -> new UserProfile(inv.getArgument(0), "Name " + inv.getArgument(0), null, null));
+        when(userLookupService.findByEmail(emailB)).thenReturn(Optional.of(new UserProfile(userB, "User B", emailB, null)));
 
         var pending = friendshipService.sendRequest(userA, emailB);
         friendshipId = pending.id();

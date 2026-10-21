@@ -83,7 +83,7 @@ class GroupServiceTest {
     }
 
     private void stubResolve() {
-        when(userLookupService.resolve(any())).thenAnswer(inv -> new UserProfile(inv.getArgument(0), "User " + inv.getArgument(0), null));
+        when(userLookupService.resolve(any())).thenAnswer(inv -> new UserProfile(inv.getArgument(0), "User " + inv.getArgument(0), null, null));
     }
 
     @Test
@@ -162,7 +162,7 @@ class GroupServiceTest {
 
         // Make them friends first (mocked Firebase lookup, same pattern as FriendshipServiceTest).
         when(userLookupService.findByEmail("friend4b@example.com"))
-                .thenReturn(Optional.of(new UserProfile(userB, "User B", "friend4b@example.com")));
+                .thenReturn(Optional.of(new UserProfile(userB, "User B", "friend4b@example.com", null)));
         var pending = friendshipService.sendRequest(userA, "friend4b@example.com");
         friendshipIds.add(pending.id());
         friendshipService.respond(userB, pending.id(), true);
@@ -189,7 +189,7 @@ class GroupServiceTest {
         String userB = "group-test-user-16b";
 
         when(userLookupService.findByEmail("friend16b@example.com"))
-                .thenReturn(Optional.of(new UserProfile(userB, "User B", "friend16b@example.com")));
+                .thenReturn(Optional.of(new UserProfile(userB, "User B", "friend16b@example.com", null)));
         var pending = friendshipService.sendRequest(userA, "friend16b@example.com");
         friendshipIds.add(pending.id());
         friendshipService.respond(userB, pending.id(), true);
@@ -236,7 +236,7 @@ class GroupServiceTest {
         String userB = "group-test-user-5b";
 
         when(userLookupService.findByEmail("friend5b@example.com"))
-                .thenReturn(Optional.of(new UserProfile(userB, "User B", "friend5b@example.com")));
+                .thenReturn(Optional.of(new UserProfile(userB, "User B", "friend5b@example.com", null)));
         var pending = friendshipService.sendRequest(userA, "friend5b@example.com");
         friendshipIds.add(pending.id());
         friendshipService.respond(userB, pending.id(), true);

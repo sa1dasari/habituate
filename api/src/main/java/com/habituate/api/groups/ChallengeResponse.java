@@ -42,6 +42,6 @@ public record ChallengeResponse(
     /** Every participant's own progress/percent/checkedInToday — not just the viewer's — so
      * the detail view can show "who's done what" instead of only your own line. Computed the
      * same way myProgress/progressPercent are (BOOLEAN: day count; COUNT: value sum). */
-    public record Participant(String userId, String name, int progress, int progressPercent, boolean checkedInToday) {
+    public record Participant(String userId, String name, int progress, int progressPercent, boolean checkedInToday, String photoUrl) {
     }
 }

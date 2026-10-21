@@ -3,6 +3,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AddFriendModal from './AddFriendModal';
+import AvatarImage from './AvatarImage';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useFriends } from '../hooks/useFriends';
 import { radii, spacing } from '../theme';
@@ -57,7 +58,14 @@ export default function InviteFriendsSheet({ visible, onClose, onInvite, busy = 
                 disabled={busy}
                 onPress={() => handlePick(friend.otherUserId)}
               >
-                <MaterialCommunityIcons name="account-plus-outline" size={18} color={colors.accent} />
+                <View style={styles.friendAvatar}>
+                  <AvatarImage
+                    uri={friend.otherUserPhotoUrl}
+                    name={friend.otherUserName || friend.otherUserEmail}
+                    size={28}
+                    fontSize={12}
+                  />
+                </View>
                 <Text style={styles.friendName} numberOfLines={1}>
                   {friend.otherUserName || friend.otherUserEmail}
                 </Text>
@@ -89,6 +97,15 @@ function makeStyles(colors, typography) {
     closeBtn: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
     scroll: { padding: spacing.lg, paddingBottom: spacing.xxl },
     friendRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm + 2 },
+    friendAvatar: {
+      width: 28,
+      height: 28,
+      borderRadius: radii.pill,
+      backgroundColor: colors.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+    },
     friendName: { fontSize: 14, color: colors.textPrimary },
     emptyState: { alignItems: 'center', paddingVertical: spacing.xl },
     emptyTitle: { ...typography.cardTitle, marginTop: spacing.sm },

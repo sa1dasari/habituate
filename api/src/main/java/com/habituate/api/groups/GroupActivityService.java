@@ -75,10 +75,12 @@ public class GroupActivityService {
                     Group group = groupsById.get(checkIn.getGroupId());
                     // STATUS_ONLY groups never surface the logged amount — only a binary completed/not.
                     boolean fullDetails = group == null || Group.FULL_DETAILS.equals(group.getVisibilityLevel());
+                    UserProfile actor = userLookupService.resolve(checkIn.getUserId());
                     return new GroupActivityItem(
                             checkIn.getId(),
                             checkIn.getUserId(),
-                            userLookupService.resolve(checkIn.getUserId()).displayName(),
+                            actor.displayName(),
+                            actor.photoUrl(),
                             habit != null ? habit.getName() : "a habit",
                             checkIn.getOccurredAt(),
                             fullDetails ? checkIn.getValue() : null,

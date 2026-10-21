@@ -419,8 +419,8 @@ public class ChallengeService {
                                 challenge.getId(), userId, dayStart, dayEnd);
                     }
                     int percent = target > 0 ? Math.min(100, Math.round((progress * 100f) / target)) : 0;
-                    String name = userLookupService.resolve(userId).displayName();
-                    return new ChallengeResponse.Participant(userId, name, progress, percent, checkedInToday);
+                    UserProfile profile = userLookupService.resolve(userId);
+                    return new ChallengeResponse.Participant(userId, profile.displayName(), progress, percent, checkedInToday, profile.photoUrl());
                 })
                 .toList();
 

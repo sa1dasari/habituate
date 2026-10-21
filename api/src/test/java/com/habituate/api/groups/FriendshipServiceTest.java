@@ -59,8 +59,8 @@ class FriendshipServiceTest {
     @Test
     void sendRequest_createsPendingFriendship() {
         when(userLookupService.findByEmail("friend@example.com"))
-                .thenReturn(Optional.of(new UserProfile("friend-uid-1", "Friend One", "friend@example.com")));
-        when(userLookupService.resolve(any())).thenAnswer(inv -> new UserProfile(inv.getArgument(0), "Someone", null));
+                .thenReturn(Optional.of(new UserProfile("friend-uid-1", "Friend One", "friend@example.com", null)));
+        when(userLookupService.resolve(any())).thenAnswer(inv -> new UserProfile(inv.getArgument(0), "Someone", null, null));
 
         FriendshipResponse response = friendshipService.sendRequest("me-uid", "friend@example.com");
         friendshipIds.add(response.id());
@@ -80,7 +80,7 @@ class FriendshipServiceTest {
     @Test
     void sendRequest_rejectsSelfInvite() {
         when(userLookupService.findByEmail("me@example.com"))
-                .thenReturn(Optional.of(new UserProfile("me-uid", "Me", "me@example.com")));
+                .thenReturn(Optional.of(new UserProfile("me-uid", "Me", "me@example.com", null)));
 
         assertThatThrownBy(() -> friendshipService.sendRequest("me-uid", "me@example.com"))
                 .isInstanceOf(IllegalArgumentException.class);
@@ -89,8 +89,8 @@ class FriendshipServiceTest {
     @Test
     void sendRequest_rejectsDuplicateEitherDirection() {
         when(userLookupService.findByEmail(eq("friend@example.com")))
-                .thenReturn(Optional.of(new UserProfile("friend-uid-2", "Friend Two", "friend@example.com")));
-        when(userLookupService.resolve(any())).thenAnswer(inv -> new UserProfile(inv.getArgument(0), "Someone", null));
+                .thenReturn(Optional.of(new UserProfile("friend-uid-2", "Friend Two", "friend@example.com", null)));
+        when(userLookupService.resolve(any())).thenAnswer(inv -> new UserProfile(inv.getArgument(0), "Someone", null, null));
 
         FriendshipResponse first = friendshipService.sendRequest("me-uid", "friend@example.com");
         friendshipIds.add(first.id());
@@ -102,8 +102,8 @@ class FriendshipServiceTest {
     @Test
     void respond_accept_flipsStatusAndAreFriendsBecomesTrue() {
         when(userLookupService.findByEmail("friend@example.com"))
-                .thenReturn(Optional.of(new UserProfile("friend-uid-3", "Friend Three", "friend@example.com")));
-        when(userLookupService.resolve(any())).thenAnswer(inv -> new UserProfile(inv.getArgument(0), "Someone", null));
+                .thenReturn(Optional.of(new UserProfile("friend-uid-3", "Friend Three", "friend@example.com", null)));
+        when(userLookupService.resolve(any())).thenAnswer(inv -> new UserProfile(inv.getArgument(0), "Someone", null, null));
 
         FriendshipResponse pending = friendshipService.sendRequest("me-uid", "friend@example.com");
         friendshipIds.add(pending.id());
@@ -118,8 +118,8 @@ class FriendshipServiceTest {
     @Test
     void respond_onlyRecipientCanRespond() {
         when(userLookupService.findByEmail("friend@example.com"))
-                .thenReturn(Optional.of(new UserProfile("friend-uid-4", "Friend Four", "friend@example.com")));
-        when(userLookupService.resolve(any())).thenAnswer(inv -> new UserProfile(inv.getArgument(0), "Someone", null));
+                .thenReturn(Optional.of(new UserProfile("friend-uid-4", "Friend Four", "friend@example.com", null)));
+        when(userLookupService.resolve(any())).thenAnswer(inv -> new UserProfile(inv.getArgument(0), "Someone", null, null));
 
         FriendshipResponse pending = friendshipService.sendRequest("me-uid", "friend@example.com");
         friendshipIds.add(pending.id());
@@ -135,7 +135,7 @@ class FriendshipServiceTest {
         User targetUser = new User(target, null);
         targetUser.setUsername("findme5");
         userRepository.save(targetUser);
-        when(userLookupService.resolve(any())).thenAnswer(inv -> new UserProfile(inv.getArgument(0), "Someone", null));
+        when(userLookupService.resolve(any())).thenAnswer(inv -> new UserProfile(inv.getArgument(0), "Someone", null, null));
 
         FriendshipResponse response = friendshipService.sendRequestByUsername("me-uid-5", "FindMe5");
         friendshipIds.add(response.id());
@@ -154,8 +154,8 @@ class FriendshipServiceTest {
         String requester = "me-uid-7";
         userIds.add(requester);
         when(userLookupService.findByEmail("friend7@example.com"))
-                .thenReturn(Optional.of(new UserProfile("friend-uid-7", "Friend Seven", "friend7@example.com")));
-        when(userLookupService.resolve(any())).thenAnswer(inv -> new UserProfile(inv.getArgument(0), "Accepter", null));
+                .thenReturn(Optional.of(new UserProfile("friend-uid-7", "Friend Seven", "friend7@example.com", null)));
+        when(userLookupService.resolve(any())).thenAnswer(inv -> new UserProfile(inv.getArgument(0), "Accepter", null, null));
 
         FriendshipResponse pending = friendshipService.sendRequest(requester, "friend7@example.com");
         friendshipIds.add(pending.id());

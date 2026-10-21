@@ -81,7 +81,7 @@ class ChallengeReminderSchedulerTest {
 
     private void stubResolve() {
         when(userLookupService.resolve(any()))
-                .thenAnswer(inv -> new UserProfile(inv.getArgument(0), "User " + inv.getArgument(0), null));
+                .thenAnswer(inv -> new UserProfile(inv.getArgument(0), "User " + inv.getArgument(0), null, null));
     }
 
     private CreateChallengeRequest requestWithReminder(String name, String reminderTime) {

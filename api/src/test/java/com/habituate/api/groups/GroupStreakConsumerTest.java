@@ -92,12 +92,12 @@ class GroupStreakConsumerTest {
 
     @Test
     void allMembersRule_streakActivates_onlyOnceBothMembersCheckIn() {
-        when(userLookupService.resolve(any())).thenAnswer(inv -> new UserProfile(inv.getArgument(0), "User", null));
+        when(userLookupService.resolve(any())).thenAnswer(inv -> new UserProfile(inv.getArgument(0), "User", null, null));
 
         String userA = "streak-test-user-a1";
         String userB = "streak-test-user-b1";
         when(userLookupService.findByEmail("b1@example.com"))
-                .thenReturn(java.util.Optional.of(new UserProfile(userB, "User B", "b1@example.com")));
+                .thenReturn(java.util.Optional.of(new UserProfile(userB, "User B", "b1@example.com", null)));
         var pending = friendshipService.sendRequest(userA, "b1@example.com");
         friendshipId = pending.id();
         friendshipService.respond(userB, pending.id(), true);
@@ -129,12 +129,12 @@ class GroupStreakConsumerTest {
 
     @Test
     void anyMemberRule_streakActivates_assoonAsOneChecksIn() {
-        when(userLookupService.resolve(any())).thenAnswer(inv -> new UserProfile(inv.getArgument(0), "User", null));
+        when(userLookupService.resolve(any())).thenAnswer(inv -> new UserProfile(inv.getArgument(0), "User", null, null));
 
         String userA = "streak-test-user-a2";
         String userB = "streak-test-user-b2";
         when(userLookupService.findByEmail("b2@example.com"))
-                .thenReturn(java.util.Optional.of(new UserProfile(userB, "User B", "b2@example.com")));
+                .thenReturn(java.util.Optional.of(new UserProfile(userB, "User B", "b2@example.com", null)));
         var pending = friendshipService.sendRequest(userA, "b2@example.com");
         friendshipId = pending.id();
         friendshipService.respond(userB, pending.id(), true);
@@ -157,7 +157,7 @@ class GroupStreakConsumerTest {
 
     @Test
     void habitServiceCreateCheckIn_tagsGroupIdAutomatically_whenHabitIsGroupLinked() {
-        when(userLookupService.resolve(any())).thenAnswer(inv -> new UserProfile(inv.getArgument(0), "User", null));
+        when(userLookupService.resolve(any())).thenAnswer(inv -> new UserProfile(inv.getArgument(0), "User", null, null));
 
         String userA = "streak-test-user-a3";
         Long habitA = createHabit(userA, "Habit A");

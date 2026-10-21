@@ -310,16 +310,17 @@ public class GroupService {
 
         List<GroupResponse.Participant> participants = activeMembers.stream()
                 .map(m -> {
-                    String displayName = userLookupService.resolve(m.getUserId()).displayName();
+                    UserProfile profile = userLookupService.resolve(m.getUserId());
+                    String displayName = profile.displayName();
                     boolean checkedInToday = m.getHabitId() != null
                             && checkInRepository.existsByHabitIdAndOccurredAtBetween(m.getHabitId(), dayStart, dayEnd);
                     if (!independent || m.getHabitId() == null) {
-                        return new GroupResponse.Participant(displayName, m.getUserId(), null, checkedInToday);
+                        return new GroupResponse.Participant(displayName, m.getUserId(), null, checkedInToday, profile.photoUrl());
                     }
                     List<CheckIn> checkIns =
                             checkInRepository.findByUserIdAndHabitIdOrderByOccurredAtAsc(m.getUserId(), m.getHabitId());
                     int currentStreak = StreakCalculator.compute(checkIns, resolveZone(m.getUserId())).current();
-                    return new GroupResponse.Participant(displayName, m.getUserId(), currentStreak, checkedInToday);
+                    return new GroupResponse.Participant(displayName, m.getUserId(), currentStreak, checkedInToday, profile.photoUrl());
                 })
                 .toList();
 

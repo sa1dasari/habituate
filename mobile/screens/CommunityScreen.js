@@ -22,7 +22,7 @@ import { useNotifications } from '../hooks/useNotifications';
 import { useRegisterScrollToTop } from '../hooks/useRegisterScrollToTop';
 import { radii, spacing } from '../theme';
 
-export default function CommunityScreen() {
+export default function CommunityScreen({ navigation }) {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const scrollRef = useRegisterScrollToTop('Community');
@@ -273,6 +273,9 @@ export default function CommunityScreen() {
         onClose={() => setNotificationsVisible(false)}
         onOpenGroup={setSelectedGroupId}
         onOpenChallenge={setSelectedChallengeId}
+        onOpenInsightsPeriod={(period, periodStart) => {
+          navigation.navigate('Insights', { periodNav: { period, anchorDate: periodStart || null } });
+        }}
       />
       <ProtectionInfoModal
         visible={freezeInfoVisible}

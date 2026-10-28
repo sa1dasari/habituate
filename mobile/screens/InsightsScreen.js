@@ -14,10 +14,14 @@ import {
   computeConsistency,
   consistencyMessage,
   generateCoachStarterQuestions,
+  isCurrentPeriod,
+  periodRangeLabel,
+  shiftAnchor,
 } from '../utils/consistency';
 import { fonts, radii, shadow, spacing } from '../theme';
 
 const PERIOD_LABELS = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', yearly: 'Yearly' };
+const LIVE_PERIOD_LABELS = { daily: 'Today', weekly: 'This week', monthly: 'This month', yearly: 'This year' };
 const PERIOD_TITLES = {
   daily: 'DAILY CONSISTENCY',
   weekly: 'WEEKLY CONSISTENCY',
@@ -41,12 +45,19 @@ export default function InsightsScreen({ navigation, route }) {
 
   const { habits, refresh } = useHabits();
   const [period, setPeriod] = useState('weekly');
+  // The date each period's trailing window ends at — "now" shows the live
+  // period; prev/next slide it back/forward a whole window-length at a time
+  // (see utils/consistency.js's shiftAnchor), which is what lets this one
+  // state value drive weekly/monthly/yearly navigation without a new
+  // backend endpoint — computeConsistency/habitPeriodHistory already derive
+  // every stat from the full check-in history already loaded client-side.
+  const [anchor, setAnchor] = useState(() => new Date());
   const [refreshing, setRefreshing] = useState(false);
   const [detailVisible, setDetailVisible] = useState(false);
   const [coachVisible, setCoachVisible] = useState(false);
   const [coachInitialQuestion, setCoachInitialQuestion] = useState(null);
 
-  const consistency = useMemo(() => computeConsistency(habits, period), [habits, period]);
+  const consistency = useMemo(() => computeConsistency(habits, period, anchor), [habits, period, anchor]);
   const message = useMemo(
     () => consistencyMessage(consistency.percent, consistency.hasData),
     [consistency]
@@ -60,16 +71,55 @@ export default function InsightsScreen({ navigation, route }) {
   }, [refresh]);
 
   const trend = consistency.trendDelta;
+  const isLivePeriod = isCurrentPeriod(period, anchor);
+  const rangeLabel = periodRangeLabel(period, anchor);
+
+  const selectPeriod = (p) => {
+    setPeriod(p);
+    setAnchor(new Date()); // switching tabs always lands back on the live period
+  };
+  const goToPreviousPeriod = () => setAnchor((a) => shiftAnchor(period, a, -1));
+  const goToNextPeriod = () => {
+    if (isLivePeriod) return;
+    setAnchor((a) => shiftAnchor(period, a, 1));
+  };
+  const goToNow = () => setAnchor(new Date());
 
   // Coming from Today's "Ask Habituate" teaser — open the chat directly
   // instead of landing on the Insights tab and making the user find it again.
+  // Coming from a WEEKLY_SUMMARY/MONTHLY_SUMMARY/YEARLY_SUMMARY notification
+  // (NotificationCenterModal.handlePress) — land directly on that period's
+  // tab, anchored to approximately the date range it covers. The backend's
+  // periodStart is a real calendar boundary (Monday/1st-of-month/Jan 1);
+  // this trailing-window model doesn't have calendar-aligned months/years
+  // (see utils/consistency.js), so the anchor used here is "periodStart's
+  // own window length later," which lines up exactly for weekly and closely
+  // for monthly/yearly — a documented approximation, not a bug.
   useFocusEffect(
     useCallback(() => {
-      if (!route.params?.openCoach) return;
-      setCoachInitialQuestion(null);
-      setCoachVisible(true);
-      navigation.setParams({ openCoach: undefined });
-    }, [route.params?.openCoach, navigation])
+      if (route.params?.openCoach) {
+        setCoachInitialQuestion(null);
+        setCoachVisible(true);
+        navigation.setParams({ openCoach: undefined });
+        return;
+      }
+      if (route.params?.periodNav) {
+        const { period: navPeriod, anchorDate } = route.params.periodNav;
+        if (navPeriod) {
+          setPeriod(navPeriod);
+          if (anchorDate) {
+            const start = new Date(anchorDate);
+            const approxDays = navPeriod === 'weekly' ? 7 : navPeriod === 'monthly' ? 30 : navPeriod === 'yearly' ? 365 : 1;
+            const end = new Date(start);
+            end.setDate(end.getDate() + approxDays - 1);
+            setAnchor(end);
+          } else {
+            setAnchor(new Date());
+          }
+        }
+        navigation.setParams({ periodNav: undefined });
+      }
+    }, [route.params?.openCoach, route.params?.periodNav, navigation])
   );
 
   return (
@@ -89,13 +139,45 @@ export default function InsightsScreen({ navigation, route }) {
             <Pressable
               key={p}
               style={[styles.tabPill, period === p && styles.tabPillActive]}
-              onPress={() => setPeriod(p)}
+              onPress={() => selectPeriod(p)}
             >
               <Text style={[styles.tabText, period === p && styles.tabTextActive]}>
                 {PERIOD_LABELS[p]}
               </Text>
             </Pressable>
           ))}
+        </View>
+
+        <View style={styles.periodNavRow}>
+          <Pressable
+            onPress={goToPreviousPeriod}
+            hitSlop={8}
+            style={styles.periodNavBtn}
+            accessibilityRole="button"
+            accessibilityLabel={`Previous ${period} period`}
+          >
+            <MaterialCommunityIcons name="chevron-left" size={20} color={colors.textSecondary} />
+          </Pressable>
+
+          <Pressable onPress={goToNow} disabled={isLivePeriod} style={styles.periodRangeLabelWrap}>
+            <Text style={styles.periodRangeLabel}>{isLivePeriod ? LIVE_PERIOD_LABELS[period] : rangeLabel}</Text>
+            {!isLivePeriod ? <Text style={styles.periodRangeSubLabel}>{rangeLabel} · tap for now</Text> : null}
+          </Pressable>
+
+          <Pressable
+            onPress={goToNextPeriod}
+            disabled={isLivePeriod}
+            hitSlop={8}
+            style={styles.periodNavBtn}
+            accessibilityRole="button"
+            accessibilityLabel={`Next ${period} period`}
+          >
+            <MaterialCommunityIcons
+              name="chevron-right"
+              size={20}
+              color={isLivePeriod ? colors.textMuted : colors.textSecondary}
+            />
+          </Pressable>
         </View>
 
         <Pressable
@@ -180,6 +262,7 @@ export default function InsightsScreen({ navigation, route }) {
         visible={detailVisible}
         habits={habits}
         initialPeriod={period}
+        anchor={anchor}
         onClose={() => setDetailVisible(false)}
       />
 
@@ -227,6 +310,24 @@ function makeStyles(colors, typography) {
     tabTextActive: {
       color: colors.background,
     },
+    periodNavRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.sm,
+      marginBottom: spacing.md,
+    },
+    periodNavBtn: {
+      width: 32,
+      height: 32,
+      borderRadius: radii.pill,
+      backgroundColor: colors.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    periodRangeLabelWrap: { alignItems: 'center', minWidth: 140 },
+    periodRangeLabel: { fontSize: 13, fontWeight: '700', color: colors.textPrimary },
+    periodRangeSubLabel: { ...typography.meta, marginTop: 1 },
     consistencyCard: {
       backgroundColor: colors.surface,
       borderRadius: radii.lg,

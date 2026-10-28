@@ -11,6 +11,49 @@ const WINDOW_DAYS = { daily: 1, weekly: 7, monthly: 30, yearly: 365 };
 
 export const CONSISTENCY_PERIODS = ['daily', 'weekly', 'monthly', 'yearly'];
 
+/**
+ * Past-period navigation for Insights (weekly/monthly/yearly prev/next).
+ * Since every period here is already a trailing window ending at `now`
+ * (not a calendar-aligned week/month/year — see the comment above), moving
+ * to "the previous period" is just sliding that same window back by its
+ * own length. This is the one piece of math InsightsScreen needs to add
+ * prev/next without a new backend endpoint — `computeConsistency` and
+ * `habitPeriodHistory` already take a `now` anchor, they just always got
+ * `new Date()` before.
+ */
+export function shiftAnchor(period, anchor, steps) {
+  const days = WINDOW_DAYS[period] || WINDOW_DAYS.daily;
+  const next = new Date(anchor);
+  next.setDate(next.getDate() + days * steps);
+  return next;
+}
+
+/** Whether `anchor`'s window (ending at anchor) is the one currently live, i.e. ends within
+ * one window-length of right now — used to disable "next" past the live period. */
+export function isCurrentPeriod(period, anchor, now = new Date()) {
+  const days = WINDOW_DAYS[period] || WINDOW_DAYS.daily;
+  const diffDays = (now.getTime() - anchor.getTime()) / 86400000;
+  return diffDays < days;
+}
+
+/** Human label for the date range a period anchor covers, e.g. "Oct 20 – Oct 26, 2026". */
+export function periodRangeLabel(period, anchor) {
+  const days = WINDOW_DAYS[period] || WINDOW_DAYS.daily;
+  const end = new Date(anchor);
+  if (period === 'daily') {
+    return end.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+  const start = new Date(anchor);
+  start.setDate(start.getDate() - (days - 1));
+  const sameYear = start.getFullYear() === end.getFullYear();
+  const startLabel = start.toLocaleDateString(
+    'en-US',
+    sameYear ? { month: 'short', day: 'numeric' } : { month: 'short', day: 'numeric', year: 'numeric' }
+  );
+  const endLabel = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return `${startLabel} – ${endLabel}`;
+}
+
 function dayKeysEndingAt(date, count) {
   const keys = [];
   const cursor = new Date(date);

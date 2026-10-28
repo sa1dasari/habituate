@@ -1,20 +1,24 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
-  withTiming,
+  withSpring,
 } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useNotifications } from '../hooks/useNotifications';
+import { useNotificationSwipePrefs } from '../hooks/useNotificationSwipePrefs';
 import { timeAgo } from '../utils/date';
 import { radii, shadow, spacing } from '../theme';
 
 const DELETE_ACTION_WIDTH = 76;
 const READ_ACTION_WIDTH = 92;
+const SPRING_CONFIG = { damping: 24, stiffness: 320, mass: 0.7 };
 
 const TYPE_ICON = {
   FRIEND_REQUEST_ACCEPTED: 'account-heart-outline',
@@ -23,7 +27,18 @@ const TYPE_ICON = {
   CHALLENGE_INVITE: 'trophy-outline',
   CHALLENGE_CHECKIN: 'trophy-outline',
   NUDGE: 'hand-wave-outline',
+  WEEKLY_SUMMARY: 'calendar-week',
+  MONTHLY_SUMMARY: 'calendar-month-outline',
+  YEARLY_SUMMARY: 'calendar-star',
 };
+
+function triggerHaptic(kind) {
+  if (kind === 'confirm') {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+  } else {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+  }
+}
 
 /**
  * The persistent notification center behind the Community page's bell icon —
@@ -31,11 +46,22 @@ const TYPE_ICON = {
  * app_notifications so "X checked in today" or "X accepted your request"
  * stays visible until the user actually looks at it.
  */
-export default function NotificationCenterModal({ visible, onClose, onOpenGroup, onOpenChallenge }) {
+export default function NotificationCenterModal({
+  visible,
+  onClose,
+  onOpenGroup,
+  onOpenChallenge,
+  onOpenInsightsPeriod,
+}) {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const { notifications, unreadCount, loading, refresh, markRead, markAllRead, deleteNotification } =
     useNotifications();
+  const { deleteOnLeft } = useNotificationSwipePrefs();
+  // Only one row's actions stay revealed at a time — opening a second one
+  // (or tapping the already-open one) snaps the previous row shut, same as
+  // Mail/Outlook rather than letting several rows sit open at once.
+  const [openRowId, setOpenRowId] = useState(null);
 
   const handlePress = (item) => {
     if (!item.read) markRead(item.id);
@@ -45,6 +71,15 @@ export default function NotificationCenterModal({ visible, onClose, onOpenGroup,
     } else if (item.challengeId != null) {
       onClose();
       onOpenChallenge?.(item.challengeId);
+    } else if (
+      item.type === 'WEEKLY_SUMMARY' ||
+      item.type === 'MONTHLY_SUMMARY' ||
+      item.type === 'YEARLY_SUMMARY'
+    ) {
+      onClose();
+      const period =
+        item.type === 'WEEKLY_SUMMARY' ? 'weekly' : item.type === 'MONTHLY_SUMMARY' ? 'monthly' : 'yearly';
+      onOpenInsightsPeriod?.(period, item.periodStart);
     }
   };
 
@@ -88,6 +123,9 @@ export default function NotificationCenterModal({ visible, onClose, onOpenGroup,
               item={item}
               styles={styles}
               colors={colors}
+              deleteOnLeft={deleteOnLeft}
+              isOpen={openRowId === item.id}
+              onOpenChange={setOpenRowId}
               onPress={() => handlePress(item)}
               onMarkRead={() => markRead(item.id)}
               onDelete={() => deleteNotification(item.id)}
@@ -99,12 +137,44 @@ export default function NotificationCenterModal({ visible, onClose, onOpenGroup,
   );
 }
 
-// Swipe-left reveal: the row slides to expose "Mark as read" (only when
-// unread) and "Delete" underneath, instead of needing a long-press menu.
-function NotificationRow({ item, styles, colors, onPress, onMarkRead, onDelete }) {
-  const actionWidth = (item.read ? 0 : READ_ACTION_WIDTH) + DELETE_ACTION_WIDTH;
+/**
+ * Two independent swipe directions, Outlook-style reveal-then-tap-to-confirm:
+ * swiping exposes exactly one action panel, sized to that action alone and
+ * anchored at the edge the swipe came from — never the full-width,
+ * flex-end-packed panel the old implementation used, which anchored Delete
+ * flush against the row's real right edge so it appeared on the very first
+ * pixel of any left-swipe while "Mark as read" (packed to Delete's left)
+ * needed a nearly-full swipe before it ever came into view. Both panels are
+ * conditionally rendered (not just visually covered) so neither is present
+ * in the tree, let alone visible, at rest.
+ *
+ * Which direction maps to which action is swappable via
+ * useNotificationSwipePrefs (NotificationSettingsScreen) — default is
+ * swipe-left-to-read / swipe-right-to-delete, `deleteOnLeft` flips both at
+ * once so the two actions never collide on the same side.
+ */
+function NotificationRow({ item, styles, colors, deleteOnLeft, isOpen, onOpenChange, onPress, onMarkRead, onDelete }) {
+  const readAvailable = !item.read;
+
+  // negLimit: how far a left-swipe can open (reveals the "right-anchored" panel).
+  // posLimit: how far a right-swipe can open (reveals the "left-anchored" panel).
+  const negAction = deleteOnLeft ? null : readAvailable ? 'read' : null;
+  const posAction = deleteOnLeft ? (readAvailable ? 'read' : null) : null;
+  const rightPanelAction = deleteOnLeft ? 'delete' : negAction; // revealed by swiping left
+  const leftPanelAction = deleteOnLeft ? posAction : 'delete'; // revealed by swiping right
+
+  const negLimit = rightPanelAction === 'read' ? READ_ACTION_WIDTH : rightPanelAction === 'delete' ? DELETE_ACTION_WIDTH : 0;
+  const posLimit = leftPanelAction === 'read' ? READ_ACTION_WIDTH : leftPanelAction === 'delete' ? DELETE_ACTION_WIDTH : 0;
+
   const translateX = useSharedValue(0);
   const startX = useSharedValue(0);
+  const hapticLatch = useSharedValue(false);
+
+  useEffect(() => {
+    if (!isOpen) {
+      translateX.value = withSpring(0, SPRING_CONFIG);
+    }
+  }, [isOpen]);
 
   const pan = Gesture.Pan()
     .activeOffsetX([-10, 10])
@@ -113,53 +183,100 @@ function NotificationRow({ item, styles, colors, onPress, onMarkRead, onDelete }
     })
     .onUpdate((event) => {
       const next = startX.value + event.translationX;
-      translateX.value = Math.max(-actionWidth, Math.min(0, next));
+      const clamped = Math.max(-negLimit, Math.min(posLimit, next));
+      translateX.value = clamped;
+
+      const pastThreshold =
+        (clamped < 0 && negLimit > 0 && -clamped >= negLimit / 2) ||
+        (clamped > 0 && posLimit > 0 && clamped >= posLimit / 2);
+      if (pastThreshold && !hapticLatch.value) {
+        hapticLatch.value = true;
+        runOnJS(triggerHaptic)('reveal');
+      } else if (!pastThreshold && hapticLatch.value) {
+        hapticLatch.value = false;
+      }
     })
     .onEnd(() => {
-      translateX.value = withTiming(translateX.value < -actionWidth / 2 ? -actionWidth : 0);
+      const current = translateX.value;
+      let target = 0;
+      let openedId = null;
+      if (current < 0 && negLimit > 0 && -current >= negLimit / 2) {
+        target = -negLimit;
+        openedId = item.id;
+      } else if (current > 0 && posLimit > 0 && current >= posLimit / 2) {
+        target = posLimit;
+        openedId = item.id;
+      }
+      translateX.value = withSpring(target, SPRING_CONFIG);
+      runOnJS(onOpenChange)(openedId);
     });
 
   const rowStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: translateX.value }],
   }));
 
-  const close = () => {
-    translateX.value = withTiming(0);
+  const runAction = (action) => {
+    triggerHaptic('confirm');
+    translateX.value = withSpring(0, SPRING_CONFIG);
+    onOpenChange(null);
+    if (action === 'read') onMarkRead();
+    else if (action === 'delete') onDelete();
+  };
+
+  const handleRowPress = () => {
+    if (isOpen) {
+      translateX.value = withSpring(0, SPRING_CONFIG);
+      onOpenChange(null);
+      return;
+    }
+    onPress();
   };
 
   return (
     <View style={styles.rowWrapper}>
-      <View style={styles.actionsRow}>
-        {!item.read ? (
-          <Pressable
-            style={[styles.actionBtn, { width: READ_ACTION_WIDTH, backgroundColor: colors.accent }]}
-            onPress={() => {
-              onMarkRead();
-              close();
-            }}
-            accessibilityRole="button"
-            accessibilityLabel={`Mark "${item.title}" as read`}
-          >
-            <MaterialCommunityIcons name="check" size={18} color="#FFFFFF" />
-            <Text style={styles.actionBtnText}>Read</Text>
-          </Pressable>
-        ) : null}
-        <Pressable
-          style={[styles.actionBtn, { width: DELETE_ACTION_WIDTH, backgroundColor: colors.atRisk }]}
-          onPress={onDelete}
-          accessibilityRole="button"
-          accessibilityLabel={`Delete "${item.title}"`}
+      {leftPanelAction ? (
+        <View
+          style={[
+            styles.sidePanel,
+            styles.leftPanel,
+            { width: posLimit, backgroundColor: panelColor(leftPanelAction, colors) },
+          ]}
         >
-          <MaterialCommunityIcons name="trash-can-outline" size={18} color="#FFFFFF" />
-          <Text style={styles.actionBtnText}>Delete</Text>
-        </Pressable>
-      </View>
+          <Pressable
+            style={styles.actionBtn}
+            onPress={() => runAction(leftPanelAction)}
+            accessibilityRole="button"
+            accessibilityLabel={actionLabel(leftPanelAction, item.title)}
+          >
+            <ActionGlyph action={leftPanelAction} />
+          </Pressable>
+        </View>
+      ) : null}
+
+      {rightPanelAction ? (
+        <View
+          style={[
+            styles.sidePanel,
+            styles.rightPanel,
+            { width: negLimit, backgroundColor: panelColor(rightPanelAction, colors) },
+          ]}
+        >
+          <Pressable
+            style={styles.actionBtn}
+            onPress={() => runAction(rightPanelAction)}
+            accessibilityRole="button"
+            accessibilityLabel={actionLabel(rightPanelAction, item.title)}
+          >
+            <ActionGlyph action={rightPanelAction} />
+          </Pressable>
+        </View>
+      ) : null}
 
       <GestureDetector gesture={pan}>
         <Animated.View style={rowStyle}>
           <Pressable
             style={[styles.row, !item.read && styles.rowUnread]}
-            onPress={onPress}
+            onPress={handleRowPress}
             accessibilityRole="button"
             accessibilityLabel={item.title}
           >
@@ -183,6 +300,35 @@ function NotificationRow({ item, styles, colors, onPress, onMarkRead, onDelete }
   );
 }
 
+function panelColor(action, colors) {
+  return action === 'delete' ? colors.atRisk : colors.accent;
+}
+
+function actionLabel(action, title) {
+  return action === 'delete' ? `Delete "${title}"` : `Mark "${title}" as read`;
+}
+
+function ActionGlyph({ action }) {
+  if (action === 'delete') {
+    return (
+      <>
+        <MaterialCommunityIcons name="trash-can-outline" size={18} color="#FFFFFF" />
+        <Text style={glyphStyles.text}>Delete</Text>
+      </>
+    );
+  }
+  return (
+    <>
+      <MaterialCommunityIcons name="check" size={18} color="#FFFFFF" />
+      <Text style={glyphStyles.text}>Read</Text>
+    </>
+  );
+}
+
+const glyphStyles = StyleSheet.create({
+  text: { fontSize: 11, fontWeight: '700', color: '#FFFFFF' },
+});
+
 function makeStyles(colors, typography) {
   return StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: colors.background },
@@ -200,17 +346,22 @@ function makeStyles(colors, typography) {
     closeBtn: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
     list: { padding: spacing.lg, paddingBottom: spacing.xxl },
     rowWrapper: { marginBottom: spacing.sm, borderRadius: radii.lg, overflow: 'hidden' },
-    actionsRow: {
-      ...StyleSheet.absoluteFillObject,
-      flexDirection: 'row',
-      justifyContent: 'flex-end',
+    sidePanel: {
+      position: 'absolute',
+      top: 0,
+      bottom: 0,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
+    leftPanel: { left: 0 },
+    rightPanel: { right: 0 },
     actionBtn: {
+      flex: 1,
+      width: '100%',
       alignItems: 'center',
       justifyContent: 'center',
       gap: 2,
     },
-    actionBtnText: { fontSize: 11, fontWeight: '700', color: '#FFFFFF' },
     row: {
       flexDirection: 'row',
       alignItems: 'flex-start',

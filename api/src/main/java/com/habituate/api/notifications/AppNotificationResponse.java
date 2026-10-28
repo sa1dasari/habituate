@@ -10,6 +10,7 @@ public record AppNotificationResponse(
         Long groupId,
         Long challengeId,
         Long habitId,
+        Instant periodStart,
         boolean read,
         Instant createdAt
 ) {

@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -41,6 +42,16 @@ public class AppNotificationService {
                            Long groupId, Long challengeId, Long habitId) {
         for (String userId : userIds) {
             notify(userId, type, title, body, groupId, challengeId, habitId);
+        }
+    }
+
+    /** WEEKLY_SUMMARY/MONTHLY_SUMMARY/YEARLY_SUMMARY (PeriodSummaryScheduler) — carries
+     * periodStart so the client can deep-link to that specific past Insights period. */
+    public void notifyPeriodSummary(String userId, String type, String title, String body, Instant periodStart) {
+        try {
+            repository.save(new AppNotification(userId, type, title, body, null, null, null, periodStart));
+        } catch (Exception e) {
+            log.warn("Could not create period-summary notification ({}) for {}: {}", type, userId, e.getMessage());
         }
     }
 
@@ -81,6 +92,6 @@ public class AppNotificationService {
 
     private AppNotificationResponse toResponse(AppNotification n) {
         return new AppNotificationResponse(n.getId(), n.getType(), n.getTitle(), n.getBody(),
-                n.getGroupId(), n.getChallengeId(), n.getHabitId(), n.isRead(), n.getCreatedAt());
+                n.getGroupId(), n.getChallengeId(), n.getHabitId(), n.getPeriodStart(), n.isRead(), n.getCreatedAt());
     }
 }

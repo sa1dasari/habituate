@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -13,6 +13,7 @@ import ChallengeDetailModal from '../components/ChallengeDetailModal';
 import AddFriendModal from '../components/AddFriendModal';
 import NotificationCenterModal from '../components/NotificationCenterModal';
 import ProtectionInfoModal from '../components/ProtectionInfoModal';
+import TourHighlight from '../components/TourHighlight';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useAuth } from '../hooks/useAuth';
 import { useGroups } from '../hooks/useGroups';
@@ -20,6 +21,9 @@ import { useHabits } from '../hooks/useHabits';
 import { useChallenges } from '../hooks/useChallenges';
 import { useNotifications } from '../hooks/useNotifications';
 import { useRegisterScrollToTop } from '../hooks/useRegisterScrollToTop';
+import { useOnboardingTour } from '../hooks/useOnboardingTour';
+import { useTourTarget } from '../hooks/useTourTarget';
+import { TOUR_SCOPES, TOUR_TARGETS } from '../constants/onboardingTour';
 import { radii, spacing } from '../theme';
 
 export default function CommunityScreen() {
@@ -49,6 +53,27 @@ export default function CommunityScreen() {
   const [notificationsVisible, setNotificationsVisible] = useState(false);
   const [freezeInfoVisible, setFreezeInfoVisible] = useState(false);
   const { unreadCount } = useNotifications();
+
+  const { active: tourActive, currentStep: tourStep } = useOnboardingTour();
+  const tourHeaderActionsRef = useTourTarget(TOUR_TARGETS.COMMUNITY_HEADER_ACTIONS);
+  const tourCreateGroupRef = useTourTarget(TOUR_TARGETS.COMMUNITY_CREATE_GROUP);
+  const tourCreateChallengeRef = useTourTarget(TOUR_TARGETS.COMMUNITY_CREATE_CHALLENGE);
+
+  // Real-screen tour steps: opens the actual Create Shared Habit / Create
+  // Challenge / streak-freeze-info modals in step with the walkthrough, and
+  // reverts all three the moment the tour ends so it never leaves one open
+  // behind the tour's back.
+  useEffect(() => {
+    if (!tourActive) {
+      setCreateGroupVisible(false);
+      setCreateChallengeVisible(false);
+      setFreezeInfoVisible(false);
+      return;
+    }
+    setCreateGroupVisible(tourStep?.id === 'shared-habit-form');
+    setCreateChallengeVisible(tourStep?.id === 'challenge-form');
+    setFreezeInfoVisible(tourStep?.id === 'streak-freeze-info');
+  }, [tourActive, tourStep]);
 
   const loading = groupsLoading || challengesLoading;
   // Looked up by id each render (not the tapped object itself) so the detail
@@ -81,6 +106,7 @@ export default function CommunityScreen() {
   };
 
   return (
+    <>
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView
         ref={scrollRef}
@@ -93,7 +119,7 @@ export default function CommunityScreen() {
             <Text style={styles.subtitle}>Shared habits, group streaks, and challenges</Text>
           </View>
 
-          <View style={styles.headerActions}>
+          <View style={styles.headerActions} ref={tourHeaderActionsRef}>
             <Pressable
               style={styles.iconButton}
               accessibilityRole="button"
@@ -132,6 +158,7 @@ export default function CommunityScreen() {
           </View>
           <View style={styles.sectionActions}>
             <Pressable
+              ref={tourCreateGroupRef}
               style={styles.createBtn}
               accessibilityRole="button"
               accessibilityLabel="Create a shared habit"
@@ -198,6 +225,7 @@ export default function CommunityScreen() {
           <Text style={styles.sectionTitle}>Challenges</Text>
           <View style={styles.sectionActions}>
             <Pressable
+              ref={tourCreateChallengeRef}
               style={styles.createBtn}
               accessibilityRole="button"
               accessibilityLabel="Create a challenge"
@@ -280,6 +308,8 @@ export default function CommunityScreen() {
         onClose={() => setFreezeInfoVisible(false)}
       />
     </SafeAreaView>
+    <TourHighlight scope={TOUR_SCOPES.COMMUNITY} />
+    </>
   );
 }
 

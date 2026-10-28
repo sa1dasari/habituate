@@ -3,7 +3,9 @@ import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import api from '../api/client';
+import TourHighlight from './TourHighlight';
 import { useAppTheme } from '../hooks/useAppTheme';
+import { TOUR_SCOPES } from '../constants/onboardingTour';
 import { radii, shadow, spacing } from '../theme';
 
 const SHIELD_RULES = [
@@ -136,6 +138,7 @@ export default function ProtectionInfoModal({ visible, onClose, initialTab = 'sh
           ))}
         </ScrollView>
       </SafeAreaView>
+      <TourHighlight scope={TOUR_SCOPES.PROTECTION_MODAL} />
     </Modal>
   );
 }

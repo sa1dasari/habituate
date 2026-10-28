@@ -17,6 +17,8 @@ import HabitCard from '../components/HabitCard';
 import GoalsSummaryCard from '../components/GoalsSummaryCard';
 import AvatarImage from '../components/AvatarImage';
 import TemplateHabitsPicker from '../components/TemplateHabitsPicker';
+import TourHighlight from '../components/TourHighlight';
+import { TOUR_SCOPES } from '../constants/onboardingTour';
 import { useAuth } from '../hooks/useAuth';
 import { useCelebration } from '../hooks/useCelebration';
 import { useRegisterScrollToTop } from '../hooks/useRegisterScrollToTop';
@@ -330,6 +332,7 @@ export default function TodayScreen() {
   };
 
   return (
+    <>
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView
         ref={scrollRef}
@@ -461,6 +464,8 @@ export default function TodayScreen() {
         )}
       </ScrollView>
     </SafeAreaView>
+    <TourHighlight scope={TOUR_SCOPES.TODAY} />
+    </>
   );
 }
 

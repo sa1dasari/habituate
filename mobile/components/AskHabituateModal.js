@@ -15,8 +15,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import api from '../api/client';
+import TourHighlight from './TourHighlight';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useHabits } from '../hooks/useHabits';
+import { useTourTarget } from '../hooks/useTourTarget';
+import { TOUR_SCOPES, TOUR_TARGETS } from '../constants/onboardingTour';
 import { generateCoachStarterQuestions } from '../utils/consistency';
 import { radii, shadow, spacing } from '../theme';
 
@@ -38,6 +41,7 @@ export default function AskHabituateModal({ visible, onClose, initialQuestion, h
   const starterQuestions = useMemo(() => generateCoachStarterQuestions(habits), [habits]);
 
   const { refresh: refreshHabits } = useHabits();
+  const tourHeaderRef = useTourTarget(TOUR_TARGETS.MODAL_ASK_HABITUATE_HEADER);
 
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -186,7 +190,7 @@ export default function AskHabituateModal({ visible, onClose, initialQuestion, h
             ) : null}
           </View>
 
-          <View style={styles.titleRow}>
+          <View style={styles.titleRow} ref={tourHeaderRef}>
             <View style={styles.titleIcon}>
               <MaterialCommunityIcons name="chat-processing-outline" size={20} color={colors.accent} />
             </View>
@@ -279,6 +283,7 @@ export default function AskHabituateModal({ visible, onClose, initialQuestion, h
           <Text style={styles.disclaimer}>AI suggestions can be imperfect. You're in control.</Text>
         </KeyboardAvoidingView>
       </SafeAreaView>
+      <TourHighlight scope={TOUR_SCOPES.ASK_HABITUATE_MODAL} />
     </Modal>
   );
 }

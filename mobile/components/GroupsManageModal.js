@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import FriendProfileModal from './FriendProfileModal';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useFriends } from '../hooks/useFriends';
 import { useGroups } from '../hooks/useGroups';
@@ -23,6 +24,7 @@ export default function GroupsManageModal({ visible, onClose }) {
   const [email, setEmail] = useState('');
   const [acceptingInviteId, setAcceptingInviteId] = useState(null);
   const [invitingGroupId, setInvitingGroupId] = useState(null);
+  const [profileUserId, setProfileUserId] = useState(null);
 
   const busy = friendsBusy || groupsBusy;
 
@@ -165,14 +167,26 @@ export default function GroupsManageModal({ visible, onClose }) {
               <Text style={styles.emptyNote}>No friends yet — invite someone by email above.</Text>
             ) : (
               friends.map((friend) => (
-                <View key={friend.id} style={styles.friendRow}>
+                <Pressable
+                  key={friend.id}
+                  style={styles.friendRow}
+                  onPress={() => setProfileUserId(friend.otherUserId)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`View ${friend.otherUserName || friend.otherUserEmail}'s profile`}
+                >
                   <Text style={styles.friendName}>{friend.otherUserName || friend.otherUserEmail}</Text>
-                </View>
+                  <MaterialCommunityIcons name="chevron-right" size={18} color={colors.textMuted} />
+                </Pressable>
               ))
             )}
           </Section>
         </ScrollView>
       </SafeAreaView>
+      <FriendProfileModal
+        visible={!!profileUserId}
+        userId={profileUserId}
+        onClose={() => setProfileUserId(null)}
+      />
     </Modal>
   );
 }

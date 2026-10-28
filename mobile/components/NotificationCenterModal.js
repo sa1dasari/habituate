@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
   runOnJS,
   useAnimatedStyle,
@@ -90,6 +90,12 @@ export default function NotificationCenterModal({
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      {/* RN's Modal renders in its own native surface, separate from the app's
+          root view — the GestureHandlerRootView wrapping App.js doesn't extend
+          into it, so GestureDetector's row-swipe had nowhere to attach its
+          native handlers to and silently did nothing. Every Modal that uses
+          GestureDetector internally needs its own root like this. */}
+      <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
           <Pressable onPress={onClose} hitSlop={12} style={styles.closeBtn}>
@@ -138,6 +144,7 @@ export default function NotificationCenterModal({
           )}
         />
       </SafeAreaView>
+      </GestureHandlerRootView>
     </Modal>
   );
 }

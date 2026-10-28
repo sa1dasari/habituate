@@ -1,8 +1,9 @@
-import React, { useMemo } from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Alert, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AvatarStack from './AvatarStack';
+import ChallengeDetailModal from './ChallengeDetailModal';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useChallenges } from '../hooks/useChallenges';
 import { radii, shadow, spacing } from '../theme';
@@ -11,7 +12,19 @@ import { radii, shadow, spacing } from '../theme';
 export default function ChallengesManageModal({ visible, onClose }) {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
-  const { browseList, busy, joinChallenge } = useChallenges();
+  const { browseList, busy, loading, refresh, joinChallenge } = useChallenges();
+  const [selectedChallengeId, setSelectedChallengeId] = useState(null);
+
+  // The challenges context only refreshes on app launch and after an action
+  // THIS device performed — it has no idea a friend published or edited a
+  // challenge elsewhere. Without this, the browse list can sit stale for the
+  // entire lifetime of the app session, showing a challenge's visibility as
+  // of whenever this session happened to last fetch it.
+  useEffect(() => {
+    if (visible) refresh();
+  }, [visible, refresh]);
+
+  const selectedChallenge = browseList.find((c) => c.id === selectedChallengeId) || null;
 
   const handleJoin = async (challengeId) => {
     const ok = await joinChallenge(challengeId);
@@ -29,12 +42,22 @@ export default function ChallengesManageModal({ visible, onClose }) {
           <View style={{ width: 34 }} />
         </View>
 
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} />}
+        >
           {browseList.length === 0 ? (
             <Text style={styles.emptyNote}>No public challenges right now.</Text>
           ) : (
             browseList.map((challenge) => (
-              <View key={challenge.id} style={styles.card}>
+              <Pressable
+                key={challenge.id}
+                style={styles.card}
+                onPress={() => setSelectedChallengeId(challenge.id)}
+                accessibilityRole="button"
+                accessibilityLabel={`View ${challenge.name}`}
+              >
                 <View style={styles.cardTop}>
                   <Text style={styles.cardName} numberOfLines={1}>
                     {challenge.name}
@@ -43,7 +66,10 @@ export default function ChallengesManageModal({ visible, onClose }) {
                     <Pressable
                       style={styles.primaryButtonSmall}
                       disabled={busy}
-                      onPress={() => handleJoin(challenge.id)}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        handleJoin(challenge.id);
+                      }}
                     >
                       <Text style={styles.primaryButtonText}>Join</Text>
                     </Pressable>
@@ -55,11 +81,16 @@ export default function ChallengesManageModal({ visible, onClose }) {
                   Target {challenge.targetCount} days · {challenge.periodEnd ? `ends ${challenge.periodEnd}` : 'open-ended'}
                 </Text>
                 <AvatarStack people={challenge.participants} total={challenge.participantCount} size={22} />
-              </View>
+              </Pressable>
             ))
           )}
         </ScrollView>
       </SafeAreaView>
+      <ChallengeDetailModal
+        visible={!!selectedChallenge}
+        challenge={selectedChallenge}
+        onClose={() => setSelectedChallengeId(null)}
+      />
     </Modal>
   );
 }

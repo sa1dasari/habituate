@@ -2,6 +2,7 @@ import { createContext, createElement, useCallback, useContext, useEffect, useMe
 import api from '../api/client';
 import { cadenceProgress } from '../utils/cadence';
 import { toDateKey } from '../utils/date';
+import { syncHabitSnapshot } from '../utils/widgetSync';
 
 export { toDateKey };
 
@@ -114,10 +115,14 @@ export function HabitsProvider({ children }) {
         api.listArchivedHabits(),
         api.getShields().catch(() => ({ available: 0 })),
       ]);
-      setHabits(await Promise.all((active || []).map(hydrate)));
+      const enrichedHabits = await Promise.all((active || []).map(hydrate));
+      setHabits(enrichedHabits);
       setArchivedHabits(archived || []);
       setShieldsAvailable(shields?.available || 0);
       setError('');
+      // Home-screen widgets (SKILLS.md Phase 7) read a cached snapshot, not a
+      // live API call — keep it current every time the real list refreshes.
+      syncHabitSnapshot(enrichedHabits).catch(() => {});
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not load habits');
     } finally {

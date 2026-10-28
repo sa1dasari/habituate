@@ -12,6 +12,11 @@
       "bundleIdentifier": "com.habituate.mobile",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
+      },
+      "entitlements": {
+        "com.apple.security.application-groups": [
+          "group.com.habituate.mobile.widget"
+        ]
       }
     },
     "android": {
@@ -49,6 +54,27 @@
           "clientToken": "5468ab3a36ffffeee58502ca741f90f0",
           "displayName": "Habituate",
           "scheme": "fb1296690482527392"
+        }
+      ],
+      "expo-dev-client",
+      "@bacons/apple-targets",
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "HabitWidget",
+              "label": "Habituate Check-In",
+              "minWidth": "110dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 2,
+              "targetCellHeight": 1,
+              "resizeMode": "horizontal|vertical",
+              "widgetFeatures": "reconfigurable",
+              "description": "Check in on today's habits without opening the app.",
+              "updatePeriodMillis": 1800000
+            }
+          ]
         }
       ]
     ],

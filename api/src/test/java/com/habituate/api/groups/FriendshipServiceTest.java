@@ -164,7 +164,7 @@ class FriendshipServiceTest {
 
         List<AppNotificationResponse> notifications = appNotificationRepository.findTop50ByUserIdOrderByCreatedAtDesc(requester)
                 .stream().map(n -> new AppNotificationResponse(n.getId(), n.getType(), n.getTitle(), n.getBody(),
-                        n.getGroupId(), n.getChallengeId(), n.getHabitId(), n.isRead(), n.getCreatedAt()))
+                        n.getGroupId(), n.getChallengeId(), n.getHabitId(), n.getPeriodStart(), n.isRead(), n.getCreatedAt()))
                 .toList();
         assertThat(notifications).anyMatch(n -> n.type().equals("FRIEND_REQUEST_ACCEPTED"));
     }

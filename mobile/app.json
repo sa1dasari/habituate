@@ -70,7 +70,6 @@
               "targetCellWidth": 2,
               "targetCellHeight": 1,
               "resizeMode": "horizontal|vertical",
-              "widgetFeatures": "reconfigurable",
               "description": "Check in on today's habits without opening the app.",
               "updatePeriodMillis": 1800000
             }

@@ -14,6 +14,7 @@ import {
   linkWithCredential,
   OAuthProvider,
   onAuthStateChanged,
+  onIdTokenChanged,
   sendPasswordResetEmail,
   signInWithCredential,
   signInWithEmailAndPassword,
@@ -29,6 +30,7 @@ import {
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { AccessToken, LoginManager } from 'react-native-fbsdk-next';
 import { auth } from '../firebase';
+import { syncAuthToken } from '../utils/widgetSync';
 import api from '../api/client';
 import { labelForProviderId } from '../utils/providerLabels';
 import {
@@ -103,6 +105,18 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser ?? null);
+    });
+    return unsubscribe;
+  }, []);
+
+  // Separate from the listener above on purpose: `onIdTokenChanged` also
+  // fires on Firebase's own silent ~55-minute token refresh while the app
+  // is open, which is exactly when the iOS widget extension's cached token
+  // (see `utils/widgetSync.js`) needs re-mirroring into the App Group so it
+  // doesn't go stale. `onAuthStateChanged` only fires on sign-in/sign-out.
+  useEffect(() => {
+    const unsubscribe = onIdTokenChanged(auth, (firebaseUser) => {
+      syncAuthToken(firebaseUser ?? null).catch(() => {});
     });
     return unsubscribe;
   }, []);

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Linking, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import {
@@ -15,7 +15,7 @@ import { DarkTheme, DefaultTheme, NavigationContainer } from '@react-navigation/
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AvatarImage from './components/AvatarImage';
-import { HabitsProvider } from './hooks/useHabits';
+import { HabitsProvider, useHabits } from './hooks/useHabits';
 import { GoalsProvider } from './hooks/useGoals';
 import { FriendsProvider } from './hooks/useFriends';
 import { GroupsProvider } from './hooks/useGroups';
@@ -124,6 +124,41 @@ function Tabs() {
   );
 }
 
+/**
+ * Degraded fallback for the home-screen widgets (SKILLS.md Phase 7): when
+ * in-widget interactivity isn't available — iOS 16 and below (no App
+ * Intents / interactive widget buttons) or Android's own task-handler path
+ * hitting an error, see `widgets/widgetTaskHandler.js` — the widget opens
+ * `habituate://checkin?habitId=<id>&source=widget` instead, which lands
+ * here. The app is already authenticated by the time this runs (it's a
+ * normal foreground launch, not a background task), so the check-in just
+ * goes through the same `toggleCheckIn` the Today screen itself uses.
+ * Renders nothing — this only ever has a side effect.
+ */
+function WidgetDeepLinkBridge() {
+  const { toggleCheckIn, loading } = useHabits();
+
+  useEffect(() => {
+    const handleUrl = ({ url }) => {
+      // Regex rather than the `URL` global — RN's URL polyfill handles
+      // custom schemes inconsistently across SDK versions, and this
+      // pattern (`habituate://checkin?habitId=123`) is simple enough not
+      // to need a real parser.
+      if (!url || !/^habituate:\/\/checkin\b/.test(url)) return;
+      const match = url.match(/habitId=(\d+)/);
+      const habitId = match ? Number(match[1]) : null;
+      if (!habitId || loading) return;
+      toggleCheckIn(habitId).catch(() => {});
+    };
+
+    Linking.getInitialURL().then((url) => url && handleUrl({ url }));
+    const subscription = Linking.addEventListener('url', handleUrl);
+    return () => subscription.remove();
+  }, [toggleCheckIn, loading]);
+
+  return null;
+}
+
 function AppGate() {
   const { user } = useAuth();
   const { colors, effectiveMode } = useAppTheme();
@@ -202,6 +237,7 @@ function AppGate() {
               <GroupActivityProvider>
                 <NotificationsProvider>
                   <CelebrationProvider>
+                    <WidgetDeepLinkBridge />
                     <NavigationContainer theme={navigationTheme}>
                       <Tabs />
                     </NavigationContainer>

@@ -5,11 +5,19 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { categoryIcon } from '../constants/habitCategories';
 import TreeRingChart from './TreeRingChart';
-import { CONSISTENCY_PERIODS, habitHistorySummary, habitPeriodHistory } from '../utils/consistency';
+import {
+  CONSISTENCY_PERIODS,
+  habitHistorySummary,
+  habitPeriodHistory,
+  isCurrentPeriod,
+  periodRangeLabel,
+  shiftAnchor,
+} from '../utils/consistency';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { gradients, radii, shadow, spacing } from '../theme';
 
 const PERIOD_LABELS = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', yearly: 'Yearly' };
+const LIVE_PERIOD_LABELS = { daily: 'Today', weekly: 'This week', monthly: 'This month', yearly: 'This year' };
 const HISTORY_TITLES = { daily: 'Daily history', weekly: 'Weekly history', monthly: 'Monthly history', yearly: 'Yearly history' };
 const HISTORY_SUBTITLES = {
   daily: 'Last 7 days',
@@ -53,11 +61,15 @@ const BAR_COLOR_SETS = [
  *                    the same past period, not always "now"
  *   onClose        – () => void
  */
-export default function ConsistencyDetailModal({ visible, habits = [], initialPeriod = 'weekly', anchor, onClose }) {
+export default function ConsistencyDetailModal({ visible, habits = [], initialPeriod = 'weekly', anchor: initialAnchor, onClose }) {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
 
   const [period, setPeriod] = useState(initialPeriod);
+  // Own local anchor, seeded from whatever period Insights was showing when
+  // this opened — independent from here on, so prev/next inside this modal
+  // doesn't require closing it and moving Insights' own anchor first.
+  const [anchor, setAnchor] = useState(() => initialAnchor || new Date());
   // Multi-select: an empty array (on first open) defaults to just the first
   // habit, same single-habit starting point as before — tapping a chip
   // toggles it in/out from there rather than replacing the selection.
@@ -66,6 +78,7 @@ export default function ConsistencyDetailModal({ visible, habits = [], initialPe
   useEffect(() => {
     if (!visible) return;
     setPeriod(initialPeriod);
+    setAnchor(initialAnchor || new Date());
     setSelectedHabitIds((current) => {
       const stillValid = current.filter((id) => habits.some((h) => h.id === id));
       if (stillValid.length > 0) return stillValid;
@@ -73,6 +86,19 @@ export default function ConsistencyDetailModal({ visible, habits = [], initialPe
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, initialPeriod]);
+
+  const isLivePeriod = isCurrentPeriod(period, anchor);
+  const rangeLabel = periodRangeLabel(period, anchor);
+  const selectPeriod = (p) => {
+    setPeriod(p);
+    setAnchor(new Date()); // switching tabs always lands back on the live period, same as Insights
+  };
+  const goToPreviousPeriod = () => setAnchor((a) => shiftAnchor(period, a, -1));
+  const goToNextPeriod = () => {
+    if (isLivePeriod) return;
+    setAnchor((a) => shiftAnchor(period, a, 1));
+  };
+  const goToNow = () => setAnchor(new Date());
 
   const toggleHabit = (habitId) => {
     setSelectedHabitIds((current) =>
@@ -137,13 +163,45 @@ export default function ConsistencyDetailModal({ visible, habits = [], initialPe
               <Pressable
                 key={p}
                 style={[styles.tabPill, period === p && styles.tabPillActive]}
-                onPress={() => setPeriod(p)}
+                onPress={() => selectPeriod(p)}
               >
                 <Text style={[styles.tabText, period === p && styles.tabTextActive]}>
                   {PERIOD_LABELS[p]}
                 </Text>
               </Pressable>
             ))}
+          </View>
+
+          <View style={styles.periodNavRow}>
+            <Pressable
+              onPress={goToPreviousPeriod}
+              hitSlop={8}
+              style={styles.periodNavBtn}
+              accessibilityRole="button"
+              accessibilityLabel={`Previous ${period} period`}
+            >
+              <MaterialCommunityIcons name="chevron-left" size={20} color={colors.textSecondary} />
+            </Pressable>
+
+            <Pressable onPress={goToNow} disabled={isLivePeriod} style={styles.periodRangeLabelWrap}>
+              <Text style={styles.periodRangeLabel}>{isLivePeriod ? LIVE_PERIOD_LABELS[period] : rangeLabel}</Text>
+              {!isLivePeriod ? <Text style={styles.periodRangeSubLabel}>{rangeLabel} · tap for now</Text> : null}
+            </Pressable>
+
+            <Pressable
+              onPress={goToNextPeriod}
+              disabled={isLivePeriod}
+              hitSlop={8}
+              style={styles.periodNavBtn}
+              accessibilityRole="button"
+              accessibilityLabel={`Next ${period} period`}
+            >
+              <MaterialCommunityIcons
+                name="chevron-right"
+                size={20}
+                color={isLivePeriod ? colors.textMuted : colors.textSecondary}
+              />
+            </Pressable>
           </View>
 
           {habits.length === 0 ? (
@@ -355,6 +413,21 @@ function makeStyles(colors, typography) {
     tabPillActive: { backgroundColor: colors.textPrimary },
     tabText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
     tabTextActive: { color: colors.background },
+    periodNavRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: spacing.lg,
+    },
+    periodNavBtn: {
+      width: 34,
+      height: 34,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    periodRangeLabelWrap: { alignItems: 'center', minWidth: 140 },
+    periodRangeLabel: { fontSize: 13, fontWeight: '700', color: colors.textPrimary },
+    periodRangeSubLabel: { ...typography.meta, marginTop: 1 },
     card: {
       backgroundColor: colors.surface,
       borderRadius: radii.lg,

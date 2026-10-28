@@ -48,9 +48,12 @@ const BAR_COLOR_SETS = [
  *   habits         – enriched habit array from useHabits (each has .checkIns[])
  *   initialPeriod  – 'daily' | 'weekly' | 'monthly' | 'yearly', mirrors
  *                    whichever tab was selected on Insights when opened
+ *   anchor         – Date the period windows end at; mirrors Insights' own
+ *                    prev/next period navigation so this drill-down shows
+ *                    the same past period, not always "now"
  *   onClose        – () => void
  */
-export default function ConsistencyDetailModal({ visible, habits = [], initialPeriod = 'weekly', onClose }) {
+export default function ConsistencyDetailModal({ visible, habits = [], initialPeriod = 'weekly', anchor, onClose }) {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
 
@@ -84,9 +87,9 @@ export default function ConsistencyDetailModal({ visible, habits = [], initialPe
   // into a single average, so each habit's own rhythm stays visible when
   // comparing more than one at a time.
   const selectedHistories = useMemo(
-    () => selectedHabits.map((habit) => ({ habit, history: habitPeriodHistory(habit, period) })),
+    () => selectedHabits.map((habit) => ({ habit, history: habitPeriodHistory(habit, period, anchor || new Date()) })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selectedHabitIds, period, habits]
+    [selectedHabitIds, period, habits, anchor]
   );
 
   const bucketLabels = selectedHistories[0]?.history.buckets.map((b) => b.label) || [];

@@ -23,6 +23,15 @@ import java.time.Instant;
  * to open on tap. Plain nullable columns rather than a JSON payload (unlike
  * coach_messages.proposal_payload) since every notification type here only
  * ever needs at most one of these three ids, not an open-ended field set.
+ *
+ * periodStart is the one exception, added alongside WEEKLY_SUMMARY/
+ * MONTHLY_SUMMARY/YEARLY_SUMMARY (PeriodSummaryScheduler): the start instant
+ * (midnight, the user's zone at send time) of the week/month/year the
+ * summary covers — the deep-link target isn't an id of an existing row the
+ * other three columns could point at, it's a date range, so this needed a
+ * new column rather than overloading groupId/challengeId/habitId. The
+ * mobile client turns this + the type into an Insights period-tab anchor
+ * date (NotificationCenterModal.handlePress).
  */
 @Entity
 @Table(name = "app_notifications")
@@ -36,6 +45,9 @@ public class AppNotification {
     public static final String CHALLENGE_CHECKIN = "CHALLENGE_CHECKIN";
     public static final String CHALLENGE_DELETED = "CHALLENGE_DELETED";
     public static final String NUDGE = "NUDGE";
+    public static final String WEEKLY_SUMMARY = "WEEKLY_SUMMARY";
+    public static final String MONTHLY_SUMMARY = "MONTHLY_SUMMARY";
+    public static final String YEARLY_SUMMARY = "YEARLY_SUMMARY";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -62,6 +74,9 @@ public class AppNotification {
     @Column
     private Long habitId;
 
+    @Column
+    private Instant periodStart;
+
     @Column(nullable = false, columnDefinition = "boolean not null default false")
     private boolean read = false;
 
@@ -73,6 +88,11 @@ public class AppNotification {
 
     public AppNotification(String userId, String type, String title, String body,
                             Long groupId, Long challengeId, Long habitId) {
+        this(userId, type, title, body, groupId, challengeId, habitId, null);
+    }
+
+    public AppNotification(String userId, String type, String title, String body,
+                            Long groupId, Long challengeId, Long habitId, Instant periodStart) {
         this.userId = userId;
         this.type = type;
         this.title = title;
@@ -80,6 +100,7 @@ public class AppNotification {
         this.groupId = groupId;
         this.challengeId = challengeId;
         this.habitId = habitId;
+        this.periodStart = periodStart;
     }
 
     @PrePersist
@@ -117,6 +138,10 @@ public class AppNotification {
 
     public Long getHabitId() {
         return habitId;
+    }
+
+    public Instant getPeriodStart() {
+        return periodStart;
     }
 
     public boolean isRead() {

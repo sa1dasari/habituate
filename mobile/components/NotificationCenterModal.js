@@ -60,6 +60,14 @@ export default function NotificationCenterModal({
   const { notifications, unreadCount, loading, refresh, markRead, markAllRead, deleteNotification } =
     useNotifications();
   const { deleteOnLeft } = useNotificationSwipePrefs();
+
+  // Pull-to-refresh already existed, but nothing refetched when the modal
+  // itself opens — the same stale-data gap as the challenges/friends/groups
+  // modals had. A notification that arrived while this session was already
+  // running would otherwise only show up after a manual pull.
+  useEffect(() => {
+    if (visible) refresh();
+  }, [visible, refresh]);
   // Only one row's actions stay revealed at a time — opening a second one
   // (or tapping the already-open one) snaps the previous row shut, same as
   // Mail/Outlook rather than letting several rows sit open at once.

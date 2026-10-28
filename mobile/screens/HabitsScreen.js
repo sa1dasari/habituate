@@ -33,7 +33,6 @@ import {
   buildHabitMilestone,
 } from '../utils/celebration';
 import { useCelebration } from '../hooks/useCelebration';
-import { useFeaturedGoalReviews } from '../hooks/useFeaturedGoalReviews';
 import { useRegisterScrollToTop } from '../hooks/useRegisterScrollToTop';
 import { useGoals } from '../hooks/useGoals';
 import { summarizeHabits, useHabits } from '../hooks/useHabits';
@@ -190,8 +189,6 @@ export default function HabitsScreen() {
   const isEditingGoal = goalForm.id != null;
 
   const featuredHabits = habits.filter((h) => h.featuredGoal);
-  const { reviews: habitGoalReviews, dismiss: dismissHabitGoalReview } =
-    useFeaturedGoalReviews(featuredHabits);
   const hasGoals = featuredHabits.length > 0 || goals.length > 0;
 
   // Same "Due Today" concept Today's Progress uses, so the check-in
@@ -859,25 +856,6 @@ export default function HabitsScreen() {
               </View>
             ) : null}
 
-            {habitGoalReviews.map(({ habit, stats, currentKey }) => (
-              <View key={`review-${habit.id}`} style={styles.reviewCard}>
-                <Text style={styles.reviewName}>{habit.name}</Text>
-                <Text style={styles.reviewLine}>
-                  {stats.hit
-                    ? `You hit it — ${stats.done} of ${stats.target} ${stats.periodLabel.toLowerCase()}.`
-                    : `${stats.done} of ${stats.target} ${stats.periodLabel.toLowerCase()} — close, but not quite.`}
-                </Text>
-                <View style={styles.reviewActions}>
-                  <Pressable
-                    style={styles.reviewBtn}
-                    onPress={() => dismissHabitGoalReview(habit.id, currentKey)}
-                  >
-                    <Text style={styles.reviewBtnText}>Dismiss</Text>
-                  </Pressable>
-                </View>
-              </View>
-            ))}
-
             {featuredHabits.map((habit) => (
               <HabitCard
                 key={`goal-habit-${habit.id}`}
@@ -1190,30 +1168,6 @@ function makeStyles(colors, typography) {
     marginBottom: spacing.md,
   },
   sectionAction: { fontSize: 13, fontWeight: '700', color: colors.accent },
-  reviewCard: {
-    backgroundColor: colors.accentSoft,
-    borderRadius: radii.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-  },
-  reviewName: { ...typography.cardTitle },
-  reviewLine: {
-    ...typography.body,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
-  },
-  reviewActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: spacing.sm,
-  },
-  reviewBtn: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: radii.sm,
-    backgroundColor: colors.surface,
-  },
-  reviewBtnText: { color: colors.textSecondary, fontWeight: '600', fontSize: 13 },
   empty: {
     ...typography.body,
     color: colors.textSecondary,

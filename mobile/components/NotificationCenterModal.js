@@ -241,12 +241,17 @@ function NotificationRow({ item, styles, colors, deleteOnLeft, isOpen, onOpenCha
   // Pan gesture for the touch via RN's own responder system — the symptom is
   // exactly what it sounds like: a swipe sometimes resolves as a tap instead
   // of revealing the panel. Gesture.Exclusive hands the touch to `pan` first;
-  // only once Pan fails to activate (i.e. the touch never crossed the ±10px
-  // activeOffsetX threshold) does `tap` get a turn, so the two can never both
-  // fire for the same gesture.
-  const tap = Gesture.Tap().onEnd(() => {
-    runOnJS(handleRowPress)();
-  });
+  // only once Pan fails to activate does `tap` get a turn — but Tap has NO
+  // distance limit by default (only a maxDuration, ~500ms), so a fast swipe
+  // could still satisfy Tap's own criteria and win the race regardless of
+  // Exclusive's ordering. maxDistance(10) ties Tap's own activation to the
+  // same travel threshold as Pan's activeOffsetX, so a real swipe always
+  // fails Tap outright instead of merely losing a priority tie-break.
+  const tap = Gesture.Tap()
+    .maxDistance(10)
+    .onEnd(() => {
+      runOnJS(handleRowPress)();
+    });
   const composedGesture = Gesture.Exclusive(pan, tap);
 
   return (

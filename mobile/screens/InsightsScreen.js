@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -6,9 +6,13 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import ProgressRing from '../components/ProgressRing';
 import ConsistencyDetailModal from '../components/ConsistencyDetailModal';
 import AskHabituateModal from '../components/AskHabituateModal';
+import TourHighlight from '../components/TourHighlight';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useHabits } from '../hooks/useHabits';
 import { useRegisterScrollToTop } from '../hooks/useRegisterScrollToTop';
+import { useOnboardingTour } from '../hooks/useOnboardingTour';
+import { useTourTarget } from '../hooks/useTourTarget';
+import { TOUR_SCOPES, TOUR_TARGETS } from '../constants/onboardingTour';
 import {
   CONSISTENCY_PERIODS,
   computeConsistency,
@@ -56,6 +60,25 @@ export default function InsightsScreen({ navigation, route }) {
   const [detailVisible, setDetailVisible] = useState(false);
   const [coachVisible, setCoachVisible] = useState(false);
   const [coachInitialQuestion, setCoachInitialQuestion] = useState(null);
+
+  const { active: tourActive, currentStep: tourStep } = useOnboardingTour();
+  const tourConsistencyCardRef = useTourTarget(TOUR_TARGETS.INSIGHTS_CONSISTENCY_CARD);
+  const tourCoachCardRef = useTourTarget(TOUR_TARGETS.INSIGHTS_COACH_CARD);
+
+  // Real-screen tour step: opens the actual Ask Habituate chat in step with
+  // the walkthrough, and closes it the moment the tour ends.
+  useEffect(() => {
+    if (!tourActive) {
+      setCoachVisible(false);
+      return;
+    }
+    if (tourStep?.id === 'ask-habituate-chat') {
+      setCoachInitialQuestion(null);
+      setCoachVisible(true);
+    } else {
+      setCoachVisible(false);
+    }
+  }, [tourActive, tourStep]);
 
   const consistency = useMemo(() => computeConsistency(habits, period, anchor), [habits, period, anchor]);
   const message = useMemo(
@@ -123,6 +146,7 @@ export default function InsightsScreen({ navigation, route }) {
   );
 
   return (
+    <>
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView
         ref={scrollRef}
@@ -181,6 +205,7 @@ export default function InsightsScreen({ navigation, route }) {
         </View>
 
         <Pressable
+          ref={tourConsistencyCardRef}
           style={styles.consistencyCard}
           onPress={() => setDetailVisible(true)}
           accessibilityRole="button"
@@ -220,7 +245,7 @@ export default function InsightsScreen({ navigation, route }) {
           <Text style={styles.messageSubtitle}>{message.subtitle}</Text>
         </Pressable>
 
-        <View style={styles.coachCard}>
+        <View style={styles.coachCard} ref={tourCoachCardRef}>
           <Pressable
             style={styles.coachHeaderRow}
             onPress={() => {
@@ -273,6 +298,8 @@ export default function InsightsScreen({ navigation, route }) {
         onClose={() => setCoachVisible(false)}
       />
     </SafeAreaView>
+    <TourHighlight scope={TOUR_SCOPES.INSIGHTS} />
+    </>
   );
 }
 

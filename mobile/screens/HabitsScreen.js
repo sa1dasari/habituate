@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -19,10 +19,12 @@ import HabitCard from '../components/HabitCard';
 import ScrubberInput from '../components/ScrubberInput';
 import ProtectionInfoModal from '../components/ProtectionInfoModal';
 import TimePicker from '../components/TimePicker';
+import TourHighlight from '../components/TourHighlight';
 import {
   DEFAULT_HABIT_CATEGORY,
   HABIT_CATEGORY_OPTIONS,
 } from '../constants/habitCategories';
+import { TOUR_SCOPES, TOUR_TARGETS } from '../constants/onboardingTour';
 import { effectiveMonthlyTarget, effectiveWeeklyTarget, hasDailyTarget } from '../utils/cadence';
 import {
   buildAllDoneCelebration,
@@ -36,6 +38,8 @@ import { useRegisterScrollToTop } from '../hooks/useRegisterScrollToTop';
 import { useGoals } from '../hooks/useGoals';
 import { summarizeHabits, useHabits } from '../hooks/useHabits';
 import { useAppTheme } from '../hooks/useAppTheme';
+import { useOnboardingTour } from '../hooks/useOnboardingTour';
+import { useTourTarget } from '../hooks/useTourTarget';
 import { radii, shadow, spacing } from '../theme';
 
 const emptyForm = {
@@ -153,6 +157,34 @@ export default function HabitsScreen() {
   const [showGoalForm, setShowGoalForm] = useState(false);
   const scrollRef = useRegisterScrollToTop('Habits');
   const goalsSectionY = useRef(0);
+
+  const { active: tourActive, currentStep: tourStep } = useOnboardingTour();
+  const tourAddButtonRef = useTourTarget(TOUR_TARGETS.HABITS_ADD_BUTTON);
+  const tourFormCardRef = useTourTarget(
+    tourActive && tourStep?.id === 'habits-create-form' ? TOUR_TARGETS.HABITS_FORM_CARD : null
+  );
+  const tourShieldIconRef = useTourTarget(TOUR_TARGETS.HABITS_SHIELD_ICON);
+
+  // Drives the tour's real-screen steps: opens/closes the actual create form
+  // and the actual Shield Days info modal in step with the walkthrough,
+  // rather than a static mock of either. Reverts both the moment the tour
+  // ends (skip, finish, or navigating away), so it never leaves either one
+  // stuck open behind the tour's back.
+  useEffect(() => {
+    if (!tourActive) {
+      setShowForm(false);
+      setShowShieldInfo(false);
+      return;
+    }
+    if (tourStep?.id === 'habits-create-form') {
+      setForm(emptyForm);
+      setShowForm(true);
+    } else {
+      setShowForm(false);
+    }
+    setShowShieldInfo(tourStep?.id === 'shield-days-info');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tourActive, tourStep]);
 
   const isEditing = form.id != null;
   const isEditingGoal = goalForm.id != null;
@@ -500,6 +532,7 @@ export default function HabitsScreen() {
   };
 
   return (
+    <>
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView
         ref={scrollRef}
@@ -510,6 +543,7 @@ export default function HabitsScreen() {
           <View style={styles.titleActions}>
             {habits.length > 0 ? (
               <Pressable
+                ref={tourShieldIconRef}
                 style={styles.iconButton}
                 onPress={() => setShowShieldInfo(true)}
                 accessibilityRole="button"
@@ -527,6 +561,7 @@ export default function HabitsScreen() {
               <MaterialCommunityIcons name="calendar-month-outline" size={22} color={colors.accent} />
             </Pressable>
             <Pressable
+              ref={tourAddButtonRef}
               style={styles.addButton}
               onPress={() => (showForm ? closeForm() : openCreate())}
             >
@@ -550,7 +585,7 @@ export default function HabitsScreen() {
         />
 
         {showForm ? (
-          <View style={styles.formCard}>
+          <View style={styles.formCard} ref={tourFormCardRef}>
             <Text style={styles.formTitle}>{isEditing ? 'Edit habit' : 'New habit'}</Text>
 
             <Text style={styles.label}>Habit name</Text>
@@ -989,6 +1024,8 @@ export default function HabitsScreen() {
 
       </ScrollView>
     </SafeAreaView>
+    <TourHighlight scope={TOUR_SCOPES.HABITS} />
+    </>
   );
 }
 

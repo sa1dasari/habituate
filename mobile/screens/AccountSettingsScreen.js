@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import StackHeader from '../components/StackHeader';
 import EditProfileModal from '../components/EditProfileModal';
 import { useAppTheme } from '../hooks/useAppTheme';
+import { useReplayTour } from '../hooks/useOnboardingTour';
 import { radii, shadow, spacing } from '../theme';
 
 const ROWS = [
@@ -13,6 +14,9 @@ const ROWS = [
   { key: 'Privacy', icon: 'lock-outline', label: 'Privacy' },
   { key: 'NotificationSettings', icon: 'bell-outline', label: 'Notifications' },
   { key: 'Accessibility', icon: 'theme-light-dark', label: 'Accessibility' },
+  // Replays the first-time-user onboarding tour from the start — re-usable
+  // any time, not just on a fresh account (see useOnboardingTour.js).
+  { key: 'replayTour', icon: 'compass-outline', label: 'Replay tour' },
   { key: 'GetHelp', icon: 'help-circle-outline', label: 'Get Help' },
   { key: 'ReportBug', icon: 'bug-outline', label: 'Report a Bug / Suggestion' },
 ];
@@ -21,10 +25,18 @@ export default function AccountSettingsScreen({ navigation }) {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const [editVisible, setEditVisible] = useState(false);
+  const replayTour = useReplayTour();
 
   const handlePress = (key) => {
     if (key === 'personalInfo') {
       setEditVisible(true);
+      return;
+    }
+    if (key === 'replayTour') {
+      // Starting the tour already switches to the Today tab itself (its
+      // first step's own `tab` field, via the shared navigationRef) — no
+      // manual navigation needed from this nested stack.
+      replayTour();
       return;
     }
     navigation.navigate(key);

@@ -4,8 +4,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import ScrubberInput from './ScrubberInput';
 import TimePicker from './TimePicker';
+import TourHighlight from './TourHighlight';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useChallenges } from '../hooks/useChallenges';
+import { useTourTarget } from '../hooks/useTourTarget';
+import { TOUR_SCOPES, TOUR_TARGETS } from '../constants/onboardingTour';
 import { toDateKey } from '../utils/date';
 import { radii, spacing } from '../theme';
 
@@ -66,6 +69,7 @@ export default function CreateChallengeModal({ visible, onClose, onDeleted, chal
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const { busy, createChallenge: createChallengeAction, updateChallenge, deleteChallenge } = useChallenges();
   const isEditing = !!challenge;
+  const tourHeaderRef = useTourTarget(TOUR_TARGETS.MODAL_CREATE_CHALLENGE_HEADER);
 
   const handleDelete = () => {
     Alert.alert(
@@ -193,7 +197,7 @@ export default function CreateChallengeModal({ visible, onClose, onDeleted, chal
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={handleClose}>
       <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
+        <View style={styles.header} ref={tourHeaderRef}>
           <Pressable onPress={handleClose} hitSlop={12} style={styles.closeBtn}>
             <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
           </Pressable>
@@ -411,6 +415,7 @@ export default function CreateChallengeModal({ visible, onClose, onDeleted, chal
           ) : null}
         </ScrollView>
       </SafeAreaView>
+      <TourHighlight scope={TOUR_SCOPES.CREATE_CHALLENGE_MODAL} />
     </Modal>
   );
 }

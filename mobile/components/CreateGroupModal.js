@@ -3,9 +3,12 @@ import { Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInpu
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import ScrubberInput from './ScrubberInput';
+import TourHighlight from './TourHighlight';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useGroups } from '../hooks/useGroups';
 import { useHabits } from '../hooks/useHabits';
+import { useTourTarget } from '../hooks/useTourTarget';
+import { TOUR_SCOPES, TOUR_TARGETS } from '../constants/onboardingTour';
 import { radii, spacing } from '../theme';
 
 const RULE_OPTIONS = [
@@ -36,6 +39,7 @@ export default function CreateGroupModal({ visible, onClose, onDeleted, group = 
   const { busy, createGroup, updateGroup, deleteGroup } = useGroups();
   const { habits } = useHabits();
   const isEditing = !!group;
+  const tourHeaderRef = useTourTarget(TOUR_TARGETS.MODAL_CREATE_GROUP_HEADER);
 
   const handleDelete = () => {
     Alert.alert(
@@ -153,7 +157,7 @@ export default function CreateGroupModal({ visible, onClose, onDeleted, group = 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={handleClose}>
       <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
+        <View style={styles.header} ref={tourHeaderRef}>
           <Pressable onPress={handleClose} hitSlop={12} style={styles.closeBtn}>
             <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
           </Pressable>
@@ -318,6 +322,7 @@ export default function CreateGroupModal({ visible, onClose, onDeleted, group = 
           ) : null}
         </ScrollView>
       </SafeAreaView>
+      <TourHighlight scope={TOUR_SCOPES.CREATE_GROUP_MODAL} />
     </Modal>
   );
 }

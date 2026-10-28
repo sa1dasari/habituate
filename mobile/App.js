@@ -26,8 +26,10 @@ import { CelebrationProvider } from './hooks/useCelebration';
 import { ThemeProvider, useAppTheme } from './hooks/useAppTheme';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { usePushToken } from './hooks/usePushToken';
+import { TourProvider, useAutoStartTour } from './hooks/useOnboardingTour';
 import api from './api/client';
 import { scrollToTop } from './utils/scrollToTopRegistry';
+import { navigationRef } from './utils/navigationRef';
 import {
   ChooseUsernameScreen,
   CommunityScreen,
@@ -159,6 +161,20 @@ function WidgetDeepLinkBridge() {
   return null;
 }
 
+// Fires the first-time-user tour exactly once, right after AppGate renders
+// the main tabs for the first time this session with the AsyncStorage flag
+// still unset — see useOnboardingTour.js's useAutoStartTour for the exact
+// signal. Mounted inside TourProvider, not inside NavigationContainer, since
+// it only needs the tour's own start() (tab-switching goes through the
+// module-level navigationRef, not a navigation prop).
+function TourAutoStart() {
+  const attemptAutoStart = useAutoStartTour();
+  useEffect(() => {
+    attemptAutoStart();
+  }, [attemptAutoStart]);
+  return null;
+}
+
 function AppGate() {
   const { user } = useAuth();
   const { colors, effectiveMode } = useAppTheme();
@@ -237,10 +253,13 @@ function AppGate() {
               <GroupActivityProvider>
                 <NotificationsProvider>
                   <CelebrationProvider>
-                    <WidgetDeepLinkBridge />
-                    <NavigationContainer theme={navigationTheme}>
-                      <Tabs />
-                    </NavigationContainer>
+                    <TourProvider>
+                      <WidgetDeepLinkBridge />
+                      <NavigationContainer ref={navigationRef} theme={navigationTheme}>
+                        <Tabs />
+                      </NavigationContainer>
+                      <TourAutoStart />
+                    </TourProvider>
                   </CelebrationProvider>
                 </NotificationsProvider>
               </GroupActivityProvider>

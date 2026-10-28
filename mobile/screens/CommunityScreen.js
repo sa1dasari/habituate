@@ -13,6 +13,7 @@ import ChallengeDetailModal from '../components/ChallengeDetailModal';
 import AddFriendModal from '../components/AddFriendModal';
 import NotificationCenterModal from '../components/NotificationCenterModal';
 import ProtectionInfoModal from '../components/ProtectionInfoModal';
+import FriendProfileModal from '../components/FriendProfileModal';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useAuth } from '../hooks/useAuth';
 import { useGroups } from '../hooks/useGroups';
@@ -48,7 +49,15 @@ export default function CommunityScreen() {
   const [friendsVisible, setFriendsVisible] = useState(false);
   const [notificationsVisible, setNotificationsVisible] = useState(false);
   const [freezeInfoVisible, setFreezeInfoVisible] = useState(false);
+  const [profileUserId, setProfileUserId] = useState(null);
   const { unreadCount } = useNotifications();
+
+  // Tapping the compact avatar stack on a card opens the friend-profile viewer instead of the
+  // card's own onPress (e.g. the Shared Habit/Challenge detail modal) — never for yourself.
+  const handlePressPerson = (userId) => {
+    if (!userId || (user && userId === user.uid)) return;
+    setProfileUserId(userId);
+  };
 
   const loading = groupsLoading || challengesLoading;
   // Looked up by id each render (not the tapped object itself) so the detail
@@ -189,6 +198,7 @@ export default function CommunityScreen() {
               onToggleCheckIn={() => handleToggleGroupCheckIn(group)}
               busy={habitsBusy}
               onPress={() => setSelectedGroupId(group.id)}
+              onPressPerson={handlePressPerson}
             />
             );
           })
@@ -247,6 +257,7 @@ export default function CommunityScreen() {
               busy={challengesBusy}
               onToggleCheckIn={() => handleToggleCheckIn(challenge)}
               onPress={() => setSelectedChallengeId(challenge.id)}
+              onPressPerson={handlePressPerson}
             />
           ))
         )}
@@ -279,6 +290,7 @@ export default function CommunityScreen() {
         initialTab="freeze"
         onClose={() => setFreezeInfoVisible(false)}
       />
+      <FriendProfileModal visible={!!profileUserId} userId={profileUserId} onClose={() => setProfileUserId(null)} />
     </SafeAreaView>
   );
 }

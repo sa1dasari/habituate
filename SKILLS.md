@@ -210,6 +210,24 @@ For as long as the app stays in Expo's managed workflow with Expo Go–compatibl
 
 ---
 
+## Phase 8.5 — Friend profile privacy + tappable friend-profile viewer
+**Goal:** a public/private visibility setting for your own profile (default PRIVATE for every account), plus a real tappable profile view wherever a friend's name/avatar currently appears — those were previously dead silhouettes with no `onPress`.
+
+- [x] `users.profile_visibility` (PUBLIC/PRIVATE, app-layer default PRIVATE for every account — new or pre-existing, same `ddl-auto=update`-with-no-migration-tool convention as `username`): `User.getProfileVisibility()` never returns null even for a row predating the column. New `PATCH /api/users/me/visibility` (`UpdateProfileVisibilityRequest`) — a dedicated endpoint rather than folding into `PATCH /api/users/me`, since that one's contract is "client resends every field's current value," which doesn't fit a single settings toggle. `GET/PATCH /api/users/me` (`UserProfileResponse`) now also returns the field. Surfaced in `mobile/screens/PrivacyScreen.js` as a new "Friend profile" section with a `Switch`, next to the existing privacy-policy link and data export rows.
+  - Completed 2026-10-28.
+- [x] New cross-user read, friendship-gated: `GET /api/users/{userId}/profile` (`com.habituate.api.users.FriendProfileController`/`FriendProfileService`/`FriendProfileResponse`) — the one endpoint in this codebase that reads another user's data by id rather than being scoped to the caller. Throws `ForbiddenException` (reusing `FriendshipService.areFriends`, same both-directions-ACCEPTED check `FriendshipController` already uses) for anyone who isn't an accepted friend.
+  - PRIVATE target: name/username/avatar only, plus `sharedGroupStreaks` — the current/longest streak of any Shared Habit group where the viewer and target are both currently `ACTIVE` `group_members` together (already visible to the viewer as a groupmate, so not really "their private data" from the viewer's side — same reasoning CLAUDE.md already documents for the `check_in_cheers` friend-activity feed).
+  - PUBLIC target: `sharedGroupStreaks` plus an aggregate-only `publicStats` block — best current streak, best-ever longest streak, and a summed 30-day consistency percentage across every non-archived habit (adapted from `coach.CoachContextBuilder`'s per-habit windowStats math, rolled into one number instead of kept per habit), an active-habit count, and `memberSince` (Firebase Auth's own account-creation timestamp — this table has no `createdAt` of its own). Deliberately never the per-habit breakdown or raw check-in history, matching this app's existing restraint on what's shown about other users.
+  - Completed 2026-10-28.
+- [x] `mobile/components/FriendProfileModal.js` — the actual viewer, a `pageSheet` modal matching `SharedHabitDetailModal`/`ChallengeDetailModal`'s existing visual pattern (hero card, `useAppTheme()` tokens, `FlameIcon`/`StreakIndicator`/gradient progress bar for the PUBLIC stats, a plain note + shared-streak list for PRIVATE).
+  - Completed 2026-10-28.
+- [x] Made every previously-static friend name/avatar tappable: `SharedHabitDetailModal.js` and `ChallengeDetailModal.js`'s member/participant rows (wrapped the avatar+name in a `Pressable`, disabled for yourself); `AvatarStack.js` (new optional `onPressPerson(userId)` prop — each avatar becomes a `Pressable` when the person object carries a `userId`, otherwise unchanged), wired through `SharedHabitCard.js`/`ChallengeCard.js`'s own new `onPressPerson` prop from `CommunityScreen.js`. Nested Pressable-inside-Pressable (the avatar tap sitting inside the card's own `onPress`) already has precedent in this codebase (the check-in log button inside the same cards), so this isn't a new interaction pattern.
+  - Completed 2026-10-28.
+
+**Exit criteria:** met 2026-10-28. Every account defaults to a private profile; a friend's name/avatar opens a real profile view everywhere it appears; a PRIVATE friend shows only name/username/avatar plus mutual Shared Habit streaks, a PUBLIC friend additionally shows aggregate stats, and neither ever exposes the other person's actual per-habit list or check-in history.
+
+---
+
 ## Phase 9 — Production infrastructure & launch readiness
 **Goal:** safe, stable, and legally compliant to put in front of real strangers at Play Store/App Store scale — not just "it works on my phone and my test account." Many of these items should start incrementally alongside earlier phases (CI, environment separation, migrations) rather than being left for one final sprint; this phase is the gate checked before public launch, not where the work begins.
 

@@ -26,6 +26,7 @@ export default function ChallengeCard({
   onJoin,
   onToggleCheckIn,
   onPress,
+  onPressPerson,
   busy = false,
 }) {
   const { colors, typography } = useAppTheme();
@@ -81,7 +82,7 @@ export default function ChallengeCard({
       )}
 
       <View style={styles.footerRow}>
-        <AvatarStack people={participants} total={participantCount} size={24} />
+        <AvatarStack people={participants} total={participantCount} size={24} onPressPerson={onPressPerson} />
 
         {joined ? (
           isCount ? (

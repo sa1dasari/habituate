@@ -38,6 +38,11 @@ public class UserProfileController {
         return userProfileService.updateProfile(userId(req), request);
     }
 
+    @PatchMapping("/me/visibility")
+    public UserProfileResponse updateVisibility(HttpServletRequest req, @RequestBody UpdateProfileVisibilityRequest request) {
+        return userProfileService.updateVisibility(userId(req), request.profileVisibility());
+    }
+
     @DeleteMapping("/me")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteAccount(HttpServletRequest req) {

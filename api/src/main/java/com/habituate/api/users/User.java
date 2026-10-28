@@ -51,6 +51,19 @@ public class User {
     @Column
     private String gender;
 
+    public static final String VISIBILITY_PUBLIC = "PUBLIC";
+    public static final String VISIBILITY_PRIVATE = "PRIVATE";
+
+    /** Default PRIVATE for every account, new or existing — enforced at the app layer (same
+     * ddl-auto=update, no-migration-tool convention as the rest of this table): the column
+     * default covers rows inserted going forward, and {@link #getProfileVisibility()} falls
+     * back to PRIVATE for any pre-existing row where the column reads back null. Controls what
+     * a friend sees on this user's profile via FriendProfileService — PRIVATE shows only
+     * name/username/avatar plus any mutual Shared Habit group streak, PUBLIC additionally shows
+     * aggregate stats (never the raw per-habit list). */
+    @Column(nullable = false, columnDefinition = "varchar(255) not null default 'PRIVATE'")
+    private String profileVisibility = VISIBILITY_PRIVATE;
+
     @Column(nullable = false)
     private Instant updatedAt;
 
@@ -113,6 +126,16 @@ public class User {
 
     public void setGender(String gender) {
         this.gender = gender;
+    }
+
+    /** Never returns null, even for a pre-existing row where the column itself reads back null
+     * — PRIVATE is the safe default on both sides of the column-default/app-layer split. */
+    public String getProfileVisibility() {
+        return profileVisibility == null ? VISIBILITY_PRIVATE : profileVisibility;
+    }
+
+    public void setProfileVisibility(String profileVisibility) {
+        this.profileVisibility = profileVisibility;
     }
 
     public Instant getUpdatedAt() {

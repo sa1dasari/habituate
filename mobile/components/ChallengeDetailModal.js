@@ -7,7 +7,9 @@ import CreateChallengeModal from './CreateChallengeModal';
 import InviteFriendsSheet from './InviteFriendsSheet';
 import ScrubberInput from './ScrubberInput';
 import AvatarImage from './AvatarImage';
+import FriendProfileModal from './FriendProfileModal';
 import { useAppTheme } from '../hooks/useAppTheme';
+import { useAuth } from '../hooks/useAuth';
 import { useChallenges } from '../hooks/useChallenges';
 import { gradients, radii, shadow, spacing } from '../theme';
 import { formatTime } from '../utils/time';
@@ -46,10 +48,12 @@ function cadenceLabel(challenge) {
 export default function ChallengeDetailModal({ visible, challenge, onClose }) {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
+  const { user } = useAuth();
   const { toggleCheckIn, addChallengeEntry, inviteToChallenge, busy } = useChallenges();
   const [inviteVisible, setInviteVisible] = useState(false);
   const [editVisible, setEditVisible] = useState(false);
   const [entryAmount, setEntryAmount] = useState(1);
+  const [profileUserId, setProfileUserId] = useState(null);
 
   if (!challenge) return null;
 
@@ -173,32 +177,42 @@ export default function ChallengeDetailModal({ visible, challenge, onClose }) {
           </Text>
           {people.map((person, index) => {
             const label = typeof person === 'string' ? person : person && person.name;
+            const personUserId = typeof person === 'object' && person ? person.userId : null;
             const progress = typeof person === 'object' && person ? person.progress : null;
             const percent = typeof person === 'object' && person ? person.progressPercent : null;
             const theirCheckedInToday = typeof person === 'object' && person ? person.checkedInToday : false;
             const photoUrl = typeof person === 'object' && person ? person.photoUrl : null;
+            const isSelf = personUserId && user && personUserId === user.uid;
             return (
               <View key={`${label}-${index}`} style={styles.memberRow}>
-                <View
-                  style={[
-                    styles.avatar,
-                    photoUrl ? styles.avatarPhoto : { backgroundColor: AVATAR_COLORS[index % AVATAR_COLORS.length] },
-                  ]}
+                <Pressable
+                  style={styles.memberTapTarget}
+                  disabled={!personUserId || isSelf}
+                  onPress={() => setProfileUserId(personUserId)}
+                  accessibilityRole={!isSelf && personUserId ? 'button' : undefined}
+                  accessibilityLabel={!isSelf && personUserId ? `View ${label}'s profile` : undefined}
                 >
-                  {photoUrl ? (
-                    <AvatarImage uri={photoUrl} name={label} size={32} fontSize={13} />
-                  ) : (
-                    <Text style={styles.avatarText}>{initials(label)}</Text>
-                  )}
-                </View>
-                <View style={styles.memberInfo}>
-                  <Text style={styles.memberName}>{label}</Text>
-                  {progress != null ? (
-                    <View style={styles.memberProgressTrack}>
-                      <View style={[styles.memberProgressFill, { width: `${Math.max(4, percent || 0)}%` }]} />
-                    </View>
-                  ) : null}
-                </View>
+                  <View
+                    style={[
+                      styles.avatar,
+                      photoUrl ? styles.avatarPhoto : { backgroundColor: AVATAR_COLORS[index % AVATAR_COLORS.length] },
+                    ]}
+                  >
+                    {photoUrl ? (
+                      <AvatarImage uri={photoUrl} name={label} size={32} fontSize={13} />
+                    ) : (
+                      <Text style={styles.avatarText}>{initials(label)}</Text>
+                    )}
+                  </View>
+                  <View style={styles.memberInfo}>
+                    <Text style={styles.memberName}>{label}</Text>
+                    {progress != null ? (
+                      <View style={styles.memberProgressTrack}>
+                        <View style={[styles.memberProgressFill, { width: `${Math.max(4, percent || 0)}%` }]} />
+                      </View>
+                    ) : null}
+                  </View>
+                </Pressable>
                 {progress != null ? (
                   <Text style={styles.memberProgressText}>
                     {progress}/{challenge.targetCount}
@@ -212,6 +226,7 @@ export default function ChallengeDetailModal({ visible, challenge, onClose }) {
           })}
         </ScrollView>
       </SafeAreaView>
+      <FriendProfileModal visible={!!profileUserId} userId={profileUserId} onClose={() => setProfileUserId(null)} />
 
       <InviteFriendsSheet
         visible={inviteVisible}
@@ -309,6 +324,12 @@ function makeStyles(colors, typography) {
       paddingVertical: spacing.sm,
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
+    },
+    memberTapTarget: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
     },
     avatar: {
       width: 32,

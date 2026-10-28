@@ -28,6 +28,7 @@ export default function SharedHabitCard({
   onToggleCheckIn,
   busy = false,
   onPress,
+  onPressPerson,
 }) {
   const { colors, typography, resolveStreakState } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
@@ -78,7 +79,7 @@ export default function SharedHabitCard({
         </View>
       ) : (
         <View style={styles.middleRow}>
-          <AvatarStack people={people} total={total} />
+          <AvatarStack people={people} total={total} onPressPerson={onPressPerson} />
 
           <Text style={styles.participantCount}>
             {total} {total === 1 ? 'member' : 'members'}

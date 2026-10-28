@@ -101,7 +101,7 @@ class CoachServiceTest {
         when(anthropicClient.sendMessage(anyString(), anyList(), anyList()))
                 .thenReturn(textOnlyResponse("You're doing well this week."));
 
-        CoachMessageResponse reply = coachService.ask(userId, "UTC", "How am I doing?");
+        CoachMessageResponse reply = coachService.ask(userId, "UTC", "How am I doing?").assistantMessage();
 
         assertThat(reply.role()).isEqualTo("ASSISTANT");
         assertThat(reply.content()).isEqualTo("You're doing well this week.");
@@ -136,7 +136,7 @@ class CoachServiceTest {
         when(anthropicClient.sendMessage(anyString(), anyList(), anyList()))
                 .thenReturn(textPlusToolResponse("Here's an idea.", toolInput));
 
-        CoachMessageResponse reply = coachService.ask(userId, "UTC", "Help me make this easier.");
+        CoachMessageResponse reply = coachService.ask(userId, "UTC", "Help me make this easier.").assistantMessage();
 
         assertThat(reply.adjustmentField()).isEqualTo("weeklyTarget");
         assertThat(reply.adjustmentCurrentValue()).isEqualTo(3);
@@ -165,7 +165,7 @@ class CoachServiceTest {
         when(anthropicClient.sendMessage(anyString(), anyList(), anyList()))
                 .thenReturn(textPlusToolResponse("Here's an idea.", toolInput));
 
-        CoachMessageResponse reply = coachService.ask(userId, "UTC", "Any ideas?");
+        CoachMessageResponse reply = coachService.ask(userId, "UTC", "Any ideas?").assistantMessage();
 
         assertThat(reply.adjustmentField()).isNull();
         assertThat(reply.content()).isEqualTo("Here's an idea.");
@@ -186,7 +186,7 @@ class CoachServiceTest {
         when(anthropicClient.sendMessage(anyString(), anyList(), anyList()))
                 .thenReturn(textPlusToolResponse("Here's an idea.", toolInput));
 
-        CoachMessageResponse reply = coachService.ask(userId, "UTC", "Any ideas?");
+        CoachMessageResponse reply = coachService.ask(userId, "UTC", "Any ideas?").assistantMessage();
         assertThat(reply.adjustmentField()).isNull();
     }
 
@@ -205,7 +205,7 @@ class CoachServiceTest {
         when(anthropicClient.sendMessage(anyString(), anyList(), anyList()))
                 .thenReturn(textPlusToolResponse("Here's an idea.", toolInput));
 
-        CoachMessageResponse reply = coachService.ask(userId, "UTC", "Help?");
+        CoachMessageResponse reply = coachService.ask(userId, "UTC", "Help?").assistantMessage();
         CoachMessageResponse confirmed = coachService.confirmProposal(userId, reply.id());
 
         assertThat(confirmed.adjustmentStatus()).isEqualTo("CONFIRMED");
@@ -228,7 +228,7 @@ class CoachServiceTest {
         when(anthropicClient.sendMessage(anyString(), anyList(), anyList()))
                 .thenReturn(textPlusToolResponse("Here's an idea.", toolInput));
 
-        CoachMessageResponse reply = coachService.ask(userId, "UTC", "Help?");
+        CoachMessageResponse reply = coachService.ask(userId, "UTC", "Help?").assistantMessage();
         CoachMessageResponse rejected = coachService.rejectProposal(userId, reply.id());
 
         assertThat(rejected.adjustmentStatus()).isEqualTo("REJECTED");
@@ -251,7 +251,7 @@ class CoachServiceTest {
         when(anthropicClient.sendMessage(anyString(), anyList(), anyList()))
                 .thenReturn(textPlusToolResponse("Here's an idea.", toolInput));
 
-        CoachMessageResponse reply = coachService.ask(userId, "UTC", "Help?");
+        CoachMessageResponse reply = coachService.ask(userId, "UTC", "Help?").assistantMessage();
         coachService.confirmProposal(userId, reply.id());
 
         assertThatThrownBy(() -> coachService.confirmProposal(userId, reply.id()))
@@ -273,7 +273,7 @@ class CoachServiceTest {
         when(anthropicClient.sendMessage(anyString(), anyList(), anyList()))
                 .thenReturn(textPlusToolResponse("Here's an idea.", toolInput));
 
-        CoachMessageResponse reply = coachService.ask(userId, "UTC", "Help?");
+        CoachMessageResponse reply = coachService.ask(userId, "UTC", "Help?").assistantMessage();
 
         assertThatThrownBy(() -> coachService.confirmProposal("someone-else", reply.id()))
                 .isInstanceOf(ForbiddenException.class);
@@ -300,7 +300,7 @@ class CoachServiceTest {
         when(anthropicClient.sendMessage(anyString(), anyList(), anyList()))
                 .thenReturn(textPlusCreationToolResponse("Sure, here's one.", toolInput));
 
-        CoachMessageResponse reply = coachService.ask(userId, "UTC", "Create a habit for evening walks.");
+        CoachMessageResponse reply = coachService.ask(userId, "UTC", "Create a habit for evening walks.").assistantMessage();
 
         assertThat(reply.proposalType()).isEqualTo("CREATE_HABIT");
         assertThat(reply.adjustmentStatus()).isEqualTo("PENDING");
@@ -326,7 +326,7 @@ class CoachServiceTest {
         when(anthropicClient.sendMessage(anyString(), anyList(), anyList()))
                 .thenReturn(textPlusCreationToolResponse("Sure, here's one.", toolInput));
 
-        CoachMessageResponse reply = coachService.ask(userId, "UTC", "Create a habit for evening walks.");
+        CoachMessageResponse reply = coachService.ask(userId, "UTC", "Create a habit for evening walks.").assistantMessage();
         CoachMessageResponse confirmed = coachService.confirmProposal(userId, reply.id());
 
         assertThat(confirmed.adjustmentStatus()).isEqualTo("CONFIRMED");
@@ -351,7 +351,7 @@ class CoachServiceTest {
         when(anthropicClient.sendMessage(anyString(), anyList(), anyList()))
                 .thenReturn(textPlusCreationToolResponse("Sure.", toolInput));
 
-        CoachMessageResponse reply = coachService.ask(userId, "UTC", "Create a reading habit.");
+        CoachMessageResponse reply = coachService.ask(userId, "UTC", "Create a reading habit.").assistantMessage();
 
         assertThat(reply.creationHabit().category()).isEqualTo("General");
         assertThat(reply.creationHabit().cadenceTarget()).isEqualTo(1);
@@ -369,7 +369,7 @@ class CoachServiceTest {
         when(anthropicClient.sendMessage(anyString(), anyList(), anyList()))
                 .thenReturn(textPlusCreationToolResponse("I can help with that.", toolInput));
 
-        CoachMessageResponse reply = coachService.ask(userId, "UTC", "Create something.");
+        CoachMessageResponse reply = coachService.ask(userId, "UTC", "Create something.").assistantMessage();
 
         assertThat(reply.proposalType()).isNull();
         assertThat(reply.content()).isEqualTo("I can help with that.");

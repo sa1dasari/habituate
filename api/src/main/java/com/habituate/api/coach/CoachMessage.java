@@ -25,6 +25,16 @@ import java.time.Instant;
  * a column rename migration) — confirmed or rejected via CoachService, and
  * NEVER applied automatically: status starts PENDING and the habit is only
  * ever created/mutated from CoachService.confirmProposal().
+ *
+ * userReaction/aiReaction (added for bidirectional chat reactions) are a
+ * second, unrelated pair of optional per-message metadata columns, same
+ * "small set of nullable fields on the row" shape as the proposal fields
+ * above rather than a side table — this is a 1:1 chat, so there's no
+ * multi-user fan-out that would need one. userReaction is whatever emoji the
+ * human picked on this row (set on either a USER or ASSISTANT row, toggled
+ * off by setting it back to null); aiReaction is set only by CoachService's
+ * local keyword heuristic, only ever on a USER row, and never touches the
+ * Anthropic call.
  */
 @Entity
 @Table(name = "coach_messages")
@@ -75,6 +85,12 @@ public class CoachMessage {
     private String adjustmentDescription;
 
     private String adjustmentStatus;
+
+    /** The emoji the human user picked on THIS row (their own message or the AI's) — toggled via CoachService.setUserReaction, null when none. */
+    private String userReaction;
+
+    /** Set only by the server-side heuristic in CoachService, only ever on a USER row — the AI's auto-reaction to what the user said. Never settable by the client. */
+    private String aiReaction;
 
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
@@ -181,6 +197,22 @@ public class CoachMessage {
 
     public void setAdjustmentStatus(String adjustmentStatus) {
         this.adjustmentStatus = adjustmentStatus;
+    }
+
+    public String getUserReaction() {
+        return userReaction;
+    }
+
+    public void setUserReaction(String userReaction) {
+        this.userReaction = userReaction;
+    }
+
+    public String getAiReaction() {
+        return aiReaction;
+    }
+
+    public void setAiReaction(String aiReaction) {
+        this.aiReaction = aiReaction;
     }
 
     public Instant getCreatedAt() {

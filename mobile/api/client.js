@@ -306,6 +306,14 @@ export const api = {
 
   clearCoachMessages: () => request('/api/coach/messages', { method: 'DELETE' }),
 
+  // emoji null/undefined clears the user's own reaction on that message (the
+  // modal re-sends the same emoji to toggle it off rather than passing null).
+  setCoachReaction: (messageId, emoji) =>
+    request(`/api/coach/messages/${messageId}/reaction`, {
+      method: 'PATCH',
+      body: JSON.stringify({ emoji: emoji || null }),
+    }),
+
   submitFeedback: (feedback) =>
     request('/api/feedback', { method: 'POST', body: JSON.stringify(feedback) }),
 

@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Alert, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import FriendProfileModal from './FriendProfileModal';
@@ -18,8 +18,25 @@ export default function GroupsManageModal({ visible, onClose }) {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
 
-  const { friends, pendingRequests, busy: friendsBusy, sendRequest, acceptRequest, declineRequest } = useFriends();
-  const { groups, pendingInvites, busy: groupsBusy, inviteToGroup, acceptInvite } = useGroups();
+  const {
+    friends,
+    pendingRequests,
+    loading: friendsLoading,
+    refresh: refreshFriends,
+    busy: friendsBusy,
+    sendRequest,
+    acceptRequest,
+    declineRequest,
+  } = useFriends();
+  const {
+    groups,
+    pendingInvites,
+    loading: groupsLoading,
+    refresh: refreshGroups,
+    busy: groupsBusy,
+    inviteToGroup,
+    acceptInvite,
+  } = useGroups();
 
   const [email, setEmail] = useState('');
   const [acceptingInviteId, setAcceptingInviteId] = useState(null);
@@ -27,6 +44,17 @@ export default function GroupsManageModal({ visible, onClose }) {
   const [profileUserId, setProfileUserId] = useState(null);
 
   const busy = friendsBusy || groupsBusy;
+  const loading = friendsLoading || groupsLoading;
+
+  // Both contexts only refresh on app launch and after an action this
+  // device performed — a friend's invite, acceptance, or new request made
+  // elsewhere during this session would otherwise sit stale until restart.
+  useEffect(() => {
+    if (visible) {
+      refreshFriends();
+      refreshGroups();
+    }
+  }, [visible, refreshFriends, refreshGroups]);
 
   const handleSendRequest = async () => {
     const trimmed = email.trim();
@@ -65,7 +93,13 @@ export default function GroupsManageModal({ visible, onClose }) {
           <View style={{ width: 34 }} />
         </View>
 
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={loading} onRefresh={() => { refreshFriends(); refreshGroups(); }} />
+          }
+        >
           {/* Pending group invites */}
           {pendingInvites.length > 0 ? (
             <Section title="Invites waiting for you" styles={styles}>

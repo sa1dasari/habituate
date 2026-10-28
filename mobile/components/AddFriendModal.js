@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import api from '../api/client';
@@ -26,7 +26,7 @@ const MODE_OPTIONS = [
 export default function AddFriendModal({ visible, onClose }) {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
-  const { friends, pendingRequests, busy, sendRequest, sendRequestByUsername, acceptRequest, declineRequest } =
+  const { friends, pendingRequests, loading, refresh, busy, sendRequest, sendRequestByUsername, acceptRequest, declineRequest } =
     useFriends();
   const [mode, setMode] = useState('username');
   const [email, setEmail] = useState('');
@@ -42,7 +42,14 @@ export default function AddFriendModal({ visible, onClose }) {
       setQuery('');
       setResults([]);
       setSentTo(new Set());
+      return;
     }
+    // The friends/requests context only refreshes on app launch and after an
+    // action this device performed — it has no idea a friend accepted or
+    // sent a request elsewhere during this session. Without this, both
+    // lists can sit stale for the entire app lifetime.
+    refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
   useEffect(() => {
@@ -107,7 +114,11 @@ export default function AddFriendModal({ visible, onClose }) {
           <View style={{ width: 34 }} />
         </View>
 
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} />}
+        >
           <Text style={styles.label}>Your friends</Text>
           {friends.length === 0 ? (
             <Text style={styles.hint}>No friends yet — search for one below to get started.</Text>

@@ -75,6 +75,15 @@ public class FriendshipService {
         }
 
         Friendship friendship = friendshipRepository.save(new Friendship(userId, targetUserId));
+
+        String requesterName = userLookupService.resolve(userId).displayName();
+        appNotificationService.notify(
+                targetUserId,
+                AppNotification.FRIEND_REQUEST_RECEIVED,
+                "New friend request",
+                requesterName + " wants to be friends",
+                null, null, null);
+
         return toResponse(friendship, userId);
     }
 

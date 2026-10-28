@@ -52,6 +52,7 @@ export default function NotificationCenterModal({
   onOpenGroup,
   onOpenChallenge,
   onOpenInsightsPeriod,
+  onOpenFriends,
 }) {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
@@ -80,6 +81,9 @@ export default function NotificationCenterModal({
       const period =
         item.type === 'WEEKLY_SUMMARY' ? 'weekly' : item.type === 'MONTHLY_SUMMARY' ? 'monthly' : 'yearly';
       onOpenInsightsPeriod?.(period, item.periodStart);
+    } else if (item.type === 'FRIEND_REQUEST_RECEIVED' || item.type === 'FRIEND_REQUEST_ACCEPTED') {
+      onClose();
+      onOpenFriends?.();
     }
   };
 

@@ -60,6 +60,7 @@
   },
   "private": true,
   "devDependencies": {
-    "strict-uri-encode": "^2.0.0"
+    "strict-uri-encode": "^2.0.0",
+    "typescript": "~6.0.3"
   }
 }

@@ -20,6 +20,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useGroups } from '../hooks/useGroups';
 import { useHabits } from '../hooks/useHabits';
 import { useChallenges } from '../hooks/useChallenges';
+import { useFriends } from '../hooks/useFriends';
 import { useNotifications } from '../hooks/useNotifications';
 import { useRegisterScrollToTop } from '../hooks/useRegisterScrollToTop';
 import { useOnboardingTour } from '../hooks/useOnboardingTour';
@@ -33,6 +34,7 @@ export default function CommunityScreen({ navigation }) {
   const scrollRef = useRegisterScrollToTop('Community');
 
   const { user } = useAuth();
+  const { pendingRequests: pendingFriendRequests } = useFriends();
   const { groups, loading: groupsLoading, refresh: refreshGroups } = useGroups();
   const { toggleCheckIn: toggleHabitCheckIn, busy: habitsBusy } = useHabits();
   const {
@@ -136,6 +138,13 @@ export default function CommunityScreen({ navigation }) {
               onPress={() => setFriendsVisible(true)}
             >
               <MaterialCommunityIcons name="account-multiple-plus-outline" size={20} color={colors.accent} />
+              {pendingFriendRequests.length > 0 ? (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>
+                    {pendingFriendRequests.length > 9 ? '9+' : pendingFriendRequests.length}
+                  </Text>
+                </View>
+              ) : null}
             </Pressable>
             <Pressable
               style={styles.iconButton}
@@ -315,6 +324,7 @@ export default function CommunityScreen({ navigation }) {
         onOpenInsightsPeriod={(period, periodStart) => {
           navigation.navigate('Insights', { periodNav: { period, anchorDate: periodStart || null } });
         }}
+        onOpenFriends={() => setFriendsVisible(true)}
       />
       <ProtectionInfoModal
         visible={freezeInfoVisible}

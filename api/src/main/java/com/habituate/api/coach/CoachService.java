@@ -34,6 +34,58 @@ public class CoachService {
     private static final Set<String> ADJUSTABLE_FIELDS = Set.of("cadenceTarget", "weeklyTarget", "monthlyTarget");
     private static final int MAX_NAME_LENGTH = 60;
 
+    // The small, fixed emoji set the user picks from (long-press any bubble)
+    // AND the only emojis the AI's own local heuristic below ever picks from
+    // for the user's messages — same set, so the chat only ever shows these
+    // six reaction glyphs regardless of who placed them. (pom.xml targets
+    // Java 21 — JEP 400 makes UTF-8 the JVM's default charset everywhere,
+    // so these literals read correctly on any build machine.)
+    private static final String EMOJI_FIRE = "🔥";      // fire
+    private static final String EMOJI_HEART = "❤️";     // red heart
+    private static final String EMOJI_LAUGH = "😂";     // face with tears of joy
+    private static final String EMOJI_SURPRISE = "😮";  // face with open mouth
+    private static final String EMOJI_THUMBS_UP = "👍"; // thumbs up
+    private static final String EMOJI_HUNDRED = "💯";   // hundred points
+    private static final String EMOJI_ROFL = "🤣";      // rolling on the floor laughing
+
+    private static final Set<String> ALLOWED_REACTIONS = Set.of(
+            EMOJI_FIRE, EMOJI_HEART, EMOJI_LAUGH, EMOJI_SURPRISE, EMOJI_THUMBS_UP, EMOJI_HUNDRED);
+
+    // Cheap, maintainable, zero-API-call sentiment heuristic for the AI's
+    // auto-reaction to the user's own messages (CLAUDE.md: never add a second
+    // Anthropic round-trip just for this). Deliberately simple ordered
+    // keyword buckets, not an ML sentiment model — checked in this order so a
+    // message matching more than one bucket (e.g. "lol I totally bailed on
+    // my streak today") resolves to the first, most specific match.
+    private static final String REACTION_FIRE = EMOJI_FIRE; // streak / milestone
+    private static final String REACTION_LAUGH = EMOJI_LAUGH; // funny / lighthearted
+    private static final String REACTION_HUNDRED = EMOJI_HUNDRED; // effort / struggle / showing up anyway
+    private static final String REACTION_HEART = EMOJI_HEART; // gratitude / affection
+    private static final String REACTION_SURPRISE = EMOJI_SURPRISE; // surprise / disbelief
+    private static final String REACTION_THUMBS_UP = EMOJI_THUMBS_UP; // default, nothing else matched
+
+    private static final String[] MILESTONE_KEYWORDS = {
+            "streak", "milestone", "longest", "new record", "personal record",
+            "pr ", "finally hit", "crushed it", "nailed it", "hit my goal",
+            "reached my goal", "100 days", "30 days", "7 days in a row"
+    };
+    private static final String[] FUNNY_KEYWORDS = {
+            "lol", "lmao", "rofl", "haha", "hahaha", "funny", "joke", EMOJI_LAUGH, EMOJI_ROFL
+    };
+    private static final String[] STRUGGLE_KEYWORDS = {
+            "tired", "exhausted", "struggl", "hard day", "rough day", "burnt out",
+            "burnout", "overwhelm", "didn't have time", "missed", "failed",
+            "give up", "giving up", "hate this", "sucks", "stressed", "anxious",
+            "difficult", "hard to", "no motivation", "unmotivated"
+    };
+    private static final String[] GRATITUDE_KEYWORDS = {
+            "thank", "grateful", "love this", "appreciate", "means a lot"
+    };
+    private static final String[] SURPRISE_KEYWORDS = {
+            "can't believe", "cant believe", "shocked", "no way", "surprised",
+            "whoa", "woah", "wow"
+    };
+
     private final CoachMessageRepository coachMessageRepository;
     private final HabitRepository habitRepository;
     private final HabitService habitService;
@@ -80,7 +132,7 @@ public class CoachService {
      * rejects (it requires strict user/assistant alternation).
      */
     @Transactional
-    public CoachMessageResponse ask(String userId, String timezone, String content) {
+    public AskCoachResponse ask(String userId, String timezone, String content) {
         String trimmed = content == null ? "" : content.trim();
         if (trimmed.isEmpty()) {
             throw new IllegalArgumentException("Message can't be empty");
@@ -89,7 +141,11 @@ public class CoachService {
             throw new IllegalArgumentException("Message is too long (max " + MAX_CONTENT_LENGTH + " characters)");
         }
 
-        coachMessageRepository.save(new CoachMessage(userId, CoachMessage.ROLE_USER, trimmed));
+        CoachMessage userMessage = new CoachMessage(userId, CoachMessage.ROLE_USER, trimmed);
+        // Local heuristic only — no extra Anthropic call, computed and saved
+        // in the same transaction as the user's own message.
+        userMessage.setAiReaction(computeAiReaction(trimmed));
+        coachMessageRepository.save(userMessage);
 
         ZoneId zone = resolveZone(timezone);
         List<Habit> habits = habitRepository.findByUserIdAndArchivedFalseOrderByCreatedAtDesc(userId);
@@ -153,7 +209,7 @@ public class CoachService {
         coachMessageRepository.save(assistantMessage);
 
         String habitName = habitNameFor(assistantMessage.getHabitId(), snapshots);
-        return toResponse(assistantMessage, habitName);
+        return new AskCoachResponse(toResponse(userMessage, null), toResponse(assistantMessage, habitName));
     }
 
     @Transactional
@@ -216,6 +272,62 @@ public class CoachService {
                 ? null
                 : habitRepository.findById(message.getHabitId()).map(Habit::getName).orElse(null);
         return toResponse(message, habitName);
+    }
+
+    /**
+     * Sets or clears the authenticated user's own reaction on a message in
+     * their thread — either their own USER bubble or the AI's ASSISTANT
+     * reply, long-pressed in the mobile client. Re-derives ownership from
+     * the message itself rather than trusting the client, same spirit as
+     * GroupActivityService.cheer re-deriving group membership. Passing a
+     * blank/null emoji clears it (the client re-sends the same emoji to
+     * toggle it off, or this can be called with null directly).
+     */
+    @Transactional
+    public CoachMessageResponse setUserReaction(String userId, Long messageId, String emoji) {
+        CoachMessage message = coachMessageRepository.findById(messageId)
+                .orElseThrow(() -> new EntityNotFoundException("Message not found: " + messageId));
+        if (!userId.equals(message.getUserId())) {
+            throw new ForbiddenException("Message does not belong to user: " + userId);
+        }
+
+        String cleaned = (emoji == null || emoji.isBlank()) ? null : emoji.trim();
+        if (cleaned != null && !ALLOWED_REACTIONS.contains(cleaned)) {
+            throw new IllegalArgumentException("Unsupported reaction: " + cleaned);
+        }
+
+        message.setUserReaction(cleaned);
+        coachMessageRepository.save(message);
+
+        String habitName = message.getHabitId() == null
+                ? null
+                : habitRepository.findById(message.getHabitId()).map(Habit::getName).orElse(null);
+        return toResponse(message, habitName);
+    }
+
+    /**
+     * Cheap, local, deterministic sentiment pick for the AI's auto-reaction
+     * to the user's own message — ordered keyword-bucket matching, no LLM
+     * call, no new tool schema, so this adds zero latency/cost to the
+     * existing Anthropic round-trip. Case-insensitive substring checks only;
+     * swap for something fancier later if it's ever worth it, but this is
+     * intentionally not a sentiment ML model.
+     */
+    private String computeAiReaction(String content) {
+        String lower = content.toLowerCase();
+        if (containsAny(lower, MILESTONE_KEYWORDS)) return REACTION_FIRE;
+        if (containsAny(lower, FUNNY_KEYWORDS)) return REACTION_LAUGH;
+        if (containsAny(lower, STRUGGLE_KEYWORDS)) return REACTION_HUNDRED;
+        if (containsAny(lower, GRATITUDE_KEYWORDS)) return REACTION_HEART;
+        if (containsAny(lower, SURPRISE_KEYWORDS)) return REACTION_SURPRISE;
+        return REACTION_THUMBS_UP;
+    }
+
+    private boolean containsAny(String haystack, String[] needles) {
+        for (String needle : needles) {
+            if (haystack.contains(needle)) return true;
+        }
+        return false;
     }
 
     private CoachMessage requireOwnedPendingProposal(String userId, Long messageId) {

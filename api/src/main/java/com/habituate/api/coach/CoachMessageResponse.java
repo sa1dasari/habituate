@@ -23,6 +23,8 @@ public record CoachMessageResponse(
         String adjustmentTitle,
         String adjustmentDescription,
         String adjustmentStatus,
+        String userReaction,
+        String aiReaction,
         Instant createdAt
 ) {
     public static CoachMessageResponse from(CoachMessage message, String habitName, CreationHabitView creationHabit) {
@@ -46,6 +48,8 @@ public record CoachMessageResponse(
                 message.getAdjustmentTitle(),
                 message.getAdjustmentDescription(),
                 message.getAdjustmentStatus(),
+                message.getUserReaction(),
+                message.getAiReaction(),
                 message.getCreatedAt()
         );
     }

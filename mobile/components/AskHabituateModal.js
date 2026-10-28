@@ -20,6 +20,12 @@ import { useHabits } from '../hooks/useHabits';
 import { generateCoachStarterQuestions } from '../utils/consistency';
 import { radii, shadow, spacing } from '../theme';
 
+// Small, fixed, Gen-Z-punchy reaction set — long-press any bubble (yours or
+// the AI's) to pick one. Same set the AI's own server-side heuristic picks
+// from when it auto-reacts to your messages, so the chat only ever shows
+// these six glyphs no matter who placed them.
+const REACTION_EMOJIS = ['🔥', '❤️', '😂', '😮', '👍', '💯'];
+
 /**
  * Ask Habituate (design/Ask Habituate.png) — the AI habit coach that replaces
  * the deleted pattern-detection engine (SKILLS.md Phase 10). Every reply is
@@ -44,6 +50,7 @@ export default function AskHabituateModal({ visible, onClose, initialQuestion, h
   const [sending, setSending] = useState(false);
   const [input, setInput] = useState('');
   const [busyMessageId, setBusyMessageId] = useState(null);
+  const [pickerFor, setPickerFor] = useState(null);
   const scrollRef = useRef(null);
 
   useEffect(() => {
@@ -81,16 +88,24 @@ export default function AskHabituateModal({ visible, onClose, initialQuestion, h
     const trimmed = (content || '').trim();
     if (!trimmed || sending) return;
 
+    const localId = `local-${Date.now()}`;
     setInput('');
     setMessages((prev) => [
       ...prev,
-      { id: `local-${Date.now()}`, role: 'USER', content: trimmed, createdAt: new Date().toISOString() },
+      { id: localId, role: 'USER', content: trimmed, createdAt: new Date().toISOString() },
     ]);
     scrollToEnd();
     setSending(true);
     try {
-      const reply = await api.askCoach(trimmed);
-      setMessages((prev) => [...prev, reply]);
+      const { userMessage, assistantMessage } = await api.askCoach(trimmed);
+      // Swaps the optimistic local placeholder for the real persisted row
+      // (real id + the AI's server-computed reaction) rather than leaving it
+      // in place — without this the user bubble can never be reacted to and
+      // the AI's auto-reaction on it would never render.
+      setMessages((prev) => [
+        ...prev.map((m) => (m.id === localId ? userMessage : m)),
+        assistantMessage,
+      ]);
       scrollToEnd();
     } catch (err) {
       Alert.alert(
@@ -104,6 +119,21 @@ export default function AskHabituateModal({ visible, onClose, initialQuestion, h
 
   const updateMessage = (updated) => {
     setMessages((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
+  };
+
+  const toggleReaction = async (message, emoji) => {
+    if (typeof message.id === 'string' && message.id.startsWith('local-')) return;
+    const nextEmoji = message.userReaction === emoji ? null : emoji;
+    setPickerFor(null);
+    const previous = message;
+    updateMessage({ ...message, userReaction: nextEmoji });
+    try {
+      const updated = await api.setCoachReaction(message.id, nextEmoji);
+      updateMessage(updated);
+    } catch (err) {
+      updateMessage(previous);
+      Alert.alert("Couldn't react", err instanceof Error ? err.message : 'Try again in a moment.');
+    }
   };
 
   const confirmProposal = async (message) => {
@@ -201,6 +231,7 @@ export default function AskHabituateModal({ visible, onClose, initialQuestion, h
             style={styles.flex}
             contentContainerStyle={styles.scroll}
             onContentSizeChange={scrollToEnd}
+            onScrollBeginDrag={() => setPickerFor(null)}
           >
             {loading ? (
               <ActivityIndicator style={{ marginTop: spacing.xl }} color={colors.accent} />
@@ -209,9 +240,22 @@ export default function AskHabituateModal({ visible, onClose, initialQuestion, h
             {messages.map((message) =>
               message.role === 'USER' ? (
                 <View key={message.id} style={styles.userBubbleRow}>
-                  <View style={styles.userBubble}>
+                  <Pressable
+                    onLongPress={() => setPickerFor((prev) => (prev === message.id ? null : message.id))}
+                    delayLongPress={300}
+                    style={styles.userBubble}
+                  >
                     <Text style={styles.userBubbleText}>{message.content}</Text>
-                  </View>
+                  </Pressable>
+                  <ReactionBadges message={message} styles={styles} align="flex-end" />
+                  {pickerFor === message.id ? (
+                    <ReactionPicker
+                      styles={styles}
+                      align="flex-end"
+                      current={message.userReaction}
+                      onPick={(emoji) => toggleReaction(message, emoji)}
+                    />
+                  ) : null}
                 </View>
               ) : (
                 <AssistantTurn
@@ -220,6 +264,9 @@ export default function AskHabituateModal({ visible, onClose, initialQuestion, h
                   styles={styles}
                   colors={colors}
                   busy={busyMessageId === message.id}
+                  pickerOpen={pickerFor === message.id}
+                  onLongPress={() => setPickerFor((prev) => (prev === message.id ? null : message.id))}
+                  onReact={(emoji) => toggleReaction(message, emoji)}
                   onConfirm={() => confirmProposal(message)}
                   onReject={() => rejectProposal(message)}
                   onTryAnotherIdea={() =>
@@ -262,6 +309,7 @@ export default function AskHabituateModal({ visible, onClose, initialQuestion, h
               placeholderTextColor={colors.textMuted}
               value={input}
               onChangeText={setInput}
+              onFocus={() => setPickerFor(null)}
               editable={!sending}
               multiline
               onSubmitEditing={() => send(input)}
@@ -297,7 +345,60 @@ function creationMetaLabel(creationHabit) {
   return parts.join(' · ');
 }
 
-function AssistantTurn({ message, styles, colors, busy, onConfirm, onReject, onTryAnotherIdea }) {
+/**
+ * Small emoji chips rendered under a bubble: the AI's auto-reaction to a
+ * USER message (showAiReaction, left-most — only a USER row ever carries
+ * one) and/or the human's own pick on either role's message. Renders nothing
+ * when neither is set.
+ */
+function ReactionBadges({ message, styles, align, showAiReaction = true }) {
+  if (!message.userReaction && !(showAiReaction && message.aiReaction)) return null;
+  return (
+    <View style={[styles.reactionBadgeRow, { justifyContent: align }]}>
+      {showAiReaction && message.aiReaction ? (
+        <View style={styles.reactionBadgeAi}>
+          <Text style={styles.reactionBadgeEmoji}>{message.aiReaction}</Text>
+        </View>
+      ) : null}
+      {message.userReaction ? (
+        <View style={styles.reactionBadgeUser}>
+          <Text style={styles.reactionBadgeEmoji}>{message.userReaction}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+/** The long-press popover: a small row of the fixed emoji set, under the bubble it belongs to. Tapping the already-active one clears it. */
+function ReactionPicker({ styles, align, current, onPick }) {
+  return (
+    <View style={[styles.reactionPickerRow, { alignSelf: align }]}>
+      {REACTION_EMOJIS.map((emoji) => (
+        <Pressable
+          key={emoji}
+          onPress={() => onPick(emoji)}
+          style={[styles.reactionPickerOption, current === emoji && styles.reactionPickerOptionActive]}
+          hitSlop={4}
+        >
+          <Text style={styles.reactionPickerEmoji}>{emoji}</Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+function AssistantTurn({
+  message,
+  styles,
+  colors,
+  busy,
+  pickerOpen,
+  onLongPress,
+  onReact,
+  onConfirm,
+  onReject,
+  onTryAnotherIdea,
+}) {
   const isCreation = message.proposalType === 'CREATE_HABIT';
   const hasProposal = Boolean(message.proposalType);
   const status = message.adjustmentStatus;
@@ -313,7 +414,7 @@ function AssistantTurn({ message, styles, colors, busy, onConfirm, onReject, onT
     <View style={styles.assistantTurn}>
       <Text style={styles.coachLabel}>Habituate · AI coach</Text>
 
-      <View style={styles.replyCard}>
+      <Pressable onLongPress={onLongPress} delayLongPress={300} style={styles.replyCard}>
         <Text style={styles.replyText}>{message.content}</Text>
         {message.groundingLabel ? (
           <View style={styles.citationRow}>
@@ -321,7 +422,11 @@ function AssistantTurn({ message, styles, colors, busy, onConfirm, onReject, onT
             <Text style={styles.citationText}>{message.groundingLabel}</Text>
           </View>
         ) : null}
-      </View>
+      </Pressable>
+      <ReactionBadges message={message} styles={styles} align="flex-start" showAiReaction={false} />
+      {pickerOpen ? (
+        <ReactionPicker styles={styles} align="flex-start" current={message.userReaction} onPick={onReact} />
+      ) : null}
 
       {hasProposal ? (
         <View style={styles.adjustmentCard}>
@@ -423,6 +528,47 @@ function makeStyles(colors, typography) {
       maxWidth: '85%',
     },
     userBubbleText: { fontSize: 14, color: colors.textPrimary, lineHeight: 20 },
+    reactionBadgeRow: {
+      flexDirection: 'row',
+      gap: 4,
+      marginTop: 4,
+    },
+    reactionBadgeUser: {
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radii.pill,
+      paddingHorizontal: 7,
+      paddingVertical: 3,
+      ...shadow,
+    },
+    reactionBadgeAi: {
+      backgroundColor: colors.accentSoft,
+      borderRadius: radii.pill,
+      paddingHorizontal: 7,
+      paddingVertical: 3,
+    },
+    reactionBadgeEmoji: { fontSize: 13 },
+    reactionPickerRow: {
+      flexDirection: 'row',
+      gap: 2,
+      backgroundColor: colors.surface,
+      borderRadius: radii.pill,
+      padding: 4,
+      marginTop: spacing.xs,
+      borderWidth: 1,
+      borderColor: colors.border,
+      ...shadow,
+    },
+    reactionPickerOption: {
+      width: 32,
+      height: 32,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: radii.pill,
+    },
+    reactionPickerOptionActive: { backgroundColor: colors.accentSoft },
+    reactionPickerEmoji: { fontSize: 18 },
     assistantTurn: { marginBottom: spacing.lg },
     coachLabelRow: { marginBottom: spacing.sm },
     coachLabel: { fontSize: 12, fontWeight: '600', color: colors.textMuted, marginBottom: spacing.sm },

@@ -21,6 +21,7 @@ const READ_ACTION_WIDTH = 92;
 const SPRING_CONFIG = { damping: 24, stiffness: 320, mass: 0.7 };
 
 const TYPE_ICON = {
+  FRIEND_REQUEST_RECEIVED: 'account-plus-outline',
   FRIEND_REQUEST_ACCEPTED: 'account-heart-outline',
   GROUP_JOINED: 'account-group-outline',
   GROUP_CHECKIN: 'check-circle-outline',
@@ -236,6 +237,18 @@ function NotificationRow({ item, styles, colors, deleteOnLeft, isOpen, onOpenCha
     onPress();
   };
 
+  // A plain RN `Pressable` nested inside the Pan's GestureDetector races the
+  // Pan gesture for the touch via RN's own responder system — the symptom is
+  // exactly what it sounds like: a swipe sometimes resolves as a tap instead
+  // of revealing the panel. Gesture.Exclusive hands the touch to `pan` first;
+  // only once Pan fails to activate (i.e. the touch never crossed the ±10px
+  // activeOffsetX threshold) does `tap` get a turn, so the two can never both
+  // fire for the same gesture.
+  const tap = Gesture.Tap().onEnd(() => {
+    runOnJS(handleRowPress)();
+  });
+  const composedGesture = Gesture.Exclusive(pan, tap);
+
   return (
     <View style={styles.rowWrapper}>
       {leftPanelAction ? (
@@ -276,11 +289,10 @@ function NotificationRow({ item, styles, colors, deleteOnLeft, isOpen, onOpenCha
         </View>
       ) : null}
 
-      <GestureDetector gesture={pan}>
+      <GestureDetector gesture={composedGesture}>
         <Animated.View style={rowStyle}>
-          <Pressable
+          <View
             style={[styles.row, !item.read && styles.rowUnread]}
-            onPress={handleRowPress}
             accessibilityRole="button"
             accessibilityLabel={item.title}
           >
@@ -297,7 +309,7 @@ function NotificationRow({ item, styles, colors, deleteOnLeft, isOpen, onOpenCha
               <Text style={styles.rowMeta}>{timeAgo(item.createdAt)}</Text>
             </View>
             {!item.read ? <View style={styles.unreadDot} /> : null}
-          </Pressable>
+          </View>
         </Animated.View>
       </GestureDetector>
     </View>

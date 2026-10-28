@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import api from '../api/client';
 import AvatarImage from './AvatarImage';
+import FriendProfileModal from './FriendProfileModal';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useFriends } from '../hooks/useFriends';
 import { radii, shadow, spacing } from '../theme';
@@ -33,6 +34,7 @@ export default function AddFriendModal({ visible, onClose }) {
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [sentTo, setSentTo] = useState(() => new Set());
+  const [profileUserId, setProfileUserId] = useState(null);
   const debounceRef = useRef(null);
 
   useEffect(() => {
@@ -111,7 +113,13 @@ export default function AddFriendModal({ visible, onClose }) {
             <Text style={styles.hint}>No friends yet — search for one below to get started.</Text>
           ) : (
             friends.map((friend) => (
-              <View key={friend.id} style={styles.requestRow}>
+              <Pressable
+                key={friend.id}
+                style={styles.requestRow}
+                onPress={() => setProfileUserId(friend.otherUserId)}
+                accessibilityRole="button"
+                accessibilityLabel={`View ${friend.otherUserName || friend.otherUserEmail}'s profile`}
+              >
                 <AvatarImage
                   uri={friend.otherUserPhotoUrl}
                   name={friend.otherUserName || friend.otherUserEmail}
@@ -121,7 +129,8 @@ export default function AddFriendModal({ visible, onClose }) {
                 <Text style={[styles.requestName, { marginLeft: spacing.sm }]} numberOfLines={1}>
                   {friend.otherUserName || friend.otherUserEmail}
                 </Text>
-              </View>
+                <MaterialCommunityIcons name="chevron-right" size={18} color={colors.textMuted} />
+              </Pressable>
             ))
           )}
 
@@ -228,6 +237,11 @@ export default function AddFriendModal({ visible, onClose }) {
           ) : null}
         </ScrollView>
       </SafeAreaView>
+      <FriendProfileModal
+        visible={!!profileUserId}
+        userId={profileUserId}
+        onClose={() => setProfileUserId(null)}
+      />
     </Modal>
   );
 }

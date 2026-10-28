@@ -6,6 +6,7 @@ import StreakIndicator from './StreakIndicator';
 import InviteFriendsSheet from './InviteFriendsSheet';
 import CreateGroupModal from './CreateGroupModal';
 import AvatarImage from './AvatarImage';
+import FriendProfileModal from './FriendProfileModal';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useAuth } from '../hooks/useAuth';
 import { useGroups } from '../hooks/useGroups';
@@ -38,6 +39,7 @@ export default function SharedHabitDetailModal({ visible, group, onClose }) {
   const { toggleCheckIn, busy: habitsBusy } = useHabits();
   const [inviteVisible, setInviteVisible] = useState(false);
   const [editVisible, setEditVisible] = useState(false);
+  const [profileUserId, setProfileUserId] = useState(null);
 
   if (!group) return null;
 
@@ -165,21 +167,29 @@ export default function SharedHabitDetailModal({ visible, group, onClose }) {
             const isSelf = personUserId && user && personUserId === user.uid;
             return (
               <View key={`${label}-${index}`} style={styles.memberRow}>
-                <View
-                  style={[
-                    styles.avatar,
-                    personPhotoUrl
-                      ? styles.avatarPhoto
-                      : { backgroundColor: AVATAR_COLORS[index % AVATAR_COLORS.length] },
-                  ]}
+                <Pressable
+                  style={styles.memberTapTarget}
+                  disabled={!personUserId || isSelf}
+                  onPress={() => setProfileUserId(personUserId)}
+                  accessibilityRole={!isSelf && personUserId ? 'button' : undefined}
+                  accessibilityLabel={!isSelf && personUserId ? `View ${label}'s profile` : undefined}
                 >
-                  {personPhotoUrl ? (
-                    <AvatarImage uri={personPhotoUrl} name={label} size={32} fontSize={13} />
-                  ) : (
-                    <Text style={styles.avatarText}>{initials(label)}</Text>
-                  )}
-                </View>
-                <Text style={styles.memberName}>{label}</Text>
+                  <View
+                    style={[
+                      styles.avatar,
+                      personPhotoUrl
+                        ? styles.avatarPhoto
+                        : { backgroundColor: AVATAR_COLORS[index % AVATAR_COLORS.length] },
+                    ]}
+                  >
+                    {personPhotoUrl ? (
+                      <AvatarImage uri={personPhotoUrl} name={label} size={32} fontSize={13} />
+                    ) : (
+                      <Text style={styles.avatarText}>{initials(label)}</Text>
+                    )}
+                  </View>
+                  <Text style={styles.memberName}>{label}</Text>
+                </Pressable>
                 {isIndependent ? <Text style={styles.memberStreak}>🔥 {personStreak ?? 0}</Text> : null}
                 {personCheckedInToday ? (
                   <MaterialCommunityIcons name="check-circle" size={16} color={colors.safe} style={{ marginRight: spacing.xs }} />
@@ -223,6 +233,7 @@ export default function SharedHabitDetailModal({ visible, group, onClose }) {
           onClose();
         }}
       />
+      <FriendProfileModal visible={!!profileUserId} userId={profileUserId} onClose={() => setProfileUserId(null)} />
     </Modal>
   );
 }
@@ -292,6 +303,12 @@ function makeStyles(colors, typography) {
       paddingVertical: spacing.sm,
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
+    },
+    memberTapTarget: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
     },
     avatar: {
       width: 32,

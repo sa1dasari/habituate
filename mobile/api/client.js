@@ -268,6 +268,13 @@ export const api = {
   updateUserProfile: (changes) =>
     request('/api/users/me', { method: 'PATCH', body: JSON.stringify(changes) }),
 
+  updateProfileVisibility: (profileVisibility) =>
+    request('/api/users/me/visibility', { method: 'PATCH', body: JSON.stringify({ profileVisibility }) }),
+
+  // Friendship-gated server-side — throws a 403 for a non-friend. Powers the tappable
+  // friend-profile viewer opened from a friend's name/avatar anywhere it appears.
+  getFriendProfile: (userId) => request(`/api/users/${userId}/profile`),
+
   getUsernameAvailable: (value) =>
     request(`/api/users/username/available?value=${encodeURIComponent(value)}`),
 

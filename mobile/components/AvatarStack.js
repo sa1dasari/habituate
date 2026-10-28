@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { Pressable, View, Text, StyleSheet } from 'react-native';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { radii } from '../theme';
 import AvatarImage from './AvatarImage';
@@ -19,8 +19,11 @@ function initials(name) {
 /**
  * Overlapping avatar/initials row with a "+N" overflow bubble — shared between
  * SharedHabitCard and Challenge cards so both participant rows look identical.
+ * Pass `onPressPerson(userId)` to make each avatar open the friend-profile viewer —
+ * omitted entries (no userId, e.g. a bare string label) render as plain non-interactive
+ * views, same as before this was added.
  */
-export default function AvatarStack({ people = [], total, max = 4, size = 28 }) {
+export default function AvatarStack({ people = [], total, max = 4, size = 28, onPressPerson }) {
   const { colors } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, size), [colors, size]);
 
@@ -34,13 +37,12 @@ export default function AvatarStack({ people = [], total, max = 4, size = 28 }) 
       {shown.map((person, index) => {
         const label = typeof person === 'string' ? person : person && person.name;
         const photoUrl = typeof person === 'object' && person ? person.photoUrl : null;
-        return (
+        const personUserId = typeof person === 'object' && person ? person.userId : null;
+        const Avatar = (
           <View
-            key={`${label}-${index}`}
             style={[
               styles.avatar,
               photoUrl ? styles.avatarPhoto : { backgroundColor: AVATAR_COLORS[index % AVATAR_COLORS.length] },
-              index > 0 ? styles.avatarOverlap : null,
             ]}
           >
             {photoUrl ? (
@@ -48,6 +50,30 @@ export default function AvatarStack({ people = [], total, max = 4, size = 28 }) 
             ) : (
               <Text style={styles.avatarText}>{initials(label)}</Text>
             )}
+          </View>
+        );
+        // The overlap margin has to live on whichever element is the direct flex child of
+        // `styles.avatars` (the Pressable wrapper when there is one) — putting it on the inner
+        // avatar View instead would leave the Pressable's own box un-shifted, breaking the stack.
+        const wrapperStyle = index > 0 ? styles.avatarOverlap : null;
+
+        if (onPressPerson && personUserId) {
+          return (
+            <Pressable
+              key={`${label}-${index}`}
+              style={wrapperStyle}
+              onPress={() => onPressPerson(personUserId)}
+              accessibilityRole="button"
+              accessibilityLabel={`View ${label}'s profile`}
+              hitSlop={4}
+            >
+              {Avatar}
+            </Pressable>
+          );
+        }
+        return (
+          <View key={`${label}-${index}`} style={wrapperStyle}>
+            {Avatar}
           </View>
         );
       })}

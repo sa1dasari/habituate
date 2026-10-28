@@ -106,7 +106,7 @@ public class UserProfileService {
     public UserProfileResponse getProfile(String userId) {
         return userRepository.findById(userId)
                 .map(this::toResponse)
-                .orElse(new UserProfileResponse(null, null, null, null, null, null));
+                .orElse(new UserProfileResponse(null, null, null, null, null, null, User.VISIBILITY_PRIVATE));
     }
 
     public boolean isUsernameAvailable(String username) {
@@ -210,7 +210,23 @@ public class UserProfileService {
 
     private UserProfileResponse toResponse(User user) {
         return new UserProfileResponse(user.getTimezone(), user.getDateOfBirth(), user.getPhoneNumber(),
-                user.getAddress(), user.getGender(), user.getUsername());
+                user.getAddress(), user.getGender(), user.getUsername(), user.getProfileVisibility());
+    }
+
+    /** Account Settings → Privacy's public/private toggle — see FriendProfileService for how
+     * this field is actually read. */
+    @Transactional
+    public UserProfileResponse updateVisibility(String userId, String profileVisibility) {
+        String normalized = profileVisibility == null ? null : profileVisibility.trim().toUpperCase();
+        if (!User.VISIBILITY_PUBLIC.equals(normalized) && !User.VISIBILITY_PRIVATE.equals(normalized)) {
+            throw new IllegalArgumentException("profileVisibility must be PUBLIC or PRIVATE: " + profileVisibility);
+        }
+
+        User user = userRepository.findById(userId).orElseGet(() -> new User(userId, null));
+        user.setProfileVisibility(normalized);
+        user.setUpdatedAt(Instant.now());
+        userRepository.save(user);
+        return toResponse(user);
     }
 
     private String blankToNull(String value) {

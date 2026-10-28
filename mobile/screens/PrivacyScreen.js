@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import StackHeader from '../components/StackHeader';
@@ -7,6 +7,7 @@ import { useAppTheme } from '../hooks/useAppTheme';
 import { useHabits } from '../hooks/useHabits';
 import { useGoals } from '../hooks/useGoals';
 import { buildExportData, shareExport, toCsv, toJson } from '../utils/dataExport';
+import api from '../api/client';
 import { radii, shadow, spacing } from '../theme';
 
 // TODO: replace with the real hosted privacy policy URL before store submission.
@@ -18,6 +19,45 @@ export default function PrivacyScreen({ navigation }) {
   const { habits } = useHabits();
   const { goals } = useGoals();
   const [exporting, setExporting] = useState(null); // 'json' | 'csv' | null
+
+  // Defaults to PRIVATE (same as every account, new or existing — see User.java) until the
+  // real value loads, so the switch never flashes as "public" for a split second.
+  const [profileVisibility, setProfileVisibility] = useState('PRIVATE');
+  const [visibilityLoading, setVisibilityLoading] = useState(true);
+  const [visibilitySaving, setVisibilitySaving] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getUserProfile()
+      .then((profile) => {
+        if (!cancelled && profile?.profileVisibility) setProfileVisibility(profile.profileVisibility);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setVisibilityLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const isPublic = profileVisibility === 'PUBLIC';
+
+  const handleToggleVisibility = async (nextPublic) => {
+    const next = nextPublic ? 'PUBLIC' : 'PRIVATE';
+    const previous = profileVisibility;
+    setProfileVisibility(next); // optimistic — flipped back on failure
+    setVisibilitySaving(true);
+    try {
+      await api.updateProfileVisibility(next);
+    } catch (err) {
+      setProfileVisibility(previous);
+      Alert.alert("Couldn't update that", err instanceof Error ? err.message : 'Something went wrong — try again.');
+    } finally {
+      setVisibilitySaving(false);
+    }
+  };
 
   const handleExport = async (format) => {
     setExporting(format);
@@ -57,6 +97,35 @@ export default function PrivacyScreen({ navigation }) {
           <Text style={styles.rowLabel}>Privacy Policy</Text>
           <MaterialCommunityIcons name="open-in-new" size={18} color={colors.textMuted} />
         </Pressable>
+
+        <Text style={styles.sectionTitle}>Friend profile</Text>
+        <Text style={styles.cardNote}>
+          Controls what a friend sees when they tap your name or photo. Private is the default for every account.
+        </Text>
+        <View style={styles.row}>
+          <View style={styles.rowIcon}>
+            <MaterialCommunityIcons name={isPublic ? 'earth' : 'lock-outline'} size={18} color={colors.accent} />
+          </View>
+          <View style={styles.optionText}>
+            <Text style={styles.rowLabel}>{isPublic ? 'Public profile' : 'Private profile'}</Text>
+            <Text style={styles.optionHint}>
+              {isPublic
+                ? 'Friends see your aggregate streak & consistency stats, plus shared-habit streaks.'
+                : 'Friends see only your name, username, and avatar, plus any shared-habit streak with you.'}
+            </Text>
+          </View>
+          {visibilityLoading ? (
+            <ActivityIndicator size="small" color={colors.textSecondary} />
+          ) : (
+            <Switch
+              value={isPublic}
+              onValueChange={handleToggleVisibility}
+              disabled={visibilitySaving}
+              trackColor={{ false: colors.border, true: colors.accentSoft }}
+              thumbColor={isPublic ? colors.accent : '#FFFFFF'}
+            />
+          )}
+        </View>
 
         <Text style={styles.sectionTitle}>Your data</Text>
         <Text style={styles.cardNote}>A copy of your habits, check-ins, and goals — yours to keep.</Text>
@@ -107,6 +176,8 @@ function makeStyles(colors, typography) {
       justifyContent: 'center',
     },
     rowLabel: { flex: 1, fontSize: 14, fontWeight: '600', color: colors.textPrimary },
+    optionText: { flex: 1 },
+    optionHint: { ...typography.meta, marginTop: 2 },
     sectionTitle: { ...typography.sectionTitle, marginTop: spacing.xl, marginBottom: spacing.xs },
     cardNote: { ...typography.meta, marginBottom: spacing.md },
     exportRow: { flexDirection: 'row', gap: spacing.sm },

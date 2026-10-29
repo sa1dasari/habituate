@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -8,9 +8,11 @@ import InviteFriendsSheet from './InviteFriendsSheet';
 import ScrubberInput from './ScrubberInput';
 import AvatarImage from './AvatarImage';
 import FriendProfileModal from './FriendProfileModal';
+import Toast from './Toast';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useAuth } from '../hooks/useAuth';
 import { useChallenges } from '../hooks/useChallenges';
+import { useToast } from '../hooks/useToast';
 import { gradients, radii, shadow, spacing } from '../theme';
 import { formatTime } from '../utils/time';
 
@@ -54,6 +56,7 @@ export default function ChallengeDetailModal({ visible, challenge, onClose }) {
   const [editVisible, setEditVisible] = useState(false);
   const [entryAmount, setEntryAmount] = useState(1);
   const [profileUserId, setProfileUserId] = useState(null);
+  const { toast, showToast, hideToast } = useToast();
 
   if (!challenge) return null;
 
@@ -66,7 +69,7 @@ export default function ChallengeDetailModal({ visible, challenge, onClose }) {
       if (isCount) await addChallengeEntry(challenge.id, entryAmount);
       else await toggleCheckIn(challenge);
     } catch (err) {
-      Alert.alert("Couldn't update today's log", err instanceof Error ? err.message : 'Something went wrong — try again.');
+      showToast(err instanceof Error ? err.message : "Couldn't update today's log", 'error');
     }
   };
 
@@ -248,6 +251,7 @@ export default function ChallengeDetailModal({ visible, challenge, onClose }) {
           onClose();
         }}
       />
+      <Toast toast={toast} onHide={hideToast} />
     </Modal>
   );
 }

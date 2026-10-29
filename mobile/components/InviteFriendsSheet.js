@@ -1,11 +1,13 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AddFriendModal from './AddFriendModal';
 import AvatarImage from './AvatarImage';
+import Toast from './Toast';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useFriends } from '../hooks/useFriends';
+import { useToast } from '../hooks/useToast';
 import { radii, spacing } from '../theme';
 
 /**
@@ -26,14 +28,18 @@ export default function InviteFriendsSheet({ visible, onClose, onInvite, busy = 
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const { friends } = useFriends();
   const [addFriendVisible, setAddFriendVisible] = useState(false);
+  const { toast, showToast, hideToast } = useToast();
 
   const handlePick = async (friendUserId, label) => {
     try {
       await onInvite(friendUserId);
-      onClose();
-      Alert.alert('Invite sent', `${label} will see it next time they open Habituate.`);
+      // The toast renders inside this same Modal, so closing it immediately
+      // would hide the toast along with it before anyone could read it —
+      // show the confirmation first, close shortly after.
+      showToast(`Invite sent — ${label} will see it next time they open Habituate.`, 'success');
+      setTimeout(onClose, 900);
     } catch (err) {
-      Alert.alert("Couldn't send invite", err instanceof Error ? err.message : 'Something went wrong — try again.');
+      showToast(err instanceof Error ? err.message : "Couldn't send invite — try again.", 'error');
     }
   };
 
@@ -84,6 +90,7 @@ export default function InviteFriendsSheet({ visible, onClose, onInvite, busy = 
       </SafeAreaView>
 
       <AddFriendModal visible={addFriendVisible} onClose={() => setAddFriendVisible(false)} />
+      <Toast toast={toast} onHide={hideToast} />
     </Modal>
   );
 }

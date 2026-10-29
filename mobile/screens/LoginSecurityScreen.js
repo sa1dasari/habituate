@@ -1,10 +1,14 @@
 import React, { useMemo } from 'react';
-import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import ConfirmModal from '../components/ConfirmModal';
 import StackHeader from '../components/StackHeader';
+import Toast from '../components/Toast';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useAuth } from '../hooks/useAuth';
+import { useConfirm } from '../hooks/useConfirm';
+import { useToast } from '../hooks/useToast';
 import { labelForProviderId } from '../utils/providerLabels';
 import { radii, shadow, spacing } from '../theme';
 
@@ -32,6 +36,9 @@ export default function LoginSecurityScreen({ navigation }) {
     signOut,
   } = useAuth();
 
+  const { toast, showToast, hideToast } = useToast();
+  const { request, confirm, respond } = useConfirm();
+
   const providerData = user?.providerData || [];
   const linkedIds = new Set(providerData.map((p) => p.providerId));
   const isPasswordAccount = linkedIds.has('password');
@@ -41,54 +48,47 @@ export default function LoginSecurityScreen({ navigation }) {
     linkProvider(providerType);
   };
 
-  const handleUnlink = (providerId) => {
-    Alert.alert(
-      `Unlink ${labelForProviderId(providerId)}?`,
-      'You can link it again later from here.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Unlink', style: 'destructive', onPress: () => { clearError(); unlinkProvider(providerId); } },
-      ]
-    );
+  const handleUnlink = async (providerId) => {
+    const ok = await confirm({
+      title: `Unlink ${labelForProviderId(providerId)}?`,
+      message: 'You can link it again later from here.',
+      confirmLabel: 'Unlink',
+      destructive: true,
+    });
+    if (!ok) return;
+    clearError();
+    unlinkProvider(providerId);
   };
 
-  const handleResetPassword = () => {
-    Alert.alert('Reset password?', `We'll email a reset link to ${user?.email}.`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Send email',
-        onPress: async () => {
-          try {
-            await sendPasswordReset();
-            Alert.alert('Email sent', 'Check your inbox for the password reset link.');
-          } catch (err) {
-            Alert.alert("Couldn't send it", err instanceof Error ? err.message : 'Something went wrong — try again.');
-          }
-        },
-      },
-    ]);
+  const handleResetPassword = async () => {
+    const ok = await confirm({
+      title: 'Reset password?',
+      message: `We'll email a reset link to ${user?.email}.`,
+      confirmLabel: 'Send email',
+    });
+    if (!ok) return;
+    try {
+      await sendPasswordReset();
+      showToast('Check your inbox for the password reset link.', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Couldn't send it — something went wrong.", 'error');
+    }
   };
 
-  const handleDeleteAccount = () => {
-    Alert.alert(
-      'Delete account?',
-      'This permanently deletes your account and everything in it — habits, check-ins, goals, and shared groups or challenges you created. This can\'t be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteAccount();
-              await signOut();
-            } catch (err) {
-              Alert.alert("Couldn't delete account", err instanceof Error ? err.message : 'Something went wrong — try again.');
-            }
-          },
-        },
-      ]
-    );
+  const handleDeleteAccount = async () => {
+    const ok = await confirm({
+      title: 'Delete account?',
+      message: "This permanently deletes your account and everything in it — habits, check-ins, goals, and shared groups or challenges you created. This can't be undone.",
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteAccount();
+      await signOut();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Couldn't delete account — something went wrong.", 'error');
+    }
   };
 
   return (
@@ -158,6 +158,8 @@ export default function LoginSecurityScreen({ navigation }) {
           )}
         </Pressable>
       </ScrollView>
+      <Toast toast={toast} onHide={hideToast} />
+      <ConfirmModal request={request} onRespond={respond} />
     </SafeAreaView>
   );
 }

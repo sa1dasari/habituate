@@ -1,12 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import ConfirmModal from './ConfirmModal';
 import ScrubberInput from './ScrubberInput';
+import Toast from './Toast';
 import TourHighlight from './TourHighlight';
 import { useAppTheme } from '../hooks/useAppTheme';
+import { useConfirm } from '../hooks/useConfirm';
 import { useGroups } from '../hooks/useGroups';
 import { useHabits } from '../hooks/useHabits';
+import { useToast } from '../hooks/useToast';
 import { useTourTarget } from '../hooks/useTourTarget';
 import { TOUR_SCOPES, TOUR_TARGETS } from '../constants/onboardingTour';
 import { radii, spacing } from '../theme';
@@ -40,27 +44,23 @@ export default function CreateGroupModal({ visible, onClose, onDeleted, group = 
   const { habits } = useHabits();
   const isEditing = !!group;
   const tourHeaderRef = useTourTarget(TOUR_TARGETS.MODAL_CREATE_GROUP_HEADER);
+  const { toast, showToast, hideToast } = useToast();
+  const { request, confirm, respond } = useConfirm();
 
-  const handleDelete = () => {
-    Alert.alert(
-      'Delete this shared habit?',
-      `This deletes "${group?.name}" for every member, not just you — there's no undo.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteGroup(group.id);
-              onDeleted ? onDeleted() : onClose();
-            } catch (err) {
-              Alert.alert("Couldn't delete", err instanceof Error ? err.message : 'Something went wrong — try again.');
-            }
-          },
-        },
-      ]
-    );
+  const handleDelete = async () => {
+    const ok = await confirm({
+      title: 'Delete this shared habit?',
+      message: `This deletes "${group?.name}" for every member, not just you — there's no undo.`,
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteGroup(group.id);
+      onDeleted ? onDeleted() : onClose();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Couldn't delete — try again.", 'error');
+    }
   };
 
   const [groupName, setGroupName] = useState('');
@@ -105,7 +105,7 @@ export default function CreateGroupModal({ visible, onClose, onDeleted, group = 
     if (isEditing) {
       const trimmedName = groupName.trim();
       if (!trimmedName) {
-        Alert.alert('Name it', 'Give the shared habit a name.');
+        showToast('Give the shared habit a name.', 'error');
         return;
       }
       try {
@@ -120,13 +120,13 @@ export default function CreateGroupModal({ visible, onClose, onDeleted, group = 
         });
         onClose();
       } catch (err) {
-        Alert.alert("Couldn't save changes", err instanceof Error ? err.message : 'Something went wrong — try again.');
+        showToast(err instanceof Error ? err.message : "Couldn't save changes", 'error');
       }
       return;
     }
 
     if (!selectedHabitId) {
-      Alert.alert('Pick a habit', 'Choose which of your habits this shared habit tracks.');
+      showToast('Choose which of your habits this shared habit tracks.', 'error');
       return;
     }
     const habit = habits.find((h) => h.id === selectedHabitId);
@@ -145,7 +145,7 @@ export default function CreateGroupModal({ visible, onClose, onDeleted, group = 
       reset();
       onClose();
     } catch (err) {
-      Alert.alert("Couldn't create shared habit", err instanceof Error ? err.message : 'Something went wrong — try again.');
+      showToast(err instanceof Error ? err.message : "Couldn't create shared habit", 'error');
     }
   };
 
@@ -323,6 +323,8 @@ export default function CreateGroupModal({ visible, onClose, onDeleted, group = 
         </ScrollView>
       </SafeAreaView>
       <TourHighlight scope={TOUR_SCOPES.CREATE_GROUP_MODAL} />
+      <Toast toast={toast} onHide={hideToast} />
+      <ConfirmModal request={request} onRespond={respond} />
     </Modal>
   );
 }

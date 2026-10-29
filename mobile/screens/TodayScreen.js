@@ -1,7 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -18,6 +17,8 @@ import GoalsSummaryCard from '../components/GoalsSummaryCard';
 import AvatarImage from '../components/AvatarImage';
 import TemplateHabitsPicker from '../components/TemplateHabitsPicker';
 import TourHighlight from '../components/TourHighlight';
+import Toast from '../components/Toast';
+import { useToast } from '../hooks/useToast';
 import { TOUR_SCOPES } from '../constants/onboardingTour';
 import { useAuth } from '../hooks/useAuth';
 import { useCelebration } from '../hooks/useCelebration';
@@ -85,6 +86,7 @@ export default function TodayScreen() {
   const displayName = user?.displayName || 'there';
   const { celebrate: showCelebration } = useCelebration();
   const [expandedId, setExpandedId] = useState(null);
+  const { toast, showToast, hideToast } = useToast();
 
   const featuredHabits = useMemo(() => habits.filter((h) => h.featuredGoal), [habits]);
   const { reviews: habitGoalReviews } = useFeaturedGoalReviews(featuredHabits);
@@ -173,7 +175,7 @@ export default function TodayScreen() {
       try {
         await toggleCheckIn(habit.id);
       } catch (err) {
-        Alert.alert('Could not update check-in', err instanceof Error ? err.message : 'Unknown error');
+        showToast(`Could not update check-in — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
         return;
       }
       if (!wasChecked) celebrate(habit, 1);
@@ -193,7 +195,7 @@ export default function TodayScreen() {
       try {
         await toggleShield(habit.id);
       } catch (err) {
-        Alert.alert("Couldn't update shield", err instanceof Error ? err.message : 'Unknown error');
+        showToast(`Couldn't update shield — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
       }
     },
     [toggleShield, shieldsAvailable, navigation]
@@ -204,7 +206,7 @@ export default function TodayScreen() {
       try {
         await addCheckIn(habit.id);
       } catch (err) {
-        Alert.alert('Could not log check-in', err instanceof Error ? err.message : 'Unknown error');
+        showToast(`Could not log check-in — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
         return;
       }
       celebrate(habit, 1);
@@ -217,7 +219,7 @@ export default function TodayScreen() {
       try {
         await addCheckIn(habit.id, amount);
       } catch (err) {
-        Alert.alert('Could not log progress', err instanceof Error ? err.message : 'Unknown error');
+        showToast(`Could not log progress — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
         return;
       }
       celebrate(habit, amount);
@@ -245,7 +247,7 @@ export default function TodayScreen() {
           reminderEnabled: false,
         });
       } catch (err) {
-        Alert.alert('Could not add habit', err instanceof Error ? err.message : 'Unknown error');
+        showToast(`Could not add habit — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
       }
     },
     [createHabit]
@@ -256,7 +258,7 @@ export default function TodayScreen() {
       try {
         await removeLastCheckIn(habitId);
       } catch (err) {
-        Alert.alert('Could not undo check-in', err instanceof Error ? err.message : 'Unknown error');
+        showToast(`Could not undo check-in — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
       }
     },
     [removeLastCheckIn]
@@ -465,6 +467,7 @@ export default function TodayScreen() {
       </ScrollView>
     </SafeAreaView>
     <TourHighlight scope={TOUR_SCOPES.TODAY} />
+    <Toast toast={toast} onHide={hideToast} />
     </>
   );
 }

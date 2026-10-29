@@ -1,12 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import api from '../api/client';
 import AvatarImage from './AvatarImage';
 import FriendProfileModal from './FriendProfileModal';
+import Toast from './Toast';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useFriends } from '../hooks/useFriends';
+import { useToast } from '../hooks/useToast';
 import { radii, shadow, spacing } from '../theme';
 
 const SEARCH_DEBOUNCE_MS = 350;
@@ -36,6 +38,7 @@ export default function AddFriendModal({ visible, onClose }) {
   const [sentTo, setSentTo] = useState(() => new Set());
   const [profileUserId, setProfileUserId] = useState(null);
   const debounceRef = useRef(null);
+  const { toast, showToast, hideToast } = useToast();
 
   useEffect(() => {
     if (!visible) {
@@ -78,25 +81,26 @@ export default function AddFriendModal({ visible, onClose }) {
     try {
       await sendRequestByUsername(username);
       setSentTo((current) => new Set(current).add(username));
+      showToast(`Request sent to @${username}`, 'success');
     } catch (err) {
-      Alert.alert("Couldn't send that", err instanceof Error ? err.message : 'Something went wrong — try again.');
+      showToast(err instanceof Error ? err.message : "Couldn't send that — try again.", 'error');
     }
   };
 
   const handleSendByEmail = async () => {
     const trimmed = email.trim();
     if (!trimmed) {
-      Alert.alert('Enter an email', "Your friend's account email, same as they sign in with.");
+      showToast("Your friend's account email, same as they sign in with.", 'info');
       return;
     }
     try {
       await sendRequest(trimmed);
       setEmail('');
-      Alert.alert('Request sent', "They'll see it next time they open Habituate.");
+      showToast("Request sent — they'll see it next time they open Habituate.", 'success');
     } catch (err) {
-      Alert.alert(
-        "Couldn't send that",
-        err instanceof Error ? err.message : 'Check the email is right and that an account exists for it.'
+      showToast(
+        err instanceof Error ? err.message : "Couldn't send that — check the email is right and that an account exists for it.",
+        'error'
       );
     }
   };
@@ -105,7 +109,7 @@ export default function AddFriendModal({ visible, onClose }) {
     try {
       await (accept ? acceptRequest(request.id) : declineRequest(request.id));
     } catch (err) {
-      Alert.alert('Something went wrong', err instanceof Error ? err.message : 'Try again.');
+      showToast(err instanceof Error ? err.message : 'Something went wrong — try again.', 'error');
     }
   };
 
@@ -259,6 +263,7 @@ export default function AddFriendModal({ visible, onClose }) {
         userId={profileUserId}
         onClose={() => setProfileUserId(null)}
       />
+      <Toast toast={toast} onHide={hideToast} />
     </Modal>
   );
 }

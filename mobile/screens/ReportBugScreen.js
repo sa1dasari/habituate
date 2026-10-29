@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Platform,
   Pressable,
   ScrollView,
@@ -16,8 +15,10 @@ import Constants from 'expo-constants';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import StackHeader from '../components/StackHeader';
+import Toast from '../components/Toast';
 import api from '../api/client';
 import { useAppTheme } from '../hooks/useAppTheme';
+import { useToast } from '../hooks/useToast';
 import { uploadFeedbackAttachment } from '../utils/uploadAttachment';
 import { radii, shadow, spacing } from '../theme';
 
@@ -47,6 +48,7 @@ export default function ReportBugScreen({ navigation }) {
   const [stepsToReproduce, setStepsToReproduce] = useState('');
   const [attachments, setAttachments] = useState([]); // [{ key, name, uri, mimeType, status: 'uploading'|'done'|'error', url, error }]
   const [submitting, setSubmitting] = useState(false);
+  const { toast, showToast, hideToast } = useToast();
 
   const uploadingCount = attachments.filter((a) => a.status === 'uploading').length;
   const canAddMore = attachments.length < MAX_ATTACHMENTS;
@@ -70,12 +72,12 @@ export default function ReportBugScreen({ navigation }) {
 
   const handleAddPhoto = async () => {
     if (!canAddMore) {
-      Alert.alert('Limit reached', `You can attach up to ${MAX_ATTACHMENTS} files.`);
+      showToast(`You can attach up to ${MAX_ATTACHMENTS} files.`, 'info');
       return;
     }
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('Permission needed', 'Allow photo access to attach a screenshot.');
+      showToast('Allow photo access to attach a screenshot.', 'info');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -98,7 +100,7 @@ export default function ReportBugScreen({ navigation }) {
 
   const handleAddDocument = async () => {
     if (!canAddMore) {
-      Alert.alert('Limit reached', `You can attach up to ${MAX_ATTACHMENTS} files.`);
+      showToast(`You can attach up to ${MAX_ATTACHMENTS} files.`, 'info');
       return;
     }
     const result = await DocumentPicker.getDocumentAsync({ multiple: true, type: '*/*' });
@@ -121,11 +123,11 @@ export default function ReportBugScreen({ navigation }) {
   const handleSubmit = async () => {
     const trimmed = message.trim();
     if (!trimmed) {
-      Alert.alert('Say more', 'Describe the bug or suggestion first.');
+      showToast('Describe the bug or suggestion first.', 'info');
       return;
     }
     if (uploadingCount > 0) {
-      Alert.alert('Still uploading', 'Wait for your attachments to finish uploading first.');
+      showToast('Wait for your attachments to finish uploading first.', 'info');
       return;
     }
     setSubmitting(true);
@@ -140,10 +142,12 @@ export default function ReportBugScreen({ navigation }) {
         appVersion: Constants.expoConfig?.version,
         platform: Platform.OS,
       });
-      Alert.alert('Thanks!', 'Your feedback has been sent.');
-      navigation.goBack();
+      showToast('Thanks! Your feedback has been sent.', 'success');
+      // The toast renders inside this screen — navigating away immediately
+      // would unmount it before anyone could read it.
+      setTimeout(() => navigation.goBack(), 900);
     } catch (err) {
-      Alert.alert("Couldn't send it", err instanceof Error ? err.message : 'Something went wrong — try again.');
+      showToast(err instanceof Error ? err.message : "Couldn't send it — something went wrong.", 'error');
     } finally {
       setSubmitting(false);
     }
@@ -256,6 +260,7 @@ export default function ReportBugScreen({ navigation }) {
           {submitting ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.primaryButtonText}>Send</Text>}
         </Pressable>
       </ScrollView>
+      <Toast toast={toast} onHide={hideToast} />
     </SafeAreaView>
   );
 }

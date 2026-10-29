@@ -1,17 +1,21 @@
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AvatarImage from '../components/AvatarImage';
 import EditProfileModal from '../components/EditProfileModal';
+import ConfirmModal from '../components/ConfirmModal';
+import Toast from '../components/Toast';
 import { categoryIcon } from '../constants/habitCategories';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useAuth } from '../hooks/useAuth';
+import { useConfirm } from '../hooks/useConfirm';
 import { useHabits } from '../hooks/useHabits';
 import { useGroupActivity } from '../hooks/useGroupActivity';
 import { unregisterPushToken } from '../hooks/usePushToken';
 import { useRegisterScrollToTop } from '../hooks/useRegisterScrollToTop';
+import { useToast } from '../hooks/useToast';
 import { computeConsistency } from '../utils/consistency';
 import { timeAgo } from '../utils/date';
 import { radii, shadow, spacing } from '../theme';
@@ -56,6 +60,8 @@ export default function ProfileScreen() {
   const { activity, loading: activityLoading, toggleCheer } = useGroupActivity();
 
   const [editVisible, setEditVisible] = useState(false);
+  const { toast, showToast, hideToast } = useToast();
+  const { request, confirm, respond } = useConfirm();
 
   const displayName = user?.displayName || 'there';
   const firstName = displayName.split(' ')[0];
@@ -65,22 +71,20 @@ export default function ProfileScreen() {
     try {
       await toggleCheer(item);
     } catch (err) {
-      Alert.alert("Couldn't update that", err instanceof Error ? err.message : 'Something went wrong — try again.');
+      showToast(err instanceof Error ? err.message : "Couldn't update that — try again.", 'error');
     }
   };
 
-  const handleSignOut = () => {
-    Alert.alert('Sign out?', 'You can sign back in anytime.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign out',
-        style: 'destructive',
-        onPress: async () => {
-          await unregisterPushToken();
-          await signOut();
-        },
-      },
-    ]);
+  const handleSignOut = async () => {
+    const ok = await confirm({
+      title: 'Sign out?',
+      message: 'You can sign back in anytime.',
+      confirmLabel: 'Sign out',
+      destructive: true,
+    });
+    if (!ok) return;
+    await unregisterPushToken();
+    await signOut();
   };
 
   return (
@@ -217,6 +221,8 @@ export default function ProfileScreen() {
       </ScrollView>
 
       <EditProfileModal visible={editVisible} onClose={() => setEditVisible(false)} />
+      <ConfirmModal request={request} onRespond={respond} />
+      <Toast toast={toast} onHide={hideToast} />
     </SafeAreaView>
   );
 }

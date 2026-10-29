@@ -1,18 +1,22 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system/legacy';
 import { ref, getDownloadURL } from 'firebase/storage';
+import ConfirmModal from './ConfirmModal';
 import DatePicker from './DatePicker';
 import SelectField from './SelectField';
 import AvatarImage from './AvatarImage';
+import Toast from './Toast';
 import { auth, storage } from '../firebase';
 import api from '../api/client';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useAuth } from '../hooks/useAuth';
+import { useConfirm } from '../hooks/useConfirm';
+import { useToast } from '../hooks/useToast';
 import { radii, spacing } from '../theme';
 
 const SELF_DESCRIBE = 'Self-describe';
@@ -25,6 +29,8 @@ export default function EditProfileModal({ visible, onClose }) {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const { user, updateDisplayName, updatePhotoURL, sendPasswordReset } = useAuth();
+  const { toast, showToast, hideToast } = useToast();
+  const { request, confirm, respond } = useConfirm();
 
   const [name, setName] = useState('');
   const [photoURL, setPhotoURL] = useState(null);
@@ -104,7 +110,7 @@ export default function EditProfileModal({ visible, onClose }) {
   const handlePickPhoto = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('Permission needed', 'Allow photo access to set a profile picture.');
+      showToast('Allow photo access to set a profile picture.', 'info');
       return;
     }
 
@@ -152,39 +158,37 @@ export default function EditProfileModal({ visible, onClose }) {
       const downloadUrl = await getDownloadURL(photoRef);
       setPhotoURL(downloadUrl);
     } catch (err) {
-      Alert.alert("Couldn't upload photo", err instanceof Error ? err.message : 'Something went wrong — try again.');
+      showToast(err instanceof Error ? err.message : "Couldn't upload photo — something went wrong.", 'error');
     } finally {
       setUploadingPhoto(false);
     }
   };
 
-  const handleResetPassword = () => {
-    Alert.alert('Reset password?', `We'll email a reset link to ${user?.email}.`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Send email',
-        onPress: async () => {
-          try {
-            await sendPasswordReset();
-            Alert.alert('Email sent', 'Check your inbox for the password reset link.');
-          } catch (err) {
-            Alert.alert("Couldn't send it", err instanceof Error ? err.message : 'Something went wrong — try again.');
-          }
-        },
-      },
-    ]);
+  const handleResetPassword = async () => {
+    const ok = await confirm({
+      title: 'Reset password?',
+      message: `We'll email a reset link to ${user?.email}.`,
+      confirmLabel: 'Send email',
+    });
+    if (!ok) return;
+    try {
+      await sendPasswordReset();
+      showToast('Check your inbox for the password reset link.', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Couldn't send it — something went wrong.", 'error');
+    }
   };
 
   const handleSave = async () => {
     const trimmed = name.trim();
     if (!trimmed) {
-      Alert.alert('Name it', 'Enter a display name.');
+      showToast('Enter a display name first.', 'info');
       return;
     }
     const normalizedUsername = username.trim().toLowerCase();
     if (normalizedUsername !== originalUsername) {
       if (usernameStatus !== 'available') {
-        Alert.alert('Check your username', 'Pick an available username before saving.');
+        showToast('Pick an available username before saving.', 'info');
         return;
       }
     }
@@ -207,7 +211,7 @@ export default function EditProfileModal({ visible, onClose }) {
       });
       onClose();
     } catch (err) {
-      Alert.alert("Couldn't save", err instanceof Error ? err.message : 'Something went wrong — try again.');
+      showToast(err instanceof Error ? err.message : "Couldn't save — something went wrong.", 'error');
     } finally {
       setSaving(false);
     }
@@ -347,6 +351,8 @@ export default function EditProfileModal({ visible, onClose }) {
           </Pressable>
         </ScrollView>
       </SafeAreaView>
+      <Toast toast={toast} onHide={hideToast} />
+      <ConfirmModal request={request} onRespond={respond} />
     </Modal>
   );
 }

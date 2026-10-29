@@ -1,12 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import ConfirmModal from './ConfirmModal';
 import ScrubberInput from './ScrubberInput';
 import TimePicker from './TimePicker';
+import Toast from './Toast';
 import TourHighlight from './TourHighlight';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useChallenges } from '../hooks/useChallenges';
+import { useConfirm } from '../hooks/useConfirm';
+import { useToast } from '../hooks/useToast';
 import { useTourTarget } from '../hooks/useTourTarget';
 import { TOUR_SCOPES, TOUR_TARGETS } from '../constants/onboardingTour';
 import { toDateKey } from '../utils/date';
@@ -70,27 +74,23 @@ export default function CreateChallengeModal({ visible, onClose, onDeleted, chal
   const { busy, createChallenge: createChallengeAction, updateChallenge, deleteChallenge } = useChallenges();
   const isEditing = !!challenge;
   const tourHeaderRef = useTourTarget(TOUR_TARGETS.MODAL_CREATE_CHALLENGE_HEADER);
+  const { toast, showToast, hideToast } = useToast();
+  const { request, confirm, respond } = useConfirm();
 
-  const handleDelete = () => {
-    Alert.alert(
-      'Delete this challenge?',
-      `This deletes "${challenge?.name}" for every participant, not just you — there's no undo.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteChallenge(challenge.id);
-              onDeleted ? onDeleted() : onClose();
-            } catch (err) {
-              Alert.alert("Couldn't delete", err instanceof Error ? err.message : 'Something went wrong — try again.');
-            }
-          },
-        },
-      ]
-    );
+  const handleDelete = async () => {
+    const ok = await confirm({
+      title: 'Delete this challenge?',
+      message: `This deletes "${challenge?.name}" for every participant, not just you — there's no undo.`,
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteChallenge(challenge.id);
+      onDeleted ? onDeleted() : onClose();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Couldn't delete — try again.", 'error');
+    }
   };
 
   const [name, setName] = useState('');
@@ -157,11 +157,11 @@ export default function CreateChallengeModal({ visible, onClose, onDeleted, chal
   const handleCreate = async () => {
     const trimmedName = name.trim();
     if (!trimmedName) {
-      Alert.alert('Name it', 'Give the challenge a name.');
+      showToast('Give the challenge a name.', 'error');
       return;
     }
     if (cadenceType === 'CUSTOM_DAYS' && customDays.length === 0) {
-      Alert.alert('Pick some days', 'Choose at least one day for a custom-days cadence.');
+      showToast('Choose at least one day for a custom-days cadence.', 'error');
       return;
     }
     const resolvedTargetCount = targetCount === '' || !targetCount ? 1 : targetCount;
@@ -186,9 +186,9 @@ export default function CreateChallengeModal({ visible, onClose, onDeleted, chal
       reset();
       onClose();
     } catch (err) {
-      Alert.alert(
-        isEditing ? "Couldn't save changes" : "Couldn't create challenge",
-        err instanceof Error ? err.message : 'Something went wrong — try again.'
+      showToast(
+        err instanceof Error ? err.message : isEditing ? "Couldn't save changes" : "Couldn't create challenge",
+        'error'
       );
     }
   };
@@ -420,6 +420,8 @@ export default function CreateChallengeModal({ visible, onClose, onDeleted, chal
         </ScrollView>
       </SafeAreaView>
       <TourHighlight scope={TOUR_SCOPES.CREATE_CHALLENGE_MODAL} />
+      <Toast toast={toast} onHide={hideToast} />
+      <ConfirmModal request={request} onRespond={respond} />
     </Modal>
   );
 }

@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AvatarStack from './AvatarStack';
 import ChallengeDetailModal from './ChallengeDetailModal';
+import Toast from './Toast';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useChallenges } from '../hooks/useChallenges';
+import { useToast } from '../hooks/useToast';
 import { radii, shadow, spacing } from '../theme';
 
 /** Pure browse-and-join view for the Challenges "Browse" link — creating lives in CreateChallengeModal. */
@@ -14,6 +16,7 @@ export default function ChallengesManageModal({ visible, onClose }) {
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const { browseList, busy, loading, refresh, joinChallenge } = useChallenges();
   const [selectedChallengeId, setSelectedChallengeId] = useState(null);
+  const { toast, showToast, hideToast } = useToast();
 
   // The challenges context only refreshes on app launch and after an action
   // THIS device performed — it has no idea a friend published or edited a
@@ -29,8 +32,9 @@ export default function ChallengesManageModal({ visible, onClose }) {
   const handleJoin = async (challengeId) => {
     try {
       await joinChallenge(challengeId);
+      showToast('Joined — good luck!', 'success');
     } catch (err) {
-      Alert.alert("Couldn't join", err instanceof Error ? err.message : 'Something went wrong — try again.');
+      showToast(err instanceof Error ? err.message : "Couldn't join — try again.", 'error');
     }
   };
 
@@ -94,6 +98,7 @@ export default function ChallengesManageModal({ visible, onClose }) {
         challenge={selectedChallenge}
         onClose={() => setSelectedChallengeId(null)}
       />
+      <Toast toast={toast} onHide={hideToast} />
     </Modal>
   );
 }

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import StreakIndicator from './StreakIndicator';
@@ -7,10 +7,12 @@ import InviteFriendsSheet from './InviteFriendsSheet';
 import CreateGroupModal from './CreateGroupModal';
 import AvatarImage from './AvatarImage';
 import FriendProfileModal from './FriendProfileModal';
+import Toast from './Toast';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useAuth } from '../hooks/useAuth';
 import { useGroups } from '../hooks/useGroups';
 import { useHabits } from '../hooks/useHabits';
+import { useToast } from '../hooks/useToast';
 import { radii, shadow, spacing } from '../theme';
 
 const RULE_LABEL = {
@@ -40,6 +42,7 @@ export default function SharedHabitDetailModal({ visible, group, onClose }) {
   const [inviteVisible, setInviteVisible] = useState(false);
   const [editVisible, setEditVisible] = useState(false);
   const [profileUserId, setProfileUserId] = useState(null);
+  const { toast, showToast, hideToast } = useToast();
 
   if (!group) return null;
 
@@ -64,16 +67,16 @@ export default function SharedHabitDetailModal({ visible, group, onClose }) {
       await toggleCheckIn(group.myHabitId);
       await refreshGroups();
     } catch (err) {
-      Alert.alert('Could not update check-in', err instanceof Error ? err.message : 'Unknown error');
+      showToast(err instanceof Error ? err.message : 'Could not update check-in', 'error');
     }
   };
 
   const handleNudge = async (targetUserId, label) => {
     try {
       await nudge(group.id, targetUserId);
-      Alert.alert('Nudge sent', `${label} will get a reminder.`);
+      showToast(`Nudge sent — ${label} will get a reminder.`, 'success');
     } catch (err) {
-      Alert.alert("Couldn't send nudge", err?.message || 'Something went wrong — try again.');
+      showToast(err?.message || "Couldn't send nudge — try again.", 'error');
     }
   };
 
@@ -233,6 +236,7 @@ export default function SharedHabitDetailModal({ visible, group, onClose }) {
         }}
       />
       <FriendProfileModal visible={!!profileUserId} userId={profileUserId} onClose={() => setProfileUserId(null)} />
+      <Toast toast={toast} onHide={hideToast} />
     </Modal>
   );
 }

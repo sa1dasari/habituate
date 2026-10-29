@@ -1,12 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import FriendProfileModal from './FriendProfileModal';
+import Toast from './Toast';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useFriends } from '../hooks/useFriends';
 import { useGroups } from '../hooks/useGroups';
 import { useHabits } from '../hooks/useHabits';
+import { useToast } from '../hooks/useToast';
 import { radii, shadow, spacing } from '../theme';
 
 /**
@@ -42,6 +44,7 @@ export default function GroupsManageModal({ visible, onClose }) {
   const [acceptingInviteId, setAcceptingInviteId] = useState(null);
   const [invitingGroupId, setInvitingGroupId] = useState(null);
   const [profileUserId, setProfileUserId] = useState(null);
+  const { toast, showToast, hideToast } = useToast();
 
   const busy = friendsBusy || groupsBusy;
   const loading = friendsLoading || groupsLoading;
@@ -62,9 +65,17 @@ export default function GroupsManageModal({ visible, onClose }) {
     try {
       await sendRequest(trimmed);
       setEmail('');
-      Alert.alert('Request sent', "They'll see it next time they open Habituate.");
+      showToast("Request sent — they'll see it next time they open Habituate.", 'success');
     } catch (err) {
-      Alert.alert("Couldn't send request", err instanceof Error ? err.message : 'Check the email and try again.');
+      showToast(err instanceof Error ? err.message : "Couldn't send request — check the email and try again.", 'error');
+    }
+  };
+
+  const handleRespondToRequest = async (requestId, accept) => {
+    try {
+      await (accept ? acceptRequest(requestId) : declineRequest(requestId));
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Something went wrong — try again.', 'error');
     }
   };
 
@@ -72,8 +83,9 @@ export default function GroupsManageModal({ visible, onClose }) {
     try {
       await acceptInvite(groupId, habitId);
       setAcceptingInviteId(null);
+      showToast('Joined — you’re in.', 'success');
     } catch (err) {
-      Alert.alert("Couldn't join", err instanceof Error ? err.message : 'Something went wrong — try again.');
+      showToast(err instanceof Error ? err.message : "Couldn't join — try again.", 'error');
     }
   };
 
@@ -81,9 +93,9 @@ export default function GroupsManageModal({ visible, onClose }) {
     try {
       await inviteToGroup(groupId, friendUserId);
       setInvitingGroupId(null);
-      Alert.alert('Invite sent', `${label} will see it next time they open Habituate.`);
+      showToast(`Invite sent — ${label} will see it next time they open Habituate.`, 'success');
     } catch (err) {
-      Alert.alert("Couldn't send invite", err instanceof Error ? err.message : 'Something went wrong — try again.');
+      showToast(err instanceof Error ? err.message : "Couldn't send invite — try again.", 'error');
     }
   };
 
@@ -174,11 +186,15 @@ export default function GroupsManageModal({ visible, onClose }) {
                     <Pressable
                       style={styles.secondaryButton}
                       disabled={busy}
-                      onPress={() => declineRequest(request.id)}
+                      onPress={() => handleRespondToRequest(request.id, false)}
                     >
                       <Text style={styles.secondaryButtonText}>Decline</Text>
                     </Pressable>
-                    <Pressable style={styles.primaryButton} disabled={busy} onPress={() => acceptRequest(request.id)}>
+                    <Pressable
+                      style={styles.primaryButton}
+                      disabled={busy}
+                      onPress={() => handleRespondToRequest(request.id, true)}
+                    >
                       <Text style={styles.primaryButtonText}>Accept</Text>
                     </Pressable>
                   </View>
@@ -228,6 +244,7 @@ export default function GroupsManageModal({ visible, onClose }) {
         userId={profileUserId}
         onClose={() => setProfileUserId(null)}
       />
+      <Toast toast={toast} onHide={hideToast} />
     </Modal>
   );
 }

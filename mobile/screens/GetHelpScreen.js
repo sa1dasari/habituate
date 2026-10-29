@@ -1,9 +1,11 @@
 import React, { useMemo } from 'react';
-import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import StackHeader from '../components/StackHeader';
+import Toast from '../components/Toast';
 import { useAppTheme } from '../hooks/useAppTheme';
+import { useToast } from '../hooks/useToast';
 import { radii, shadow, spacing } from '../theme';
 
 const FAQS = [
@@ -31,10 +33,11 @@ const SUPPORT_EMAIL = 'sawandasari2@gmail.com';
 export default function GetHelpScreen({ navigation }) {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
+  const { toast, showToast, hideToast } = useToast();
 
   const handleContact = () => {
     Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=Habituate%20help`).catch(() => {
-      Alert.alert("Couldn't open email", `Reach us directly at ${SUPPORT_EMAIL}.`);
+      showToast(`Couldn't open email — reach us directly at ${SUPPORT_EMAIL}.`, 'error');
     });
   };
 
@@ -56,6 +59,7 @@ export default function GetHelpScreen({ navigation }) {
           <Text style={styles.secondaryButtonText}>Contact us</Text>
         </Pressable>
       </ScrollView>
+      <Toast toast={toast} onHide={hideToast} />
     </SafeAreaView>
   );
 }

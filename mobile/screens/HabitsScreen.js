@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,13 +12,17 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import CalendarModal from '../components/CalendarModal';
+import ConfirmModal from '../components/ConfirmModal';
 import Dropdown from '../components/Dropdown';
 import GoalCard from '../components/GoalCard';
 import HabitCard from '../components/HabitCard';
 import ScrubberInput from '../components/ScrubberInput';
 import ProtectionInfoModal from '../components/ProtectionInfoModal';
 import TimePicker from '../components/TimePicker';
+import Toast from '../components/Toast';
 import TourHighlight from '../components/TourHighlight';
+import { useConfirm } from '../hooks/useConfirm';
+import { useToast } from '../hooks/useToast';
 import {
   DEFAULT_HABIT_CATEGORY,
   HABIT_CATEGORY_OPTIONS,
@@ -156,6 +159,8 @@ export default function HabitsScreen() {
   const [showGoalForm, setShowGoalForm] = useState(false);
   const scrollRef = useRegisterScrollToTop('Habits');
   const goalsSectionY = useRef(0);
+  const { toast, showToast, hideToast } = useToast();
+  const { request, confirm, respond } = useConfirm();
 
   const { active: tourActive, currentStep: tourStep } = useOnboardingTour();
   const tourAddButtonRef = useTourTarget(TOUR_TARGETS.HABITS_ADD_BUTTON);
@@ -224,7 +229,7 @@ export default function HabitsScreen() {
       try {
         await toggleCheckIn(habit.id);
       } catch (err) {
-        Alert.alert('Could not update check-in', err instanceof Error ? err.message : 'Unknown error');
+        showToast(`Could not update check-in — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
         return;
       }
       if (!wasChecked) celebrateHabit(habit, 1);
@@ -239,7 +244,7 @@ export default function HabitsScreen() {
       try {
         await toggleCheckIn(habit.id, dayKey);
       } catch (err) {
-        Alert.alert('Could not update check-in', err instanceof Error ? err.message : 'Unknown error');
+        showToast(`Could not update check-in — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
       }
     },
     [toggleCheckIn]
@@ -250,7 +255,7 @@ export default function HabitsScreen() {
       try {
         await addCheckIn(habit.id);
       } catch (err) {
-        Alert.alert('Could not log check-in', err instanceof Error ? err.message : 'Unknown error');
+        showToast(`Could not log check-in — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
         return;
       }
       celebrateHabit(habit, 1);
@@ -263,7 +268,7 @@ export default function HabitsScreen() {
       try {
         await removeLastCheckIn(habitId);
       } catch (err) {
-        Alert.alert('Could not undo check-in', err instanceof Error ? err.message : 'Unknown error');
+        showToast(`Could not undo check-in — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
       }
     },
     [removeLastCheckIn]
@@ -284,7 +289,7 @@ export default function HabitsScreen() {
       try {
         await incrementGoal(goal.id);
       } catch (err) {
-        Alert.alert('Could not update goal', err instanceof Error ? err.message : 'Unknown error');
+        showToast(`Could not update goal — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
         return;
       }
       celebrateGoalProgress(goal, 1);
@@ -297,7 +302,7 @@ export default function HabitsScreen() {
       try {
         await logGoalAmount(goal.id, amount);
       } catch (err) {
-        Alert.alert('Could not update goal', err instanceof Error ? err.message : 'Unknown error');
+        showToast(`Could not update goal — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
         return;
       }
       celebrateGoalProgress(goal, amount);
@@ -368,7 +373,7 @@ export default function HabitsScreen() {
   const submit = async () => {
     const name = form.name.trim();
     if (!name) {
-      Alert.alert('Missing habit name', 'Give the habit a name first.');
+      showToast('Give the habit a name first.', 'error');
       return;
     }
 
@@ -400,68 +405,52 @@ export default function HabitsScreen() {
       }
       closeForm();
     } catch (err) {
-      Alert.alert(
-        isEditing ? 'Could not save changes' : 'Could not create habit',
-        err instanceof Error ? err.message : 'Unknown error'
+      showToast(
+        `${isEditing ? 'Could not save changes' : 'Could not create habit'} — ${err instanceof Error ? err.message : 'Unknown error'}`,
+        'error'
       );
     }
   };
 
   // Archiving keeps the history intact — nothing is deleted and no progress is lost.
-  const confirmArchive = () => {
-    Alert.alert(
-      'Archive this habit?',
-      'It moves out of your active list. Your check-ins and streak history stay saved.',
-      [
-        { text: 'Keep it', style: 'cancel' },
-        {
-          text: 'Archive',
-          onPress: async () => {
-            try {
-              await archiveHabit(form.id);
-              closeForm();
-            } catch (err) {
-              Alert.alert(
-                'Could not archive habit',
-                err instanceof Error ? err.message : 'Unknown error'
-              );
-            }
-          },
-        },
-      ]
-    );
+  const confirmArchive = async () => {
+    const ok = await confirm({
+      title: 'Archive this habit?',
+      message: 'It moves out of your active list. Your check-ins and streak history stay saved.',
+      confirmLabel: 'Archive',
+      cancelLabel: 'Keep it',
+    });
+    if (!ok) return;
+    try {
+      await archiveHabit(form.id);
+      closeForm();
+    } catch (err) {
+      showToast(`Could not archive habit — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+    }
   };
 
-  const confirmDelete = (habitId, habitName, onDone) => {
-    Alert.alert(
-      `Delete “${habitName}” permanently?`,
-      'This removes the habit and every check-in logged against it. It cannot be undone — archive it instead if you might come back to it.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteHabit(habitId);
-              if (onDone) onDone();
-            } catch (err) {
-              Alert.alert(
-                'Could not delete habit',
-                err instanceof Error ? err.message : 'Unknown error'
-              );
-            }
-          },
-        },
-      ]
-    );
+  const confirmDelete = async (habitId, habitName, onDone) => {
+    const ok = await confirm({
+      title: `Delete "${habitName}" permanently?`,
+      message:
+        'This removes the habit and every check-in logged against it. It cannot be undone — archive it instead if you might come back to it.',
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteHabit(habitId);
+      if (onDone) onDone();
+    } catch (err) {
+      showToast(`Could not delete habit — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+    }
   };
 
   const restore = async (habitId) => {
     try {
       await restoreHabit(habitId);
     } catch (err) {
-      Alert.alert('Could not restore habit', err instanceof Error ? err.message : 'Unknown error');
+      showToast(`Could not restore habit — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
     }
   };
 
@@ -483,12 +472,12 @@ export default function HabitsScreen() {
   const submitGoal = async () => {
     const description = goalForm.description.trim();
     if (!description) {
-      Alert.alert('Missing description', 'Give the goal a short description first.');
+      showToast('Give the goal a short description first.', 'error');
       return;
     }
     const targetCount = Number(goalForm.targetCount);
     if (!targetCount || targetCount < 1) {
-      Alert.alert('Missing target', 'Set a target count for this goal.');
+      showToast('Set a target count for this goal.', 'error');
       return;
     }
 
@@ -500,32 +489,26 @@ export default function HabitsScreen() {
       }
       closeGoalForm();
     } catch (err) {
-      Alert.alert(
-        isEditingGoal ? 'Could not save changes' : 'Could not create goal',
-        err instanceof Error ? err.message : 'Unknown error'
+      showToast(
+        `${isEditingGoal ? 'Could not save changes' : 'Could not create goal'} — ${err instanceof Error ? err.message : 'Unknown error'}`,
+        'error'
       );
     }
   };
 
-  const confirmDeleteGoal = (goal) => {
-    Alert.alert(
-      `Delete “${goal.description}”?`,
-      'This removes the goal and its progress. It cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteGoal(goal.id);
-            } catch (err) {
-              Alert.alert('Could not delete goal', err instanceof Error ? err.message : 'Unknown error');
-            }
-          },
-        },
-      ]
-    );
+  const confirmDeleteGoal = async (goal) => {
+    const ok = await confirm({
+      title: `Delete "${goal.description}"?`,
+      message: 'This removes the goal and its progress. It cannot be undone.',
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteGoal(goal.id);
+    } catch (err) {
+      showToast(`Could not delete goal — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+    }
   };
 
   return (
@@ -1003,6 +986,8 @@ export default function HabitsScreen() {
       </ScrollView>
     </SafeAreaView>
     <TourHighlight scope={TOUR_SCOPES.HABITS} />
+    <Toast toast={toast} onHide={hideToast} />
+    <ConfirmModal request={request} onRespond={respond} />
     </>
   );
 }

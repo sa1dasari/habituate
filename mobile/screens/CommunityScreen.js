@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import SharedHabitCard from '../components/SharedHabitCard';
@@ -14,6 +14,7 @@ import AddFriendModal from '../components/AddFriendModal';
 import NotificationCenterModal from '../components/NotificationCenterModal';
 import ProtectionInfoModal from '../components/ProtectionInfoModal';
 import FriendProfileModal from '../components/FriendProfileModal';
+import Toast from '../components/Toast';
 import TourHighlight from '../components/TourHighlight';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useAuth } from '../hooks/useAuth';
@@ -24,6 +25,7 @@ import { useFriends } from '../hooks/useFriends';
 import { useNotifications } from '../hooks/useNotifications';
 import { useRegisterScrollToTop } from '../hooks/useRegisterScrollToTop';
 import { useOnboardingTour } from '../hooks/useOnboardingTour';
+import { useToast } from '../hooks/useToast';
 import { useTourTarget } from '../hooks/useTourTarget';
 import { TOUR_SCOPES, TOUR_TARGETS } from '../constants/onboardingTour';
 import { radii, spacing } from '../theme';
@@ -57,6 +59,7 @@ export default function CommunityScreen({ navigation }) {
   const [freezeInfoVisible, setFreezeInfoVisible] = useState(false);
   const [profileUserId, setProfileUserId] = useState(null);
   const { unreadCount } = useNotifications();
+  const { toast, showToast, hideToast } = useToast();
 
   // Tapping the compact avatar stack on a card opens the friend-profile viewer instead of the
   // card's own onPress (e.g. the Shared Habit/Challenge detail modal) — never for yourself.
@@ -100,7 +103,7 @@ export default function CommunityScreen({ navigation }) {
       await toggleHabitCheckIn(group.myHabitId);
       await refreshGroups();
     } catch (err) {
-      Alert.alert('Could not update check-in', err instanceof Error ? err.message : 'Unknown error');
+      showToast(err instanceof Error ? err.message : 'Could not update check-in.', 'error');
     }
   };
 
@@ -109,7 +112,7 @@ export default function CommunityScreen({ navigation }) {
       if (challenge.trackingMode === 'COUNT') await addChallengeEntry(challenge.id, 1);
       else await toggleCheckIn(challenge);
     } catch (err) {
-      Alert.alert("Couldn't update today's log", err instanceof Error ? err.message : 'Something went wrong — try again.');
+      showToast(err instanceof Error ? err.message : "Couldn't update today's log — try again.", 'error');
     }
   };
 
@@ -333,6 +336,7 @@ export default function CommunityScreen({ navigation }) {
         onClose={() => setFreezeInfoVisible(false)}
       />
       <FriendProfileModal visible={!!profileUserId} userId={profileUserId} onClose={() => setProfileUserId(null)} />
+      <Toast toast={toast} onHide={hideToast} />
     </SafeAreaView>
     <TourHighlight scope={TOUR_SCOPES.COMMUNITY} />
     </>

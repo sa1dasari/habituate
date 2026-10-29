@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import StackHeader from '../components/StackHeader';
+import Toast from '../components/Toast';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useHabits } from '../hooks/useHabits';
 import { useGoals } from '../hooks/useGoals';
+import { useToast } from '../hooks/useToast';
 import { buildExportData, shareExport, toCsv, toJson } from '../utils/dataExport';
 import api from '../api/client';
 import { radii, shadow, spacing } from '../theme';
@@ -18,6 +20,7 @@ export default function PrivacyScreen({ navigation }) {
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const { habits } = useHabits();
   const { goals } = useGoals();
+  const { toast, showToast, hideToast } = useToast();
   const [exporting, setExporting] = useState(null); // 'json' | 'csv' | null
 
   // Defaults to PRIVATE (same as every account, new or existing — see User.java) until the
@@ -53,7 +56,7 @@ export default function PrivacyScreen({ navigation }) {
       await api.updateProfileVisibility(next);
     } catch (err) {
       setProfileVisibility(previous);
-      Alert.alert("Couldn't update that", err instanceof Error ? err.message : 'Something went wrong — try again.');
+      showToast(err instanceof Error ? err.message : "Couldn't update that — something went wrong.", 'error');
     } finally {
       setVisibilitySaving(false);
     }
@@ -69,7 +72,7 @@ export default function PrivacyScreen({ navigation }) {
         await shareExport(toCsv(data), 'habituate-checkins.csv', 'text/csv');
       }
     } catch (err) {
-      Alert.alert("Couldn't export", err instanceof Error ? err.message : 'Something went wrong — try again.');
+      showToast(err instanceof Error ? err.message : "Couldn't export — something went wrong.", 'error');
     } finally {
       setExporting(null);
     }
@@ -77,7 +80,7 @@ export default function PrivacyScreen({ navigation }) {
 
   const handleOpenPolicy = () => {
     Linking.openURL(PRIVACY_POLICY_URL).catch(() => {
-      Alert.alert("Couldn't open that", 'Try again in a moment.');
+      showToast("Couldn't open that — try again in a moment.", 'error');
     });
   };
 
@@ -148,6 +151,7 @@ export default function PrivacyScreen({ navigation }) {
           </Pressable>
         </View>
       </ScrollView>
+      <Toast toast={toast} onHide={hideToast} />
     </SafeAreaView>
   );
 }

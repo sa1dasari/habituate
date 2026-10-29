@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -15,9 +14,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import api from '../api/client';
+import ConfirmModal from './ConfirmModal';
+import Toast from './Toast';
 import TourHighlight from './TourHighlight';
 import { useAppTheme } from '../hooks/useAppTheme';
+import { useConfirm } from '../hooks/useConfirm';
 import { useHabits } from '../hooks/useHabits';
+import { useToast } from '../hooks/useToast';
 import { useTourTarget } from '../hooks/useTourTarget';
 import { TOUR_SCOPES, TOUR_TARGETS } from '../constants/onboardingTour';
 import { generateCoachStarterQuestions } from '../utils/consistency';
@@ -48,6 +51,8 @@ export default function AskHabituateModal({ visible, onClose, initialQuestion, h
 
   const { refresh: refreshHabits } = useHabits();
   const tourHeaderRef = useTourTarget(TOUR_TARGETS.MODAL_ASK_HABITUATE_HEADER);
+  const { toast, showToast, hideToast } = useToast();
+  const { request, confirm, respond } = useConfirm();
 
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -112,9 +117,9 @@ export default function AskHabituateModal({ visible, onClose, initialQuestion, h
       ]);
       scrollToEnd();
     } catch (err) {
-      Alert.alert(
-        "Ask Habituate couldn't reply",
-        err instanceof Error ? err.message : 'Something went wrong — try again.'
+      showToast(
+        `Ask Habituate couldn't reply — ${err instanceof Error ? err.message : 'Something went wrong — try again.'}`,
+        'error'
       );
     } finally {
       setSending(false);
@@ -136,7 +141,7 @@ export default function AskHabituateModal({ visible, onClose, initialQuestion, h
       updateMessage(updated);
     } catch (err) {
       updateMessage(previous);
-      Alert.alert("Couldn't react", err instanceof Error ? err.message : 'Try again in a moment.');
+      showToast(`Couldn't react — ${err instanceof Error ? err.message : 'Try again in a moment.'}`, 'error');
     }
   };
 
@@ -152,7 +157,7 @@ export default function AskHabituateModal({ visible, onClose, initialQuestion, h
       await refreshHabits();
     } catch (err) {
       const fallback = message.proposalType === 'CREATE_HABIT' ? "Couldn't create that" : "Couldn't apply that";
-      Alert.alert(fallback, err instanceof Error ? err.message : 'Try again in a moment.');
+      showToast(`${fallback} — ${err instanceof Error ? err.message : 'Try again in a moment.'}`, 'error');
     } finally {
       setBusyMessageId(null);
     }
@@ -164,32 +169,26 @@ export default function AskHabituateModal({ visible, onClose, initialQuestion, h
       const updated = await api.rejectCoachProposal(message.id);
       updateMessage(updated);
     } catch (err) {
-      Alert.alert("Couldn't update that", err instanceof Error ? err.message : 'Try again in a moment.');
+      showToast(`Couldn't update that — ${err instanceof Error ? err.message : 'Try again in a moment.'}`, 'error');
     } finally {
       setBusyMessageId(null);
     }
   };
 
-  const clearConversation = () => {
-    Alert.alert(
-      'Clear conversation?',
-      "This can't be retrieved once cleared.",
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Clear',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await api.clearCoachMessages();
-              setMessages([]);
-            } catch (err) {
-              Alert.alert("Couldn't clear conversation", err instanceof Error ? err.message : 'Try again in a moment.');
-            }
-          },
-        },
-      ]
-    );
+  const clearConversation = async () => {
+    const ok = await confirm({
+      title: 'Clear conversation?',
+      message: "This can't be retrieved once cleared.",
+      confirmLabel: 'Clear',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await api.clearCoachMessages();
+      setMessages([]);
+    } catch (err) {
+      showToast(`Couldn't clear conversation — ${err instanceof Error ? err.message : 'Try again in a moment.'}`, 'error');
+    }
   };
 
   const showStarters = !loading && messages.length === 0;
@@ -332,6 +331,8 @@ export default function AskHabituateModal({ visible, onClose, initialQuestion, h
         </KeyboardAvoidingView>
       </SafeAreaView>
       <TourHighlight scope={TOUR_SCOPES.ASK_HABITUATE_MODAL} />
+      <Toast toast={toast} onHide={hideToast} />
+      <ConfirmModal request={request} onRespond={respond} />
     </Modal>
   );
 }

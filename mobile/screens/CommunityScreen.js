@@ -105,11 +105,12 @@ export default function CommunityScreen({ navigation }) {
   };
 
   const handleToggleCheckIn = async (challenge) => {
-    const ok =
-      challenge.trackingMode === 'COUNT'
-        ? await addChallengeEntry(challenge.id, 1)
-        : await toggleCheckIn(challenge);
-    if (!ok) Alert.alert("Couldn't update today's log", 'Something went wrong — try again.');
+    try {
+      if (challenge.trackingMode === 'COUNT') await addChallengeEntry(challenge.id, 1);
+      else await toggleCheckIn(challenge);
+    } catch (err) {
+      Alert.alert("Couldn't update today's log", err instanceof Error ? err.message : 'Something went wrong — try again.');
+    }
   };
 
   const refresh = async () => {

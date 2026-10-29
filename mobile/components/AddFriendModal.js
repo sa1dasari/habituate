@@ -75,11 +75,11 @@ export default function AddFriendModal({ visible, onClose }) {
   }, [query]);
 
   const handleSendByUsername = async (username) => {
-    const ok = await sendRequestByUsername(username);
-    if (ok) {
+    try {
+      await sendRequestByUsername(username);
       setSentTo((current) => new Set(current).add(username));
-    } else {
-      Alert.alert("Couldn't send that", 'Something went wrong — try again.');
+    } catch (err) {
+      Alert.alert("Couldn't send that", err instanceof Error ? err.message : 'Something went wrong — try again.');
     }
   };
 
@@ -89,18 +89,24 @@ export default function AddFriendModal({ visible, onClose }) {
       Alert.alert('Enter an email', "Your friend's account email, same as they sign in with.");
       return;
     }
-    const ok = await sendRequest(trimmed);
-    if (ok) {
+    try {
+      await sendRequest(trimmed);
       setEmail('');
       Alert.alert('Request sent', "They'll see it next time they open Habituate.");
-    } else {
-      Alert.alert("Couldn't send that", 'Check the email is right and that an account exists for it.');
+    } catch (err) {
+      Alert.alert(
+        "Couldn't send that",
+        err instanceof Error ? err.message : 'Check the email is right and that an account exists for it.'
+      );
     }
   };
 
   const handleRespond = async (request, accept) => {
-    const ok = accept ? await acceptRequest(request.id) : await declineRequest(request.id);
-    if (!ok) Alert.alert('Something went wrong', 'Try again.');
+    try {
+      await (accept ? acceptRequest(request.id) : declineRequest(request.id));
+    } catch (err) {
+      Alert.alert('Something went wrong', err instanceof Error ? err.message : 'Try again.');
+    }
   };
 
   return (

@@ -51,11 +51,11 @@ export default function CreateGroupModal({ visible, onClose, onDeleted, group = 
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            const ok = await deleteGroup(group.id);
-            if (ok) {
+            try {
+              await deleteGroup(group.id);
               onDeleted ? onDeleted() : onClose();
-            } else {
-              Alert.alert("Couldn't delete", 'Something went wrong — try again.');
+            } catch (err) {
+              Alert.alert("Couldn't delete", err instanceof Error ? err.message : 'Something went wrong — try again.');
             }
           },
         },
@@ -108,19 +108,19 @@ export default function CreateGroupModal({ visible, onClose, onDeleted, group = 
         Alert.alert('Name it', 'Give the shared habit a name.');
         return;
       }
-      const ok = await updateGroup(group.id, {
-        name: trimmedName,
-        streakRule: rule,
-        goalAlignment,
-        trackingMode,
-        visibilityLevel,
-        nudgesEnabled,
-        skipDaysPerMonth,
-      });
-      if (ok) {
+      try {
+        await updateGroup(group.id, {
+          name: trimmedName,
+          streakRule: rule,
+          goalAlignment,
+          trackingMode,
+          visibilityLevel,
+          nudgesEnabled,
+          skipDaysPerMonth,
+        });
         onClose();
-      } else {
-        Alert.alert("Couldn't save changes", 'Something went wrong — try again.');
+      } catch (err) {
+        Alert.alert("Couldn't save changes", err instanceof Error ? err.message : 'Something went wrong — try again.');
       }
       return;
     }
@@ -131,21 +131,21 @@ export default function CreateGroupModal({ visible, onClose, onDeleted, group = 
     }
     const habit = habits.find((h) => h.id === selectedHabitId);
     const name = groupName.trim() || (habit ? habit.name : 'Shared Habit');
-    const ok = await createGroup({
-      name,
-      habitId: selectedHabitId,
-      streakRule: rule,
-      goalAlignment,
-      trackingMode,
-      visibilityLevel,
-      nudgesEnabled,
-      skipDaysPerMonth,
-    });
-    if (ok) {
+    try {
+      await createGroup({
+        name,
+        habitId: selectedHabitId,
+        streakRule: rule,
+        goalAlignment,
+        trackingMode,
+        visibilityLevel,
+        nudgesEnabled,
+        skipDaysPerMonth,
+      });
       reset();
       onClose();
-    } else {
-      Alert.alert("Couldn't create shared habit", 'Something went wrong — try again.');
+    } catch (err) {
+      Alert.alert("Couldn't create shared habit", err instanceof Error ? err.message : 'Something went wrong — try again.');
     }
   };
 

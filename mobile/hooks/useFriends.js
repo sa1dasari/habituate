@@ -28,16 +28,15 @@ export function FriendsProvider({ children }) {
     refresh();
   }, [refresh]);
 
+  // Rethrows on failure (doesn't swallow to a boolean) so callers can show
+  // the backend's actual reason — e.g. "A friend request already exists
+  // between these accounts" — instead of a generic message.
   const run = useCallback(
     async (action) => {
       setBusy(true);
       try {
         await action();
         await refresh();
-        return true;
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Something went wrong');
-        return false;
       } finally {
         setBusy(false);
       }

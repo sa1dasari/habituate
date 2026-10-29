@@ -28,16 +28,17 @@ export function GroupsProvider({ children }) {
     refresh();
   }, [refresh]);
 
+  // Rethrows on failure (doesn't swallow to a boolean) so callers can show
+  // the backend's actual reason — e.g. "User is already invited or a member
+  // of this group" — instead of a generic message. Matches useHabits/
+  // useGoals' existing pattern; this hook used to differ and every caller's
+  // error handling paid for it with a useless fallback message.
   const run = useCallback(
     async (action) => {
       setBusy(true);
       try {
         await action();
         await refresh();
-        return true;
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Something went wrong');
-        return false;
       } finally {
         setBusy(false);
       }
@@ -46,13 +47,15 @@ export function GroupsProvider({ children }) {
   );
 
   // Mirrors useHabits' runExclusive: invite/accept on the same group id firing
-  // twice (double-tap) would otherwise race against its own stale state.
+  // twice (double-tap) would otherwise race against its own stale state. A
+  // suppressed double-tap isn't an error, so it resolves quietly rather than
+  // throwing or returning anything meaningful.
   const pendingGroupIds = useRef(new Set());
 
   const runExclusive = useCallback(
     (groupId, action) => {
       if (pendingGroupIds.current.has(groupId)) {
-        return Promise.resolve(false);
+        return Promise.resolve();
       }
       pendingGroupIds.current.add(groupId);
       return run(action).finally(() => {

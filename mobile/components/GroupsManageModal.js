@@ -59,26 +59,31 @@ export default function GroupsManageModal({ visible, onClose }) {
   const handleSendRequest = async () => {
     const trimmed = email.trim();
     if (!trimmed) return;
-    const ok = await sendRequest(trimmed);
-    if (ok) setEmail('');
-    else Alert.alert("Couldn't send request", 'Check the email and try again.');
-  };
-
-  const handleAcceptInvite = async (groupId, habitId) => {
-    const ok = await acceptInvite(groupId, habitId);
-    if (ok) {
-      setAcceptingInviteId(null);
-    } else {
-      Alert.alert("Couldn't join", 'Something went wrong — try again.');
+    try {
+      await sendRequest(trimmed);
+      setEmail('');
+      Alert.alert('Request sent', "They'll see it next time they open Habituate.");
+    } catch (err) {
+      Alert.alert("Couldn't send request", err instanceof Error ? err.message : 'Check the email and try again.');
     }
   };
 
-  const handleInviteFriend = async (groupId, friendUserId) => {
-    const ok = await inviteToGroup(groupId, friendUserId);
-    if (ok) {
+  const handleAcceptInvite = async (groupId, habitId) => {
+    try {
+      await acceptInvite(groupId, habitId);
+      setAcceptingInviteId(null);
+    } catch (err) {
+      Alert.alert("Couldn't join", err instanceof Error ? err.message : 'Something went wrong — try again.');
+    }
+  };
+
+  const handleInviteFriend = async (groupId, friendUserId, label) => {
+    try {
+      await inviteToGroup(groupId, friendUserId);
       setInvitingGroupId(null);
-    } else {
-      Alert.alert("Couldn't send invite", 'Something went wrong — try again.');
+      Alert.alert('Invite sent', `${label} will see it next time they open Habituate.`);
+    } catch (err) {
+      Alert.alert("Couldn't send invite", err instanceof Error ? err.message : 'Something went wrong — try again.');
     }
   };
 
@@ -138,7 +143,9 @@ export default function GroupsManageModal({ visible, onClose }) {
                         <Pressable
                           key={friend.id}
                           style={styles.habitRow}
-                          onPress={() => handleInviteFriend(group.id, friend.otherUserId)}
+                          onPress={() =>
+                            handleInviteFriend(group.id, friend.otherUserId, friend.otherUserName || friend.otherUserEmail)
+                          }
                         >
                           <MaterialCommunityIcons name="account-plus-outline" size={18} color={colors.accent} />
                           <Text style={styles.habitRowText}>{friend.otherUserName || friend.otherUserEmail}</Text>

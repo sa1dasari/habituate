@@ -125,9 +125,21 @@ async function request(path, options = {}) {
 
   if (!response.ok) {
     const detail = await response.text().catch(() => '');
-    const error = new Error(
-      `${options.method || 'GET'} ${path} failed (${response.status})${detail ? `: ${detail}` : ''}`
-    );
+    // The backend's GlobalExceptionHandler sends a specific, user-facing
+    // reason as JSON ({"error": "..."}) for every handled exception (e.g.
+    // "User is already invited or a member of this group") — parse it out
+    // so callers can show that real message instead of a generic fallback.
+    // Falls back to the raw response text/status for anything unhandled.
+    let message = detail;
+    try {
+      const parsed = JSON.parse(detail);
+      if (parsed && typeof parsed === 'object') {
+        message = parsed.error || parsed.message || detail;
+      }
+    } catch {
+      // Not JSON — keep the raw text (or it's empty, handled below).
+    }
+    const error = new Error(message || `${options.method || 'GET'} ${path} failed (${response.status})`);
     error.status = response.status;
     throw error;
   }

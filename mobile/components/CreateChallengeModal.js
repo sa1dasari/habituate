@@ -81,11 +81,11 @@ export default function CreateChallengeModal({ visible, onClose, onDeleted, chal
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            const ok = await deleteChallenge(challenge.id);
-            if (ok) {
+            try {
+              await deleteChallenge(challenge.id);
               onDeleted ? onDeleted() : onClose();
-            } else {
-              Alert.alert("Couldn't delete", 'Something went wrong — try again.');
+            } catch (err) {
+              Alert.alert("Couldn't delete", err instanceof Error ? err.message : 'Something went wrong — try again.');
             }
           },
         },
@@ -180,12 +180,16 @@ export default function CreateChallengeModal({ visible, onClose, onDeleted, chal
       customDays: cadenceType === 'CUSTOM_DAYS' ? customDays.join(',') : null,
       reminderTime: reminderTime || null,
     };
-    const ok = isEditing ? await updateChallenge(challenge.id, payload) : await createChallengeAction(payload);
-    if (ok) {
+    try {
+      if (isEditing) await updateChallenge(challenge.id, payload);
+      else await createChallengeAction(payload);
       reset();
       onClose();
-    } else {
-      Alert.alert(isEditing ? "Couldn't save changes" : "Couldn't create challenge", 'Something went wrong — try again.');
+    } catch (err) {
+      Alert.alert(
+        isEditing ? "Couldn't save changes" : "Couldn't create challenge",
+        err instanceof Error ? err.message : 'Something went wrong — try again.'
+      );
     }
   };
 

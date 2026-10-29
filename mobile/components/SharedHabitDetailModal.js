@@ -49,11 +49,10 @@ export default function SharedHabitDetailModal({ visible, group, onClose }) {
   const myParticipant = people.find((p) => typeof p === 'object' && p && user && p.userId === user.uid);
   const myCheckedInToday = myParticipant ? myParticipant.checkedInToday : false;
 
-  const handleInvite = async (friendUserId) => {
-    const ok = await inviteToGroup(group.id, friendUserId);
-    if (!ok) Alert.alert("Couldn't send invite", 'Something went wrong — try again.');
-    return ok;
-  };
+  // InviteFriendsSheet owns the success/failure feedback (including the
+  // real backend reason, e.g. "already invited") — this just passes the
+  // call through rather than swallowing it to a boolean.
+  const handleInvite = (friendUserId) => inviteToGroup(group.id, friendUserId);
 
   // toggleCheckIn only refreshes useHabits' own list — this modal's `group` prop comes from
   // useGroups' separate list, which never hears about it otherwise. Without this refresh the

@@ -29,22 +29,17 @@ export function GroupActivityProvider({ children }) {
   // heart would otherwise race cheer/uncheer against stale state.
   const pendingCheckInIds = useRef(new Set());
 
+  // Rethrows on failure (doesn't swallow to a boolean) so the caller can
+  // show the backend's actual reason instead of a generic message.
   const toggleCheer = useCallback(
     (item) => {
       if (pendingCheckInIds.current.has(item.checkInId)) {
-        return Promise.resolve(false);
+        return Promise.resolve();
       }
       pendingCheckInIds.current.add(item.checkInId);
       const action = item.cheeredByMe ? api.uncheerCheckIn : api.cheerCheckIn;
       return action(item.checkInId)
-        .then(() => {
-          refresh();
-          return true;
-        })
-        .catch((err) => {
-          setError(err instanceof Error ? err.message : 'Something went wrong');
-          return false;
-        })
+        .then(() => refresh())
         .finally(() => {
           pendingCheckInIds.current.delete(item.checkInId);
         });

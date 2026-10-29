@@ -27,8 +27,11 @@ export default function ChallengesManageModal({ visible, onClose }) {
   const selectedChallenge = browseList.find((c) => c.id === selectedChallengeId) || null;
 
   const handleJoin = async (challengeId) => {
-    const ok = await joinChallenge(challengeId);
-    if (!ok) Alert.alert("Couldn't join", 'Something went wrong — try again.');
+    try {
+      await joinChallenge(challengeId);
+    } catch (err) {
+      Alert.alert("Couldn't join", err instanceof Error ? err.message : 'Something went wrong — try again.');
+    }
   };
 
   return (

@@ -62,8 +62,11 @@ export default function ProfileScreen() {
   const weeklyConsistency = useMemo(() => computeConsistency(habits, 'weekly').percent, [habits]);
 
   const handleToggleCheer = async (item) => {
-    const ok = await toggleCheer(item);
-    if (!ok) Alert.alert("Couldn't update that", 'Something went wrong — try again.');
+    try {
+      await toggleCheer(item);
+    } catch (err) {
+      Alert.alert("Couldn't update that", err instanceof Error ? err.message : 'Something went wrong — try again.');
+    }
   };
 
   const handleSignOut = () => {

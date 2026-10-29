@@ -62,8 +62,12 @@ export default function ChallengeDetailModal({ visible, challenge, onClose }) {
   const accentColor = challenge.color || colors.accent;
 
   const handleToggle = async () => {
-    const ok = isCount ? await addChallengeEntry(challenge.id, entryAmount) : await toggleCheckIn(challenge);
-    if (!ok) Alert.alert("Couldn't update today's log", 'Something went wrong — try again.');
+    try {
+      if (isCount) await addChallengeEntry(challenge.id, entryAmount);
+      else await toggleCheckIn(challenge);
+    } catch (err) {
+      Alert.alert("Couldn't update today's log", err instanceof Error ? err.message : 'Something went wrong — try again.');
+    }
   };
 
   const handleInvite = (friendUserId) => inviteToChallenge(challenge.id, friendUserId);

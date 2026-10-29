@@ -28,16 +28,14 @@ export function ChallengesProvider({ children }) {
     refresh();
   }, [refresh]);
 
+  // Rethrows on failure (doesn't swallow to a boolean) so callers can show
+  // the backend's actual reason instead of a generic message.
   const run = useCallback(
     async (action) => {
       setBusy(true);
       try {
         await action();
         await refresh();
-        return true;
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Something went wrong');
-        return false;
       } finally {
         setBusy(false);
       }
@@ -68,7 +66,7 @@ export function ChallengesProvider({ children }) {
   const runExclusive = useCallback(
     (challengeId, action) => {
       if (pendingChallengeIds.current.has(challengeId)) {
-        return Promise.resolve(false);
+        return Promise.resolve();
       }
       pendingChallengeIds.current.add(challengeId);
       return run(action).finally(() => {

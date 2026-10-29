@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AddFriendModal from './AddFriendModal';
@@ -15,8 +15,11 @@ import { radii, spacing } from '../theme';
  * when the list was empty, pointing at an "Add a friend" feature that
  * didn't actually exist anywhere.
  *
- * `onInvite(friendUserId)` should return a boolean/promise<boolean> like
- * every other action hook in this app (useGroups.inviteToGroup, etc).
+ * `onInvite(friendUserId)` should resolve on success or throw/reject with an
+ * Error on failure, like every other action hook in this app (useGroups.
+ * inviteToGroup, etc, which rethrow the backend's actual reason rather than
+ * swallowing it) — this is the one place that shows the user whether the
+ * invite worked at all, across every "invite to X" flow that uses it.
  */
 export default function InviteFriendsSheet({ visible, onClose, onInvite, busy = false, title = 'Invite a friend' }) {
   const { colors, typography } = useAppTheme();
@@ -24,9 +27,14 @@ export default function InviteFriendsSheet({ visible, onClose, onInvite, busy = 
   const { friends } = useFriends();
   const [addFriendVisible, setAddFriendVisible] = useState(false);
 
-  const handlePick = async (friendUserId) => {
-    const ok = await onInvite(friendUserId);
-    if (ok) onClose();
+  const handlePick = async (friendUserId, label) => {
+    try {
+      await onInvite(friendUserId);
+      onClose();
+      Alert.alert('Invite sent', `${label} will see it next time they open Habituate.`);
+    } catch (err) {
+      Alert.alert("Couldn't send invite", err instanceof Error ? err.message : 'Something went wrong — try again.');
+    }
   };
 
   return (
@@ -56,7 +64,7 @@ export default function InviteFriendsSheet({ visible, onClose, onInvite, busy = 
                 key={friend.id}
                 style={styles.friendRow}
                 disabled={busy}
-                onPress={() => handlePick(friend.otherUserId)}
+                onPress={() => handlePick(friend.otherUserId, friend.otherUserName || friend.otherUserEmail)}
               >
                 <View style={styles.friendAvatar}>
                   <AvatarImage

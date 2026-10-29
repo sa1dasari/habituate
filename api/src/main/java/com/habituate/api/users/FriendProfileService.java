@@ -81,10 +81,16 @@ public class FriendProfileService {
         }
 
         UserProfile firebaseProfile = userLookupService.resolve(targetUserId);
-        String username = userRepository.findById(targetUserId).map(User::getUsername).orElse(null);
-        String visibility = userRepository.findById(targetUserId)
+        java.util.Optional<User> targetRow = userRepository.findById(targetUserId);
+        String username = targetRow.map(User::getUsername).orElse(null);
+        String visibility = targetRow
                 .map(User::getProfileVisibility)
                 .orElse(User.VISIBILITY_PRIVATE);
+        System.out.println("[FriendProfileService DEBUG] viewerId='" + viewerId
+                + "' targetUserId='" + targetUserId + "'"
+                + " rowFound=" + targetRow.isPresent()
+                + " username=" + username
+                + " resolvedVisibility=" + visibility);
 
         List<FriendProfileResponse.SharedGroupStreak> sharedGroupStreaks = mutualSharedGroupStreaks(viewerId, targetUserId);
 

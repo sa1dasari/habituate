@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -18,7 +18,15 @@ import { radii, shadow, spacing } from '../theme';
 
 const DELETE_ACTION_WIDTH = 76;
 const READ_ACTION_WIDTH = 92;
+// A full, decisive swipe commits the action directly on release — no button
+// to tap afterward. COMMIT_RATIO is how much further than the icon's own
+// reveal width the drag has to travel before it counts as "fully swiped"
+// rather than just a peek; MAX_RATIO caps how far it can be dragged past
+// that, for a bit of resistance feel instead of following the finger forever.
+const COMMIT_RATIO = 1.8;
+const MAX_RATIO = 2.1;
 const SPRING_CONFIG = { damping: 24, stiffness: 320, mass: 0.7 };
+const SLIDE_OUT_CONFIG = { damping: 30, stiffness: 260, mass: 0.6 };
 
 const TYPE_ICON = {
   FRIEND_REQUEST_RECEIVED: 'account-plus-outline',
@@ -68,10 +76,6 @@ export default function NotificationCenterModal({
   useEffect(() => {
     if (visible) refresh();
   }, [visible, refresh]);
-  // Only one row's actions stay revealed at a time — opening a second one
-  // (or tapping the already-open one) snaps the previous row shut, same as
-  // Mail/Outlook rather than letting several rows sit open at once.
-  const [openRowId, setOpenRowId] = useState(null);
 
   const handlePress = (item) => {
     if (!item.read) markRead(item.id);
@@ -143,8 +147,6 @@ export default function NotificationCenterModal({
               styles={styles}
               colors={colors}
               deleteOnLeft={deleteOnLeft}
-              isOpen={openRowId === item.id}
-              onOpenChange={setOpenRowId}
               onPress={() => handlePress(item)}
               onMarkRead={() => markRead(item.id)}
               onDelete={() => deleteNotification(item.id)}
@@ -158,43 +160,55 @@ export default function NotificationCenterModal({
 }
 
 /**
- * Two independent swipe directions, Outlook-style reveal-then-tap-to-confirm:
- * swiping exposes exactly one action panel, sized to that action alone and
- * anchored at the edge the swipe came from — never the full-width,
- * flex-end-packed panel the old implementation used, which anchored Delete
- * flush against the row's real right edge so it appeared on the very first
- * pixel of any left-swipe while "Mark as read" (packed to Delete's left)
- * needed a nearly-full swipe before it ever came into view. Both panels are
- * conditionally rendered (not just visually covered) so neither is present
- * in the tree, let alone visible, at rest.
+ * Full-swipe-commits, like Gmail/Mail — not reveal-then-tap-to-confirm.
+ * Swiping past COMMIT_RATIO×the action's icon width and releasing performs
+ * the action immediately; short of that, it springs back to closed. There is
+ * no "stays open, tap a button" resting state — the icon+label fade/scale in
+ * as you drag purely as feedback, they're not themselves interactive, since
+ * the row never settles into a state where tapping one would do anything a
+ * continued swipe wouldn't already have done on release.
  *
  * Which direction maps to which action is swappable via
  * useNotificationSwipePrefs (NotificationSettingsScreen) — default is
  * swipe-left-to-read / swipe-right-to-delete, `deleteOnLeft` flips both at
  * once so the two actions never collide on the same side.
  */
-function NotificationRow({ item, styles, colors, deleteOnLeft, isOpen, onOpenChange, onPress, onMarkRead, onDelete }) {
+function NotificationRow({ item, styles, colors, deleteOnLeft, onPress, onMarkRead, onDelete }) {
   const readAvailable = !item.read;
 
-  // negLimit: how far a left-swipe can open (reveals the "right-anchored" panel).
-  // posLimit: how far a right-swipe can open (reveals the "left-anchored" panel).
+  // rightPanelAction: committed by swiping left (the "right-anchored" panel).
+  // leftPanelAction: committed by swiping right (the "left-anchored" panel).
   const negAction = deleteOnLeft ? null : readAvailable ? 'read' : null;
   const posAction = deleteOnLeft ? (readAvailable ? 'read' : null) : null;
-  const rightPanelAction = deleteOnLeft ? 'delete' : negAction; // revealed by swiping left
-  const leftPanelAction = deleteOnLeft ? posAction : 'delete'; // revealed by swiping right
+  const rightPanelAction = deleteOnLeft ? 'delete' : negAction; // committed by swiping left
+  const leftPanelAction = deleteOnLeft ? posAction : 'delete'; // committed by swiping right
 
-  const negLimit = rightPanelAction === 'read' ? READ_ACTION_WIDTH : rightPanelAction === 'delete' ? DELETE_ACTION_WIDTH : 0;
-  const posLimit = leftPanelAction === 'read' ? READ_ACTION_WIDTH : leftPanelAction === 'delete' ? DELETE_ACTION_WIDTH : 0;
+  const negIconWidth = rightPanelAction === 'read' ? READ_ACTION_WIDTH : rightPanelAction === 'delete' ? DELETE_ACTION_WIDTH : 0;
+  const posIconWidth = leftPanelAction === 'read' ? READ_ACTION_WIDTH : leftPanelAction === 'delete' ? DELETE_ACTION_WIDTH : 0;
+  const negMax = negIconWidth * MAX_RATIO;
+  const posMax = posIconWidth * MAX_RATIO;
+  const negCommit = negIconWidth * COMMIT_RATIO;
+  const posCommit = posIconWidth * COMMIT_RATIO;
 
   const translateX = useSharedValue(0);
   const startX = useSharedValue(0);
   const hapticLatch = useSharedValue(false);
 
-  useEffect(() => {
-    if (!isOpen) {
+  const commitAction = (action, direction) => {
+    triggerHaptic('confirm');
+    if (action === 'delete') {
+      // Slide fully off in the direction it was swiped — the row disappears
+      // from the list once deleteNotification's refresh resolves, but this
+      // makes it feel instant regardless of that network round trip.
+      translateX.value = withSpring(direction * 600, SLIDE_OUT_CONFIG);
+      onDelete();
+    } else {
+      // The row stays in the list (just marked read), so slide back to rest
+      // instead of away.
       translateX.value = withSpring(0, SPRING_CONFIG);
+      onMarkRead();
     }
-  }, [isOpen]);
+  };
 
   const pan = Gesture.Pan()
     .activeOffsetX([-10, 10])
@@ -203,54 +217,44 @@ function NotificationRow({ item, styles, colors, deleteOnLeft, isOpen, onOpenCha
     })
     .onUpdate((event) => {
       const next = startX.value + event.translationX;
-      const clamped = Math.max(-negLimit, Math.min(posLimit, next));
+      const clamped = Math.max(-negMax, Math.min(posMax, next));
       translateX.value = clamped;
 
-      const pastThreshold =
-        (clamped < 0 && negLimit > 0 && -clamped >= negLimit / 2) ||
-        (clamped > 0 && posLimit > 0 && clamped >= posLimit / 2);
-      if (pastThreshold && !hapticLatch.value) {
+      const pastCommit =
+        (clamped < 0 && negCommit > 0 && -clamped >= negCommit) ||
+        (clamped > 0 && posCommit > 0 && clamped >= posCommit);
+      if (pastCommit && !hapticLatch.value) {
         hapticLatch.value = true;
         runOnJS(triggerHaptic)('reveal');
-      } else if (!pastThreshold && hapticLatch.value) {
+      } else if (!pastCommit && hapticLatch.value) {
         hapticLatch.value = false;
       }
     })
     .onEnd(() => {
       const current = translateX.value;
-      let target = 0;
-      let openedId = null;
-      if (current < 0 && negLimit > 0 && -current >= negLimit / 2) {
-        target = -negLimit;
-        openedId = item.id;
-      } else if (current > 0 && posLimit > 0 && current >= posLimit / 2) {
-        target = posLimit;
-        openedId = item.id;
+      if (current < 0 && negCommit > 0 && -current >= negCommit && rightPanelAction) {
+        runOnJS(commitAction)(rightPanelAction, -1);
+      } else if (current > 0 && posCommit > 0 && current >= posCommit && leftPanelAction) {
+        runOnJS(commitAction)(leftPanelAction, 1);
+      } else {
+        translateX.value = withSpring(0, SPRING_CONFIG);
       }
-      translateX.value = withSpring(target, SPRING_CONFIG);
-      runOnJS(onOpenChange)(openedId);
     });
 
   const rowStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: translateX.value }],
   }));
 
-  const runAction = (action) => {
-    triggerHaptic('confirm');
-    translateX.value = withSpring(0, SPRING_CONFIG);
-    onOpenChange(null);
-    if (action === 'read') onMarkRead();
-    else if (action === 'delete') onDelete();
-  };
-
-  const handleRowPress = () => {
-    if (isOpen) {
-      translateX.value = withSpring(0, SPRING_CONFIG);
-      onOpenChange(null);
-      return;
-    }
-    onPress();
-  };
+  // Panels grow with the drag (not a fixed width) so the colored background
+  // always fills exactly however far the row has been pulled, right up to
+  // the commit point — visual feedback for "how close to committing" without
+  // a resting, tappable state.
+  const leftPanelStyle = useAnimatedStyle(() => ({
+    width: Math.max(0, Math.min(translateX.value, posMax)),
+  }));
+  const rightPanelStyle = useAnimatedStyle(() => ({
+    width: Math.max(0, Math.min(-translateX.value, negMax)),
+  }));
 
   // A plain RN `Pressable` nested inside the Pan's GestureDetector races the
   // Pan gesture for the touch via RN's own responder system — the symptom is
@@ -265,48 +269,40 @@ function NotificationRow({ item, styles, colors, deleteOnLeft, isOpen, onOpenCha
   const tap = Gesture.Tap()
     .maxDistance(10)
     .onEnd(() => {
-      runOnJS(handleRowPress)();
+      runOnJS(onPress)();
     });
   const composedGesture = Gesture.Exclusive(pan, tap);
 
   return (
     <View style={styles.rowWrapper}>
       {leftPanelAction ? (
-        <View
+        <Animated.View
           style={[
             styles.sidePanel,
             styles.leftPanel,
-            { width: posLimit, backgroundColor: panelColor(leftPanelAction, colors) },
+            { backgroundColor: panelColor(leftPanelAction, colors) },
+            leftPanelStyle,
           ]}
         >
-          <Pressable
-            style={styles.actionBtn}
-            onPress={() => runAction(leftPanelAction)}
-            accessibilityRole="button"
-            accessibilityLabel={actionLabel(leftPanelAction, item.title)}
-          >
+          <View style={styles.actionBtn}>
             <ActionGlyph action={leftPanelAction} />
-          </Pressable>
-        </View>
+          </View>
+        </Animated.View>
       ) : null}
 
       {rightPanelAction ? (
-        <View
+        <Animated.View
           style={[
             styles.sidePanel,
             styles.rightPanel,
-            { width: negLimit, backgroundColor: panelColor(rightPanelAction, colors) },
+            { backgroundColor: panelColor(rightPanelAction, colors) },
+            rightPanelStyle,
           ]}
         >
-          <Pressable
-            style={styles.actionBtn}
-            onPress={() => runAction(rightPanelAction)}
-            accessibilityRole="button"
-            accessibilityLabel={actionLabel(rightPanelAction, item.title)}
-          >
+          <View style={styles.actionBtn}>
             <ActionGlyph action={rightPanelAction} />
-          </Pressable>
-        </View>
+          </View>
+        </Animated.View>
       ) : null}
 
       <GestureDetector gesture={composedGesture}>
@@ -338,10 +334,6 @@ function NotificationRow({ item, styles, colors, deleteOnLeft, isOpen, onOpenCha
 
 function panelColor(action, colors) {
   return action === 'delete' ? colors.atRisk : colors.accent;
-}
-
-function actionLabel(action, title) {
-  return action === 'delete' ? `Delete "${title}"` : `Mark "${title}" as read`;
 }
 
 function ActionGlyph({ action }) {

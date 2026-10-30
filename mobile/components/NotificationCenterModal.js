@@ -34,6 +34,7 @@ const TYPE_ICON = {
   GROUP_JOINED: 'account-group-outline',
   GROUP_CHECKIN: 'check-circle-outline',
   CHALLENGE_INVITE: 'trophy-outline',
+  CHALLENGE_JOINED: 'trophy-outline',
   CHALLENGE_CHECKIN: 'trophy-outline',
   NUDGE: 'hand-wave-outline',
   WEEKLY_SUMMARY: 'calendar-week',

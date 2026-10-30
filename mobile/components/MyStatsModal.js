@@ -1,14 +1,17 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import ViewShot from 'react-native-view-shot';
 import AvatarImage from './AvatarImage';
 import FlameIcon from './FlameIcon';
 import Toast from './Toast';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
+import { useGoals } from '../hooks/useGoals';
+import { useGroups } from '../hooks/useGroups';
 import api from '../api/client';
 import { navigateToTab } from '../utils/navigationRef';
 import { gradients, radii, shadow, shadowLg, spacing } from '../theme';
@@ -41,6 +44,13 @@ export default function MyStatsModal({ visible, onClose }) {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [shieldDays, setShieldDays] = useState(null);
+  const { goals } = useGoals();
+  const { groups } = useGroups();
+  const shareCardRef = useRef(null);
+
+  const completeGoalCount = goals.filter((g) => g.complete).length;
+  const bestGroupStreak = groups.length > 0 ? Math.max(0, ...groups.map((g) => g.streak || 0)) : null;
 
   const goTo = (tab) => {
     onClose();
@@ -51,9 +61,27 @@ export default function MyStatsModal({ visible, onClose }) {
     if (!stats) return;
     const firstName = (user?.displayName || '').split(' ')[0];
     try {
+      // Capture as base64 rather than a bare file:// path: RN's Share module
+      // resolves `url` through each platform's native share sheet, and a
+      // file:// path is not resolvable there on Android without a
+      // FileProvider; a data: URI works on both iOS and Android.
+      // capture() reads its format/result from the <ViewShot options={...}>
+      // prop below (png/base64), not from an argument passed here.
+      const base64 = await shareCardRef.current?.capture?.();
+      if (base64) {
+        await Share.share(
+          { url: `data:image/png;base64,${base64}`, message: buildShareMessage(stats, firstName) },
+          { dialogTitle: 'Share my stats' }
+        );
+        return;
+      }
       await Share.share({ message: buildShareMessage(stats, firstName) });
     } catch (err) {
-      showToast(err instanceof Error ? err.message : "Couldn't share — try again.", 'error');
+      try {
+        await Share.share({ message: buildShareMessage(stats, firstName) });
+      } catch (fallbackErr) {
+        showToast(fallbackErr instanceof Error ? fallbackErr.message : "Couldn't share — try again.", 'error');
+      }
     }
   };
 
@@ -76,6 +104,27 @@ export default function MyStatsModal({ visible, onClose }) {
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [visible]);
+
+  useEffect(() => {
+    if (!visible) {
+      setShieldDays(null);
+      return;
+    }
+    let cancelled = false;
+    api
+      .getShields()
+      .then((data) => {
+        if (!cancelled) setShieldDays(typeof data?.available === 'number' ? data.available : null);
+      })
+      .catch(() => {
+        // Shield Days banked is a bonus tile, not core stats — a failed
+        // fetch just means the tile doesn't render, no error state needed.
+        if (!cancelled) setShieldDays(null);
       });
     return () => {
       cancelled = true;
@@ -119,12 +168,36 @@ export default function MyStatsModal({ visible, onClose }) {
           </View>
         ) : stats ? (
           <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-            <View style={styles.heroCard}>
-              <View style={styles.avatarLg}>
-                <AvatarImage uri={user?.photoURL} name={user?.displayName} size={64} fontSize={22} />
+            <ViewShot
+              ref={shareCardRef}
+              style={styles.shareCardWrap}
+              options={{ format: 'png', result: 'base64' }}
+            >
+              <View style={styles.heroCard}>
+                <View style={styles.avatarLg}>
+                  <AvatarImage uri={user?.photoURL} name={user?.displayName} size={64} fontSize={22} />
+                </View>
+                <Text style={styles.heroName}>{user?.displayName || 'You'}</Text>
+                <View style={styles.heroStreakRow}>
+                  <FlameIcon width={28} height={28} streak={stats.bestCurrentStreak} />
+                  <Text style={styles.heroStreakValue}>{stats.bestCurrentStreak}-day streak</Text>
+                </View>
+                <Text style={styles.heroConsistencyLabel}>
+                  {stats.consistencyPercent30d}% consistency · last 30 days
+                </Text>
+                <View style={[styles.progressTrack, styles.heroProgressTrack]}>
+                  <LinearGradient
+                    colors={gradients.accent}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={[
+                      styles.progressFill,
+                      { width: `${Math.max(4, Math.min(100, stats.consistencyPercent30d))}%` },
+                    ]}
+                  />
+                </View>
               </View>
-              <Text style={styles.heroName}>{user?.displayName || 'You'}</Text>
-            </View>
+            </ViewShot>
 
             <View style={styles.statsCard}>
               <Text style={styles.sectionTitle}>Overview</Text>
@@ -152,6 +225,33 @@ export default function MyStatsModal({ visible, onClose }) {
                   onPress={() => goTo('Habits')}
                   actionHint="View all habits"
                 />
+                {shieldDays !== null ? (
+                  <StatTile
+                    styles={styles}
+                    colors={colors}
+                    icon={<MaterialCommunityIcons name="shield-check-outline" size={20} color={colors.accent} />}
+                    label="Shield Days banked"
+                    value={String(shieldDays)}
+                  />
+                ) : null}
+                {goals.length > 0 ? (
+                  <StatTile
+                    styles={styles}
+                    colors={colors}
+                    icon={<MaterialCommunityIcons name="flag-checkered" size={20} color={colors.accent} />}
+                    label="Goals on track"
+                    value={`${completeGoalCount}/${goals.length}`}
+                  />
+                ) : null}
+                {bestGroupStreak !== null ? (
+                  <StatTile
+                    styles={styles}
+                    colors={colors}
+                    icon={<MaterialCommunityIcons name="account-group-outline" size={20} color={colors.accent} />}
+                    label="Best shared-habit streak"
+                    value={`${bestGroupStreak}d`}
+                  />
+                ) : null}
                 <StatTile
                   styles={styles}
                   colors={colors}
@@ -230,12 +330,14 @@ function makeStyles(colors, typography) {
     loaderWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.sm, padding: spacing.xl },
     errorText: { ...typography.meta, textAlign: 'center' },
     scroll: { padding: spacing.lg, paddingBottom: spacing.xxl },
+    // Owns the bottom margin itself (rather than heroCard) so the margin
+    // isn't swept into the ViewShot capture as blank space below the card.
+    shareCardWrap: { marginBottom: spacing.lg },
     heroCard: {
       alignItems: 'center',
       backgroundColor: colors.surface,
       borderRadius: radii.lg,
       padding: spacing.xl,
-      marginBottom: spacing.lg,
       ...shadowLg,
     },
     avatarLg: {
@@ -249,6 +351,21 @@ function makeStyles(colors, typography) {
       marginBottom: spacing.sm,
     },
     heroName: { ...typography.cardTitle, fontSize: 18, textAlign: 'center' },
+    heroStreakRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      marginTop: spacing.md,
+    },
+    heroStreakValue: { ...typography.cardTitle, fontSize: 16 },
+    heroConsistencyLabel: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: colors.textSecondary,
+      marginTop: spacing.sm,
+      marginBottom: spacing.sm,
+    },
+    heroProgressTrack: { alignSelf: 'stretch', width: '100%' },
     statsCard: {
       backgroundColor: colors.surface,
       borderRadius: radii.lg,

@@ -2,6 +2,8 @@ package com.habituate.api.groups;
 
 import com.habituate.api.common.DuplicateCheckInException;
 import com.habituate.api.common.ForbiddenException;
+import com.habituate.api.notifications.AppNotification;
+import com.habituate.api.notifications.AppNotificationRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,6 +32,9 @@ class ChallengeServiceTest {
 
     @Autowired
     private ChallengeCheckInRepository checkInRepository;
+
+    @Autowired
+    private AppNotificationRepository appNotificationRepository;
 
     @MockBean
     private UserLookupService userLookupService;
@@ -205,6 +210,27 @@ class ChallengeServiceTest {
 
         assertThatThrownBy(() -> challengeService.join("challenge-test-user-5a", challengeId, "UTC"))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void join_notifiesExistingParticipants() {
+        stubResolve();
+        ChallengeResponse created = challengeService.create("challenge-test-user-5b", basicRequest(
+                "Join Notify Test", 5, LocalDate.now().toString(), LocalDate.now().plusDays(7).toString(), "PUBLIC"),
+                "UTC");
+        challengeId = created.id();
+
+        challengeService.join("challenge-test-user-5c", challengeId, "UTC");
+
+        List<AppNotification> creatorNotifications =
+                appNotificationRepository.findTop50ByUserIdOrderByCreatedAtDesc("challenge-test-user-5b");
+        assertThat(creatorNotifications).anyMatch(n ->
+                AppNotification.CHALLENGE_JOINED.equals(n.getType()) && challengeId.equals(n.getChallengeId()));
+
+        // The joiner themself never gets notified about their own join.
+        List<AppNotification> joinerNotifications =
+                appNotificationRepository.findTop50ByUserIdOrderByCreatedAtDesc("challenge-test-user-5c");
+        assertThat(joinerNotifications).noneMatch(n -> AppNotification.CHALLENGE_JOINED.equals(n.getType()));
     }
 
     @Test

@@ -188,7 +188,21 @@ public class ChallengeService {
         }
 
         participantRepository.save(new ChallengeParticipant(challengeId, userId));
+        notifyOtherParticipantsOfJoin(challenge, userId);
         return toResponse(challenge, userId, resolveZone(timezone));
+    }
+
+    /** Self-join via public browse (unlike invite/addParticipant, which already notifies the
+     * one friend being added) — without this, the existing participants never find out someone
+     * new joined from browse. Best-effort, same convention as notifyOtherParticipantsOfCheckIn. */
+    private void notifyOtherParticipantsOfJoin(Challenge challenge, String joinedUserId) {
+        String joinerName = userLookupService.resolve(joinedUserId).displayName();
+        List<String> otherParticipantIds = participantRepository.findByChallengeId(challenge.getId()).stream()
+                .map(ChallengeParticipant::getUserId)
+                .filter(id -> !id.equals(joinedUserId))
+                .toList();
+        appNotificationService.notifyAll(otherParticipantIds, AppNotification.CHALLENGE_JOINED, "New participant",
+                joinerName + " joined \"" + challenge.getName() + "\"", null, challenge.getId(), null);
     }
 
     /** Adds a friend directly as a participant — mirrors GroupService.invite, minus the accept

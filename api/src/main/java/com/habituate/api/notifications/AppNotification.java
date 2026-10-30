@@ -43,9 +43,11 @@ public class AppNotification {
     public static final String GROUP_CHECKIN = "GROUP_CHECKIN";
     public static final String GROUP_DELETED = "GROUP_DELETED";
     public static final String CHALLENGE_INVITE = "CHALLENGE_INVITE";
+    public static final String CHALLENGE_JOINED = "CHALLENGE_JOINED";
     public static final String CHALLENGE_CHECKIN = "CHALLENGE_CHECKIN";
     public static final String CHALLENGE_DELETED = "CHALLENGE_DELETED";
     public static final String NUDGE = "NUDGE";
+    public static final String CHEER_RECEIVED = "CHEER_RECEIVED";
     public static final String WEEKLY_SUMMARY = "WEEKLY_SUMMARY";
     public static final String MONTHLY_SUMMARY = "MONTHLY_SUMMARY";
     public static final String YEARLY_SUMMARY = "YEARLY_SUMMARY";

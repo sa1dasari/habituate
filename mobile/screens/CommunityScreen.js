@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import AvatarImage from '../components/AvatarImage';
 import SharedHabitCard from '../components/SharedHabitCard';
 import ChallengeCard from '../components/ChallengeCard';
 import GroupsManageModal from '../components/GroupsManageModal';
@@ -21,6 +23,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useGroups } from '../hooks/useGroups';
 import { useHabits } from '../hooks/useHabits';
 import { useChallenges } from '../hooks/useChallenges';
+import { useGroupActivity } from '../hooks/useGroupActivity';
 import { useFriends } from '../hooks/useFriends';
 import { useNotifications } from '../hooks/useNotifications';
 import { useRegisterScrollToTop } from '../hooks/useRegisterScrollToTop';
@@ -28,7 +31,21 @@ import { useOnboardingTour } from '../hooks/useOnboardingTour';
 import { useToast } from '../hooks/useToast';
 import { useTourTarget } from '../hooks/useTourTarget';
 import { TOUR_SCOPES, TOUR_TARGETS } from '../constants/onboardingTour';
+import { timeAgo } from '../utils/date';
 import { radii, spacing } from '../theme';
+
+const ACTIVITY_LIMIT = 5;
+const AVATAR_COLORS = ['#2563EB', '#7C3AED', '#0891B2', '#DB2777', '#EA580C'];
+
+function initials(name) {
+  return String(name || '?')
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase();
+}
 
 export default function CommunityScreen({ navigation }) {
   const { colors, typography } = useAppTheme();
@@ -47,6 +64,7 @@ export default function CommunityScreen({ navigation }) {
     toggleCheckIn,
     addChallengeEntry,
   } = useChallenges();
+  const { activity, loading: activityLoading, toggleCheer } = useGroupActivity();
 
   const [groupsModalVisible, setGroupsModalVisible] = useState(false);
   const [challengesModalVisible, setChallengesModalVisible] = useState(false);
@@ -120,6 +138,16 @@ export default function CommunityScreen({ navigation }) {
     await Promise.all([refreshGroups(), refreshChallenges()]);
   };
 
+  const handleToggleCheer = async (item) => {
+    try {
+      await toggleCheer(item);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Couldn't update that — try again.", 'error');
+      return;
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+  };
+
   return (
     <>
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -166,7 +194,64 @@ export default function CommunityScreen({ navigation }) {
           </View>
         </View>
 
-        <View style={styles.sectionHeader}>
+        <View style={[styles.sectionHeader, styles.activitySectionHeader]}>
+          <Text style={styles.sectionTitle}>Recent activity</Text>
+        </View>
+
+        {activityLoading && activity.length === 0 ? (
+          <View style={styles.loaderRow}>
+            <ActivityIndicator size="small" color={colors.accent} />
+          </View>
+        ) : activity.length === 0 ? (
+          <Text style={styles.activityEmptyNote}>
+            No groupmate activity yet — it'll show up here once someone checks in.
+          </Text>
+        ) : (
+          <View style={styles.activityCard}>
+            {activity.slice(0, ACTIVITY_LIMIT).map((item, index) => (
+              <View key={item.checkInId} style={styles.activityRow}>
+                <View
+                  style={[
+                    styles.activityAvatar,
+                    item.userPhotoUrl
+                      ? styles.activityAvatarPhoto
+                      : { backgroundColor: AVATAR_COLORS[index % AVATAR_COLORS.length] },
+                  ]}
+                >
+                  {item.userPhotoUrl ? (
+                    <AvatarImage uri={item.userPhotoUrl} name={item.userName} size={32} fontSize={13} />
+                  ) : (
+                    <Text style={styles.activityAvatarText}>{initials(item.userName)}</Text>
+                  )}
+                </View>
+                <View style={styles.activityText}>
+                  <Text style={styles.activityLine} numberOfLines={2}>
+                    <Text style={styles.activityName}>{item.userName}</Text>{' '}
+                    {item.value != null && item.value > 1
+                      ? `logged ${item.value} for ${item.habitName}`
+                      : `completed ${item.habitName}`}
+                  </Text>
+                  <Text style={styles.activityMeta}>{timeAgo(item.occurredAt)}</Text>
+                </View>
+                <Pressable
+                  style={styles.cheerBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel={item.cheeredByMe ? 'Remove cheer' : 'Cheer'}
+                  onPress={() => handleToggleCheer(item)}
+                >
+                  <MaterialCommunityIcons
+                    name={item.cheeredByMe ? 'heart' : 'heart-outline'}
+                    size={18}
+                    color={item.cheeredByMe ? colors.atRisk : colors.textMuted}
+                  />
+                  {item.cheerCount > 0 ? <Text style={styles.cheerCount}>{item.cheerCount}</Text> : null}
+                </Pressable>
+              </View>
+            ))}
+          </View>
+        )}
+
+        <View style={[styles.sectionHeader, styles.laterSection]}>
           <View style={styles.sectionTitleRow}>
             <Text style={styles.sectionTitle}>Shared Habits</Text>
             <Pressable
@@ -401,6 +486,47 @@ function makeStyles(colors, typography) {
     },
     avatarPhoto: { width: 48, height: 48, borderRadius: radii.pill },
     avatarText: { fontSize: 16, fontWeight: '700', color: colors.accent },
+    activitySectionHeader: { marginTop: spacing.sm },
+    activityCard: {
+      backgroundColor: colors.surface,
+      borderRadius: radii.lg,
+      paddingHorizontal: spacing.lg,
+      marginBottom: spacing.md,
+    },
+    activityEmptyNote: { ...typography.meta, marginBottom: spacing.md },
+    activityRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      paddingVertical: spacing.sm,
+    },
+    activityAvatar: {
+      width: 32,
+      height: 32,
+      borderRadius: radii.pill,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+    },
+    activityAvatarPhoto: { backgroundColor: colors.surface },
+    activityAvatarText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
+    activityText: { flex: 1 },
+    activityLine: { fontSize: 13, color: colors.textPrimary, lineHeight: 18 },
+    activityName: { fontWeight: '700' },
+    activityMeta: { ...typography.meta, marginTop: 1 },
+    cheerBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 2,
+      width: 'auto',
+      height: 32,
+      minWidth: 32,
+      paddingHorizontal: spacing.xs,
+      borderRadius: radii.pill,
+      justifyContent: 'center',
+      backgroundColor: colors.background,
+    },
+    cheerCount: { ...typography.meta, fontSize: 11 },
     sectionHeader: {
       flexDirection: 'row',
       alignItems: 'center',

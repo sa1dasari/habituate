@@ -147,8 +147,43 @@ public class UserProfileService {
         }
         return userRepository.findTop10ByUsernameContainingIgnoreCaseAndIdNot(trimmed, userId).stream()
                 .filter(u -> u.getUsername() != null)
-                .map(u -> new UserSearchResult(u.getId(), u.getUsername(), photoUrlQuietly(u.getId())))
+                .map(u -> new UserSearchResult(
+                        u.getId(), u.getUsername(), photoUrlQuietly(u.getId()), relationshipStatus(userId, u.getId())))
                 .toList();
+    }
+
+    /** See UserSearchResult.relationshipStatus javadoc. Result sets here are capped at 10
+     * (same reasoning as photoUrlQuietly), so a couple of extra lookups per row is cheap. */
+    private String relationshipStatus(String viewerId, String otherId) {
+        var forward = friendshipRepository.findByRequesterIdAndRecipientId(viewerId, otherId);
+        if (forward.isPresent()) {
+            String status = forward.get().getStatus();
+            if (com.habituate.api.groups.Friendship.ACCEPTED.equals(status)) {
+                return "FRIENDS";
+            }
+            if (com.habituate.api.groups.Friendship.PENDING.equals(status)) {
+                return "REQUEST_SENT";
+            }
+            if (com.habituate.api.groups.Friendship.DECLINED.equals(status)) {
+                return "DECLINED";
+            }
+        }
+
+        var backward = friendshipRepository.findByRequesterIdAndRecipientId(otherId, viewerId);
+        if (backward.isPresent()) {
+            String status = backward.get().getStatus();
+            if (com.habituate.api.groups.Friendship.ACCEPTED.equals(status)) {
+                return "FRIENDS";
+            }
+            if (com.habituate.api.groups.Friendship.PENDING.equals(status)) {
+                return "REQUEST_RECEIVED";
+            }
+            if (com.habituate.api.groups.Friendship.DECLINED.equals(status)) {
+                return "DECLINED";
+            }
+        }
+
+        return null;
     }
 
     /** The only Firebase Admin lookup in this otherwise local-data-only service — photoURL has

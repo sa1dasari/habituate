@@ -1,9 +1,8 @@
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
 import AvatarImage from '../components/AvatarImage';
 import EditProfileModal from '../components/EditProfileModal';
 import MyStatsModal from '../components/MyStatsModal';
@@ -14,27 +13,14 @@ import { useAppTheme } from '../hooks/useAppTheme';
 import { useAuth } from '../hooks/useAuth';
 import { useConfirm } from '../hooks/useConfirm';
 import { useHabits } from '../hooks/useHabits';
-import { useGroupActivity } from '../hooks/useGroupActivity';
+import { useChallenges } from '../hooks/useChallenges';
 import { unregisterPushToken } from '../hooks/usePushToken';
 import { useRegisterScrollToTop } from '../hooks/useRegisterScrollToTop';
 import { useToast } from '../hooks/useToast';
 import { computeConsistency } from '../utils/consistency';
-import { timeAgo } from '../utils/date';
 import { radii, shadow, spacing } from '../theme';
 
 const HABIT_SUMMARY_LIMIT = 3;
-const ACTIVITY_LIMIT = 5;
-const AVATAR_COLORS = ['#2563EB', '#7C3AED', '#0891B2', '#DB2777', '#EA580C'];
-
-function initials(name) {
-  return String(name || '?')
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join('')
-    .toUpperCase();
-}
 
 function Card({ title, actionLabel, onAction, children, styles }) {
   return (
@@ -59,26 +45,20 @@ export default function ProfileScreen() {
   const scrollRef = useRegisterScrollToTop('Profile');
   const { user, signOut } = useAuth();
   const { habits } = useHabits();
-  const { activity, loading: activityLoading, toggleCheer } = useGroupActivity();
+  const { challenges } = useChallenges();
 
   const [editVisible, setEditVisible] = useState(false);
   const [myStatsVisible, setMyStatsVisible] = useState(false);
-  const { toast, showToast, hideToast } = useToast();
+  const { toast, hideToast } = useToast();
   const { request, confirm, respond } = useConfirm();
 
   const displayName = user?.displayName || 'there';
   const firstName = displayName.split(' ')[0];
   const weeklyConsistency = useMemo(() => computeConsistency(habits, 'weekly').percent, [habits]);
-
-  const handleToggleCheer = async (item) => {
-    try {
-      await toggleCheer(item);
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : "Couldn't update that — try again.", 'error');
-      return;
-    }
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-  };
+  const completedChallenges = useMemo(
+    () => challenges.filter((c) => (c.progressPercent || 0) >= 100).length,
+    [challenges]
+  );
 
   const handleSignOut = async () => {
     const ok = await confirm({
@@ -163,57 +143,24 @@ export default function ProfileScreen() {
         </Card>
 
         <Card
-          title="Shared progress"
+          title="Challenges"
           actionLabel="See all"
           onAction={() => navigation.navigate('Community')}
           styles={styles}
         >
-          {activityLoading && activity.length === 0 ? (
-            <View style={styles.loaderRow}>
-              <ActivityIndicator size="small" color={colors.accent} />
-            </View>
-          ) : activity.length === 0 ? (
-            <Text style={styles.emptyNote}>No groupmate activity yet — it'll show up here once someone checks in.</Text>
+          {challenges.length === 0 ? (
+            <Text style={styles.emptyNote}>Join or start a challenge on the Community tab to see it here.</Text>
           ) : (
-            activity.slice(0, ACTIVITY_LIMIT).map((item, index) => (
-              <View key={item.checkInId} style={styles.activityRow}>
-                <View
-                  style={[
-                    styles.avatar,
-                    item.userPhotoUrl
-                      ? styles.avatarPhoto
-                      : { backgroundColor: AVATAR_COLORS[index % AVATAR_COLORS.length] },
-                  ]}
-                >
-                  {item.userPhotoUrl ? (
-                    <AvatarImage uri={item.userPhotoUrl} name={item.userName} size={32} fontSize={13} />
-                  ) : (
-                    <Text style={styles.avatarText}>{initials(item.userName)}</Text>
-                  )}
-                </View>
-                <View style={styles.activityText}>
-                  <Text style={styles.activityLine} numberOfLines={2}>
-                    <Text style={styles.activityName}>{item.userName}</Text>{' '}
-                    {item.value != null && item.value > 1
-                      ? `logged ${item.value} for ${item.habitName}`
-                      : `completed ${item.habitName}`}
-                  </Text>
-                  <Text style={styles.activityMeta}>{timeAgo(item.occurredAt)}</Text>
-                </View>
-                <Pressable
-                  style={styles.cheerBtn}
-                  accessibilityRole="button"
-                  accessibilityLabel={item.cheeredByMe ? 'Remove cheer' : 'Cheer'}
-                  onPress={() => handleToggleCheer(item)}
-                >
-                  <MaterialCommunityIcons
-                    name={item.cheeredByMe ? 'heart' : 'heart-outline'}
-                    size={18}
-                    color={item.cheeredByMe ? colors.atRisk : colors.textMuted}
-                  />
-                </Pressable>
-              </View>
-            ))
+            <>
+              <Text style={styles.challengeSummaryLine}>
+                {challenges.length} {challenges.length === 1 ? 'challenge' : 'challenges'} joined
+              </Text>
+              {completedChallenges > 0 ? (
+                <Text style={styles.challengeSummaryMeta}>
+                  {completedChallenges} complete this period
+                </Text>
+              ) : null}
+            </>
           )}
         </Card>
 
@@ -300,7 +247,8 @@ function makeStyles(colors, typography) {
     cardAction: { fontSize: 13, fontWeight: '600', color: colors.accent },
     cardNote: { ...typography.meta, marginBottom: spacing.md },
     emptyNote: { ...typography.meta },
-    loaderRow: { alignItems: 'center', paddingVertical: spacing.md },
+    challengeSummaryLine: { fontSize: 14, fontWeight: '700', color: colors.textPrimary },
+    challengeSummaryMeta: { ...typography.meta, marginTop: 2 },
     habitRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -328,33 +276,6 @@ function makeStyles(colors, typography) {
       height: '100%',
       borderRadius: radii.pill,
       backgroundColor: colors.safe,
-    },
-    activityRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-      paddingVertical: spacing.sm,
-    },
-    avatar: {
-      width: 32,
-      height: 32,
-      borderRadius: radii.pill,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    avatarText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
-    avatarPhoto: { backgroundColor: colors.surface, overflow: 'hidden' },
-    activityText: { flex: 1 },
-    activityLine: { fontSize: 13, color: colors.textPrimary, lineHeight: 18 },
-    activityName: { fontWeight: '700' },
-    activityMeta: { ...typography.meta, marginTop: 1 },
-    cheerBtn: {
-      width: 32,
-      height: 32,
-      borderRadius: radii.pill,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: colors.background,
     },
     settingsRow: {
       flexDirection: 'row',

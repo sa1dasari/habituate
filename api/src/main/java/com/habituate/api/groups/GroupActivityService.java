@@ -5,6 +5,8 @@ import com.habituate.api.checkins.CheckInRepository;
 import com.habituate.api.common.ForbiddenException;
 import com.habituate.api.habits.Habit;
 import com.habituate.api.habits.HabitRepository;
+import com.habituate.api.notifications.AppNotification;
+import com.habituate.api.notifications.AppNotificationService;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +25,7 @@ public class GroupActivityService {
     private final CheckInCheerRepository checkInCheerRepository;
     private final UserLookupService userLookupService;
     private final GroupRepository groupRepository;
+    private final AppNotificationService notificationService;
 
     public GroupActivityService(
             CheckInRepository checkInRepository,
@@ -30,13 +33,15 @@ public class GroupActivityService {
             HabitRepository habitRepository,
             CheckInCheerRepository checkInCheerRepository,
             UserLookupService userLookupService,
-            GroupRepository groupRepository) {
+            GroupRepository groupRepository,
+            AppNotificationService notificationService) {
         this.checkInRepository = checkInRepository;
         this.groupMemberRepository = groupMemberRepository;
         this.habitRepository = habitRepository;
         this.checkInCheerRepository = checkInCheerRepository;
         this.userLookupService = userLookupService;
         this.groupRepository = groupRepository;
+        this.notificationService = notificationService;
     }
 
     /** Recent check-ins from the viewer's own groupmates — never their own, never a non-groupmate's. */
@@ -92,11 +97,12 @@ public class GroupActivityService {
 
     @Transactional
     public void cheer(String userId, Long checkInId) {
-        requireVisible(userId, checkInId);
+        CheckIn checkIn = requireVisible(userId, checkInId);
         if (checkInCheerRepository.findByCheckInIdAndUserId(checkInId, userId).isPresent()) {
             return; // already cheered — idempotent
         }
         checkInCheerRepository.save(new CheckInCheer(checkInId, userId));
+        notifyCheered(checkIn, userId);
     }
 
     @Transactional
@@ -105,8 +111,23 @@ public class GroupActivityService {
                 .ifPresent(checkInCheerRepository::delete);
     }
 
+    /** Best-effort, same convention as notifyGroupmatesOfCheckIn — a notification-write
+     * failure must never undo the cheer that already saved. Never fires on self-cheer,
+     * though requireVisible's groupmate-only scope already makes that practically unreachable. */
+    private void notifyCheered(CheckIn checkIn, String cheeringUserId) {
+        if (checkIn.getUserId().equals(cheeringUserId)) {
+            return;
+        }
+        UserProfile actor = userLookupService.resolve(cheeringUserId);
+        Habit habit = habitRepository.findById(checkIn.getHabitId()).orElse(null);
+        String habitName = habit != null ? habit.getName() : "your check-in";
+        notificationService.notify(checkIn.getUserId(), AppNotification.CHEER_RECEIVED, "You got cheered!",
+                actor.displayName() + " cheered your check-in for \"" + habitName + "\"",
+                checkIn.getGroupId(), null, checkIn.getHabitId());
+    }
+
     /** Only a fellow active member of the check-in's group may cheer it — never an arbitrary check-in id. */
-    private void requireVisible(String userId, Long checkInId) {
+    private CheckIn requireVisible(String userId, Long checkInId) {
         CheckIn checkIn = checkInRepository.findById(checkInId)
                 .orElseThrow(() -> new EntityNotFoundException("Check-in not found: " + checkInId));
         boolean isActiveGroupmate = checkIn.getGroupId() != null
@@ -116,5 +137,6 @@ public class GroupActivityService {
         if (!isActiveGroupmate) {
             throw new ForbiddenException("Not visible to user: " + userId);
         }
+        return checkIn;
     }
 }

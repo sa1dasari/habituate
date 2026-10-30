@@ -1,11 +1,15 @@
 package com.habituate.api.users;
 
+import com.habituate.api.groups.Friendship;
+import com.habituate.api.groups.FriendshipRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -19,13 +23,23 @@ class UserProfileServiceTest {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private FriendshipRepository friendshipRepository;
+
     private String userId;
+    private final List<String> extraUserIdsToClean = new ArrayList<>();
 
     @AfterEach
     void cleanup() {
         if (userId != null) {
+            friendshipRepository.deleteByRequesterIdOrRecipientId(userId, userId);
             userRepository.deleteById(userId);
         }
+        extraUserIdsToClean.forEach(id -> {
+            friendshipRepository.deleteByRequesterIdOrRecipientId(id, id);
+            userRepository.deleteById(id);
+        });
+        extraUserIdsToClean.clear();
     }
 
     private static UpdateUserProfileRequest dob(String dateOfBirth) {
@@ -168,6 +182,71 @@ class UserProfileServiceTest {
 
         var selfSearch = userProfileService.searchByUsername(userId, "searchable");
         assertThat(selfSearch).noneMatch(r -> r.userId().equals(userId));
+    }
+
+    /** Regression coverage for the "Add" button never becoming "Sent" bug — the search
+     * endpoint must surface the viewer's existing relationship with a result, since
+     * sendRequestByUsername rejects a duplicate send with no other way for the client
+     * to have known about it (closing/reopening AddFriendModal has no local memory of
+     * a request sent in a prior session). */
+    @Test
+    void searchByUsername_reportsRequestSentStatus() {
+        userId = "profile-test-user-14a";
+        String other = "profile-test-user-14b";
+        extraUserIdsToClean.add(other);
+        userProfileService.setUsername(userId, "rel_viewer_sent");
+        userProfileService.setUsername(other, "rel_target_sent");
+
+        friendshipRepository.save(new Friendship(userId, other));
+
+        var results = userProfileService.searchByUsername(userId, "rel_target_sent");
+        assertThat(results).singleElement()
+                .satisfies(r -> assertThat(r.relationshipStatus()).isEqualTo("REQUEST_SENT"));
+    }
+
+    @Test
+    void searchByUsername_reportsRequestReceivedStatus() {
+        userId = "profile-test-user-15a";
+        String other = "profile-test-user-15b";
+        extraUserIdsToClean.add(other);
+        userProfileService.setUsername(userId, "rel_viewer_recv");
+        userProfileService.setUsername(other, "rel_target_recv");
+
+        friendshipRepository.save(new Friendship(other, userId));
+
+        var results = userProfileService.searchByUsername(userId, "rel_target_recv");
+        assertThat(results).singleElement()
+                .satisfies(r -> assertThat(r.relationshipStatus()).isEqualTo("REQUEST_RECEIVED"));
+    }
+
+    @Test
+    void searchByUsername_reportsFriendsStatus() {
+        userId = "profile-test-user-16a";
+        String other = "profile-test-user-16b";
+        extraUserIdsToClean.add(other);
+        userProfileService.setUsername(userId, "rel_viewer_frnd");
+        userProfileService.setUsername(other, "rel_target_frnd");
+
+        Friendship friendship = new Friendship(userId, other);
+        friendship.setStatus(Friendship.ACCEPTED);
+        friendshipRepository.save(friendship);
+
+        var results = userProfileService.searchByUsername(userId, "rel_target_frnd");
+        assertThat(results).singleElement()
+                .satisfies(r -> assertThat(r.relationshipStatus()).isEqualTo("FRIENDS"));
+    }
+
+    @Test
+    void searchByUsername_nullRelationshipStatusWhenNoneExists() {
+        userId = "profile-test-user-17a";
+        String other = "profile-test-user-17b";
+        extraUserIdsToClean.add(other);
+        userProfileService.setUsername(userId, "rel_viewer_none");
+        userProfileService.setUsername(other, "rel_target_none");
+
+        var results = userProfileService.searchByUsername(userId, "rel_target_none");
+        assertThat(results).singleElement()
+                .satisfies(r -> assertThat(r.relationshipStatus()).isNull());
     }
 
     @Test

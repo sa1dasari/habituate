@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import StreakIndicator from './StreakIndicator';
 import InviteFriendsSheet from './InviteFriendsSheet';
 import CreateGroupModal from './CreateGroupModal';
@@ -74,6 +75,7 @@ export default function SharedHabitDetailModal({ visible, group, onClose }) {
   const handleNudge = async (targetUserId, label) => {
     try {
       await nudge(group.id, targetUserId);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       showToast(`Nudge sent — ${label} will get a reminder.`, 'success');
     } catch (err) {
       showToast(err?.message || "Couldn't send nudge — try again.", 'error');

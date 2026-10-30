@@ -19,6 +19,16 @@ const MODE_OPTIONS = [
   { value: 'email', label: 'By email' },
 ];
 
+// Mirrors UserSearchResult.relationshipStatus from the backend — a search result whose
+// relationship is anything but null/undefined can't be sent a new request (the backend
+// rejects the duplicate), so the button must say something other than "Add".
+const RELATIONSHIP_LABELS = {
+  FRIENDS: 'Friends',
+  REQUEST_SENT: 'Sent',
+  REQUEST_RECEIVED: 'Pending',
+  DECLINED: 'Sent',
+};
+
 /**
  * The UI half of a friend-request system whose backend already existed
  * (FriendshipController/useFriends) but had no entry point anywhere in the
@@ -200,7 +210,16 @@ export default function AddFriendModal({ visible, onClose }) {
               ) : null}
 
               {results.map((result) => {
-                const alreadySent = sentTo.has(result.username);
+                // sentTo covers a request sent THIS session (optimistic, before refresh() has
+                // caught up); relationshipStatus is the backend's own record of a pending/
+                // accepted/declined friendship, so a request sent in a prior session (or before
+                // this modal was last closed and reopened, which resets sentTo) still shows as
+                // non-actionable instead of inviting a duplicate send the backend would reject.
+                const locallySent = sentTo.has(result.username);
+                const label = locallySent
+                  ? 'Sent'
+                  : RELATIONSHIP_LABELS[result.relationshipStatus] || 'Add';
+                const nonActionable = locallySent || !!result.relationshipStatus;
                 return (
                   <View key={result.userId} style={styles.resultRow}>
                     <AvatarImage uri={result.photoUrl} name={result.username} size={28} fontSize={12} />
@@ -208,11 +227,11 @@ export default function AddFriendModal({ visible, onClose }) {
                       @{result.username}
                     </Text>
                     <Pressable
-                      style={[styles.sendButtonSmall, alreadySent && styles.sendButtonSmallDisabled]}
-                      disabled={busy || alreadySent}
+                      style={[styles.sendButtonSmall, nonActionable && styles.sendButtonSmallDisabled]}
+                      disabled={busy || nonActionable}
                       onPress={() => handleSendByUsername(result.username)}
                     >
-                      <Text style={styles.sendButtonSmallText}>{alreadySent ? 'Sent' : 'Add'}</Text>
+                      <Text style={styles.sendButtonSmallText}>{label}</Text>
                     </Pressable>
                   </View>
                 );

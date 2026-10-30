@@ -46,6 +46,7 @@
     "react-native-screens": "^4.27.0",
     "react-native-shared-group-preferences": "^1.1.24",
     "react-native-svg": "^15.15.5",
+    "react-native-view-shot": "5.1.0",
     "react-native-web": "^0.21.2",
     "split-on-first": "^4.0.0"
   },
@@ -56,10 +57,12 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "postinstall": "patch-package"
   },
   "private": true,
   "devDependencies": {
+    "patch-package": "^8.0.1",
     "strict-uri-encode": "^2.0.0",
     "typescript": "~6.0.3"
   }

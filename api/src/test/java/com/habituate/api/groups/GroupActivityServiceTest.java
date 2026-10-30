@@ -5,6 +5,8 @@ import com.habituate.api.common.ForbiddenException;
 import com.habituate.api.events.CheckInEventPublisher;
 import com.habituate.api.habits.CreateHabitRequest;
 import com.habituate.api.habits.HabitService;
+import com.habituate.api.notifications.AppNotification;
+import com.habituate.api.notifications.AppNotificationService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +23,9 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @SpringBootTest
@@ -58,6 +63,9 @@ class GroupActivityServiceTest {
 
     @MockBean
     private UserLookupService userLookupService;
+
+    @MockBean
+    private AppNotificationService appNotificationService;
 
     private final List<Long> habitIds = new ArrayList<>();
     private final Map<Long, String> habitOwners = new HashMap<>();
@@ -159,5 +167,21 @@ class GroupActivityServiceTest {
     @Test
     void recentActivity_emptyForUserInNoGroups() {
         assertThat(groupActivityService.recentActivity("activity-test-lone-user")).isEmpty();
+    }
+
+    @Test
+    void cheer_notifiesCheckInOwner_onceNotOnReCheerOrUncheer() {
+        String userA = "activity-test-user-a4";
+        String userB = "activity-test-user-b4";
+        Long habitA = setUpGroupOfTwo(userA, userB, "activity-b4@example.com");
+
+        var checkIn = habitService.createCheckIn(userA, habitA, new CheckInRequest(Instant.now(), 1, "manual"));
+
+        groupActivityService.cheer(userB, checkIn.getId());
+        groupActivityService.cheer(userB, checkIn.getId()); // idempotent re-cheer — must not notify twice
+        groupActivityService.uncheer(userB, checkIn.getId());
+
+        verify(appNotificationService, times(1))
+                .notify(eq(userA), eq(AppNotification.CHEER_RECEIVED), any(), any(), any(), any(), any());
     }
 }

@@ -30,4 +30,11 @@ public class FriendProfileController {
     public FriendProfileResponse getFriendProfile(HttpServletRequest req, @PathVariable("userId") String targetUserId) {
         return friendProfileService.getProfile(userId(req), targetUserId);
     }
+
+    /** Backs Profile's own hero card — same aggregate-stats shape a friend sees on your
+     * PUBLIC profile, just for the authenticated caller's own account. */
+    @GetMapping("/me/stats")
+    public FriendProfileResponse.PublicStats getMyStats(HttpServletRequest req) {
+        return friendProfileService.getMyStats(userId(req));
+    }
 }

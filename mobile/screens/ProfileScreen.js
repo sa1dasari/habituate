@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AvatarImage from '../components/AvatarImage';
 import EditProfileModal from '../components/EditProfileModal';
+import MyStatsModal from '../components/MyStatsModal';
 import ConfirmModal from '../components/ConfirmModal';
 import Toast from '../components/Toast';
 import { categoryIcon } from '../constants/habitCategories';
@@ -60,6 +61,7 @@ export default function ProfileScreen() {
   const { activity, loading: activityLoading, toggleCheer } = useGroupActivity();
 
   const [editVisible, setEditVisible] = useState(false);
+  const [myStatsVisible, setMyStatsVisible] = useState(false);
   const { toast, showToast, hideToast } = useToast();
   const { request, confirm, respond } = useConfirm();
 
@@ -105,7 +107,12 @@ export default function ProfileScreen() {
           </Pressable>
         </View>
 
-        <View style={styles.heroCard}>
+        <Pressable
+          style={styles.heroCard}
+          onPress={() => setMyStatsVisible(true)}
+          accessibilityRole="button"
+          accessibilityLabel="View my stats"
+        >
           <View style={styles.avatarLg}>
             <AvatarImage uri={user?.photoURL} name={displayName} size={52} fontSize={18} />
           </View>
@@ -116,7 +123,8 @@ export default function ProfileScreen() {
               consistency
             </Text>
           </View>
-        </View>
+          <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textMuted} />
+        </Pressable>
 
         <Card
           title="Personal habit summary"
@@ -221,6 +229,7 @@ export default function ProfileScreen() {
       </ScrollView>
 
       <EditProfileModal visible={editVisible} onClose={() => setEditVisible(false)} />
+      <MyStatsModal visible={myStatsVisible} onClose={() => setMyStatsVisible(false)} />
       <ConfirmModal request={request} onRespond={respond} />
       <Toast toast={toast} onHide={hideToast} />
     </SafeAreaView>

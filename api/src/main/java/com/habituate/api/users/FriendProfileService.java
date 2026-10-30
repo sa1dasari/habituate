@@ -72,6 +72,14 @@ public class FriendProfileService {
         this.checkInRepository = checkInRepository;
     }
 
+    /** Backs the Profile page's own "Hi {name}, you're doing great" hero card — the same
+     * aggregate-stats shape a friend sees on your PUBLIC profile, just for yourself and
+     * never gated by your own visibility setting (that setting controls what OTHERS see,
+     * not what you can see about your own account). */
+    public FriendProfileResponse.PublicStats getMyStats(String userId) {
+        return buildPublicStats(userId);
+    }
+
     public FriendProfileResponse getProfile(String viewerId, String targetUserId) {
         if (viewerId.equals(targetUserId)) {
             throw new IllegalArgumentException("Use GET /api/users/me to view your own profile");

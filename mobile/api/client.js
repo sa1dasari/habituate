@@ -287,6 +287,10 @@ export const api = {
   // friend-profile viewer opened from a friend's name/avatar anywhere it appears.
   getFriendProfile: (userId) => request(`/api/users/${userId}/profile`),
 
+  // Backs Profile's own "Hi {name}, you're doing great" hero card — same aggregate
+  // stats shape a friend sees on your PUBLIC profile, just for yourself.
+  getMyStats: () => request('/api/users/me/stats'),
+
   getUsernameAvailable: (value) =>
     request(`/api/users/username/available?value=${encodeURIComponent(value)}`),
 

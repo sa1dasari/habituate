@@ -53,6 +53,19 @@ export function NotificationsProvider({ children }) {
     []
   );
 
+  const markUnread = useCallback(
+    async (id) => {
+      setNotifications((current) => current.map((n) => (n.id === id ? { ...n, read: false } : n)));
+      setUnreadCount((current) => current + 1);
+      try {
+        await api.markNotificationUnread(id);
+      } catch {
+        // Best-effort, same as markRead.
+      }
+    },
+    []
+  );
+
   const deleteNotification = useCallback(
     async (id) => {
       let wasUnread = false;
@@ -83,7 +96,7 @@ export function NotificationsProvider({ children }) {
     }
   }, []);
 
-  const value = { notifications, unreadCount, loading, refresh, markRead, markAllRead, deleteNotification };
+  const value = { notifications, unreadCount, loading, refresh, markRead, markUnread, markAllRead, deleteNotification };
 
   return createElement(NotificationsContext.Provider, { value }, children);
 }

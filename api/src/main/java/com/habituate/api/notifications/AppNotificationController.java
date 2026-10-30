@@ -44,6 +44,12 @@ public class AppNotificationController {
         appNotificationService.markRead(userId(req), id);
     }
 
+    @PostMapping("/{id}/unread")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void markUnread(HttpServletRequest req, @PathVariable Long id) {
+        appNotificationService.markUnread(userId(req), id);
+    }
+
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(HttpServletRequest req, @PathVariable Long id) {

@@ -75,6 +75,17 @@ public class AppNotificationService {
                 });
     }
 
+    /** Lets a swipe-left on an already-read notification undo that — mirrors markRead. */
+    @Transactional
+    public void markUnread(String userId, Long notificationId) {
+        repository.findById(notificationId)
+                .filter(n -> n.getUserId().equals(userId))
+                .ifPresent(n -> {
+                    n.setRead(false);
+                    repository.save(n);
+                });
+    }
+
     @Transactional
     public void delete(String userId, Long notificationId) {
         repository.findById(notificationId)

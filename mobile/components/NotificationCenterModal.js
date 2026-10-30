@@ -65,7 +65,7 @@ export default function NotificationCenterModal({
 }) {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
-  const { notifications, unreadCount, loading, refresh, markRead, markAllRead, deleteNotification } =
+  const { notifications, unreadCount, loading, refresh, markRead, markUnread, markAllRead, deleteNotification } =
     useNotifications();
   const { deleteOnLeft } = useNotificationSwipePrefs();
 
@@ -149,6 +149,7 @@ export default function NotificationCenterModal({
               deleteOnLeft={deleteOnLeft}
               onPress={() => handlePress(item)}
               onMarkRead={() => markRead(item.id)}
+              onMarkUnread={() => markUnread(item.id)}
               onDelete={() => deleteNotification(item.id)}
             />
           )}
@@ -173,18 +174,18 @@ export default function NotificationCenterModal({
  * swipe-left-to-read / swipe-right-to-delete, `deleteOnLeft` flips both at
  * once so the two actions never collide on the same side.
  */
-function NotificationRow({ item, styles, colors, deleteOnLeft, onPress, onMarkRead, onDelete }) {
-  const readAvailable = !item.read;
+function NotificationRow({ item, styles, colors, deleteOnLeft, onPress, onMarkRead, onMarkUnread, onDelete }) {
+  // The non-delete side always has an action — never null — so swiping it on
+  // an already-read notification undoes that instead of doing nothing.
+  const toggleReadAction = item.read ? 'unread' : 'read';
 
   // rightPanelAction: committed by swiping left (the "right-anchored" panel).
   // leftPanelAction: committed by swiping right (the "left-anchored" panel).
-  const negAction = deleteOnLeft ? null : readAvailable ? 'read' : null;
-  const posAction = deleteOnLeft ? (readAvailable ? 'read' : null) : null;
-  const rightPanelAction = deleteOnLeft ? 'delete' : negAction; // committed by swiping left
-  const leftPanelAction = deleteOnLeft ? posAction : 'delete'; // committed by swiping right
+  const rightPanelAction = deleteOnLeft ? 'delete' : toggleReadAction;
+  const leftPanelAction = deleteOnLeft ? toggleReadAction : 'delete';
 
-  const negIconWidth = rightPanelAction === 'read' ? READ_ACTION_WIDTH : rightPanelAction === 'delete' ? DELETE_ACTION_WIDTH : 0;
-  const posIconWidth = leftPanelAction === 'read' ? READ_ACTION_WIDTH : leftPanelAction === 'delete' ? DELETE_ACTION_WIDTH : 0;
+  const negIconWidth = rightPanelAction === 'delete' ? DELETE_ACTION_WIDTH : READ_ACTION_WIDTH;
+  const posIconWidth = leftPanelAction === 'delete' ? DELETE_ACTION_WIDTH : READ_ACTION_WIDTH;
   const negMax = negIconWidth * MAX_RATIO;
   const posMax = posIconWidth * MAX_RATIO;
   const negCommit = negIconWidth * COMMIT_RATIO;
@@ -203,10 +204,11 @@ function NotificationRow({ item, styles, colors, deleteOnLeft, onPress, onMarkRe
       translateX.value = withSpring(direction * 600, SLIDE_OUT_CONFIG);
       onDelete();
     } else {
-      // The row stays in the list (just marked read), so slide back to rest
-      // instead of away.
+      // The row stays in the list either way (just flips read/unread), so
+      // slide back to rest instead of away.
       translateX.value = withSpring(0, SPRING_CONFIG);
-      onMarkRead();
+      if (action === 'unread') onMarkUnread();
+      else onMarkRead();
     }
   };
 
@@ -342,6 +344,14 @@ function ActionGlyph({ action }) {
       <>
         <MaterialCommunityIcons name="trash-can-outline" size={18} color="#FFFFFF" />
         <Text style={glyphStyles.text}>Delete</Text>
+      </>
+    );
+  }
+  if (action === 'unread') {
+    return (
+      <>
+        <MaterialCommunityIcons name="email-outline" size={18} color="#FFFFFF" />
+        <Text style={glyphStyles.text}>Unread</Text>
       </>
     );
   }

@@ -135,8 +135,6 @@ export default function MyStatsModal({ visible, onClose }) {
                   icon={<FlameIcon width={20} height={20} streak={stats.bestCurrentStreak} />}
                   label="Best current streak"
                   value={`${stats.bestCurrentStreak}d`}
-                  onPress={() => goTo('Insights')}
-                  actionHint="View in Insights"
                 />
                 <StatTile
                   styles={styles}
@@ -144,8 +142,6 @@ export default function MyStatsModal({ visible, onClose }) {
                   icon={<MaterialCommunityIcons name="trophy-outline" size={20} color={colors.accent} />}
                   label="Longest streak"
                   value={`${stats.bestLongestStreak}d`}
-                  onPress={() => goTo('Insights')}
-                  actionHint="View in Insights"
                 />
                 <StatTile
                   styles={styles}

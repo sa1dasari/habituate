@@ -1,149 +1,236 @@
-# CLAUDE.md — Habituate build context
+# CLAUDE.md
 
-This file is the standing context for any AI assistant (Copilot, Claude, etc.) working on this repo. Read this before generating code. It describes what the app is, why decisions were made, the current architecture, and the conventions to follow. Keep this file updated as decisions change — it should always reflect the real state of the project, not the original plan.
+Standing instructions for any AI assistant working in this repo. Read this first. Keep it short and current. It holds rules and facts, not progress logs. Progress lives in `SKILLS.md`. Long-form rationale and the full data model live in `docs/background.md`.
 
-Global design rule (applies to all phases):
-- Design-first, mobile-first: the /design assets are the canonical UI spec for every phase. Implementations must prioritize native mobile device layouts, use mobile-optimized component sizes and touch targets, and match design tokens for colors, spacing, and typography. The Expo web preview is permitted for development convenience but is not the acceptance target.
+## 1. Project overview
 
-## Deployment target
+Habituate is a habit tracker for iOS and Android. The main flow: a user opens the Today tab, taps a habit to check in, the API writes the check-in to Postgres and publishes it to Kafka, and personal streaks, group streaks and the friend activity feed update from there. Users can also ask "Ask Habituate", an AI coach that answers from their own check-in stats and can propose changes they must confirm.
 
-The end goal is a real Play Store + App Store release, not just a personal/dev build. This should shape decisions as they come up, not just be a final checklist:
-- Prefer Expo Go–compatible / EAS Build–compatible libraries. A native module that forces `expo prebuild` (ejecting from the managed workflow) is a real cost — worth it only when there's no managed-workflow alternative, not a default choice.
-- **Deliberate, user-approved exception: home-screen widgets (SKILLS.md Phase 7).** Real OS widgets (iOS WidgetKit, Android App Widgets) are not reachable from inside Expo Go at all — there is no managed-workflow alternative for a native WidgetKit extension or an Android `AppWidgetProvider`, unlike the push-notification gap elsewhere in this file which only needed a one-time dev-client build on Android. Building this feature means:
-  - Testers now need a **custom EAS development client** (`eas build --profile development`, `mobile/eas.json`) instead of the plain Expo Go app from the store, going forward — not just for the widget, for the whole app, since `expo-dev-client` is now a dependency.
-  - `expo prebuild` runs (inside EAS Build's cloud step, not necessarily checked into this repo as a committed `ios`/`android` folder) to attach the iOS widget extension target (`mobile/targets/widget/`, via `@bacons/apple-targets`) and the Android `AppWidgetProvider` (`mobile/widgets/`, via `react-native-android-widget`'s own config plugin).
-  - This was an explicit, accepted tradeoff, not a default — the smaller, already-shipped push-notification gap (Expo Go on Android lacking remote push since SDK 53) was deliberately NOT treated as blocking enough to force this same jump; the home-screen widget is the first feature where ejecting Expo Go testing was judged worth it.
-- Apple requires in-app account deletion (not just sign-out) for any app with account creation — **done**: `DELETE /api/users/me` + Account Settings → Login & Security's "Delete account" row (see the `feedback`/account-deletion data-model note below for the exact cascade).
-- A privacy policy is required by both stores once Firebase Auth / any user data collection is live — needed before the first submission, not after. Account Settings → Privacy links out to one, but `PRIVACY_POLICY_URL` in `mobile/screens/PrivacyScreen.js` is still a placeholder — a real hosted policy page must replace it before submission.
-- Firebase config, API keys, and the backend's production deployment (Terraform/AWS, per below) need to be real and stable before store review — reviewers test the actual live app, not a mocked build.
-- Anti-guilt UX and the non-causal correlation framing (see below) aren't just product taste — health/wellness-adjacent app review can flag manipulative or unsubstantiated-claim patterns, so these conventions are also a review-risk mitigation.
+Three things set it apart from generic trackers:
+1. An AI coach grounded in real check-in data, not a generic chatbot.
+2. Shared Habits with group streaks and an explicit streak rule (all members or any member).
+3. Anti-guilt design: no punishing visuals, streak freezes, trend framing.
 
-## What this app is
+Core goals, in priority order:
+1. Ship the active phase in `SKILLS.md`. Do not add features outside it without updating that file first. This is a solo build and scope creep is the main risk.
+2. Reach a real Play Store and App Store release. Pick store-compatible, scale-sane options over quick shortcuts.
+3. Keep the product rules below true everywhere.
 
-Habituate is a habit-tracking app with three differentiators over generic trackers:
-1. **An AI habit coach ("Ask Habituate")** that answers questions grounded in your real check-in data and can propose (never auto-apply) concrete adjustments — replaces the former real-time correlation/pattern-detection engine, hard-deleted 2026-10-04 (see the data model note on `correlations`/`insights` below and SKILLS.md Phase 8). **Shipped 2026-10-06**: a persistent per-user chat (`com.habituate.api.coach`, Anthropic's Messages API called server-side) grounded in computed per-habit completion stats, with a Confirm/Reject "suggested adjustment" card that only ever mutates a habit's target on explicit confirm.
-2. Shared/group habits with Snapchat-style streaks.
-3. Anti-guilt UX — no punitive red X's, streak freezes, trend framing.
+Phases 0 to 8.5 and 10 are done. Phase 9 (production readiness) is the open gate. Confirm the real state in `SKILLS.md` instead of trusting this line.
 
-Do not add features outside the scope defined in `SKILLS.md` without updating that file first. Scope creep is the main risk on a solo build with this much backend complexity.
+### Product rules (non-negotiable)
+- No red X for missed days anywhere. No shaming copy. Use trend framing, not perfection framing.
+- A streak freeze needs its own visual state before any streak-pressure feature ships.
+- Coach and any insight copy stays non-causal and tied to real data: "you complete Y on X% of the days you complete X", never "X causes Y". `CoachPrompts` enforces this in the system prompt.
+- The coach never changes data on its own. A proposal only takes effect when the user confirms (`CoachService.confirmProposal`).
+- Shared Habits and Challenges are separate in the data model and the UI. Do not merge them.
+- Groups reuse the `checkin-events` stream as filtered consumers. Do not build a parallel pipeline.
+- Another user's data is readable only through friendship-gated endpoints. Profiles default to PRIVATE.
+- Design first, mobile first. `design/*.png` is the UI spec. Target 360 to 430dp widths and 44dp touch targets. Expo web is a dev preview only, never the acceptance target.
 
-Competitive note: habit-tracker-with-friends apps (HabitShare, Habit Huddle, Done, HabitHook) exist, and so do AI-coaching-style wellness apps — Habituate's differentiation is the *combination*: an AI coach grounded in real check-in data (not a generic chatbot with no data access) alongside an explicit per-group streak rule.
+## 2. Tech stack
 
-## Tech stack and why
+### Mobile (`mobile/`)
+- Expo SDK 57 (`expo ~57.0.21`), React Native 0.86.3, React 19.2.3, New Architecture. Package manager: npm.
+- JavaScript with functional components and hooks. TypeScript only where it already exists (`mobile/widgets/HabitWidget.tsx`).
+- React Navigation 7 (bottom tabs plus native stack), `firebase` JS SDK ^10.14.1, `react-native-reanimated` 4, `react-native-gesture-handler` 3, `react-native-svg`, `expo-linear-gradient`, Nunito via `@expo-google-fonts/nunito`.
+- Native pieces: `expo-dev-client`, `@bacons/apple-targets` (iOS widget), `react-native-android-widget`, `react-native-shared-group-preferences`, Google Sign-In, Facebook SDK, Apple authentication.
+- Before writing Expo code, read the v57 docs: https://docs.expo.dev/versions/v57.0.0/ (also in `mobile/AGENTS.md`).
 
-- **Mobile: React Native (Expo).** Single codebase for iOS/Android, fastest path to both platforms for a solo builder.
-- **Backend: Spring Boot (Java).** Primary language of the developer; the natural home for every piece of backend business logic, including Ask Habituate's AI-coach orchestration.
-- **Postgres.** Relational source of truth for users, habits, check-ins, goals, groups.
-- **Kafka.** Event backbone. Every check-in is published as an event, not just written to Postgres — group streaks and the friend-activity feed are both filtered consumers of this same stream, not separate pipelines.
-- **Firebase Auth + FCM.** Don't roll custom auth or push infra for a solo project. Verify the Firebase ID token server-side on every API request — never trust a client-supplied user ID.
-  - **Multi-provider account linking (email/password, Google, Facebook, Apple) is handled entirely client-side via Firebase Auth's own `linkWithCredential`/`unlink`** (`mobile/hooks/useAuth.js`) — the backend requires zero per-provider awareness, since `FirebaseAuthFilter.verifyIdToken` only validates a standard Firebase-issued JWT and never inspects which provider signed it. A user stays on the same Firebase UID (and therefore the same rows in every UID-keyed table) no matter which linked provider they sign in with next. The one case deliberately NOT auto-handled: a fresh sign-in on provider B when an account with that email already exists via provider A throws Firebase's `auth/account-exists-with-different-credential` — rather than attempting fragile automatic credential merging, the app surfaces which provider the account already uses and asks the user to sign in with that one first, then link the new one from Account Settings → Login & Security.
-- **Terraform + AWS (ECS Fargate, RDS, MSK).** Fargate over EKS/K8s — simpler ops for a single maintainer. Revisit only if there's a specific reason to need K8s.
+### Backend (`api/`)
+- Java 21, Spring Boot 3.3.3, Maven wrapper (`./mvnw`).
+- Spring Web, Data JPA (Hibernate), Validation, Security, Actuator, Mail, `spring-kafka`, `firebase-admin` 9.4.1.
+- Coach: Anthropic Messages API called with `RestClient` (no SDK) in `AnthropicClient`, model `claude-sonnet-5`, server side only.
+- Schema comes from `spring.jpa.hibernate.ddl-auto=update`. There are no migrations yet (Flyway is a Phase 9 item).
 
-## Architecture
+### Data and services
+- Postgres 16 (docker `postgres:16-alpine`), Kafka and Zookeeper (Confluent 7.6.1), topic `checkin-events` (1 partition, 1 replica in dev).
+- Firebase Auth (email/password, Google, Facebook, Apple). The backend verifies the ID token on every request in `FirebaseAuthFilter`.
+- Push goes through Expo's push service, not FCM directly. Photos and feedback attachments upload from the client straight to Firebase Storage.
+- Hosting: the API appears to run on Railway today (`PORT` placeholder in `application.properties`, `EXPO_PUBLIC_API_URL` in `mobile/eas.json`). Terraform on AWS (ECS Fargate, RDS, MSK) is the Phase 9 plan. `infra/` and `streaming/` are empty placeholders. There is no Flink.
+
+### Do not
+- Do not add Redux or another state library. Use hooks and the existing providers.
+- Do not use GraphQL (REST only for v1) or class components. Do not treat the Expo web preview as a deliverable.
+- Do not call Anthropic from the mobile app or put an API key in the client.
+- Do not expose JPA entities from controllers. Do not accept a client-supplied user ID. Read `userId` from the request attribute set by `FirebaseAuthFilter`.
+- Do not add Flink, a second event pipeline, or a Kafka consumer that is not a filtered consumer of `checkin-events` with its own consumer group id.
+- Do not add a native module, run `expo prebuild` and commit `ios/` or `android/`, or add any dependency without asking. The home-screen widgets are the one approved exception to staying managed-workflow friendly.
+- Do not set `fontWeight` together with a Nunito `fontFamily`. Do not import `colors`, `typography` or `streakStates` from `theme.js` inside components. Do not use a plain `fire` icon or flat progress-bar colors. See section 4.
+
+## 3. Commands
+
+The author works on Windows. Use `./mvnw` in bash and `mvnw.cmd` in PowerShell.
+
+```bash
+# Local infra: postgres :5432, kafka :9092, zookeeper, pgadmin :5050, kafka-ui :8082
+docker compose up -d
+
+# Backend
+cd api && ./mvnw spring-boot:run          # API on :8080 (or $PORT)
+curl localhost:8080/api/health            # {"service":"habituate-api","status":"ok"}
+cd api && ./mvnw test                     # full suite
+cd api && ./mvnw -Dtest=ClassName test    # one class
+cd api && ./mvnw -q compile               # fast compile check
+
+# Mobile
+cd mobile && npm install
+cd mobile && npx expo start               # dev server (LAN mode so a phone can reach the API)
+cd mobile && npx expo install <package>   # always use this to add or pin Expo-managed packages
+cd mobile && npx expo export --platform web   # bundle check used in this repo
+cd mobile && npx tsc --noEmit             # only matters when .ts or .tsx files change
+eas build --profile development --platform android|ios   # custom dev client (run from mobile/)
+```
+
+Notes:
+- There is no mobile test script and no lint script in either project. Do not invent one. Do not claim lint passed.
+- Test on an EAS development client. Expo Go cannot load the widget targets or the native Google and Facebook sign-in modules.
+- To point the app at another API host, set `EXPO_PUBLIC_API_URL` before `expo start` (or in `mobile/.env.local`, which already points development builds at the Railway production API — see §2).
+- `eas build` costs build minutes and `./mvnw test` writes to the dev database (see section 5). Both are fine when the task needs them. Say so before running them.
+
+## 4. Architecture and directory map
 
 ### Write path
-Mobile app → Spring Boot API → writes to Postgres (source of truth) AND publishes to Kafka topic `checkin-events`, in the same request. Postgres write and Kafka publish must not drift — if one fails, the request fails (use a transactional outbox pattern if this becomes a reliability issue).
+Mobile app, then Spring Boot API, then Postgres (source of truth) and a Kafka event on `checkin-events`, in the same request. If either fails, the request fails. The check-in write in `HabitService` is `@Transactional`. Kafka publishing happens in the service layer, never the controller.
 
-### Insight path — replaced by Ask Habituate, 2026-10-06
-This section used to describe a real-time stream-processing pipeline behind the Phase 5 batch correlation engine that *was* built, shipped, then hard-deleted 2026-10-04 once real usage showed the "Pattern detected" cards weren't useful (see the `correlations`/`insights` data-model note). No stream-processing insight pipeline exists in this codebase, and SKILLS.md Phase 8 decided against building one: instead, `com.habituate.api.coach` computes per-habit completion stats synchronously, on-request, straight from `check_ins` (`CoachContextBuilder` — current/longest streak via `StreakCalculator`, days-active over the last 7/30 days), and hands those stats to Anthropic's Messages API (`AnthropicClient`, called server-side so the API key never reaches the mobile client) as grounding context. No Kafka consumer, no rolling window state, no nightly job — a chat request is the trigger, not an event stream. `coach_messages` persists one continuous thread per user (see the data model note below); a message optionally carries a proposed habit-target adjustment or a proposed new-habit creation that's only ever applied on explicit user confirm (`CoachService.confirmProposal`), never automatically.
+### Backend layout: `api/src/main/java/com/habituate/api/`
+Package by feature. Each feature owns its controller, service, repository, entities and DTOs.
 
-**One rule carries forward regardless of architecture:** any AI-coach response must stay non-causal and grounded in the user's real data — never "X causes Y" or "X helps you do Y," only language like "you complete Y on X% of the days you complete X" or the design mockup's own hedged phrasing ("could make... more manageable"). This was the correlation engine's framing rule and is now enforced via `CoachPrompts`' system prompt, sent on every request.
+| Package | Owns |
+|---|---|
+| `habits` | habit CRUD, check-ins, `StreakCalculator`, shield awards, personal freeze scheduler |
+| `checkins` | check-in entity, repository, request and response DTOs |
+| `goals` | freeform goals, period progress and rollover |
+| `groups` | friendships, shared habits, group streaks, challenges, activity feed, cheers |
+| `coach` | Ask Habituate: context builder, prompts, Anthropic client, proposals, reactions |
+| `notifications` | in-app notifications, Expo push, reminder and period-summary schedulers |
+| `users` | profile, username, timezone, visibility, friend profile, account deletion |
+| `feedback` | bug and suggestion reports, email notification |
+| `events` | Kafka topic config, publisher, logger consumer |
+| `config` | Firebase, security, CORS, `FirebaseAuthFilter` |
+| `common` | shared exceptions and `GlobalExceptionHandler` |
+| `health` | `GET /api/health` |
 
-### Groups / social
-Group check-ins and activity feeds reuse the same Kafka `checkin-events` stream — a group is just a filtered consumer of the same events, not a separate pipeline. Don't build a parallel system for this.
+Placement rules:
+- Controllers stay thin. Business logic, ownership checks and Kafka publishing go in services.
+- Keep pure logic separate from Spring so it is easy to test (`StreakCalculator`, `GroupStreakEngine`).
+- DTOs named `*Request` and `*Response` sit at the API boundary.
+- Scheduled jobs live in the feature package they serve.
+- Day bucketing uses the `X-Timezone` request header. Scheduled jobs use the stored `users.timezone`, or UTC when there is none.
+- Cross-user reads must go through `FriendshipService.areFriends` or an equivalent membership check. Re-derive ownership from the stored row, never from the caller's input.
+- Entity changes alter the dev schema automatically. A removed column or table is not dropped for you. Ask before dropping anything.
+- Errors go through `GlobalExceptionHandler` as `{"error": "..."}` with a specific, user-facing message — never a generic one. The mobile client parses that field; do not throw a bare `IllegalArgumentException` with a vague message when a caller needs to tell the user *why* something failed (e.g. "already invited" vs "something went wrong").
 
-**Shared Habits are distinct from Challenges** in both data model and UI. A Shared Habit is a single habit tracked jointly by 2+ people with its own persistent group streak and an explicit streak rule (all members must check in / any member checking in keeps it alive). A Challenge is a time-boxed, multi-person goal with a progress bar, not a running streak. Don't merge these into one feed or one table — they behave differently and the finalized Community screen presents them as separate sections.
+### Mobile layout: `mobile/`
+- `App.js`: navigation and providers only. `index.js`: entry and widget task registration.
+- `screens/`: thin screens. `components/`: shared UI and modals. `hooks/use*.js`: state and business logic. `utils/`: pure helpers (`cadence.js`, `consistency.js`, `date.js`, `widgetSync.js`). `constants/`: shared copy and config. `navigation/`: stacks.
+- `api/client.js` is the only place that talks to the backend. No `fetch` calls in screens or components. It parses the backend's `{"error": "..."}` body into a clean `Error.message` — always prefer `err.message` over a hardcoded string when showing feedback.
+- `theme.js` holds the tokens. `widgets/` is the Android widget. `targets/widget/` is the iOS widget (Swift).
+- `design/` at the repo root holds the UI mockups. Open only the one PNG that matches the task.
 
-## Data model
+### Mobile visual system (do not regress)
+- Fonts: use `fonts.*` or `typography.*` from `theme.js`. Never pair `fontWeight` with a Nunito `fontFamily`, because Android can silently drop the custom font.
+- Gradients: progress bars and rings use `gradients.*` from `theme.js` through `expo-linear-gradient` or an SVG `<LinearGradient>`. Hero cards use `shadowLg`. The only flame icon is `components/FlameIcon.js`.
+- Dark mode: every component that needs colors or typography calls `useAppTheme()` and builds styles with `useMemo(() => makeStyles(colors, typography), [colors, typography])`. `StyleSheet.create()` at module scope freezes the palette at import time. `spacing`, `radii`, `shadow`, `shadowLg`, `fonts` and `gradients` do not depend on the palette and may be imported directly.
+- Widgets cannot use the in-app theme. They use the light palette only. That is a platform limit, not a regression.
+- Feedback and confirmations: use `hooks/useToast.js` + `components/Toast.js` (ephemeral messages) or `hooks/useConfirm.js` + `components/ConfirmModal.js` (yes/no choices) — never `Alert.alert()`. It renders the OS's own native dialog in every build including production, not this app's visual system. Both are instantiated locally per screen/modal (not a single app-root singleton) and rendered as the last children inside that same screen/modal's own tree, because a RN `<Modal>` renders in its own native surface that an app-root overlay can't reach into.
+- A `<GestureDetector>` (react-native-gesture-handler) used inside a RN `<Modal>` needs its own nested `<GestureHandlerRootView>` — the one wrapping `App.js` does not extend into a Modal's separate native surface. See `NotificationCenterModal.js` for the pattern.
 
-- `users` — id, email, auth_provider, timezone, created_at
-- `habits` — id, user_id, name, category, cadence_type (daily / weekly / monthly), cadence_target, weekly_target (nullable), monthly_target (nullable), tracking_mode (boolean / count), color, scheduled_time, reminder_enabled, archived_at
-  - `cadence_target` / `weekly_target` / `monthly_target` are independent, not mutually exclusive — a habit can carry any combination (e.g. gym: `weekly_target=2`, `monthly_target=12`, no daily target). `cadence_type` no longer picks which one applies; it's effectively vestigial now that a habit can span scales at once.
-  - `tracking_mode`: `boolean` (default) is one check-in a day, toggled on/off. `count` allows any number of check-ins a day, each carrying a `value`; period totals sum those values instead of counting distinct days — required for a target like "50 applications this month," which is otherwise unreachable if every check-in dedupes to at most one day.
-- `check_ins` — id, habit_id, user_id, occurred_at, value, source (manual / ocr_import), group_id (nullable)
-  - `value` defaults to 1 (a boolean check-in) but for `count` habits carries the logged quantity (e.g. `value=5` for a batch of 5 applications logged at once). Multiple check-ins per habit per day are allowed — necessary for `count` habits, harmless for `boolean` ones since the UI only ever creates one per day for those.
-- `goals` — id, user_id, period (week/month), habit_id (nullable), target_count, description
-- ~~`correlations`, `insights`~~ — **hard-deleted 2026-10-04** along with `com.habituate.api.insights` (`CorrelationEngine`, `InsightService`, the nightly scheduler, `/api/insights/*`) and all pattern-detection UI — see SKILLS.md Phase 8. Dropped directly from the dev database rather than left as dead tables, per this codebase's own "don't leave half-finished/unused implementations around" convention.
-- `coach_messages` — id, user_id, role (USER/ASSISTANT), content, habit_id (nullable), proposal_type (nullable: ADJUST_HABIT/CREATE_HABIT), proposal_payload (nullable, JSON — CREATE_HABIT's name/category/cadenceTarget/weeklyTarget/monthlyTarget/trackingMode), adjustment_field (nullable: cadenceTarget/weeklyTarget/monthlyTarget — ADJUST_HABIT only), adjustment_current_value (nullable), adjustment_new_value (nullable), adjustment_title (nullable), adjustment_description (nullable), adjustment_status (nullable: PENDING/CONFIRMED/REJECTED), created_at
-  - Ask Habituate's persisted thread (SKILLS.md Phase 8) — one continuous conversation per user, not multiple named threads, matching the design's single ongoing chat. A message carries AT MOST ONE proposed action, discriminated by `proposal_type` — adding habit creation (2026-10-06, beyond the original Phase 8 plan, per explicit user request) reused the existing `adjustment_title`/`adjustment_description`/`adjustment_status` columns as shared card copy + lifecycle state for BOTH proposal types (despite the name) rather than a column rename migration, and gave CREATE_HABIT's different field set its own `proposal_payload` JSON column rather than a pile of columns that are null on every ADJUST_HABIT row. `habit_id` doubles as the grounding citation target (`CoachMessageResponse.groundingLabel`, e.g. "Your check-ins · Morning Walk · Last 7 days", ADJUST_HABIT only) and — for CREATE_HABIT, set only once confirmed — the newly created habit. `adjustment_status` starts `PENDING` and is the only thing `CoachService.confirmProposal`/`rejectProposal` ever flips; the habit itself is created or mutated in that same call (confirmProposal branches on `proposal_type`, calling the existing `HabitService.createHabit` for CREATE_HABIT rather than duplicating its validation), never inside the chat-reply path.
-- `friendships` — id, requester_id, recipient_id, status (PENDING/ACCEPTED/DECLINED), created_at, updated_at
-  - directional (requester → recipient), not mirrored into a reciprocal row on accept — "my friends" queries check both sides with status = ACCEPTED, same spirit as correlations being stored directionally rather than duplicated. No local `users` table exists (userId is a raw Firebase UID everywhere) — invites resolve email → UID via the Firebase Admin SDK directly (`UserLookupService`/`FirebaseUserLookupService` in the `groups` package), not a local lookup.
-- `groups` — id, name, created_by, streak_rule (ALL_MEMBERS / ANY_MEMBER), created_at
-  - no `habit_id` on this table (deviates from the original plan) — see `group_members` below for why
-- `group_members` — id, group_id, user_id, habit_id (nullable), status (PENDING/ACTIVE), joined_at
-  - `habit_id` is an addition beyond the original plan: a Shared Habit is NOT one literal habit row multiple people write to — `habits.user_id` is a single owner everywhere else in this codebase, and loosening that would mean rewriting ownership checks throughout. Instead, each member keeps their own personal habit (their own row, their own private streak/history, tracked exactly as a solo habit), and this column just links *that member's own* habit to the group. A normal check-in through the existing `createCheckIn` endpoint gets tagged with `check_ins.group_id` automatically when its habit is group-linked (one lookup in `HabitService`) — no separate "group check-in" path.
-- `group_streaks` — group_id (also the primary key — one row per group, upserted in place), current_streak, longest_streak, last_qualifying_date, status (active / at_risk / frozen), updated_at
-  - `status` drives the visual state on the Shared Habits card — `at_risk` when the streak's qualifying window is still open today but not yet satisfied, `frozen` when a grace token has been applied. Recomputed by `groups.GroupStreakConsumer`, a `@KafkaListener` on the same `checkin-events` topic (its own consumer `groupId`, `habituate-api-group-streak-consumer` — distinct from the existing logger's, or the two would compete for partitions instead of each independently seeing every event) filtered to events whose check-in is group-linked — per the groups/social architecture note, this is "just a filtered consumer of the same events," not a separate pipeline. Bucketed in UTC, same caveat as the insights engine.
-- `streak_freezes` — id, user_id (nullable), group_id (nullable), used_on_date, source (personal_grace / group_grace)
-  - v1 only implements the group_grace path: `groups.StreakFreezeScheduler` runs daily just after UTC midnight, auto-applying a freeze (no user action needed) to any group whose streak broke yesterday, if one hasn't been used in the last 30 days — otherwise the streak resets. Personal habit streak freezes are a deliberate, documented deferral (see SKILLS.md Phase 6) — personal streak-pressure mechanics don't exist yet to need freezing.
-- `challenges` — id, name, description, created_by, target_count, period_start, period_end, visibility (PUBLIC / PRIVATE, default PRIVATE), created_at
-  - time-boxed and multi-person, deliberately separate from Shared Habits in both data model and UI (per the groups/social architecture note) — a progress bar against `target_count`, not a running streak, and it carries no `habit_id` at all. `period_end - period_start` is capped at 365 days (`ChallengeService.MAX_PERIOD_DAYS`) — any range from 1 day to 1 year, not fixed presets.
-  - **Visibility is the opposite of Shared Habits on purpose:** Shared Habits stay private-only (friendship-gated invites, no discovery surface). Challenges can be `PUBLIC` (shows up in `GET /api/challenges/browse`, anyone can join) or `PRIVATE` (default — hidden from browse). There's no challenge-invite system yet, so a `PRIVATE` challenge is only reachable by whoever already knows its id and calls join directly; it's "not discoverable," not "access-controlled."
-- `challenge_check_ins` — id, challenge_id, user_id, occurred_at
-  - Boolean-only, one row per day a participant logs (no counter/count-mode, unlike habits) — mirrors a BOOLEAN habit's check-in shape rather than reusing `check_ins`, since a Challenge carries no `habit_id` to hang it off. `myProgress` in `ChallengeResponse` is `COUNT(*)` for that (challenge, user) pair, not a stored running total, which is what makes "unlog today" possible — `DELETE /api/challenges/{id}/check-ins/today` removes the matching row the same way a habit's `deleteCheckIn` does. `POST /api/challenges/{id}/check-ins` enforces one log per local day (same `X-Timezone`-bucketed duplicate guard as `HabitService.createCheckIn`), throwing the same `DuplicateCheckInException`. This superseded the original `challenge_participants.progress_count` column (dropped) — each participant's own progress is derived, not stored, mirroring how `StreakCalculator` derives streaks from `check_ins` rather than storing a running count.
-- `challenge_participants` — id, challenge_id, user_id, joined_at
-  - pure membership row now (no `progress_count` — see `challenge_check_ins` above); `ChallengeService.logCheckIn`/`unlogCheckIn` require having joined first (`ForbiddenException` otherwise). `ChallengeResponse` shows the *viewing* user's own progress alongside the full roster — CLAUDE.md's "a progress bar" didn't specify whose, so this is a documented product decision, not a literal spec reading.
-- `users` — id (Firebase UID), timezone (nullable), date_of_birth (nullable), phone_number (nullable), address (nullable), gender (nullable, free text — no fixed taxonomy imposed), updated_at
-  - **The first local record in this codebase keyed by Firebase UID** — every other feature (friendships, groups, challenges) deliberately resolves identity through the Firebase Admin SDK directly rather than a local table (see the `friendships` note above). This table originally existed for one narrow reason: `ReminderScheduler` is a background job with no HTTP request to read the `X-Timezone` header from, so a user's timezone has to be persisted somewhere before a scheduled reminder can fire at the right local hour — `timezone` is still only ever populated opportunistically by `FirebaseAuthFilter` off the `X-Timezone` header, no dedicated "set my timezone" endpoint. `date_of_birth`, `phone_number`, `address`, and `gender` are user-facing fields Firebase Auth has no concept of, so `UserProfileController` (`GET`/`PATCH /api/users/me`) owns them directly — `UserProfileService.updateProfile` validates only `date_of_birth` (not in the future, not implausibly old >130 years); the other three are free text with no format/taxonomy validation, matching this app's non-prescriptive stance. The client always sends its current value for every field on save (not a sparse/partial patch) — a blank string clears a field. Reusable later for the UTC-bucketing caveats already noted on the insights engine and group streaks, if that's ever worth revisiting.
-  - **Profile picture and display name are deliberately not stored here** — they're Firebase Auth's own `photoURL`/`displayName` fields (set via `updateProfile()` client-side), edited from the same `EditProfileModal`. The photo itself lives in **Firebase Storage** (`profile-photos/{uid}.jpg`), not this table or any backend endpoint — the mobile app uploads directly via the Firebase Storage JS SDK and only the resulting download URL gets written to `photoURL`. **Setup gap, not a code issue:** this requires the Storage bucket to actually be enabled with appropriate security rules in the Firebase console (e.g. a user may write only to their own `profile-photos/{uid}.jpg` path) — a brand-new Firebase project's Storage bucket is not usable until that's done manually.
-- `push_tokens` — id, user_id, token (unique), platform, created_at, updated_at
-  - Stores an **Expo push token**, not a raw FCM/APNs device token — `ReminderScheduler`/`ExpoPushService` send through Expo's push relay (`https://exp.host/--/api/v2/push/send`) rather than calling Firebase Cloud Messaging directly, which is what lets the mobile app receive reminders from inside Expo Go on iOS without a development build. Upserted by `token`, not by `(user_id, token)` — the same device's token can legitimately move to a different account (sign out, sign in as someone else on a shared phone). A token that comes back `DeviceNotRegistered` in a push response is deleted; full delivery-receipt polling (Expo's two-step ticket→receipt flow, which also catches a since-uninstalled app) is a documented v1 simplification, not implemented.
-  - **Known platform gap:** Expo Go on Android has not supported remote push since SDK 53 — testing reminders on Android needs a one-time EAS development-client build (still the managed workflow + EAS Build, not a full eject to bare — a smaller ask than a native-module feature like a home-screen widget). iOS works directly in Expo Go. Separately, no EAS project is linked yet (`app.json` has no `extra.eas.projectId`), so `getExpoPushTokenAsync` can't mint a real token on a device until `eas init` runs — unrelated to any code here.
-- `check_in_cheers` — id, check_in_id, user_id, created_at, unique (check_in_id, user_id)
-  - Backs the Profile page's "Shared progress" feed (`GroupActivityService`/`GroupActivityController`, `/api/groups/activity`) — closes the Phase 6 "friend activity feed" deferral. Deliberately **not** a generic feed of everything a friend tracks: it's scoped to check-ins that already carry a `groupId` (i.e. already visible to fellow members of that shared habit, per the groups/social architecture note), filtered to groups the *viewing* user is also an active member of — a friend you aren't in any shared habit with never leaks their activity to you just from the friendship. A cheer is toggled on/off per (check-in, user), not a count a single user can rack up; `GroupActivityService.cheer`/`uncheer` re-derive group membership from the check-in's own `groupId` rather than trusting the caller, so cheering an arbitrary check-in id throws `ForbiddenException`.
-- `feedback` — id, user_id, type (BUG / SUGGESTION), page (nullable, free text — not a fixed enum), message, steps_to_reproduce (nullable), app_version (nullable), platform (nullable), created_at, plus a `feedback_attachments` child table (feedback_id, url) via a JPA `@ElementCollection`
-  - Backs the Account Settings → "Report a Bug/Suggestion" page (`com.habituate.api.feedback`, `POST /api/feedback`). Write-only from the mobile app's perspective — there's no in-app list of your own past submissions, and no admin UI; `FeedbackRepository.findByUserIdOrderByCreatedAtDesc` exists only as an escape hatch for a future one. Instead of an admin UI, every submission triggers an email notification (`FeedbackNotificationService`) to the maintainer — simpler than building a dashboard for a solo-maintainer project. Best-effort: `spring.mail.username`/`feedback.notification-email` blank (the default) just logs and skips sending, never blocks the submission. SMTP env vars: `MAIL_SMTP_HOST`/`MAIL_SMTP_PORT`/`MAIL_SMTP_USERNAME`/`MAIL_SMTP_PASSWORD` (Gmail needs an App Password, not the account password) and `FEEDBACK_NOTIFICATION_EMAIL` (who gets notified).
-  - **Attachments (screenshots/documents) are uploaded directly to Firebase Storage by the mobile client** (`mobile/utils/uploadAttachment.js`, same direct-upload pattern already used for profile photos — bytes go straight from disk to Storage's REST endpoint, bypassing the backend entirely), under `feedback-attachments/{uid}/{timestamp}-{filename}`. Only the resulting download URLs are sent to `POST /api/feedback` (capped at 5 per report, `FeedbackService.MAX_ATTACHMENTS`). **Setup gap, not a code issue:** same as `profile-photos/{uid}.jpg`, this needs a Storage security rule allowing a signed-in user to write only to their own `feedback-attachments/{uid}/**` path — not automatic on a fresh Firebase project.
-  - **Account deletion** (`DELETE /api/users/me`, `UserProfileService.deleteAccount`) cascades across every table this user owns — habits, check-ins (and cheers given/received on them), goals, coach messages, push tokens, feedback, challenge check-ins/participation, friendships (either direction), and group membership — before deleting the `users` row and finally the Firebase Auth user itself (that last call is best-effort: a failure is logged, not surfaced, since the local data is already gone and can't be un-deleted). **Deliberate tradeoff, not a bug:** if the deleted user was the sole creator of a shared group or challenge, that whole group/challenge is deleted too, for every other member/participant — there's no ownership-transfer feature to reassign it to someone else instead. This satisfies the "Apple requires in-app account deletion" deployment-target item noted above — no longer an afterthought.
+### Keep these in sync
+- If you add or move a UI element the onboarding tour points at, update `mobile/constants/onboardingTour.js` and register the target with `useTourTarget`.
+- If the habit shape changes, update `utils/widgetSync.js` and both widget implementations.
+- If a feature changes the data model, update the matching table note in `docs/background.md`.
+- When a checklist item in `SKILLS.md` is done, tick it there and write what was actually verified.
 
-## UI conventions
+## 5. Verification and quality bar
 
-These reflect the finalized Insights and Community screen designs — build to match, don't reinterpret.
+Run these before saying a task is done. Fix what you broke. Do not leave new errors or new warnings.
 
-### Insights screen
-Pattern-detection cards (directional label, match %, nudge) are **removed as of 2026-10-04** — real usage showed they weren't useful, replaced 2026-10-06 by SKILLS.md Phase 8:
-- Consistency ring for the selected period (Daily/Weekly/Monthly/Yearly tabs), with a trend delta badge (e.g. "+12%") — tapping the card opens `ConsistencyDetailModal` (`design/Consistency detail.png`): a horizontal habit picker, a bar graph of period-bucketed history for the selected habit (Samsung-Health-style), and a plain-language summary below it
-- An "Ask Habituate" entry card (`design/Insights.png`) with 3 suggested starter questions, opening `AskHabituateModal` (`design/Ask Habituate.png`) — the AI coach chat, see "Insight path" above
+Backend change:
+1. `cd api && ./mvnw test` passes. All 24 `@SpringBootTest` classes use the real local Postgres and Kafka from `docker compose up -d`. There is no separate test database, so tests write to the dev database.
+2. New service logic gets a test. Follow the existing pattern: pure logic tested directly, services tested with outside systems mocked (`AnthropicClient`, `UserLookupService`). Tests must never call the real Anthropic API or send real email or push.
+3. Check ownership: every endpoint that takes an id must verify the caller owns it or is allowed to see it.
+4. A new failure case gets a specific `GlobalExceptionHandler`-mapped message, not a generic one — see §4's error-handling rule.
 
-### Community screen
-- "Shared Habits" section is first and separate from "Challenges" — do not combine them
-- Each Shared Habit card shows: habit name, participants, time, the streak rule (e.g. "All members"), current group streak length, and a status-driven visual (safe / at-risk / frozen) — the frozen state should read as a distinct icon treatment (e.g. a frost/shield mark), not just a broken streak with an asterisk
-- "Challenges" section below shows progress-bar-style, time-boxed goals with participant avatars — no streak mechanics here
+Mobile change:
+1. `cd mobile && npx expo export --platform web` bundles clean.
+2. `npx tsc --noEmit` is clean if any `.ts` or `.tsx` file changed.
+3. Read the diff for the product rules and the visual system rules in sections 1 and 4: no red X, no shaming or causal copy, `useAppTheme()` pattern, `api/client.js` only, `fonts.*` only, no `Alert.alert()`.
+4. Check both light and dark mode in your head or on a device, and a 360dp width.
+5. If a screen gains a new async action that can fail, confirm it shows `err.message` via `showToast`, not a hardcoded string.
 
-### General
-- No red X for missed days, anywhere in the app
-- Trend framing over perfection framing in all copy
-- Streak-freeze state must always have its own visual treatment before streak-pressure mechanics ship
+Always:
+- Say plainly what you did not verify. Examples: not run on a device, not compiled in Xcode or Android Studio, widget code unbuilt. Do not imply it was tested.
+- Run `git status` and `git diff --stat` last. Look for stray files, secrets, and unrelated edits.
+- Tick the matching checklist item in `SKILLS.md`.
 
-## Conventions
+## 6. Safety and protected paths
 
-### Backend (Spring Boot)
-- Package by feature, not by layer (`habits/`, `checkins/`, `insights/`, `groups/`), each with its own controller/service/repository.
-- REST, not GraphQL, for v1 — keep the surface simple while the app is still one developer.
-- Every write that should trigger a Kafka event does so inside the service layer, not the controller.
-- DTOs at the API boundary; never expose JPA entities directly.
+Never edit, print, copy into a reply, or commit:
+- `api/src/main/resources/application-secrets.properties` (gitignored, holds the Anthropic key)
+- Firebase service account files: `*service-account*.json`, `*firebase-adminsdk*.json`, `*adminsdk*.json`
+- `mobile/.env`, `mobile/.env.local`, `GoogleService-Info.plist`
+- Any API key, password, SMTP credential or token. `spring.mail.password`, `MAIL_SMTP_PASSWORD` and `ANTHROPIC_API_KEY` stay in env vars or the secrets file.
 
-### Mobile (React Native / Expo)
-- Functional components, hooks only, no class components.
-- Mobile-first: implement for phone viewports as the primary target. Use the design assets in /design as the canonical visual spec — Expo web is allowed only for development preview, not for final visual acceptance.
-- Component sizing, spacing, and touch targets must be optimized for mobile (target widths 360–430dp, minimum touch target 44px/44dp, readable type sizes for mobile). Avoid desktop-first layouts.
-- API calls centralized in a single client module, not scattered `fetch` calls.
-- Keep screen components thin; business logic in hooks or a shared state layer.
-- Aim for pixel/spacing fidelity with the design files: colors, icons, typography, and token sizes should be matched or documented if deviating.
+Ask before changing:
+- `firebase-storage.rules` (access rules for profile photos and feedback attachments)
+- `mobile/app.json` (bundle ids, plugins, scheme), `mobile/eas.json`, and the App Group `group.com.habituate.mobile.widget`
+- `mobile/google-services.json`. It is tracked on purpose and holds public client identifiers only. Do not delete or regenerate it.
+- `api/src/main/resources/application.properties`, especially `ddl-auto`, Kafka settings and anything that points at a real service
+- `docker-compose.yml` ports and images
+- `FirebaseAuthFilter` and `SecurityConfig`. A mistake here exposes every user's data.
+- The history in `SKILLS.md`. Older phases are kept as a record of what was built and why. Do not tidy them.
 
-### Mobile visual system — font, effects, dark mode (do not regress)
+Ask before doing:
+- Dropping a table or column, or deleting rows from the dev database
+- Adding any dependency or native module
+- Deploying, pushing to Railway, running `eas build` or `eas submit`, or anything that touches production or a store
+- Calls that cost money or reach real people: the real Anthropic API, real push notifications, real email
+- `git push`, force operations, or rewriting history
 
-These three things were deliberately built together and any new mobile code must follow them, not bypass them:
+Also:
+- Do not commit generated `ios/` or `android/` folders. EAS creates them at build time.
+- `PRIVACY_POLICY_URL` in `mobile/screens/PrivacyScreen.js` points at `https://habituate.app/privacy`. `SKILLS.md` still calls it a placeholder. Nobody has confirmed that page is live, so treat it as a launch blocker to check before store submission. Do not change the URL without asking.
 
-- **Font.** Nunito (via `@expo-google-fonts/nunito`, loaded in `App.js`'s `useFonts` call) is the app's typeface. Never write `fontWeight` alone on a text style that's meant to look like a heading/label/body — use the `fonts.*` keys (`regular`/`semiBold`/`bold`/`extraBold`) or the `typography.*` presets (`screenTitle`/`sectionTitle`/`cardTitle`/`body`/`label`/`meta`) from `theme.js`. Setting `fontWeight` alongside a Nunito `fontFamily` can make Android silently drop the custom font in favor of a fake-bolded system font — set one or the other, never both.
-- **Visual effects.** Progress bars and rings use the gradient tokens in `theme.js` (`gradients.accent/safe/warm`) via `expo-linear-gradient` (flat bars) or an SVG `<LinearGradient>` (rings/icons) — don't revert them to flat `backgroundColor`. Hero cards (Today's summary, the check-in celebration) use `shadowLg`, not `shadow`, to stay visually distinct from ordinary cards. The one flame glyph is `components/FlameIcon.js` (gradient scales with streak length via `flameStopsForStreak`) — never reach for a plain `MaterialCommunityIcons name="fire"` instead, that regresses back to the inconsistent icon set this replaced.
-- **Dark mode.** `theme.js` exports `lightColors`/`darkColors` plus `buildTypography()`/`buildStreakStates()` (functions of a palette, not fixed values) — `hooks/useAppTheme.js`'s `ThemeProvider`/`useAppTheme()` resolves the active one (persisted, with a "system" option that follows the OS). **Every component that needs colors or typography must call `useAppTheme()` and build its `StyleSheet.create()` inside a `useMemo(() => makeStyles(colors, typography), [colors, typography])`**, not at module scope. `StyleSheet.create()` runs once at import time, so a style object built from a static `colors` import freezes at whatever the palette was when the app loaded — that's the bug this pattern exists to prevent. Never import `colors`/`typography`/`streakStates`/`resolveStreakState` directly from `theme.js` in a component (the plain exports are a fallback for non-component code only); always go through the hook. `spacing`, `radii`, `shadow`, `shadowLg`, `fonts`, and `gradients` are palette-independent and *can* stay as plain static imports.
+## 7. Working agreement
 
-### General
-- No feature ships without updating `SKILLS.md`'s checklist for that phase.
-- Anti-guilt UX rules are non-negotiable in any check-in or streak UI: no red X for missed days, no shaming copy, streak freezes must exist before streak pressure mechanics ship.
-- When in doubt about scope, prefer shipping the current phase in `SKILLS.md` over adding a new capability.
+### Confirm the plan before changing code
+Before any edit to a file, post a short plan and wait for the user to say go. This applies to small changes too. For a tiny change the plan can be two lines.
 
-## Current phase
+A plan covers: the goal in one sentence, the files you expect to touch, the approach, risks or product rules involved, what you will verify, and any question you need answered. Use plan mode if it is available. Read-only work (answering questions, reading code, searching) needs no confirmation. If the work changes direction midway, stop and confirm the new plan.
 
-See `SKILLS.md` for the active phase and what's done vs. pending. Update that file, not this one, as phases complete.
+### Use agents for long or complicated work
+Spin up agents when a task is long-running or complicated. That means any of: it spans `api/` and `mobile/`, it needs a broad search across many files, it is a large refactor, it runs a long build or test suite, or it will take many steps.
+
+- Use a read-only search agent for wide lookups and ask for a short conclusion, not file dumps.
+- Use a planning agent to design a multi-part change before the plan is posted.
+- Use a general agent for long builds and test runs, so the output stays out of the main context.
+- Run independent agents in parallel. Write each prompt so it stands alone: goal, paths, constraints, and the shape of report you want back.
+- One agent edits a given file. If agents edit in parallel, give them separate paths.
+- Do not spawn agents for small tasks. A single known file or a quick lookup is cheaper done directly.
+- After a parallel batch, independently verify the result yourself (grep for stray leftovers, re-run the section 5 checks) rather than trusting each agent's self-report at face value — a confident summary is not the same as a verified one.
+
+### Advisory review after any major build
+A major build is a new feature or endpoint, an entity or schema change, a new screen or modal, a change that crosses `api/` and `mobile/`, a dependency or native-module change, or the completion of a `SKILLS.md` checklist item. It is not a copy tweak, a small bug fix, or a docs change.
+
+After a major build and after the section 5 checks pass, run this loop. The limit is 6 rounds.
+
+1. Launch advisory agents in parallel. They are read-only and never edit. Give each one lens and only the diff or file list, not the whole repo. Use only the lenses that apply:
+   - Backend: correctness, auth and ownership, Kafka and Postgres consistency, timezone handling, test coverage.
+   - Mobile: theme and font rules, thin screens, `api/client.js` use, dark mode, touch targets, tour and widget impact.
+   - Product: anti-guilt copy, non-causal coach copy, scope against `SKILLS.md`, privacy.
+2. Each advisor reports findings as blocker, should-fix or nit, with file and line.
+3. Fix every blocker and should-fix. Skip nits unless they are one-line changes. Re-run the section 5 checks.
+4. Start the next round with only the lenses that still had findings.
+5. Stop when a round has no blockers or should-fix items, or after round 6, whichever comes first. Never go past 6.
+6. Report to the user: rounds used, what changed, and anything still unresolved. If round 6 ends with open items, list them plainly and stop. Do not keep looping.
+
+### Skills and token use
+- Check what skills are available before hand-rolling a procedure, and load the matching one. The Expo plugin (`expo@claude-plugins-official`) is enabled in `mobile/.claude/settings.json`. Use it for Expo, EAS and config-plugin work. Use the built-in file skills for docx, xlsx, pdf and pptx output.
+- `design/*.png`, `theme.js` and the visual system rules above win over any generic design skill.
+- Do not read `SKILLS.md` or `docs/background.md` whole. `SKILLS.md` is about 300 lines and roughly 30k tokens. Grep for the phase heading or table name, then read just that range with an offset and limit.
+- Search before reading: Grep and Glob first, then read the lines you need. Do not re-read a file you just edited.
+- Skip `package-lock.json`, `node_modules/` and build output. Open design PNGs only when the task is UI work, and only the relevant one.
+- Keep command output small: `./mvnw -q test`, pipe long output through `tail`, run `git diff --stat` before a full diff.
+- Keep replies short: what changed, which files, what was verified and what was not.
+- If the same multi-step procedure comes up repeatedly (for example "add a new feature package end to end"), suggest turning it into a project skill instead of re-explaining it each time.

@@ -1,14 +1,26 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AvatarImage from './AvatarImage';
 import FlameIcon from './FlameIcon';
+import Toast from './Toast';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useAuth } from '../hooks/useAuth';
+import { useToast } from '../hooks/useToast';
 import api from '../api/client';
+import { navigateToTab } from '../utils/navigationRef';
 import { gradients, radii, shadow, shadowLg, spacing } from '../theme';
+
+function buildShareMessage(stats, firstName) {
+  const bits = [`🔥 ${stats.bestCurrentStreak}-day streak`];
+  if (stats.bestLongestStreak > stats.bestCurrentStreak) {
+    bits.push(`🏆 ${stats.bestLongestStreak}-day best ever`);
+  }
+  bits.push(`📊 ${stats.consistencyPercent30d}% consistent this month`);
+  return `${firstName ? `${firstName} is` : "I'm"} building better habits with Habituate — ${bits.join(' · ')}.`;
+}
 
 /**
  * Opened by tapping Profile's own "Hi {name}, you're doing great" hero card —
@@ -25,9 +37,25 @@ export default function MyStatsModal({ visible, onClose }) {
   const styles = React.useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const { user } = useAuth();
 
+  const { toast, showToast, hideToast } = useToast();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  const goTo = (tab) => {
+    onClose();
+    navigateToTab(tab);
+  };
+
+  const handleShare = async () => {
+    if (!stats) return;
+    const firstName = (user?.displayName || '').split(' ')[0];
+    try {
+      await Share.share({ message: buildShareMessage(stats, firstName) });
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Couldn't share — try again.", 'error');
+    }
+  };
 
   useEffect(() => {
     if (!visible) {
@@ -64,7 +92,20 @@ export default function MyStatsModal({ visible, onClose }) {
           <Text style={styles.headerTitle} numberOfLines={1}>
             My Stats
           </Text>
-          <View style={{ width: 34 }} />
+          <Pressable
+            onPress={handleShare}
+            hitSlop={12}
+            style={styles.closeBtn}
+            disabled={!stats}
+            accessibilityRole="button"
+            accessibilityLabel="Share my stats"
+          >
+            <MaterialCommunityIcons
+              name="share-variant-outline"
+              size={20}
+              color={stats ? colors.accent : colors.textMuted}
+            />
+          </Pressable>
         </View>
 
         {loading ? (
@@ -90,24 +131,34 @@ export default function MyStatsModal({ visible, onClose }) {
               <View style={styles.statsGrid}>
                 <StatTile
                   styles={styles}
+                  colors={colors}
                   icon={<FlameIcon width={20} height={20} streak={stats.bestCurrentStreak} />}
                   label="Best current streak"
                   value={`${stats.bestCurrentStreak}d`}
+                  onPress={() => goTo('Insights')}
+                  actionHint="View in Insights"
                 />
                 <StatTile
                   styles={styles}
+                  colors={colors}
                   icon={<MaterialCommunityIcons name="trophy-outline" size={20} color={colors.accent} />}
                   label="Longest streak"
                   value={`${stats.bestLongestStreak}d`}
+                  onPress={() => goTo('Insights')}
+                  actionHint="View in Insights"
                 />
                 <StatTile
                   styles={styles}
+                  colors={colors}
                   icon={<MaterialCommunityIcons name="target" size={20} color={colors.accent} />}
                   label="Active habits"
                   value={String(stats.activeHabitCount)}
+                  onPress={() => goTo('Habits')}
+                  actionHint="View all habits"
                 />
                 <StatTile
                   styles={styles}
+                  colors={colors}
                   icon={<MaterialCommunityIcons name="calendar-check-outline" size={20} color={colors.accent} />}
                   label="Member since"
                   value={stats.memberSince || '—'}
@@ -128,18 +179,40 @@ export default function MyStatsModal({ visible, onClose }) {
             </View>
           </ScrollView>
         ) : null}
+        <Toast toast={toast} onHide={hideToast} />
       </SafeAreaView>
     </Modal>
   );
 }
 
-function StatTile({ icon, label, value, styles }) {
-  return (
-    <View style={styles.statTile}>
-      {icon}
+/** Tiles with an onPress become real buttons (e.g. "Active habits" jumps to the Habits
+ * tab) — "Member since" has nothing reasonable to act on, so it stays a static fact. */
+function StatTile({ icon, label, value, styles, colors, onPress, actionHint }) {
+  const content = (
+    <>
+      <View style={styles.statTileTopRow}>
+        {icon}
+        {onPress ? <MaterialCommunityIcons name="chevron-right" size={16} color={colors.textMuted} /> : null}
+      </View>
       <Text style={styles.statValue}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
-    </View>
+      {actionHint ? <Text style={styles.statActionHint}>{actionHint}</Text> : null}
+    </>
+  );
+
+  if (!onPress) {
+    return <View style={styles.statTile}>{content}</View>;
+  }
+
+  return (
+    <Pressable
+      style={({ pressed }) => [styles.statTile, pressed && styles.statTilePressed]}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${label}: ${value}. ${actionHint}`}
+    >
+      {content}
+    </Pressable>
   );
 }
 
@@ -196,8 +269,11 @@ function makeStyles(colors, typography) {
       padding: spacing.md,
       gap: 4,
     },
+    statTilePressed: { opacity: 0.7 },
+    statTileTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     statValue: { fontSize: 18, fontWeight: '800', color: colors.textPrimary },
     statLabel: { ...typography.meta },
+    statActionHint: { fontSize: 11, fontWeight: '700', color: colors.accent, marginTop: 2 },
     consistencyLabel: { fontSize: 13, fontWeight: '700', color: colors.textPrimary, marginBottom: spacing.sm },
     progressTrack: {
       height: 8,

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import FriendProfileModal from './FriendProfileModal';
 import Toast from './Toast';
 import { useAppTheme } from '../hooks/useAppTheme';
@@ -76,6 +77,12 @@ export default function GroupsManageModal({ visible, onClose }) {
       await (accept ? acceptRequest(requestId) : declineRequest(requestId));
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Something went wrong — try again.', 'error');
+      return;
+    }
+    if (accept) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    } else {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     }
   };
 
@@ -86,7 +93,9 @@ export default function GroupsManageModal({ visible, onClose }) {
       showToast('Joined — you’re in.', 'success');
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Couldn't join — try again.", 'error');
+      return;
     }
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
   };
 
   const handleInviteFriend = async (groupId, friendUserId, label) => {

@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import AvatarImage from '../components/AvatarImage';
 import EditProfileModal from '../components/EditProfileModal';
 import MyStatsModal from '../components/MyStatsModal';
@@ -74,7 +75,9 @@ export default function ProfileScreen() {
       await toggleCheer(item);
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Couldn't update that — try again.", 'error');
+      return;
     }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
   };
 
   const handleSignOut = async () => {

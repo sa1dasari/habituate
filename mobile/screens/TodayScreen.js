@@ -12,6 +12,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 import HabitCard from '../components/HabitCard';
 import GoalsSummaryCard from '../components/GoalsSummaryCard';
 import AvatarImage from '../components/AvatarImage';
@@ -164,7 +165,12 @@ export default function TodayScreen() {
         (habit.checkedInToday
           ? null
           : buildCheckInCelebration(habit, delta, { todayDone, todayTotal: summary.total }));
-      if (payload) showCelebration(payload);
+      if (payload) {
+        // A milestone/all-done moment is a bigger deal than a plain check-in tap, so it
+        // gets the stronger "success" haptic rather than the light tap below.
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        showCelebration(payload);
+      }
     },
     [summary, showCelebration]
   );
@@ -178,6 +184,7 @@ export default function TodayScreen() {
         showToast(`Could not update check-in — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
         return;
       }
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
       if (!wasChecked) celebrate(habit, 1);
     },
     [toggleCheckIn, celebrate]
@@ -196,7 +203,9 @@ export default function TodayScreen() {
         await toggleShield(habit.id);
       } catch (err) {
         showToast(`Couldn't update shield — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+        return;
       }
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     },
     [toggleShield, shieldsAvailable, navigation]
   );
@@ -209,6 +218,7 @@ export default function TodayScreen() {
         showToast(`Could not log check-in — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
         return;
       }
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
       celebrate(habit, 1);
     },
     [addCheckIn, celebrate]
@@ -222,6 +232,7 @@ export default function TodayScreen() {
         showToast(`Could not log progress — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
         return;
       }
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
       celebrate(habit, amount);
     },
     [addCheckIn, celebrate]
@@ -259,7 +270,9 @@ export default function TodayScreen() {
         await removeLastCheckIn(habitId);
       } catch (err) {
         showToast(`Could not undo check-in — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+        return;
       }
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     },
     [removeLastCheckIn]
   );

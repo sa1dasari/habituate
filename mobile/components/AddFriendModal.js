@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import api from '../api/client';
 import AvatarImage from './AvatarImage';
 import FriendProfileModal from './FriendProfileModal';
@@ -110,6 +111,14 @@ export default function AddFriendModal({ visible, onClose }) {
       await (accept ? acceptRequest(request.id) : declineRequest(request.id));
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Something went wrong — try again.', 'error');
+      return;
+    }
+    // Accepting a new friend is a bigger moment than declining, which stays neutral —
+    // no shaming feel for the person who gets declined, or the one declining.
+    if (accept) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    } else {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     }
   };
 

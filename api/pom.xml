@@ -42,11 +42,6 @@
             <scope>runtime</scope>
         </dependency>
 
-        <dependency>
-            <groupId>org.springframework.kafka</groupId>
-            <artifactId>spring-kafka</artifactId>
-        </dependency>
-
         <!-- Email notifications when a user submits feedback (Account Settings > Report a Bug/Suggestion) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

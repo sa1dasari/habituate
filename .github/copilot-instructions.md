@@ -3,7 +3,7 @@
 ## Build, test, and validation commands
 
 ### Local infrastructure
-- Start Postgres, Zookeeper, and Kafka: `docker compose up -d`
+- Start Postgres: `docker compose up -d`
 
 ### Backend (Spring Boot)
 - Run the API: `cd api && ./mvnw spring-boot:run`
@@ -27,16 +27,16 @@
 This repository is split into three main runtime areas:
 
 - `mobile/`: React Native app built with Expo. The app is the client surface for habits, goals, insights, and group flows.
-- `api/`: Spring Boot backend that owns the REST API, persistence, and Kafka publication for check-ins.
-- `streaming/`: Flink jobs for the correlation/insight pipeline.
-- `infra/`: Terraform and local Docker Compose configuration for the data and event infrastructure.
+- `api/`: Spring Boot backend that owns the REST API and persistence for check-ins.
+- `infra/`: Terraform and local Docker Compose configuration for the data infrastructure (Terraform is a planned Phase 9 item, not yet provisioned).
 
 The repo intentionally follows this flow:
 
-- Write path: Mobile app → Spring Boot API → Postgres (source of truth) + Kafka topic `checkin-events`
-- Insight path: Kafka `checkin-events` → Flink correlation job → insights store → mobile notifications / API serving
+- Write path: Mobile app → Spring Boot API → Postgres (source of truth), in the same request
+- A group-linked check-in recomputes that group's shared streak synchronously, right after the check-in write, in the same request — not a separate pipeline
+- Ask Habituate (the AI coach) is request-driven: on each chat message, `CoachContextBuilder` reads current stats straight from `check_ins`/`StreakCalculator` and sends them to Anthropic's Messages API as grounding context
 
-The important architectural rule is that every check-in is both stored in Postgres and emitted to Kafka in the same request path; the app is designed around that event-driven insight engine rather than a purely batch approach.
+The important architectural rule is that a check-in write and anything that depends on it (group streaks, notifications) happen in the same request path, synchronously.
 
 ## Key conventions
 
@@ -45,10 +45,9 @@ The important architectural rule is that every check-in is both stored in Postgr
 - The repo is intentionally structured around phased delivery; keep changes scoped to the current phase unless a direct dependency requires otherwise.
 
 ### Backend conventions
-- Package by feature, not by technical layer (for example `habits`, `checkins`, `insights`, `groups`).
-- Keep REST controllers thin; business logic and Kafka publishing belong in the service layer.
+- Package by feature, not by technical layer (for example `habits`, `checkins`, `coach`, `groups`).
+- Keep REST controllers thin; business logic belongs in the service layer.
 - DTOs are for API boundaries; do not expose JPA entities directly.
-- Any write that should trigger an event must publish the Kafka event inside the service layer, not in the controller.
 - The current backend skeleton already uses `com.habituate.api.health.HealthController`, with an `@GetMapping("/api/health")` endpoint.
 
 ### Mobile conventions
@@ -59,11 +58,11 @@ The important architectural rule is that every check-in is both stored in Postgr
 
 ### Product and UX conventions
 - Anti-guilt UX is a project-specific requirement, not a stylistic preference: no red X states, no shaming copy, and streak freezes must exist before any streak-pressure mechanics ship.
-- Shared/group habits and correlations are first-class product features; avoid turning this into a generic to-do tracker.
+- Shared/group habits and the Ask Habituate AI coach (grounded in real check-in data, never a generic chatbot) are first-class product features; avoid turning this into a generic to-do tracker.
 
 ### Data model and domain language
-- The canonical domain vocabulary is defined in `CLAUDE.md`: users, habits, check_ins, goals, correlations, insights, friendships, groups, and group streaks.
-- When adding code or schema, match the project language around habitual tracking, shared streaks, and correlation-driven insights.
+- The canonical domain vocabulary is defined in `CLAUDE.md`: users, habits, check_ins, goals, coach_messages, friendships, groups, and group streaks. There is no `correlations` or `insights` table — both were hard-deleted 2026-10-04.
+- When adding code or schema, match the project language around habitual tracking, shared streaks, and the AI coach's data-grounded (never causal) copy.
 
 ## Working style for this repo
 

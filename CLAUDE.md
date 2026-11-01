@@ -4,7 +4,7 @@ Standing instructions for any AI assistant working in this repo. Read this first
 
 ## 1. Project overview
 
-Habituate is a habit tracker for iOS and Android. The main flow: a user opens the Today tab, taps a habit to check in, the API writes the check-in to Postgres and publishes it to Kafka, and personal streaks, group streaks and the friend activity feed update from there. Users can also ask "Ask Habituate", an AI coach that answers from their own check-in stats and can propose changes they must confirm.
+Habituate is a habit tracker for iOS and Android. The main flow: a user opens the Today tab, taps a habit to check in, the API writes the check-in to Postgres, and personal streaks, group streaks and the friend activity feed update from there. Users can also ask "Ask Habituate", an AI coach that answers from their own check-in stats and can propose changes they must confirm.
 
 Three things set it apart from generic trackers:
 1. An AI coach grounded in real check-in data, not a generic chatbot.
@@ -24,7 +24,7 @@ Phases 0 to 8.5 and 10 are done. Phase 9 (production readiness) is the open gate
 - Coach and any insight copy stays non-causal and tied to real data: "you complete Y on X% of the days you complete X", never "X causes Y". `CoachPrompts` enforces this in the system prompt.
 - The coach never changes data on its own. A proposal only takes effect when the user confirms (`CoachService.confirmProposal`).
 - Shared Habits and Challenges are separate in the data model and the UI. Do not merge them.
-- Groups reuse the `checkin-events` stream as filtered consumers. Do not build a parallel pipeline.
+- Group streak recomputation happens synchronously, in the same request as the check-in write. Do not build a separate async pipeline for it.
 - Another user's data is readable only through friendship-gated endpoints. Profiles default to PRIVATE.
 - Design first, mobile first. `design/*.png` is the UI spec. Target 360 to 430dp widths and 44dp touch targets. Expo web is a dev preview only, never the acceptance target.
 
@@ -39,22 +39,22 @@ Phases 0 to 8.5 and 10 are done. Phase 9 (production readiness) is the open gate
 
 ### Backend (`api/`)
 - Java 21, Spring Boot 3.3.3, Maven wrapper (`./mvnw`).
-- Spring Web, Data JPA (Hibernate), Validation, Security, Actuator, Mail, `spring-kafka`, `firebase-admin` 9.4.1.
+- Spring Web, Data JPA (Hibernate), Validation, Security, Actuator, Mail, `firebase-admin` 9.4.1.
 - Coach: Anthropic Messages API called with `RestClient` (no SDK) in `AnthropicClient`, model `claude-sonnet-5`, server side only.
 - Schema comes from `spring.jpa.hibernate.ddl-auto=update`. There are no migrations yet (Flyway is a Phase 9 item).
 
 ### Data and services
-- Postgres 16 (docker `postgres:16-alpine`), Kafka and Zookeeper (Confluent 7.6.1), topic `checkin-events` (1 partition, 1 replica in dev).
+- Postgres 16 (docker `postgres:16-alpine`).
 - Firebase Auth (email/password, Google, Facebook, Apple). The backend verifies the ID token on every request in `FirebaseAuthFilter`.
 - Push goes through Expo's push service, not FCM directly. Photos and feedback attachments upload from the client straight to Firebase Storage.
-- Hosting: the API appears to run on Railway today (`PORT` placeholder in `application.properties`, `EXPO_PUBLIC_API_URL` in `mobile/eas.json`). Terraform on AWS (ECS Fargate, RDS, MSK) is the Phase 9 plan. `infra/` and `streaming/` are empty placeholders. There is no Flink.
+- Hosting: the API appears to run on Railway today (`PORT` placeholder in `application.properties`, `EXPO_PUBLIC_API_URL` in `mobile/eas.json`). Terraform on AWS (ECS Fargate, RDS) is the Phase 9 plan. `infra/` is an empty placeholder.
 
 ### Do not
 - Do not add Redux or another state library. Use hooks and the existing providers.
 - Do not use GraphQL (REST only for v1) or class components. Do not treat the Expo web preview as a deliverable.
 - Do not call Anthropic from the mobile app or put an API key in the client.
 - Do not expose JPA entities from controllers. Do not accept a client-supplied user ID. Read `userId` from the request attribute set by `FirebaseAuthFilter`.
-- Do not add Flink, a second event pipeline, or a Kafka consumer that is not a filtered consumer of `checkin-events` with its own consumer group id.
+- Do not add a message broker or event-streaming pipeline for in-app updates. Group streaks, notifications and the activity feed all read straight from Postgres via direct, synchronous service calls in the same request.
 - Do not add a native module, run `expo prebuild` and commit `ios/` or `android/`, or add any dependency without asking. The home-screen widgets are the one approved exception to staying managed-workflow friendly.
 - Do not set `fontWeight` together with a Nunito `fontFamily`. Do not import `colors`, `typography` or `streakStates` from `theme.js` inside components. Do not use a plain `fire` icon or flat progress-bar colors. See section 4.
 
@@ -63,7 +63,7 @@ Phases 0 to 8.5 and 10 are done. Phase 9 (production readiness) is the open gate
 The author works on Windows. Use `./mvnw` in bash and `mvnw.cmd` in PowerShell.
 
 ```bash
-# Local infra: postgres :5432, kafka :9092, zookeeper, pgadmin :5050, kafka-ui :8082
+# Local infra: postgres :5432, pgadmin :5050
 docker compose up -d
 
 # Backend
@@ -91,7 +91,7 @@ Notes:
 ## 4. Architecture and directory map
 
 ### Write path
-Mobile app, then Spring Boot API, then Postgres (source of truth) and a Kafka event on `checkin-events`, in the same request. If either fails, the request fails. The check-in write in `HabitService` is `@Transactional`. Kafka publishing happens in the service layer, never the controller.
+Mobile app, then Spring Boot API, then Postgres (source of truth), in the same request. The check-in write in `HabitService` is `@Transactional`, and any group streak recompute happens synchronously right after, in the service layer, never the controller.
 
 ### Backend layout: `api/src/main/java/com/habituate/api/`
 Package by feature. Each feature owns its controller, service, repository, entities and DTOs.
@@ -106,13 +106,12 @@ Package by feature. Each feature owns its controller, service, repository, entit
 | `notifications` | in-app notifications, Expo push, reminder and period-summary schedulers |
 | `users` | profile, username, timezone, visibility, friend profile, account deletion |
 | `feedback` | bug and suggestion reports, email notification |
-| `events` | Kafka topic config, publisher, logger consumer |
 | `config` | Firebase, security, CORS, `FirebaseAuthFilter` |
 | `common` | shared exceptions and `GlobalExceptionHandler` |
 | `health` | `GET /api/health` |
 
 Placement rules:
-- Controllers stay thin. Business logic, ownership checks and Kafka publishing go in services.
+- Controllers stay thin. Business logic and ownership checks go in services.
 - Keep pure logic separate from Spring so it is easy to test (`StreakCalculator`, `GroupStreakEngine`).
 - DTOs named `*Request` and `*Response` sit at the API boundary.
 - Scheduled jobs live in the feature package they serve.
@@ -147,7 +146,7 @@ Placement rules:
 Run these before saying a task is done. Fix what you broke. Do not leave new errors or new warnings.
 
 Backend change:
-1. `cd api && ./mvnw test` passes. All 24 `@SpringBootTest` classes use the real local Postgres and Kafka from `docker compose up -d`. There is no separate test database, so tests write to the dev database.
+1. `cd api && ./mvnw test` passes. All `@SpringBootTest` classes use the real local Postgres from `docker compose up -d`. There is no separate test database, so tests write to the dev database.
 2. New service logic gets a test. Follow the existing pattern: pure logic tested directly, services tested with outside systems mocked (`AnthropicClient`, `UserLookupService`). Tests must never call the real Anthropic API or send real email or push.
 3. Check ownership: every endpoint that takes an id must verify the caller owns it or is allowed to see it.
 4. A new failure case gets a specific `GlobalExceptionHandler`-mapped message, not a generic one — see §4's error-handling rule.
@@ -176,7 +175,7 @@ Ask before changing:
 - `firebase-storage.rules` (access rules for profile photos and feedback attachments)
 - `mobile/app.json` (bundle ids, plugins, scheme), `mobile/eas.json`, and the App Group `group.com.habituate.mobile.widget`
 - `mobile/google-services.json`. It is tracked on purpose and holds public client identifiers only. Do not delete or regenerate it.
-- `api/src/main/resources/application.properties`, especially `ddl-auto`, Kafka settings and anything that points at a real service
+- `api/src/main/resources/application.properties`, especially `ddl-auto` and anything that points at a real service
 - `docker-compose.yml` ports and images
 - `FirebaseAuthFilter` and `SecurityConfig`. A mistake here exposes every user's data.
 - The history in `SKILLS.md`. Older phases are kept as a record of what was built and why. Do not tidy them.
@@ -216,7 +215,7 @@ A major build is a new feature or endpoint, an entity or schema change, a new sc
 After a major build and after the section 5 checks pass, run this loop. The limit is 6 rounds.
 
 1. Launch advisory agents in parallel. They are read-only and never edit. Give each one lens and only the diff or file list, not the whole repo. Use only the lenses that apply:
-   - Backend: correctness, auth and ownership, Kafka and Postgres consistency, timezone handling, test coverage.
+   - Backend: correctness, auth and ownership, Postgres consistency, timezone handling, test coverage.
    - Mobile: theme and font rules, thin screens, `api/client.js` use, dark mode, touch targets, tour and widget impact.
    - Product: anti-guilt copy, non-causal coach copy, scope against `SKILLS.md`, privacy.
 2. Each advisor reports findings as blocker, should-fix or nit, with file and line.

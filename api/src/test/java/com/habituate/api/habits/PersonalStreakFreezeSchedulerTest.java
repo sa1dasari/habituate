@@ -1,7 +1,6 @@
 package com.habituate.api.habits;
 
 import com.habituate.api.checkins.CheckInRequest;
-import com.habituate.api.events.CheckInEventPublisher;
 import com.habituate.api.groups.StreakFreeze;
 import com.habituate.api.groups.StreakFreezeRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -33,9 +32,6 @@ class PersonalStreakFreezeSchedulerTest {
 
     @Autowired
     private ShieldAwardRepository shieldAwardRepository;
-
-    @MockBean
-    private CheckInEventPublisher checkInEventPublisher;
 
     private String userId;
     private Long habitId;

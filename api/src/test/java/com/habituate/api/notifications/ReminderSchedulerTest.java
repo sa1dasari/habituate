@@ -1,6 +1,5 @@
 package com.habituate.api.notifications;
 
-import com.habituate.api.events.CheckInEventPublisher;
 import com.habituate.api.habits.CreateHabitRequest;
 import com.habituate.api.habits.HabitService;
 import com.habituate.api.users.User;
@@ -37,9 +36,6 @@ class ReminderSchedulerTest {
 
     @Autowired
     private PushTokenRepository pushTokenRepository;
-
-    @MockBean
-    private CheckInEventPublisher checkInEventPublisher;
 
     @MockBean
     private ExpoPushService expoPushService;

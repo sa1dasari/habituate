@@ -5,15 +5,17 @@ import com.habituate.api.checkins.CheckInRepository;
 import com.habituate.api.checkins.CheckInRequest;
 import com.habituate.api.common.DuplicateCheckInException;
 import com.habituate.api.common.ForbiddenException;
-import com.habituate.api.events.CheckInEventPublisher;
 import com.habituate.api.groups.GroupMember;
 import com.habituate.api.groups.GroupMemberRepository;
+import com.habituate.api.groups.GroupStreakUpdater;
 import com.habituate.api.groups.StreakFreeze;
 import com.habituate.api.groups.StreakFreezeRepository;
 import com.habituate.api.groups.UserLookupService;
 import com.habituate.api.notifications.AppNotification;
 import com.habituate.api.notifications.AppNotificationService;
 import jakarta.persistence.EntityNotFoundException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,10 +32,12 @@ import java.util.stream.Collectors;
 @Service
 public class HabitService {
 
+    private static final Logger log = LoggerFactory.getLogger(HabitService.class);
+
     private final HabitRepository habitRepository;
     private final CheckInRepository checkInRepository;
-    private final CheckInEventPublisher checkInEventPublisher;
     private final GroupMemberRepository groupMemberRepository;
+    private final GroupStreakUpdater groupStreakUpdater;
     private final StreakFreezeRepository streakFreezeRepository;
     private final ShieldAwardService shieldAwardService;
     private final ShieldAwardRepository shieldAwardRepository;
@@ -43,8 +47,8 @@ public class HabitService {
     public HabitService(
             HabitRepository habitRepository,
             CheckInRepository checkInRepository,
-            CheckInEventPublisher checkInEventPublisher,
             GroupMemberRepository groupMemberRepository,
+            GroupStreakUpdater groupStreakUpdater,
             StreakFreezeRepository streakFreezeRepository,
             ShieldAwardService shieldAwardService,
             ShieldAwardRepository shieldAwardRepository,
@@ -52,8 +56,8 @@ public class HabitService {
             AppNotificationService appNotificationService) {
         this.habitRepository = habitRepository;
         this.checkInRepository = checkInRepository;
-        this.checkInEventPublisher = checkInEventPublisher;
         this.groupMemberRepository = groupMemberRepository;
+        this.groupStreakUpdater = groupStreakUpdater;
         this.streakFreezeRepository = streakFreezeRepository;
         this.shieldAwardService = shieldAwardService;
         this.shieldAwardRepository = shieldAwardRepository;
@@ -288,8 +292,7 @@ public class HabitService {
     // below, but Spring's @Transactional only applies through the proxy, not
     // on an internal this.method() call — so this overload needs its own
     // @Transactional too, or a caller entering through here wouldn't get a
-    // transaction at all (the Kafka-failure rollback test would silently pass
-    // without ever exercising a rollback).
+    // transaction at all.
     @Transactional
     public CheckIn createCheckIn(String userId, Long habitId, CheckInRequest request) {
         return createCheckIn(userId, habitId, request, null);
@@ -348,17 +351,27 @@ public class HabitService {
         );
 
         // If this habit is linked to a group (see groups.GroupMember), tag the
-        // check-in so GroupStreakConsumer's checkin-events listener can filter
-        // to it — per CLAUDE.md, a group is just a filtered consumer of the
-        // same stream, not a separate check-in path.
+        // check-in so its group's shared streak gets recomputed below.
         groupMemberRepository.findByHabitIdAndStatus(habitId, GroupMember.ACTIVE).ifPresent(member -> {
             checkIn.setGroupId(member.getGroupId());
             notifyGroupmatesOfCheckIn(member.getGroupId(), userId, habit.getName());
         });
 
         CheckIn saved = checkInRepository.save(checkIn);
-        checkInEventPublisher.publishCreated(saved);
+        if (saved.getGroupId() != null) {
+            recomputeGroupStreakQuietly(saved.getGroupId());
+        }
         return saved;
+    }
+
+    /** Best-effort, same convention as notifyGroupmatesOfCheckIn right above — a stale shared
+     * streak for a moment is harmless, but it must never fail the check-in that triggered it. */
+    private void recomputeGroupStreakQuietly(Long groupId) {
+        try {
+            groupStreakUpdater.recomputeGroupStreak(groupId);
+        } catch (Exception e) {
+            log.warn("Could not recompute group streak for group {}: {}", groupId, e.getMessage());
+        }
     }
 
     /** Best-effort fan-out to every *other* active member of this shared habit's group —
@@ -384,6 +397,8 @@ public class HabitService {
         }
 
         checkInRepository.delete(checkIn);
-        checkInEventPublisher.publishDeleted(checkIn);
+        if (checkIn.getGroupId() != null) {
+            recomputeGroupStreakQuietly(checkIn.getGroupId());
+        }
     }
 }

@@ -1,7 +1,6 @@
 package com.habituate.api.groups;
 
 import com.habituate.api.common.ForbiddenException;
-import com.habituate.api.events.CheckInEventPublisher;
 import com.habituate.api.habits.CreateHabitRequest;
 import com.habituate.api.habits.HabitService;
 import org.junit.jupiter.api.AfterEach;
@@ -42,9 +41,6 @@ class GroupServiceTest {
 
     @Autowired
     private FriendshipRepository friendshipRepository;
-
-    @MockBean
-    private CheckInEventPublisher checkInEventPublisher;
 
     @MockBean
     private UserLookupService userLookupService;

@@ -12,5 +12,7 @@ public interface FriendshipRepository extends JpaRepository<Friendship, Long> {
 
     List<Friendship> findByRecipientIdAndStatus(String recipientId, String status);
 
+    List<Friendship> findByRequesterIdOrRecipientId(String requesterId, String recipientId);
+
     void deleteByRequesterIdOrRecipientId(String requesterId, String recipientId);
 }

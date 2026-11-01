@@ -1,7 +1,6 @@
 package com.habituate.api.groups;
 
 import com.habituate.api.checkins.CheckInRequest;
-import com.habituate.api.events.CheckInEventPublisher;
 import com.habituate.api.habits.CreateHabitRequest;
 import com.habituate.api.habits.HabitService;
 import org.junit.jupiter.api.AfterEach;
@@ -11,7 +10,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -22,13 +20,11 @@ import static org.mockito.Mockito.when;
 /**
  * Exercises the real end-to-end path this phase's exit criteria cares about:
  * two accounts sharing a habit, checking in, and the group streak updating —
- * calling GroupStreakConsumer.recomputeGroupStreak directly (what
- * HabitService.createCheckIn tagging + the real Kafka listener would trigger
- * in production) rather than going through the actual broker, so the test
- * is deterministic instead of racing an async consumer thread.
+ * checking in through HabitService alone, since it already recomputes the
+ * group streak synchronously as part of the same check-in write.
  */
 @SpringBootTest
-class GroupStreakConsumerTest {
+class GroupStreakUpdaterTest {
 
     @Autowired
     private HabitService habitService;
@@ -38,9 +34,6 @@ class GroupStreakConsumerTest {
 
     @Autowired
     private FriendshipService friendshipService;
-
-    @Autowired
-    private GroupStreakConsumer groupStreakConsumer;
 
     @Autowired
     private GroupRepository groupRepository;
@@ -53,9 +46,6 @@ class GroupStreakConsumerTest {
 
     @Autowired
     private FriendshipRepository friendshipRepository;
-
-    @MockBean
-    private CheckInEventPublisher checkInEventPublisher;
 
     @MockBean
     private UserLookupService userLookupService;
@@ -112,14 +102,12 @@ class GroupStreakConsumerTest {
 
         // Only A has checked in today — ALL_MEMBERS shouldn't qualify yet.
         checkInToday(userA, habitA);
-        groupStreakConsumer.recomputeGroupStreak(groupId);
 
         GroupStreak afterOnlyA = groupStreakRepository.findById(groupId).orElseThrow();
         assertThat(afterOnlyA.getCurrentStreak()).isEqualTo(0);
 
         // Now B checks in too — ALL_MEMBERS now qualifies.
         checkInToday(userB, habitB);
-        groupStreakConsumer.recomputeGroupStreak(groupId);
 
         GroupStreak afterBoth = groupStreakRepository.findById(groupId).orElseThrow();
         assertThat(afterBoth.getCurrentStreak()).isEqualTo(1);
@@ -148,7 +136,6 @@ class GroupStreakConsumerTest {
         groupService.acceptInvite(userB, groupId, habitB);
 
         checkInToday(userA, habitA);
-        groupStreakConsumer.recomputeGroupStreak(groupId);
 
         GroupStreak streak = groupStreakRepository.findById(groupId).orElseThrow();
         assertThat(streak.getCurrentStreak()).isEqualTo(1);

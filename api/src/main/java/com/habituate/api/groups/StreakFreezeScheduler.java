@@ -11,7 +11,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 
 /**
- * GroupStreakConsumer only ever reacts to a check-in arriving (a positive
+ * GroupStreakUpdater only ever reacts to a check-in arriving (a positive
  * signal) — it never notices "a day closed without anyone checking in,"
  * since no event fires for that. This daily sweep is what actually closes
  * out a day: for each group whose streak didn't qualify yesterday, either

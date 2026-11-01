@@ -1,12 +1,12 @@
 # Habituate
 
-A habit tracker that goes beyond checkmarks — it finds the patterns between your habits, lets you build streaks with friends, and turns your data into a shareable yearly recap.
+A habit tracker that goes beyond checkmarks — it answers questions about your habits with an AI coach grounded in your real data, lets you build streaks with friends, and (soon) turns your data into a shareable yearly recap.
 
 ## Why this exists
 
 Most habit trackers are glorified checklists: log a habit, get a streak number, feel guilty when it breaks. Habituate is built around three ideas that most trackers skip:
 
-1. **Correlation over checkmarks.** A real-time engine surfaces relationships between your habits (e.g. "you complete Morning Walk 90% of the time on days you also complete Morning Coffee"), framed honestly as conditional probability — never as a causal claim.
+1. **An AI coach, not a generic chatbot.** "Ask Habituate" answers questions grounded in your real check-in data (e.g. "you complete Morning Walk on 90% of the days you also complete Morning Coffee"), framed honestly as conditional frequency — never as a causal claim — and can propose a concrete habit adjustment that only takes effect once you confirm it. This replaced an earlier real-time correlation/pattern-detection engine, which shipped, then was removed once real usage showed the "pattern detected" cards weren't useful.
 2. **Shared accountability.** Habits can be tracked solo or as a group — Snapchat-style streaks, but for things that actually matter, with a visible rule for what keeps the streak alive.
 3. **Anti-guilt design.** No red X's for missed days. Trend framing over perfection framing. Streak freezes instead of all-or-nothing pressure.
 
@@ -20,11 +20,9 @@ Most habit trackers are glorified checklists: log a habit, get a streak number, 
 - Push reminders
 
 ### Insights
-- Weekly/monthly/yearly consistency view (completion ring, trend delta)
-- "Pattern detected" cards: pairwise habit correlation shown as a directional relationship (Habit A → Habit B) with a match percentage and plain-language description
-- Correlation copy is always phrased as conditional frequency ("X% of the time"), never as causation
-- Evidence-based nudge attached to each pattern, suggesting a concrete action based on the detected relationship
-- Streak-risk prediction
+- Daily/weekly/monthly/yearly consistency view (completion ring, trend delta, prev/next period navigation)
+- Tapping the ring opens a per-habit detail: horizontal habit picker, bar graph of period-bucketed history, plain-language summary
+- "Ask Habituate" entry card with 3 suggested starter questions, opening the AI coach chat
 
 ### Goals
 - Freeform weekly/monthly goals, independent of a single habit
@@ -35,7 +33,7 @@ Most habit trackers are glorified checklists: log a habit, get a streak number, 
 - **Challenges** — separate from Shared Habits; a time-boxed, multi-person goal with its own progress bar, not tied to daily streak mechanics
 - Friend activity feed
 
-### Habituate Wrapped
+### Habituate Wrapped (planned, not yet built)
 - Monthly and annual auto-generated recap
 - Shareable image cards
 
@@ -46,18 +44,15 @@ Most habit trackers are glorified checklists: log a habit, get a streak number, 
 | Mobile | React Native (Expo) |
 | Backend API | Spring Boot (Java) |
 | Database | PostgreSQL |
-| Event streaming | Kafka |
-| Stream processing | Apache Flink |
+| AI coach | Anthropic Messages API (server-side only) |
 | Auth | Firebase Auth |
-| Push notifications | Firebase Cloud Messaging |
-| Infra | Docker Compose (local), Terraform + AWS (ECS Fargate, RDS, MSK) |
+| Push notifications | Expo push service (not FCM directly) |
+| Infra | Docker Compose (local), Terraform + AWS (ECS Fargate, RDS) — planned, not yet provisioned |
 
 ## Architecture
 
-Two flows:
-
-- **Write path:** Mobile app → Spring Boot API → Postgres (source of truth) + Kafka (`checkin-events`)
-- **Insight path:** Kafka (`checkin-events`) → Flink job (windowed correlation) → Insights store → push notification back to mobile
+- **Write path:** Mobile app → Spring Boot API → Postgres (source of truth), in the same request. Group streaks recompute synchronously right after a group-linked check-in is written.
+- **Ask Habituate (AI coach) path:** request-driven — on each chat message, the backend reads current per-habit stats straight from Postgres and sends them to Anthropic's Messages API as grounding context. No stream processing, no nightly job.
 
 Full data model and diagrams live in `CLAUDE.md`.
 
@@ -66,7 +61,6 @@ Full data model and diagrams live in `CLAUDE.md`.
 ```
 /mobile        React Native app
 /api           Spring Boot service
-/streaming     Flink jobs
 /infra         Terraform + Docker Compose
 CLAUDE.md      Architecture, conventions, and build context for AI-assisted development
 SKILLS.md      Step-by-step build order and phase checklist
@@ -77,7 +71,7 @@ README.md      This file
 
 ```bash
 # clone and set up local infra
-docker compose up -d        # postgres, kafka, zookeeper
+docker compose up -d        # postgres
 
 # backend
 cd api && ./mvnw spring-boot:run

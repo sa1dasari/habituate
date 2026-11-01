@@ -32,14 +32,23 @@ class UserProfileServiceTest {
     @AfterEach
     void cleanup() {
         if (userId != null) {
-            friendshipRepository.deleteByRequesterIdOrRecipientId(userId, userId);
+            deleteFriendships(userId);
             userRepository.deleteById(userId);
         }
         extraUserIdsToClean.forEach(id -> {
-            friendshipRepository.deleteByRequesterIdOrRecipientId(id, id);
+            deleteFriendships(id);
             userRepository.deleteById(id);
         });
         extraUserIdsToClean.clear();
+    }
+
+    // The derived deleteByX query needs an active transaction to remove() each matched row —
+    // fine from UserProfileService's own @Transactional method, but not called bare from a test's
+    // @AfterEach. find-then-deleteById instead, since deleteById is always transactional-safe
+    // (JpaRepository wraps it itself).
+    private void deleteFriendships(String userId) {
+        friendshipRepository.findByRequesterIdOrRecipientId(userId, userId)
+                .forEach(f -> friendshipRepository.deleteById(f.getId()));
     }
 
     private static UpdateUserProfileRequest dob(String dateOfBirth) {

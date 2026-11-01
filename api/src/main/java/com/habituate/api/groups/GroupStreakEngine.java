@@ -5,12 +5,12 @@ import java.util.Collection;
 
 /**
  * Pure streak-rule math — no Spring, no DB — same separation of pure logic
- * from the Kafka-consuming service used by the former CorrelationEngine
+ * from the service layer used by the former CorrelationEngine
  * (removed 2026-10-04, see CLAUDE.md).
  *
  * Bucketed in UTC: a group can span members in different timezones, and
  * this engine has no way to pick one over another for "today." users.timezone
- * now exists (added for ReminderScheduler) but GroupStreakConsumer doesn't
+ * now exists (added for ReminderScheduler) but GroupStreakUpdater doesn't
  * use it yet — worth revisiting, not done as part of this change.
  */
 public final class GroupStreakEngine {

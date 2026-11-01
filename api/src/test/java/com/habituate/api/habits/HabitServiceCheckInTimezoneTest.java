@@ -3,7 +3,6 @@ package com.habituate.api.habits;
 import com.habituate.api.checkins.CheckIn;
 import com.habituate.api.checkins.CheckInRequest;
 import com.habituate.api.common.DuplicateCheckInException;
-import com.habituate.api.events.CheckInEventPublisher;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,9 +34,6 @@ class HabitServiceCheckInTimezoneTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
-
-    @MockBean
-    private CheckInEventPublisher checkInEventPublisher;
 
     private String userId;
     private Long habitId;

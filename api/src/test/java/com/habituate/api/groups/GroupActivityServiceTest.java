@@ -2,7 +2,6 @@ package com.habituate.api.groups;
 
 import com.habituate.api.checkins.CheckInRequest;
 import com.habituate.api.common.ForbiddenException;
-import com.habituate.api.events.CheckInEventPublisher;
 import com.habituate.api.habits.CreateHabitRequest;
 import com.habituate.api.habits.HabitService;
 import com.habituate.api.notifications.AppNotification;
@@ -57,9 +56,6 @@ class GroupActivityServiceTest {
 
     @Autowired
     private CheckInCheerRepository checkInCheerRepository;
-
-    @MockBean
-    private CheckInEventPublisher checkInEventPublisher;
 
     @MockBean
     private UserLookupService userLookupService;

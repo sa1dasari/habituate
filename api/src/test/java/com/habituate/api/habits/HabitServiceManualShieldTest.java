@@ -2,7 +2,6 @@ package com.habituate.api.habits;
 
 import com.habituate.api.checkins.CheckIn;
 import com.habituate.api.checkins.CheckInRepository;
-import com.habituate.api.events.CheckInEventPublisher;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,9 +26,6 @@ class HabitServiceManualShieldTest {
 
     @Autowired
     private CheckInRepository checkInRepository;
-
-    @MockBean
-    private CheckInEventPublisher checkInEventPublisher;
 
     private String userId;
     private Long habitId;

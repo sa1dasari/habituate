@@ -34,7 +34,7 @@ public record GroupResponse(
     /** currentStreak is null for a COOPERATIVE group (not computed — the shared counter above is authoritative);
      * populated per-member only when trackingMode is INDEPENDENT. checkedInToday is always
      * populated (whether or not this member's own linked habit has a check-in for today, UTC-
-     * bucketed — same caveat already documented on GroupStreakConsumer) so the card/detail view
+     * bucketed — same caveat already documented on GroupStreakUpdater) so the card/detail view
      * can show who's already checked in today regardless of tracking mode. */
     public record Participant(String name, String userId, Integer currentStreak, boolean checkedInToday, String photoUrl) {
         public Participant(String name) {

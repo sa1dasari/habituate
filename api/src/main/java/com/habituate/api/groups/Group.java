@@ -28,7 +28,7 @@ public class Group {
     /** COOPERATIVE: one shared group_streaks counter that only ticks forward if every
      * member qualifies (per streakRule) — the original, still-default design. INDEPENDENT:
      * no shared counter at all — each member just sees everyone's own personal streak
-     * side-by-side (GroupStreakConsumer/StreakFreezeScheduler skip these groups entirely). */
+     * side-by-side (GroupStreakUpdater/StreakFreezeScheduler skip these groups entirely). */
     public static final String COOPERATIVE = "COOPERATIVE";
     public static final String INDEPENDENT = "INDEPENDENT";
 

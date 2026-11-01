@@ -1,7 +1,6 @@
 package com.habituate.api.coach;
 
 import com.habituate.api.common.ForbiddenException;
-import com.habituate.api.events.CheckInEventPublisher;
 import com.habituate.api.habits.CreateHabitRequest;
 import com.habituate.api.habits.HabitRepository;
 import com.habituate.api.habits.HabitResponse;
@@ -49,9 +48,6 @@ class CoachServiceTest {
 
     @MockBean
     private AnthropicClient anthropicClient;
-
-    @MockBean
-    private CheckInEventPublisher checkInEventPublisher;
 
     private String userId;
     private Long habitId;

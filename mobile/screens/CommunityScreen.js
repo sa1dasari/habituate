@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import AvatarImage from '../components/AvatarImage';
@@ -47,10 +48,12 @@ function initials(name) {
     .toUpperCase();
 }
 
-export default function CommunityScreen({ navigation }) {
+export default function CommunityScreen({ navigation, route }) {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const scrollRef = useRegisterScrollToTop('Community');
+  const challengesSectionY = useRef(0);
+  const [activityExpanded, setActivityExpanded] = useState(false);
 
   const { user } = useAuth();
   const { pendingRequests: pendingFriendRequests } = useFriends();
@@ -106,6 +109,19 @@ export default function CommunityScreen({ navigation }) {
     setCreateChallengeVisible(tourStep?.id === 'challenge-form');
     setFreezeInfoVisible(tourStep?.id === 'streak-freeze-info');
   }, [tourActive, tourStep]);
+
+  // Coming from Profile's Challenges card "See all" — jump straight to the
+  // Challenges section instead of landing at the top of a long scroll.
+  useFocusEffect(
+    useCallback(() => {
+      if (!route.params?.scrollToChallenges) return;
+      const timer = setTimeout(() => {
+        scrollRef.current?.scrollTo({ y: Math.max(0, challengesSectionY.current - spacing.lg), animated: true });
+      }, 150);
+      navigation.setParams({ scrollToChallenges: undefined });
+      return () => clearTimeout(timer);
+    }, [route.params?.scrollToChallenges, navigation])
+  );
 
   const loading = groupsLoading || challengesLoading;
   // Looked up by id each render (not the tapped object itself) so the detail
@@ -194,11 +210,28 @@ export default function CommunityScreen({ navigation }) {
           </View>
         </View>
 
-        <View style={[styles.sectionHeader, styles.activitySectionHeader]}>
-          <Text style={styles.sectionTitle}>Recent activity</Text>
-        </View>
+        <Pressable
+          style={[styles.sectionHeader, styles.activitySectionHeader]}
+          accessibilityRole="button"
+          accessibilityLabel={activityExpanded ? 'Collapse recent activity' : 'Expand recent activity'}
+          onPress={() => setActivityExpanded((current) => !current)}
+        >
+          <View style={styles.sectionTitleRow}>
+            <Text style={styles.sectionTitle}>Recent activity</Text>
+            {!activityExpanded && activity.length > 0 ? (
+              <View style={styles.activityCountBadge}>
+                <Text style={styles.activityCountBadgeText}>{activity.length}</Text>
+              </View>
+            ) : null}
+          </View>
+          <MaterialCommunityIcons
+            name={activityExpanded ? 'chevron-up' : 'chevron-down'}
+            size={22}
+            color={colors.textMuted}
+          />
+        </Pressable>
 
-        {activityLoading && activity.length === 0 ? (
+        {!activityExpanded ? null : activityLoading && activity.length === 0 ? (
           <View style={styles.loaderRow}>
             <ActivityIndicator size="small" color={colors.accent} />
           </View>
@@ -329,7 +362,12 @@ export default function CommunityScreen({ navigation }) {
           })
         )}
 
-        <View style={[styles.sectionHeader, styles.laterSection]}>
+        <View
+          style={[styles.sectionHeader, styles.laterSection]}
+          onLayout={(e) => {
+            challengesSectionY.current = e.nativeEvent.layout.y;
+          }}
+        >
           <Text style={styles.sectionTitle}>Challenges</Text>
           <View style={styles.sectionActions}>
             <Pressable
@@ -487,6 +525,16 @@ function makeStyles(colors, typography) {
     avatarPhoto: { width: 48, height: 48, borderRadius: radii.pill },
     avatarText: { fontSize: 16, fontWeight: '700', color: colors.accent },
     activitySectionHeader: { marginTop: spacing.sm },
+    activityCountBadge: {
+      minWidth: 20,
+      height: 20,
+      borderRadius: radii.pill,
+      backgroundColor: colors.accentSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 5,
+    },
+    activityCountBadgeText: { fontSize: 11, fontWeight: '700', color: colors.accent },
     activityCard: {
       backgroundColor: colors.surface,
       borderRadius: radii.lg,

@@ -21,6 +21,7 @@ import { computeConsistency } from '../utils/consistency';
 import { radii, shadow, spacing } from '../theme';
 
 const HABIT_SUMMARY_LIMIT = 3;
+const CHALLENGE_SUMMARY_LIMIT = 3;
 
 function Card({ title, actionLabel, onAction, children, styles }) {
   return (
@@ -55,10 +56,6 @@ export default function ProfileScreen() {
   const displayName = user?.displayName || 'there';
   const firstName = displayName.split(' ')[0];
   const weeklyConsistency = useMemo(() => computeConsistency(habits, 'weekly').percent, [habits]);
-  const completedChallenges = useMemo(
-    () => challenges.filter((c) => (c.progressPercent || 0) >= 100).length,
-    [challenges]
-  );
 
   const handleSignOut = async () => {
     const ok = await confirm({
@@ -145,22 +142,34 @@ export default function ProfileScreen() {
         <Card
           title="Challenges"
           actionLabel="See all"
-          onAction={() => navigation.navigate('Community')}
+          onAction={() => navigation.navigate('Community', { scrollToChallenges: true })}
           styles={styles}
         >
           {challenges.length === 0 ? (
             <Text style={styles.emptyNote}>Join or start a challenge on the Community tab to see it here.</Text>
           ) : (
-            <>
-              <Text style={styles.challengeSummaryLine}>
-                {challenges.length} {challenges.length === 1 ? 'challenge' : 'challenges'} joined
-              </Text>
-              {completedChallenges > 0 ? (
-                <Text style={styles.challengeSummaryMeta}>
-                  {completedChallenges} complete this period
-                </Text>
-              ) : null}
-            </>
+            challenges.slice(0, CHALLENGE_SUMMARY_LIMIT).map((challenge) => {
+              const accentColor = challenge.color || colors.accent;
+              const percent = challenge.progressPercent || 0;
+              return (
+                <View key={challenge.id} style={styles.habitRow}>
+                  <View style={[styles.habitIcon, { backgroundColor: `${accentColor}22` }]}>
+                    <MaterialCommunityIcons name={challenge.icon || 'trophy-outline'} size={18} color={accentColor} />
+                  </View>
+                  <View style={styles.habitInfo}>
+                    <Text style={styles.habitName} numberOfLines={1}>
+                      {challenge.name}
+                    </Text>
+                    <Text style={styles.habitMeta}>
+                      {challenge.myProgress}/{challenge.targetCount} this period
+                    </Text>
+                    <View style={styles.progressTrack}>
+                      <View style={[styles.progressFill, { width: `${Math.max(4, percent)}%`, backgroundColor: accentColor }]} />
+                    </View>
+                  </View>
+                </View>
+              );
+            })
           )}
         </Card>
 
@@ -247,8 +256,6 @@ function makeStyles(colors, typography) {
     cardAction: { fontSize: 13, fontWeight: '600', color: colors.accent },
     cardNote: { ...typography.meta, marginBottom: spacing.md },
     emptyNote: { ...typography.meta },
-    challengeSummaryLine: { fontSize: 14, fontWeight: '700', color: colors.textPrimary },
-    challengeSummaryMeta: { ...typography.meta, marginTop: 2 },
     habitRow: {
       flexDirection: 'row',
       alignItems: 'center',

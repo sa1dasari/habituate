@@ -10,7 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { categoryIcon } from '../constants/habitCategories';
-import { computeDayStats, dayHeatRatio, existedOn } from '../utils/dayStats';
+import { calendarHeatRatio, computeDayStats, existedOn } from '../utils/dayStats';
 import { toDateKey } from '../utils/date';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { radii, shadow, spacing } from '../theme';
@@ -180,7 +180,7 @@ export default function CalendarModal({ visible, habits = [], onClose, onToggleH
                 const isToday = cell.key === todayKey;
                 const isSelected = cell.key === selectedDay;
                 const stats = dayStats[cell.key];
-                const heatColor = heatColors(dayHeatRatio(stats), colors);
+                const heatColor = heatColors(calendarHeatRatio(stats), colors);
                 const hasOtherActivity = stats.entries.some((e) => !e.isDaily && e.done);
 
                 return (
@@ -216,7 +216,7 @@ export default function CalendarModal({ visible, habits = [], onClose, onToggleH
 
           {/* Legend */}
           <View style={styles.legendRow}>
-            <LegendItem styles={styles} swatchStyle={styles.legendAll} label="All daily habits" />
+            <LegendItem styles={styles} swatchStyle={styles.legendAll} label="All habits done" />
             <LegendItem styles={styles} swatchStyle={styles.legendSome} label="Some" />
             <LegendItem styles={styles} swatchStyle={styles.legendNone} label="None yet" />
             <LegendItem styles={styles} dotStyle={styles.legendDot} label="Weekly / monthly" />

@@ -8,6 +8,7 @@ import Toast from './Toast';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useChallenges } from '../hooks/useChallenges';
 import { useToast } from '../hooks/useToast';
+import { formatDeadline } from '../utils/date';
 import { radii, shadow, spacing } from '../theme';
 
 /** Pure browse-and-join view for the Challenges "Browse" link — creating lives in CreateChallengeModal. */
@@ -85,7 +86,7 @@ export default function ChallengesManageModal({ visible, onClose }) {
                   )}
                 </View>
                 <Text style={styles.cardMeta}>
-                  Target {challenge.targetCount} days · {challenge.periodEnd ? `ends ${challenge.periodEnd}` : 'open-ended'}
+                  Target {challenge.targetCount} days · {formatDeadline(challenge.periodEnd)}
                 </Text>
                 <AvatarStack people={challenge.participants} total={challenge.participantCount} size={22} />
               </Pressable>

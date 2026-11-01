@@ -14,6 +14,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useChallenges } from '../hooks/useChallenges';
 import { useToast } from '../hooks/useToast';
 import { gradients, radii, shadow, spacing } from '../theme';
+import { formatDeadline, formatShortDate } from '../utils/date';
 import { formatTime } from '../utils/time';
 
 const AVATAR_COLORS = ['#2563EB', '#7C3AED', '#0891B2', '#DB2777', '#EA580C'];
@@ -110,7 +111,7 @@ export default function ChallengeDetailModal({ visible, challenge, onClose }) {
               <View style={styles.metaBadge}>
                 <MaterialCommunityIcons name="calendar-range" size={13} color={colors.textSecondary} />
                 <Text style={styles.metaText}>
-                  {challenge.periodStart} – {challenge.periodEnd || 'open-ended'}
+                  Started {formatShortDate(challenge.periodStart)} · {formatDeadline(challenge.periodEnd)}
                 </Text>
               </View>
               <View style={styles.metaBadge}>

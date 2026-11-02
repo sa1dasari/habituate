@@ -48,6 +48,7 @@
     "react-native-svg": "^15.15.5",
     "react-native-view-shot": "5.1.0",
     "react-native-web": "^0.21.2",
+    "react-native-worklets": "0.10.1",
     "split-on-first": "^4.0.0"
   },
   "overrides": {

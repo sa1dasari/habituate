@@ -25,7 +25,8 @@ import { NotificationsProvider } from './hooks/useNotifications';
 import { CelebrationProvider } from './hooks/useCelebration';
 import { ThemeProvider, useAppTheme } from './hooks/useAppTheme';
 import { AuthProvider, useAuth } from './hooks/useAuth';
-import { usePushToken } from './hooks/usePushToken';
+import { usePushToken, usePushPermissionPrompt } from './hooks/usePushToken';
+import PushPermissionModal from './components/PushPermissionModal';
 import { TourProvider, useAutoStartTour } from './hooks/useOnboardingTour';
 import api from './api/client';
 import { scrollToTop } from './utils/scrollToTopRegistry';
@@ -184,6 +185,7 @@ function AppGate() {
   const [username, setUsername] = useState(undefined);
 
   usePushToken(!!user);
+  const pushPrompt = usePushPermissionPrompt(!!user);
 
   useEffect(() => {
     if (!user) {
@@ -256,6 +258,11 @@ function AppGate() {
                   <CelebrationProvider>
                     <TourProvider>
                       <WidgetDeepLinkBridge />
+                      <PushPermissionModal
+                        visible={pushPrompt.visible}
+                        onAllow={pushPrompt.onAllow}
+                        onDismiss={pushPrompt.onDismiss}
+                      />
                       <NavigationContainer ref={navigationRef} theme={navigationTheme}>
                         <Tabs />
                       </NavigationContainer>

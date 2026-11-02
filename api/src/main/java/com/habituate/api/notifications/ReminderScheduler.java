@@ -1,7 +1,10 @@
 package com.habituate.api.notifications;
 
+import com.habituate.api.checkins.CheckIn;
+import com.habituate.api.checkins.CheckInRepository;
 import com.habituate.api.habits.Habit;
 import com.habituate.api.habits.HabitRepository;
+import com.habituate.api.habits.StreakCalculator;
 import com.habituate.api.users.User;
 import com.habituate.api.users.UserRepository;
 import org.slf4j.Logger;
@@ -31,20 +34,26 @@ public class ReminderScheduler {
 
     private static final Logger log = LoggerFactory.getLogger(ReminderScheduler.class);
 
+    /** Below this, "you're on a streak" reads as a stretch rather than earned momentum. */
+    private static final int STREAK_MENTION_THRESHOLD = 3;
+
     private final HabitRepository habitRepository;
     private final UserRepository userRepository;
     private final PushTokenRepository pushTokenRepository;
     private final ExpoPushService expoPushService;
+    private final CheckInRepository checkInRepository;
 
     public ReminderScheduler(
             HabitRepository habitRepository,
             UserRepository userRepository,
             PushTokenRepository pushTokenRepository,
-            ExpoPushService expoPushService) {
+            ExpoPushService expoPushService,
+            CheckInRepository checkInRepository) {
         this.habitRepository = habitRepository;
         this.userRepository = userRepository;
         this.pushTokenRepository = pushTokenRepository;
         this.expoPushService = expoPushService;
+        this.checkInRepository = checkInRepository;
     }
 
     @Scheduled(cron = "0 * * * * *")
@@ -79,11 +88,12 @@ public class ReminderScheduler {
                 if (!nowLocal.equals(habit.getScheduledTime().truncatedTo(ChronoUnit.MINUTES))) {
                     continue;
                 }
+                String body = reminderBody(habit, zone, now);
                 for (PushToken token : tokens) {
                     messages.add(new ExpoPushMessage(
                             token.getToken(),
                             "Time for " + habit.getName(),
-                            "A gentle nudge from Habituate — whenever you're ready.",
+                            body,
                             Map.of("habitId", habit.getId())));
                 }
             }
@@ -93,6 +103,28 @@ public class ReminderScheduler {
             log.info("Sending {} habit reminder(s)", messages.size());
             expoPushService.send(messages);
         }
+    }
+
+    /**
+     * Grounds the reminder in the habit's own real momentum instead of generic
+     * boilerplate, when there's a genuine streak to point at — Duolingo's
+     * documented finding is that a reminder referencing the user's actual
+     * progress ("three lessons from B1 Spanish") outperforms a bare due-date
+     * nudge. Framed as continuing positive momentum, never as loss-aversion
+     * ("don't lose your streak") — that framing is exactly what CLAUDE.md's
+     * anti-guilt rule rules out. Below STREAK_MENTION_THRESHOLD, or with no
+     * streak at all, falls back to the original plain copy; frozen days are
+     * deliberately not factored in here (unlike StreakCalculator's other
+     * callers) since this is a one-line text, not something a user acts on.
+     */
+    private String reminderBody(Habit habit, ZoneId zone, Instant now) {
+        List<CheckIn> checkIns = checkInRepository.findByUserIdAndHabitIdOrderByOccurredAtAsc(
+                habit.getUserId(), habit.getId());
+        int streak = StreakCalculator.compute(checkIns, zone, now).current();
+        if (streak >= STREAK_MENTION_THRESHOLD) {
+            return "You're on a " + streak + "-day streak — keep it going.";
+        }
+        return "A gentle nudge from Habituate — whenever you're ready.";
     }
 
     private ZoneId resolveZone(String userId) {

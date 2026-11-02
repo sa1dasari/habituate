@@ -1,5 +1,7 @@
 package com.habituate.api.notifications;
 
+import com.habituate.api.checkins.CheckIn;
+import com.habituate.api.checkins.CheckInRepository;
 import com.habituate.api.habits.CreateHabitRequest;
 import com.habituate.api.habits.HabitService;
 import com.habituate.api.users.User;
@@ -10,11 +12,14 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.jdbc.core.JdbcTemplate;
 
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -39,6 +44,12 @@ class ReminderSchedulerTest {
 
     @MockBean
     private ExpoPushService expoPushService;
+
+    @Autowired
+    private CheckInRepository checkInRepository;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     private String userId;
     private Long habitId;
@@ -80,6 +91,37 @@ class ReminderSchedulerTest {
         assertThat(captor.getValue()).hasSize(1);
         assertThat(captor.getValue().get(0).to()).isEqualTo(token);
         assertThat(captor.getValue().get(0).title()).contains("Morning Walk");
+    }
+
+    @Test
+    void sendsStreakAwareBody_whenStreakMeetsThreshold() {
+        userId = "reminder-test-user-4";
+        ZoneId zone = ZoneId.of("America/New_York");
+        userRepository.save(new User(userId, zone.getId()));
+
+        token = "ExponentPushToken[reminder-test-4]";
+        pushTokenRepository.save(new PushToken(userId, token, "ios"));
+
+        Instant now = ZonedDateTime.now(zone).withHour(7).withMinute(30).withSecond(0).withNano(0).toInstant();
+        LocalTime scheduled = now.atZone(zone).toLocalTime();
+
+        habitId = habitService.createHabit(userId, new CreateHabitRequest(
+                "Morning Walk", "General", "DAILY", 1, null, null, "BOOLEAN", null,
+                scheduled.toString().substring(0, 5), true)).id();
+        // Backdate createdAt so a multi-day check-in history is valid -- JPA won't
+        // update it via the entity API (updatable = false), same jdbcTemplate
+        // bypass HabitServiceCheckInTimezoneTest/HabitServiceStreakRepairTest use.
+        jdbcTemplate.update("UPDATE habits SET created_at = ? WHERE id = ?",
+                Timestamp.from(now.minus(30, ChronoUnit.DAYS)), habitId);
+        for (int daysAgo = 1; daysAgo <= 3; daysAgo++) {
+            checkInRepository.save(new CheckIn(habitId, userId, now.minus(daysAgo, ChronoUnit.DAYS), 1, "manual"));
+        }
+
+        reminderScheduler.sendDueReminders(now);
+
+        ArgumentCaptor<List<ExpoPushMessage>> captor = ArgumentCaptor.forClass(List.class);
+        verify(expoPushService).send(captor.capture());
+        assertThat(captor.getValue().get(0).body()).contains("3-day streak");
     }
 
     @Test

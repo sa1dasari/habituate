@@ -987,7 +987,18 @@ export default function HabitsScreen() {
         })}
 
         {habits.length === 0 && !showForm ? (
-          <Text style={styles.empty}>No habits yet. Tap “+ New” to add your first one.</Text>
+          <View style={styles.empty}>
+            <Text style={styles.emptyText}>No habits yet — start with one you'll actually stick to.</Text>
+            <Pressable
+              style={styles.emptyCta}
+              accessibilityRole="button"
+              accessibilityLabel="Add your first habit"
+              onPress={openCreate}
+            >
+              <Text style={styles.emptyCtaText}>Add your first habit</Text>
+              <MaterialCommunityIcons name="arrow-right" size={16} color={colors.accent} />
+            </Pressable>
+          </View>
         ) : null}
 
         {archivedHabits.length > 0 ? (
@@ -1217,10 +1228,20 @@ function makeStyles(colors, typography) {
   },
   sectionAction: { fontSize: 13, fontWeight: '700', color: colors.accent },
   empty: {
+    alignItems: 'center',
+    marginTop: spacing.xl,
+  },
+  emptyText: {
     ...typography.body,
     color: colors.textSecondary,
     textAlign: 'center',
-    marginTop: spacing.xl,
   },
+  emptyCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.lg,
+  },
+  emptyCtaText: { ...typography.label, color: colors.accent },
   });
 }

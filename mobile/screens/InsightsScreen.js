@@ -252,6 +252,18 @@ export default function InsightsScreen({ navigation, route }) {
 
           <Text style={styles.messageTitle}>{message.title}</Text>
           <Text style={styles.messageSubtitle}>{message.subtitle}</Text>
+
+          {habits.length === 0 ? (
+            <Pressable
+              style={styles.emptyCta}
+              accessibilityRole="button"
+              accessibilityLabel="Add your first habit"
+              onPress={() => navigation.navigate('Habits', { openCreateHabit: true })}
+            >
+              <Text style={styles.emptyCtaText}>Add your first habit</Text>
+              <MaterialCommunityIcons name="arrow-right" size={16} color={colors.accent} />
+            </Pressable>
+          ) : null}
         </Pressable>
 
         <View style={styles.coachCard} ref={tourCoachCardRef}>
@@ -424,6 +436,13 @@ function makeStyles(colors, typography) {
       ...typography.body,
       color: colors.textSecondary,
     },
+    emptyCta: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+      marginTop: spacing.md,
+    },
+    emptyCtaText: { ...typography.label, color: colors.accent },
     coachCard: {
       backgroundColor: colors.surface,
       borderRadius: radii.lg,

@@ -20,6 +20,9 @@ api/.mvn/wrapper/maven-wrapper.properties
 .DS_Store
 Thumbs.db
 
+# graphify knowledge-graph output — regenerable via /graphify --update, not needed at runtime
+graphify-out/
+
 # Firebase — service account key is a secret, never commit it
 *service-account*.json
 *firebase-adminsdk*.json

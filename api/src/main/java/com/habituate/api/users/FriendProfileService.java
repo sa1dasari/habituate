@@ -94,11 +94,6 @@ public class FriendProfileService {
         String visibility = targetRow
                 .map(User::getProfileVisibility)
                 .orElse(User.VISIBILITY_PRIVATE);
-        System.out.println("[FriendProfileService DEBUG] viewerId='" + viewerId
-                + "' targetUserId='" + targetUserId + "'"
-                + " rowFound=" + targetRow.isPresent()
-                + " username=" + username
-                + " resolvedVisibility=" + visibility);
 
         List<FriendProfileResponse.SharedGroupStreak> sharedGroupStreaks = mutualSharedGroupStreaks(viewerId, targetUserId);
 

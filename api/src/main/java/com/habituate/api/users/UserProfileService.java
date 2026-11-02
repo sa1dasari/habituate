@@ -261,8 +261,6 @@ public class UserProfileService {
         user.setProfileVisibility(normalized);
         user.setUpdatedAt(Instant.now());
         userRepository.save(user);
-        System.out.println("[UserProfileService DEBUG] saved userId='" + userId
-                + "' normalized=" + normalized + " user.getId()='" + user.getId() + "'");
         return toResponse(user);
     }
 

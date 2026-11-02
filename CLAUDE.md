@@ -198,6 +198,14 @@ Before any edit to a file, post a short plan and wait for the user to say go. Th
 
 A plan covers: the goal in one sentence, the files you expect to touch, the approach, risks or product rules involved, what you will verify, and any question you need answered. Use plan mode if it is available. Read-only work (answering questions, reading code, searching) needs no confirmation. If the work changes direction midway, stop and confirm the new plan.
 
+### Consult the Opus advisor at three points
+Spawn a read-only Opus advisor subagent (give it the plan, diff, or error — not the whole repo) at:
+1. Before a plan locks — after drafting it, before posting it for the user's go-ahead.
+2. After hitting the same error twice — the second time a fix attempt fails the same way, stop and get a second opinion before trying a third variation blind.
+3. Before marking a task done — after the section 5 verification checks pass, before telling the user it's finished.
+
+This is a standing convention, not a tool-enforced gate — there is no automatic trigger for it, so apply it deliberately at these three moments. The advisor is read-only: it never edits, and its input doesn't override the user's — if it disagrees with the plan, surface that to the user rather than silently changing course.
+
 ### Use agents for long or complicated work
 Spin up agents when a task is long-running or complicated. That means any of: it spans `api/` and `mobile/`, it needs a broad search across many files, it is a large refactor, it runs a long build or test suite, or it will take many steps.
 

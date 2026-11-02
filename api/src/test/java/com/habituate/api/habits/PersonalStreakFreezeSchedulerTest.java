@@ -46,7 +46,7 @@ class PersonalStreakFreezeSchedulerTest {
     private Habit createHabitWithTodayCheckIn(String uid) {
         userId = uid;
         HabitResponse habit = habitService.createHabit(userId, new CreateHabitRequest(
-                "Test Habit", "General", "DAILY", 1, null, null, "BOOLEAN", null, null, null));
+                "Test Habit", "General", "DAILY", 1, null, null, "BOOLEAN", null, null, null, null));
         habitId = habit.id();
         habitService.createCheckIn(userId, habitId, new CheckInRequest(Instant.now(), 1, "manual"));
         return habitRepository.findById(habitId).orElseThrow();
@@ -82,7 +82,7 @@ class PersonalStreakFreezeSchedulerTest {
     void doesNothing_whenNoActiveStreakToProtect() {
         userId = "personal-freeze-test-user-3";
         HabitResponse created = habitService.createHabit(userId, new CreateHabitRequest(
-                "Test Habit", "General", "DAILY", 1, null, null, "BOOLEAN", null, null, null));
+                "Test Habit", "General", "DAILY", 1, null, null, "BOOLEAN", null, null, null, null));
         habitId = created.id();
         Habit habit = habitRepository.findById(habitId).orElseThrow();
         shieldAwardRepository.save(new ShieldAward(userId, habitId, 7));

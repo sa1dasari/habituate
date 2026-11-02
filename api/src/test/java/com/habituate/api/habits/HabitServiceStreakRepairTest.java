@@ -54,7 +54,7 @@ class HabitServiceStreakRepairTest {
     private HabitResponse createHabit(String uid, int... checkedInDaysAgo) {
         userId = uid;
         HabitResponse habit = habitService.createHabit(userId, new CreateHabitRequest(
-                "Repair Test Habit", "General", "DAILY", 1, null, null, "BOOLEAN", null, null, null));
+                "Repair Test Habit", "General", "DAILY", 1, null, null, "BOOLEAN", null, null, null, null));
         habitId = habit.id();
         jdbcTemplate.update(
                 "UPDATE habits SET created_at = ? WHERE id = ?",

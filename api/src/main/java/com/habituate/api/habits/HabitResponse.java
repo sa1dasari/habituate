@@ -22,7 +22,8 @@ public record HabitResponse(
         int currentStreak,
         int longestStreak,
         boolean shieldedToday,
-        boolean shieldEligible
+        boolean shieldEligible,
+        String motivation
 ) {
     public static HabitResponse from(
             Habit habit, int currentStreak, int longestStreak, boolean shieldedToday, boolean shieldEligible) {
@@ -47,7 +48,8 @@ public record HabitResponse(
                 currentStreak,
                 longestStreak,
                 shieldedToday,
-                shieldEligible
+                shieldEligible,
+                habit.getMotivation()
         );
     }
 }

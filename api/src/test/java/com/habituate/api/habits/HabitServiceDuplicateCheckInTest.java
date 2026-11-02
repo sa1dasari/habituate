@@ -36,7 +36,7 @@ class HabitServiceDuplicateCheckInTest {
     void createCheckIn_rejectsSecondCheckInSameDay_forBooleanHabit() {
         userId = "duplicate-checkin-test-user";
         habitId = habitService.createHabit(userId, new CreateHabitRequest(
-                "Test Habit", "General", "DAILY", 1, null, null, "BOOLEAN", null, null, null
+                "Test Habit", "General", "DAILY", 1, null, null, "BOOLEAN", null, null, null, null
         )).id();
 
         habitService.createCheckIn(userId, habitId, new CheckInRequest(null, 1, "manual"));
@@ -50,7 +50,7 @@ class HabitServiceDuplicateCheckInTest {
     void createCheckIn_allowsMultipleCheckInsSameDay_forCountHabit() {
         userId = "duplicate-checkin-test-user";
         habitId = habitService.createHabit(userId, new CreateHabitRequest(
-                "Test Habit", "General", "DAILY", 1, null, null, "COUNT", null, null, null
+                "Test Habit", "General", "DAILY", 1, null, null, "COUNT", null, null, null, null
         )).id();
 
         habitService.createCheckIn(userId, habitId, new CheckInRequest(null, 5, "manual"));

@@ -46,7 +46,7 @@ class HabitServiceManualShieldTest {
     private HabitResponse createHabitWithStreak(String uid, int days) {
         userId = uid;
         HabitResponse habit = habitService.createHabit(userId, new CreateHabitRequest(
-                "Test Habit", "General", "DAILY", 1, null, null, "BOOLEAN", null, null, null));
+                "Test Habit", "General", "DAILY", 1, null, null, "BOOLEAN", null, null, null, null));
         habitId = habit.id();
         for (int i = 0; i < days; i++) {
             checkInRepository.save(new CheckIn(habitId, userId, Instant.now().minus(i, ChronoUnit.DAYS), 1, "manual"));

@@ -91,13 +91,16 @@ final class CoachPrompts {
     }
 
     private static String formatSnapshot(HabitSnapshot s) {
+        String motivationLine = s.motivation() == null || s.motivation().isBlank()
+                ? ""
+                : "  User's stated reason this habit matters to them: \"%s\"\n".formatted(s.motivation());
         return """
                 - habitId %d: "%s" (category: %s, tracking mode: %s)
                   Daily target: %s | Weekly target: %s | Monthly target: %s
                   Current streak: %d days (longest: %d days)
                   Last 7 days: %d of %d days active
                   Last 30 days: %d of %d days active
-
+                %s
                 """.formatted(
                 s.id(), s.name(), s.category(), s.trackingMode(),
                 s.cadenceTarget(),
@@ -105,7 +108,8 @@ final class CoachPrompts {
                 s.monthlyTarget() == null ? "not set" : String.valueOf(s.monthlyTarget()),
                 s.currentStreak(), s.longestStreak(),
                 s.completedLast7(), s.possibleLast7(),
-                s.completedLast30(), s.possibleLast30()
+                s.completedLast30(), s.possibleLast30(),
+                motivationLine
         );
     }
 

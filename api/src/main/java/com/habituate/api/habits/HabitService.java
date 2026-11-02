@@ -130,7 +130,12 @@ public class HabitService {
         habit.setReminderEnabled(
                 Boolean.TRUE.equals(request.reminderEnabled()) && habit.getScheduledTime() != null
         );
+        habit.setMotivation(blankToNull(request.motivation()));
         return toResponse(habitRepository.save(habit));
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     public HabitResponse updateHabit(String userId, Long habitId, UpdateHabitRequest request) {
@@ -163,10 +168,11 @@ public class HabitService {
         if (habit.getScheduledTime() == null) {
             habit.setReminderEnabled(false);
         }
-        // weeklyTarget / monthlyTarget: null means "clear it", so always apply when key is present.
-        // Since records always include the field, we apply unconditionally (null clears the target).
+        // weeklyTarget / monthlyTarget / motivation: null means "clear it", so always apply when key is present.
+        // Since records always include the field, we apply unconditionally (null clears the value).
         habit.setWeeklyTarget(request.weeklyTarget());
         habit.setMonthlyTarget(request.monthlyTarget());
+        habit.setMotivation(blankToNull(request.motivation()));
 
         if (request.trackingMode() != null) {
             habit.setTrackingMode(normalizeTrackingMode(request.trackingMode()));

@@ -62,6 +62,7 @@ const emptyForm = {
   featuredGoal: false,
   scheduledTime: '',
   reminderEnabled: false,
+  motivation: '',
 };
 
 const emptyGoalForm = {
@@ -101,6 +102,7 @@ function formFromHabit(habit) {
     featuredGoal: Boolean(habit.featuredGoal),
     scheduledTime: habit.scheduledTime || '',
     reminderEnabled: Boolean(habit.reminderEnabled),
+    motivation: habit.motivation || '',
   };
 }
 
@@ -428,6 +430,7 @@ export default function HabitsScreen() {
       featuredGoal: (weeklyTarget > 0 || monthlyTarget > 0) && form.featuredGoal,
       scheduledTime,
       reminderEnabled: Boolean(scheduledTime) && form.reminderEnabled,
+      motivation: form.motivation.trim(),
     };
 
     try {
@@ -769,6 +772,20 @@ export default function HabitsScreen() {
               />
             </View>
 
+            <Text style={styles.label}>Why does this matter to you? (optional)</Text>
+            <TextInput
+              style={styles.motivationInput}
+              placeholder="e.g. so I have energy to keep up with my kids"
+              placeholderTextColor={colors.textMuted}
+              value={form.motivation}
+              onChangeText={(v) => setForm({ ...form, motivation: v })}
+              multiline
+              maxLength={500}
+            />
+            <Text style={styles.targetHint}>
+              Ask Habituate can reference this when it talks with you about this habit.
+            </Text>
+
             <Pressable style={styles.primaryButton} onPress={submit} disabled={busy}>
               <Text style={styles.primaryButtonText}>
                 {busy ? 'Saving…' : isEditing ? 'Save changes' : 'Add habit'}
@@ -1075,6 +1092,19 @@ function makeStyles(colors, typography) {
     color: colors.textPrimary,
   },
   label: { ...typography.meta, fontFamily: fonts.semiBold, marginBottom: spacing.sm },
+  motivationInput: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md - 2,
+    marginBottom: spacing.sm,
+    fontSize: 15,
+    color: colors.textPrimary,
+    minHeight: 72,
+    textAlignVertical: 'top',
+  },
   switchRow: {
     flexDirection: 'row',
     alignItems: 'center',

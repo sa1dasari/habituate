@@ -250,7 +250,7 @@ public class CoachService {
         HabitResponse created = habitService.createHabit(userId, new CreateHabitRequest(
                 creation.name(), creation.category(), "DAILY",
                 creation.cadenceTarget(), creation.weeklyTarget(), creation.monthlyTarget(),
-                creation.trackingMode(), null, null, null
+                creation.trackingMode(), null, null, null, null
         ));
 
         // Points the citation/habitId at the habit that now actually exists,

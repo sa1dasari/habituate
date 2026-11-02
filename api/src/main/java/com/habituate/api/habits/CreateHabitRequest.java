@@ -15,6 +15,7 @@ public record CreateHabitRequest(
         @Size(max = 20) String trackingMode,
         Boolean featuredGoal,
         @Size(max = 10) String scheduledTime,
-        Boolean reminderEnabled
+        Boolean reminderEnabled,
+        @Size(max = 500) String motivation
 ) {
 }

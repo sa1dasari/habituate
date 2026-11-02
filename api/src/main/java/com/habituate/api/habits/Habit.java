@@ -76,6 +76,12 @@ public class Habit {
     @Column(nullable = false, columnDefinition = "boolean not null default false")
     private boolean archived = false;
 
+    /** Optional, user-written "why this matters" statement — never required, never
+     * auto-generated. Surfaced to Ask Habituate as grounding context (CoachContextBuilder)
+     * so the coach can reference the user's own stated motivation instead of guessing one. */
+    @Column(columnDefinition = "text")
+    private String motivation;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -203,6 +209,14 @@ public class Habit {
 
     public void setArchived(boolean archived) {
         this.archived = archived;
+    }
+
+    public String getMotivation() {
+        return motivation;
+    }
+
+    public void setMotivation(String motivation) {
+        this.motivation = motivation;
     }
 
     public Instant getCreatedAt() {

@@ -53,7 +53,8 @@ public final class CoachContextBuilder {
                     habit.getId(), habit.getName(), habit.getCategory(), habit.getTrackingMode(),
                     habit.getCadenceTarget(), habit.getWeeklyTarget(), habit.getMonthlyTarget(),
                     streaks.current(), streaks.longest(),
-                    last7[0], last7[1], last30[0], last30[1]
+                    last7[0], last7[1], last30[0], last30[1],
+                    habit.getMotivation()
             ));
         }
         return snapshots;

@@ -17,6 +17,7 @@ public record UpdateHabitRequest(
         Boolean featuredGoal,
         @Size(max = 10) String scheduledTime,
         Boolean reminderEnabled,
-        Boolean archived
+        Boolean archived,
+        @Size(max = 500) String motivation
 ) {
 }

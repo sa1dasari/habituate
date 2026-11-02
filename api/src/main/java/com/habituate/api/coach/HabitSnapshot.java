@@ -14,6 +14,7 @@ public record HabitSnapshot(
         int completedLast7,
         int possibleLast7,
         int completedLast30,
-        int possibleLast30
+        int possibleLast30,
+        String motivation
 ) {
 }

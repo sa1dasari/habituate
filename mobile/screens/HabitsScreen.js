@@ -403,22 +403,6 @@ export default function HabitsScreen() {
     scrollToForm();
   };
 
-  // Coming from the Profile screen's habit list — tapping a habit name there
-  // should open it here, since the edit form is this app's closest thing to
-  // a habit detail view.
-  useFocusEffect(
-    useCallback(() => {
-      if (!route.params?.openHabitId) return;
-      const habit = habits.find((h) => h.id === route.params.openHabitId);
-      if (habit) {
-        openEdit(habit);
-        scrollToForm();
-      }
-      navigation.setParams({ openHabitId: undefined });
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [route.params?.openHabitId, navigation, habits])
-  );
-
   const submit = async () => {
     const name = form.name.trim();
     if (!name) {

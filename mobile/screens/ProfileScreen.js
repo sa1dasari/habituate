@@ -129,7 +129,7 @@ export default function ProfileScreen() {
                 <Pressable
                   key={habit.id}
                   style={styles.habitRow}
-                  onPress={() => navigation.navigate('Habits', { openHabitId: habit.id })}
+                  onPress={() => navigation.navigate('Insights', { openHabitId: habit.id })}
                   accessibilityRole="button"
                   accessibilityLabel={`Open ${habit.name}`}
                 >

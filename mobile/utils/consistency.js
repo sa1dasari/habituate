@@ -1,4 +1,4 @@
-import { toDateKey } from './date';
+import { startOfMonth, startOfWeek, toDateKey } from './date';
 import { computeDayStats, dayHeatRatio, existedOn, sumValueForDay } from './dayStats';
 import { cadenceTarget, hasDailyTarget } from './cadence';
 
@@ -52,6 +52,56 @@ export function periodRangeLabel(period, anchor) {
   );
   const endLabel = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   return `${startLabel} – ${endLabel}`;
+}
+
+/**
+ * Calendar-aligned navigation for the Consistency *detail* drill-down only
+ * (ConsistencyDetailModal) — distinct from shiftAnchor/isCurrentPeriod/
+ * periodRangeLabel above, which stay rolling-window and keep driving the
+ * Insights ring unchanged. The detail chart zooms into one calendar unit at
+ * a time (a day, a Mon-Sun week, a calendar month, a calendar year) and
+ * shows its natural sub-buckets (hours/days/weeks/months — see
+ * habitPeriodHistory below), so "previous"/"next" here means the previous
+ * or next calendar unit, not "shift back by N days."
+ */
+export function shiftCalendarAnchor(period, anchor, steps) {
+  const next = new Date(anchor);
+  if (period === 'daily') next.setDate(next.getDate() + steps);
+  else if (period === 'weekly') next.setDate(next.getDate() + steps * 7);
+  else if (period === 'monthly') next.setMonth(next.getMonth() + steps);
+  else next.setFullYear(next.getFullYear() + steps);
+  return next;
+}
+
+/** Whether `anchor` falls in the calendar unit containing `now` — disables "next" past it. */
+export function isCurrentCalendarPeriod(period, anchor, now = new Date()) {
+  if (period === 'daily') return toDateKey(anchor) === toDateKey(now);
+  if (period === 'weekly') return toDateKey(startOfWeek(anchor)) === toDateKey(startOfWeek(now));
+  if (period === 'monthly') return anchor.getFullYear() === now.getFullYear() && anchor.getMonth() === now.getMonth();
+  return anchor.getFullYear() === now.getFullYear();
+}
+
+/** Human label for the calendar unit `anchor` falls in, e.g. "Oct 15" / "Oct 13 – Oct 19, 2026" / "October 2026" / "2026". */
+export function calendarPeriodRangeLabel(period, anchor) {
+  if (period === 'daily') {
+    return anchor.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+  if (period === 'weekly') {
+    const start = startOfWeek(anchor);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    const sameYear = start.getFullYear() === end.getFullYear();
+    const startLabel = start.toLocaleDateString(
+      'en-US',
+      sameYear ? { month: 'short', day: 'numeric' } : { month: 'short', day: 'numeric', year: 'numeric' }
+    );
+    const endLabel = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return `${startLabel} – ${endLabel}`;
+  }
+  if (period === 'monthly') {
+    return anchor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  }
+  return `${anchor.getFullYear()}`;
 }
 
 function dayKeysEndingAt(date, count) {
@@ -152,20 +202,6 @@ export function consistencyMessage(percent, hasData) {
   return { title: 'Early days.', subtitle: 'This is the start of the pattern, not a verdict on it.' };
 }
 
-/**
- * Per-habit, per-period bar-chart buckets for the Consistency detail
- * drill-down (design/Consistency detail.png). Every period uses the same
- * "days completed within a rolling window" metric, just at a different
- * window size — this is what lets daily/weekly/monthly/yearly share one
- * chart shape instead of needing bespoke logic per tab.
- */
-const HISTORY_BUCKET_CONFIG = {
-  daily: { windowDays: 1, bucketCount: 7, periodWord: 'day', currentLabel: 'Today' },
-  weekly: { windowDays: 7, bucketCount: 4, periodWord: 'week', currentLabel: 'This week' },
-  monthly: { windowDays: 30, bucketCount: 6, periodWord: 'month', currentLabel: 'This month' },
-  yearly: { windowDays: 365, bucketCount: 4, periodWord: 'year', currentLabel: 'This year' },
-};
-
 /** Same done/not-done rule computeDayStats uses per habit, isolated to one habit. */
 function habitDoneOnDay(habit, dayKey) {
   const value = sumValueForDay(habit, dayKey);
@@ -173,82 +209,156 @@ function habitDoneOnDay(habit, dayKey) {
   return value > 0;
 }
 
+function formatHourLabel(hour) {
+  if (hour === 0) return '12a';
+  if (hour === 12) return '12p';
+  return hour < 12 ? `${hour}a` : `${hour - 12}p`;
+}
+
 /**
- * Bucket-builder behind habitPeriodHistory — `dayFraction(dayKey)` returns
- * null for a day that doesn't count toward the window at all (the habit
- * didn't exist yet), or a 0..1 completion fraction otherwise. Pulled out
- * from habitPeriodHistory so the period/bucket-windowing logic isn't
- * entangled with the single-habit done/not-done rule.
+ * Per-habit bar-chart buckets for the Consistency detail drill-down
+ * (design/Consistency detail.png) — each period tab zooms into ONE calendar
+ * unit and shows its natural sub-buckets: a day broken into its 24 hours, a
+ * week into its 7 days, a month into its Mon-Sun weeks, a year into its 12
+ * months. This is a "zoom in one level" chart, not a multi-period trend —
+ * `anchor` names which single day/week/month/year to zoom into (see
+ * shiftCalendarAnchor for how the detail modal's prev/next moves it).
+ *
+ * Hourly is the one level finer than a day, so it reads check-in timestamps
+ * directly rather than going through computeDayStats (day-granularity
+ * only). Every other level reuses the same day-level done/not-done rule as
+ * the calendar heatmap, just bucketed into weeks or months instead of days.
  */
-function buildHistoryBuckets(period, now, dayFraction) {
-  const config = HISTORY_BUCKET_CONFIG[period] || HISTORY_BUCKET_CONFIG.weekly;
-  const { windowDays, bucketCount, periodWord, currentLabel } = config;
+export function habitPeriodHistory(habit, period, anchor = new Date()) {
+  if (period === 'daily') return buildHourlyBuckets(habit, anchor);
+  if (period === 'weekly') return buildWeekDaysBuckets(habit, anchor);
+  if (period === 'monthly') return buildMonthWeeksBuckets(habit, anchor);
+  return buildYearMonthsBuckets(habit, anchor);
+}
 
-  const buckets = [];
-  for (let i = 0; i < bucketCount; i++) {
-    // i=0 is the oldest bucket; the last one always ends at `now`.
-    const bucketsFromNow = bucketCount - 1 - i;
-    const bucketEnd = new Date(now);
-    bucketEnd.setDate(bucketEnd.getDate() - bucketsFromNow * windowDays);
-    const dayKeys = dayKeysEndingAt(bucketEnd, windowDays);
+/** Hour-of-day buckets (0-23) for the single calendar day `anchor` falls in. */
+function buildHourlyBuckets(habit, anchor) {
+  const dayKey = toDateKey(anchor);
+  const existed = habit ? existedOn(habit, dayKey) : false;
+  const hourTotals = Array.from({ length: 24 }, () => 0);
 
-    let value = 0;
-    let windowLen = 0;
-    dayKeys.forEach((key) => {
-      const fraction = dayFraction(key);
-      if (fraction === null) return;
-      windowLen += 1;
-      value += fraction;
+  if (existed) {
+    (habit.checkIns || []).forEach((ci) => {
+      const occurred = new Date(ci.occurredAt);
+      if (toDateKey(occurred) !== dayKey) return;
+      hourTotals[occurred.getHours()] += Number(ci.value) || 1;
     });
-
-    const label =
-      period === 'daily'
-        ? bucketEnd.toLocaleDateString('en-US', { weekday: 'short' })
-        : `${periodWord[0].toUpperCase()}${i + 1}`;
-
-    buckets.push({ label, value: Math.round(value * 10) / 10, windowLen });
   }
 
-  return { buckets, windowDays, bucketCount, periodWord, currentLabel };
+  const buckets = hourTotals.map((value, hour) => ({
+    label: hour % 3 === 0 ? formatHourLabel(hour) : '',
+    value,
+    windowLen: existed ? 1 : 0,
+  }));
+
+  return { buckets, bucketCount: 24, periodWord: 'hour', currentLabel: 'Today' };
 }
 
-export function habitPeriodHistory(habit, period, now = new Date()) {
-  return buildHistoryBuckets(period, now, (key) => {
-    if (!habit || !existedOn(habit, key)) return null;
-    return habitDoneOnDay(habit, key) ? 1 : 0;
-  });
+/** Day-of-week buckets (Mon-Sun) for the calendar week `anchor` falls in. */
+function buildWeekDaysBuckets(habit, anchor) {
+  const start = startOfWeek(anchor);
+  const buckets = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(start);
+    d.setDate(d.getDate() + i);
+    const key = toDateKey(d);
+    const existed = habit ? existedOn(habit, key) : false;
+    buckets.push({
+      label: d.toLocaleDateString('en-US', { weekday: 'short' }),
+      value: existed && habitDoneOnDay(habit, key) ? 1 : 0,
+      windowLen: existed ? 1 : 0,
+    });
+  }
+  return { buckets, bucketCount: 7, periodWord: 'day', currentLabel: 'This week' };
+}
+
+/** Week-of-month buckets for the calendar month `anchor` falls in — each
+ * bucket is the Mon-Sun week overlapping that month, counting only the
+ * days actually inside the month (a week straddling two months doesn't
+ * double-count into both). */
+function buildMonthWeeksBuckets(habit, anchor) {
+  const monthStart = startOfMonth(anchor);
+  const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+  const buckets = [];
+  let cursor = startOfWeek(monthStart);
+  let weekIndex = 0;
+
+  while (cursor <= monthEnd) {
+    let value = 0;
+    let windowLen = 0;
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(cursor);
+      d.setDate(d.getDate() + i);
+      if (d < monthStart || d > monthEnd) continue;
+      const key = toDateKey(d);
+      if (!habit || !existedOn(habit, key)) continue;
+      windowLen += 1;
+      if (habitDoneOnDay(habit, key)) value += 1;
+    }
+    weekIndex += 1;
+    buckets.push({ label: `W${weekIndex}`, value, windowLen });
+    cursor = new Date(cursor);
+    cursor.setDate(cursor.getDate() + 7);
+  }
+
+  return { buckets, bucketCount: buckets.length, periodWord: 'week', currentLabel: 'This month' };
+}
+
+/** Month-of-year buckets (Jan-Dec) for the calendar year `anchor` falls in. */
+function buildYearMonthsBuckets(habit, anchor) {
+  const year = anchor.getFullYear();
+  const buckets = [];
+  for (let m = 0; m < 12; m++) {
+    const monthStart = new Date(year, m, 1);
+    const monthEnd = new Date(year, m + 1, 0);
+    let value = 0;
+    let windowLen = 0;
+    for (const d = new Date(monthStart); d <= monthEnd; d.setDate(d.getDate() + 1)) {
+      const key = toDateKey(d);
+      if (!habit || !existedOn(habit, key)) continue;
+      windowLen += 1;
+      if (habitDoneOnDay(habit, key)) value += 1;
+    }
+    buckets.push({ label: monthStart.toLocaleDateString('en-US', { month: 'short' }), value, windowLen });
+  }
+  return { buckets, bucketCount: 12, periodWord: 'month', currentLabel: 'This year' };
 }
 
 /**
- * Plain-language summary under the bar graph, e.g. "This week: 7 of 7 days
- * (100%). Across 4 weeks: 22 of 28 days (79%), averaging 5.5 days per week."
+ * Plain-language summary under the bar graph — wording depends on the zoom
+ * level, since an hour bucket's "value" is a raw logged amount while a
+ * day/week/month bucket's "value" is a day-count (see habitPeriodHistory).
  * Deliberately says "days" rather than the mockup's habit-specific noun
  * ("walks") — pluralizing an arbitrary habit name correctly isn't reliable,
  * and "days" stays accurate for every habit.
  */
 export function habitHistorySummary(history) {
   const { buckets, periodWord, currentLabel } = history;
-  const current = buckets[buckets.length - 1];
   const totalValue = buckets.reduce((sum, b) => sum + b.value, 0);
   const totalPossible = buckets.reduce((sum, b) => sum + b.windowLen, 0);
 
   if (totalPossible === 0) {
-    return 'No history yet in this window.';
+    return periodWord === 'hour' ? 'No history yet for this day.' : 'No history yet in this window.';
   }
 
-  const currentPct = current.windowLen > 0 ? Math.round((current.value / current.windowLen) * 100) : 0;
+  if (periodWord === 'hour') {
+    const activeHours = buckets.filter((b) => b.value > 0).length;
+    if (activeHours === 0) return `${currentLabel}: nothing logged yet.`;
+    const peakHour = buckets.reduce((best, b, i) => (b.value > buckets[best].value ? i : best), 0);
+    return `${currentLabel}: ${totalValue} logged across ${activeHours} hour${activeHours === 1 ? '' : 's'}, most around ${formatHourLabel(peakHour)}.`;
+  }
+
   const totalPct = Math.round((totalValue / totalPossible) * 100);
-
-  let text = `${currentLabel}: ${current.value} of ${current.windowLen} days (${currentPct}%).`;
-
   if (periodWord === 'day') {
-    text += ` Across ${buckets.length} days: ${totalValue} of ${totalPossible} days completed (${totalPct}%).`;
-  } else {
-    const avgPerBucket = (totalValue / buckets.length).toFixed(1);
-    text += ` Across ${buckets.length} ${periodWord}s: ${totalValue} of ${totalPossible} days (${totalPct}%), averaging ${avgPerBucket} days per ${periodWord}.`;
+    return `${currentLabel}: ${totalValue} of ${totalPossible} days (${totalPct}%).`;
   }
-
-  return text;
+  const avgPerBucket = (totalValue / buckets.length).toFixed(1);
+  return `${currentLabel}: ${totalValue} of ${totalPossible} days across ${buckets.length} ${periodWord}s (${totalPct}%), averaging ${avgPerBucket} days per ${periodWord}.`;
 }
 
 const GENERIC_STARTER_QUESTIONS = [
@@ -271,9 +381,13 @@ export function generateCoachStarterQuestions(habits = [], now = new Date()) {
   }
 
   const stats = habits.map((habit) => {
+    // 'weekly' now returns this calendar week's 7 day-buckets (see
+    // habitPeriodHistory) rather than a single trailing-week total, so the
+    // week's ratio is summed across all 7 days instead of read off one.
     const history = habitPeriodHistory(habit, 'weekly', now);
-    const current = history.buckets[history.buckets.length - 1];
-    const ratio = current.windowLen > 0 ? current.value / current.windowLen : null;
+    const totalValue = history.buckets.reduce((sum, b) => sum + b.value, 0);
+    const totalWindow = history.buckets.reduce((sum, b) => sum + b.windowLen, 0);
+    const ratio = totalWindow > 0 ? totalValue / totalWindow : null;
     return { habit, ratio, streak: habit.streak || 0 };
   });
 

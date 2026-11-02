@@ -7,24 +7,24 @@ import { categoryIcon } from '../constants/habitCategories';
 import TreeRingChart from './TreeRingChart';
 import {
   CONSISTENCY_PERIODS,
+  calendarPeriodRangeLabel,
   habitHistorySummary,
   habitPeriodHistory,
-  isCurrentPeriod,
-  periodRangeLabel,
-  shiftAnchor,
+  isCurrentCalendarPeriod,
+  shiftCalendarAnchor,
 } from '../utils/consistency';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { gradients, radii, shadow, spacing } from '../theme';
 
 const PERIOD_LABELS = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', yearly: 'Yearly' };
 const LIVE_PERIOD_LABELS = { daily: 'Today', weekly: 'This week', monthly: 'This month', yearly: 'This year' };
-const HISTORY_TITLES = { daily: 'Daily history', weekly: 'Weekly history', monthly: 'Monthly history', yearly: 'Yearly history' };
-const HISTORY_SUBTITLES = {
-  daily: 'Last 7 days',
-  weekly: 'Last 4 weeks',
-  monthly: 'Last 6 months',
-  yearly: 'Last 4 years',
+const HISTORY_TITLES = {
+  daily: 'Today, hour by hour',
+  weekly: 'This week, day by day',
+  monthly: 'This month, week by week',
+  yearly: 'This year, month by month',
 };
+const HISTORY_SUBTITLES = { daily: 'By hour', weekly: 'By day', monthly: 'By week', yearly: 'By month' };
 
 const BAR_MAX_HEIGHT = 120;
 
@@ -56,12 +56,22 @@ const BAR_COLOR_SETS = [
  *   habits         – enriched habit array from useHabits (each has .checkIns[])
  *   initialPeriod  – 'daily' | 'weekly' | 'monthly' | 'yearly', mirrors
  *                    whichever tab was selected on Insights when opened
+ *   initialHabitId – optional habit id to pre-select instead of defaulting
+ *                    to the first habit — used when opened from a specific
+ *                    habit elsewhere in the app (e.g. Profile's habit list)
  *   anchor         – Date the period windows end at; mirrors Insights' own
  *                    prev/next period navigation so this drill-down shows
  *                    the same past period, not always "now"
  *   onClose        – () => void
  */
-export default function ConsistencyDetailModal({ visible, habits = [], initialPeriod = 'weekly', anchor: initialAnchor, onClose }) {
+export default function ConsistencyDetailModal({
+  visible,
+  habits = [],
+  initialPeriod = 'weekly',
+  initialHabitId = null,
+  anchor: initialAnchor,
+  onClose,
+}) {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
 
@@ -80,23 +90,24 @@ export default function ConsistencyDetailModal({ visible, habits = [], initialPe
     setPeriod(initialPeriod);
     setAnchor(initialAnchor || new Date());
     setSelectedHabitIds((current) => {
+      if (initialHabitId && habits.some((h) => h.id === initialHabitId)) return [initialHabitId];
       const stillValid = current.filter((id) => habits.some((h) => h.id === id));
       if (stillValid.length > 0) return stillValid;
       return habits[0] ? [habits[0].id] : [];
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, initialPeriod]);
+  }, [visible, initialPeriod, initialHabitId]);
 
-  const isLivePeriod = isCurrentPeriod(period, anchor);
-  const rangeLabel = periodRangeLabel(period, anchor);
+  const isLivePeriod = isCurrentCalendarPeriod(period, anchor);
+  const rangeLabel = calendarPeriodRangeLabel(period, anchor);
   const selectPeriod = (p) => {
     setPeriod(p);
     setAnchor(new Date()); // switching tabs always lands back on the live period, same as Insights
   };
-  const goToPreviousPeriod = () => setAnchor((a) => shiftAnchor(period, a, -1));
+  const goToPreviousPeriod = () => setAnchor((a) => shiftCalendarAnchor(period, a, -1));
   const goToNextPeriod = () => {
     if (isLivePeriod) return;
-    setAnchor((a) => shiftAnchor(period, a, 1));
+    setAnchor((a) => shiftCalendarAnchor(period, a, 1));
   };
   const goToNow = () => setAnchor(new Date());
 
@@ -119,14 +130,26 @@ export default function ConsistencyDetailModal({ visible, habits = [], initialPe
   );
 
   const bucketLabels = selectedHistories[0]?.history.buckets.map((b) => b.label) || [];
+  // Daily (hourly) buckets carry a raw logged amount, not a day-count — one busy
+  // hour can exceed windowLen=1, so that view scales against its own tallest bar
+  // instead of the windowLen-based scaling every other zoom level uses.
   const maxBucketValue =
     selectedHistories.length > 0
-      ? Math.max(1, ...selectedHistories.flatMap(({ history }) => history.buckets.map((b) => b.windowLen)))
+      ? period === 'daily'
+        ? Math.max(1, ...selectedHistories.flatMap(({ history }) => history.buckets.map((b) => b.value)))
+        : Math.max(1, ...selectedHistories.flatMap(({ history }) => history.buckets.map((b) => b.windowLen)))
       : 1;
   const hasAnyWindow = selectedHistories.some(({ history }) => history.buckets.some((b) => b.windowLen > 0));
+  // Dense hourly view — thinner bars, own horizontal scroll, no per-bucket
+  // value pills (24 of them would be unreadable clutter).
+  const isDense = bucketLabels.length > 12;
 
+  // A "last bucket = status" pill makes sense when the last bucket IS the
+  // live period (today's day-bucket, this week's day, etc.) — for hourly,
+  // the last bucket is just the 11pm-midnight hour, not "today overall", so
+  // skip it there.
   const latestSingleBucket =
-    selectedHistories.length === 1
+    selectedHistories.length === 1 && period !== 'daily'
       ? selectedHistories[0].history.buckets[selectedHistories[0].history.buckets.length - 1]
       : null;
 
@@ -279,15 +302,20 @@ export default function ConsistencyDetailModal({ visible, habits = [], initialPe
                     {hasAnyWindow ? (
                       selectedHistories.length === 1 ? (
                         <>
-                          <View style={styles.chartRow}>
+                          <ScrollView
+                            horizontal
+                            scrollEnabled={isDense}
+                            showsHorizontalScrollIndicator={false}
+                          >
+                          <View style={[styles.chartRow, isDense && styles.chartRowDense]}>
                             {bucketLabels.map((label, bucketIndex) => {
                               const bucket = selectedHistories[0].history.buckets[bucketIndex];
                               const pct = maxBucketValue > 0 ? Math.round((bucket.value / maxBucketValue) * 100) : 0;
                               const colorSet = BAR_COLOR_SETS[0];
                               return (
-                                <View key={bucketIndex} style={styles.barColumn}>
+                                <View key={bucketIndex} style={[styles.barColumn, isDense && styles.barColumnDense]}>
                                   <View style={styles.barGroup}>
-                                    <View style={styles.barTrack}>
+                                    <View style={[styles.barTrack, isDense && styles.barTrackDense]}>
                                       {bucket.value > 0 ? (
                                         <LinearGradient
                                           colors={colorSet}
@@ -303,16 +331,19 @@ export default function ConsistencyDetailModal({ visible, habits = [], initialPe
                               );
                             })}
                           </View>
+                          </ScrollView>
 
-                          <View style={styles.bucketValueRow}>
-                            {selectedHistories[0].history.buckets.map((bucket, i) => (
-                              <View key={i} style={styles.bucketValuePill}>
-                                <Text style={styles.bucketValueText}>
-                                  {bucket.value} day{bucket.value === 1 ? '' : 's'}
-                                </Text>
-                              </View>
-                            ))}
-                          </View>
+                          {!isDense ? (
+                            <View style={styles.bucketValueRow}>
+                              {selectedHistories[0].history.buckets.map((bucket, i) => (
+                                <View key={i} style={styles.bucketValuePill}>
+                                  <Text style={styles.bucketValueText}>
+                                    {bucket.value} day{bucket.value === 1 ? '' : 's'}
+                                  </Text>
+                                </View>
+                              ))}
+                            </View>
+                          ) : null}
                         </>
                       ) : (
                         <>
@@ -487,6 +518,12 @@ function makeStyles(colors, typography) {
       marginTop: spacing.md,
     },
     barColumn: { alignItems: 'center', flex: 1 },
+    // Dense (hourly, 24 bars) scrolls horizontally instead of squeezing every
+    // bar into one screen width — fixed-width columns so ScrollView has a
+    // real content width to scroll, narrower bars to fit more per screen.
+    chartRowDense: { justifyContent: 'flex-start', paddingHorizontal: spacing.xs },
+    barColumnDense: { flex: 0, width: 30 },
+    barTrackDense: { width: 14 },
     barGroup: { flexDirection: 'row', alignItems: 'flex-end', gap: 3 },
     barTrack: {
       width: 28,

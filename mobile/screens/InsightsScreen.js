@@ -58,6 +58,7 @@ export default function InsightsScreen({ navigation, route }) {
   const [anchor, setAnchor] = useState(() => new Date());
   const [refreshing, setRefreshing] = useState(false);
   const [detailVisible, setDetailVisible] = useState(false);
+  const [detailInitialHabitId, setDetailInitialHabitId] = useState(null);
   const [coachVisible, setCoachVisible] = useState(false);
   const [coachInitialQuestion, setCoachInitialQuestion] = useState(null);
 
@@ -126,6 +127,14 @@ export default function InsightsScreen({ navigation, route }) {
         navigation.setParams({ openCoach: undefined });
         return;
       }
+      // Coming from the Profile screen's habit list — tapping a habit name
+      // there should open its own consistency detail, not the edit form.
+      if (route.params?.openHabitId) {
+        setDetailInitialHabitId(route.params.openHabitId);
+        setDetailVisible(true);
+        navigation.setParams({ openHabitId: undefined });
+        return;
+      }
       if (route.params?.periodNav) {
         const { period: navPeriod, anchorDate } = route.params.periodNav;
         if (navPeriod) {
@@ -142,7 +151,7 @@ export default function InsightsScreen({ navigation, route }) {
         }
         navigation.setParams({ periodNav: undefined });
       }
-    }, [route.params?.openCoach, route.params?.periodNav, navigation])
+    }, [route.params?.openCoach, route.params?.openHabitId, route.params?.periodNav, navigation])
   );
 
   return (
@@ -287,8 +296,12 @@ export default function InsightsScreen({ navigation, route }) {
         visible={detailVisible}
         habits={habits}
         initialPeriod={period}
+        initialHabitId={detailInitialHabitId}
         anchor={anchor}
-        onClose={() => setDetailVisible(false)}
+        onClose={() => {
+          setDetailVisible(false);
+          setDetailInitialHabitId(null);
+        }}
       />
 
       <AskHabituateModal

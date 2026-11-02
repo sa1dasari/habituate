@@ -10,7 +10,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useConfirm } from '../hooks/useConfirm';
 import { useToast } from '../hooks/useToast';
 import { labelForProviderId } from '../utils/providerLabels';
-import { radii, shadow, spacing } from '../theme';
+import { fonts, radii, shadow, spacing } from '../theme';
 
 const PROVIDERS = [
   { providerId: 'password', providerType: null, icon: 'email-outline' },
@@ -170,7 +170,7 @@ function makeStyles(colors, typography) {
     container: { padding: spacing.lg, paddingBottom: spacing.xxl },
     sectionTitle: { ...typography.sectionTitle, marginBottom: spacing.xs, marginTop: spacing.lg },
     sectionNote: { ...typography.meta, marginBottom: spacing.md },
-    errorText: { color: colors.atRisk, fontSize: 14, marginBottom: spacing.md },
+    errorText: { ...typography.body, color: colors.atRisk, marginBottom: spacing.md },
     card: {
       backgroundColor: colors.surface,
       borderRadius: radii.lg,
@@ -195,10 +195,10 @@ function makeStyles(colors, typography) {
       justifyContent: 'center',
     },
     rowInfo: { flex: 1 },
-    rowLabel: { fontSize: 14, fontWeight: '600', color: colors.textPrimary },
+    rowLabel: { fontFamily: fonts.semiBold, fontSize: 14, color: colors.textPrimary },
     rowMeta: { ...typography.meta, marginTop: 1 },
-    linkText: { fontSize: 13, fontWeight: '700', color: colors.accent },
-    unlinkText: { fontSize: 13, fontWeight: '700', color: colors.atRisk },
+    linkText: { fontFamily: fonts.bold, fontSize: 13, color: colors.accent },
+    unlinkText: { fontFamily: fonts.bold, fontSize: 13, color: colors.atRisk },
     secondaryButton: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -210,7 +210,7 @@ function makeStyles(colors, typography) {
       marginTop: spacing.lg,
       ...shadow,
     },
-    secondaryButtonText: { fontSize: 13, fontWeight: '700', color: colors.textSecondary },
+    secondaryButtonText: { fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary },
     deleteButton: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -222,6 +222,6 @@ function makeStyles(colors, typography) {
       paddingVertical: spacing.sm + 2,
     },
     deleteButtonDisabled: { opacity: 0.6 },
-    deleteButtonText: { fontSize: 14, fontWeight: '700', color: colors.atRisk },
+    deleteButtonText: { fontFamily: fonts.bold, fontSize: 14, color: colors.atRisk },
   });
 }

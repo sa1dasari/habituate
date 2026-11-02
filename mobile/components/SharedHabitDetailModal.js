@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import StreakIndicator from './StreakIndicator';
+import FlameIcon from './FlameIcon';
 import InviteFriendsSheet from './InviteFriendsSheet';
 import CreateGroupModal from './CreateGroupModal';
 import AvatarImage from './AvatarImage';
@@ -194,13 +195,19 @@ export default function SharedHabitDetailModal({ visible, group, onClose }) {
                   </View>
                   <Text style={styles.memberName}>{label}</Text>
                 </Pressable>
-                {isIndependent ? <Text style={styles.memberStreak}>🔥 {personStreak ?? 0}</Text> : null}
+                {isIndependent ? (
+                  <View style={styles.memberStreakRow}>
+                    <FlameIcon width={16} height={16} streak={personStreak ?? 0} />
+                    <Text style={styles.memberStreak}>{personStreak ?? 0}</Text>
+                  </View>
+                ) : null}
                 {personCheckedInToday ? (
                   <MaterialCommunityIcons name="check-circle" size={16} color={colors.safe} style={{ marginRight: spacing.xs }} />
                 ) : null}
                 {group.nudgesEnabled && !isSelf && personUserId ? (
                   <Pressable
                     style={styles.nudgeBtn}
+                    hitSlop={12}
                     accessibilityRole="button"
                     accessibilityLabel={`Nudge ${label}`}
                     onPress={() => handleNudge(personUserId, label)}
@@ -325,7 +332,8 @@ function makeStyles(colors, typography) {
     avatarText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
     avatarPhoto: { backgroundColor: colors.surface, overflow: 'hidden' },
     memberName: { fontSize: 14, color: colors.textPrimary, flex: 1 },
-    memberStreak: { fontSize: 13, fontWeight: '700', color: colors.textSecondary, marginRight: spacing.sm },
+    memberStreakRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginRight: spacing.sm },
+    memberStreak: { fontSize: 13, fontWeight: '700', color: colors.textSecondary },
     nudgeBtn: {
       width: 30,
       height: 30,

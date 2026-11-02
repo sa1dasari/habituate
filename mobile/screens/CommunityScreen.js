@@ -123,6 +123,17 @@ export default function CommunityScreen({ navigation, route }) {
     }, [route.params?.scrollToChallenges, navigation])
   );
 
+  // Coming from Profile's Challenges card — tapping a specific challenge row
+  // opens that challenge's detail modal directly.
+  useFocusEffect(
+    useCallback(() => {
+      if (!route.params?.openChallengeId) return;
+      const challenge = challenges.find((c) => c.id === route.params.openChallengeId);
+      if (challenge) setSelectedChallengeId(challenge.id);
+      navigation.setParams({ openChallengeId: undefined });
+    }, [route.params?.openChallengeId, challenges, navigation])
+  );
+
   const loading = groupsLoading || challengesLoading;
   // Looked up by id each render (not the tapped object itself) so the detail
   // modal reflects the latest streak/progress after an action inside it.

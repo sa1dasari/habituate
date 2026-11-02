@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppleAuthenticationButton, AppleAuthenticationButtonStyle, AppleAuthenticationButtonType } from 'expo-apple-authentication';
 import { useAuth } from '../hooks/useAuth';
 import { useAppTheme } from '../hooks/useAppTheme';
-import { radii, spacing } from '../theme';
+import { fonts, radii, spacing } from '../theme';
 
 export default function LoginScreen({ onGoToSignup }) {
   const { colors, typography } = useAppTheme();
@@ -188,8 +188,8 @@ function makeStyles(colors, typography) {
   },
   header: { alignItems: 'center', marginBottom: spacing.xxl },
   wordmark: {
+    fontFamily: fonts.extraBold,
     fontSize: 36,
-    fontWeight: '800',
     color: colors.accent,
     letterSpacing: -1,
   },
@@ -213,13 +213,14 @@ function makeStyles(colors, typography) {
     borderRadius: radii.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
+    fontFamily: fonts.regular,
     fontSize: 16,
     color: colors.textPrimary,
     minHeight: 48,
   },
   errorText: {
+    ...typography.body,
     color: colors.atRisk,
-    fontSize: 14,
     marginTop: spacing.xs,
   },
   button: {
@@ -232,7 +233,7 @@ function makeStyles(colors, typography) {
     justifyContent: 'center',
   },
   buttonDisabled: { opacity: 0.6 },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  buttonText: { ...typography.cardTitle, color: '#fff' },
   divider: { flexDirection: 'row', alignItems: 'center', marginVertical: spacing.lg },
   dividerLine: { flex: 1, height: 1, backgroundColor: colors.border },
   dividerText: { ...typography.meta, marginHorizontal: spacing.md, color: colors.textMuted },
@@ -246,10 +247,10 @@ function makeStyles(colors, typography) {
     minHeight: 48,
     justifyContent: 'center',
   },
-  googleButtonText: { color: colors.textPrimary, fontSize: 16, fontWeight: '600' },
+  googleButtonText: { fontFamily: fonts.semiBold, color: colors.textPrimary, fontSize: 16 },
   appleButton: { height: 48, marginTop: spacing.sm },
     switchLink: { alignItems: 'center', marginTop: spacing.lg },
     switchText: { ...typography.body, color: colors.textSecondary },
-    switchAction: { color: colors.accent, fontWeight: '600' },
+    switchAction: { fontFamily: fonts.semiBold, color: colors.accent },
   });
 }

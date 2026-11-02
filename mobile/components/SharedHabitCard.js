@@ -3,6 +3,7 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import StreakIndicator from './StreakIndicator';
 import AvatarStack from './AvatarStack';
+import FlameIcon from './FlameIcon';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { fonts, radii, shadow, spacing } from '../theme';
 
@@ -69,7 +70,7 @@ export default function SharedHabitCard({
             const personStreak = typeof person === 'object' && person ? person.currentStreak : null;
             return (
               <View key={`${label}-${index}`} style={styles.personalStreakChip}>
-                <MaterialCommunityIcons name="fire" size={13} color={colors.accent} />
+                <FlameIcon width={13} height={13} streak={personStreak ?? 0} />
                 <Text style={styles.personalStreakText} numberOfLines={1}>
                   {label} · {personStreak ?? 0}
                 </Text>

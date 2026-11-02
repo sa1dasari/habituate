@@ -79,8 +79,9 @@ export default function AddFriendModal({ visible, onClose }) {
       try {
         const found = await api.searchUsers(trimmed);
         setResults(found || []);
-      } catch {
+      } catch (err) {
         setResults([]);
+        showToast(err instanceof Error ? err.message : "Couldn't search right now — try again.", 'error');
       } finally {
         setSearching(false);
       }

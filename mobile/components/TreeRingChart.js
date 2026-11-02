@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import Svg, { Circle, Path, Text as SvgText } from 'react-native-svg';
+import { useAppTheme } from '../hooks/useAppTheme';
 import { spacing } from '../theme';
 
 const GAP_DEGREES = 4;
@@ -44,10 +45,13 @@ function describeArc(cx, cy, r, startAngle, endAngle) {
 export default function TreeRingChart({
   selectedHistories = [],
   colorSets = [],
-  trackColor = '#E5E7EB',
-  labelColor = '#9CA3AF',
+  trackColor,
+  labelColor,
   size = 260,
 }) {
+  const { colors } = useAppTheme();
+  const resolvedTrackColor = trackColor ?? colors.ringTrack;
+  const resolvedLabelColor = labelColor ?? colors.textMuted;
   const bucketCount = selectedHistories[0]?.history.buckets.length || 0;
   const bucketLabels = selectedHistories[0]?.history.buckets.map((b) => b.label) || [];
   const numRings = selectedHistories.length;
@@ -85,14 +89,14 @@ export default function TreeRingChart({
     <View style={styles.wrap}>
       <Svg width={size} height={size}>
         {rings.map((ring, ringIndex) => {
-          const color = colorSets[ringIndex % colorSets.length]?.[1] || trackColor;
+          const color = colorSets[ringIndex % colorSets.length]?.[1] || resolvedTrackColor;
           return (
             <React.Fragment key={ringIndex}>
               <Circle
                 cx={cx}
                 cy={cy}
                 r={ring.radius}
-                stroke={trackColor}
+                stroke={resolvedTrackColor}
                 strokeWidth={ringThickness}
                 fill="none"
                 opacity={0.5}
@@ -126,7 +130,7 @@ export default function TreeRingChart({
               y={y}
               fontSize={10}
               fontWeight="600"
-              fill={labelColor}
+              fill={resolvedLabelColor}
               textAnchor="middle"
               alignmentBaseline="middle"
             >

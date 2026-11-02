@@ -6,7 +6,7 @@ import StackHeader from '../components/StackHeader';
 import Toast from '../components/Toast';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useToast } from '../hooks/useToast';
-import { radii, shadow, spacing } from '../theme';
+import { fonts, radii, shadow, spacing } from '../theme';
 
 const FAQS = [
   {
@@ -77,7 +77,7 @@ function makeStyles(colors, typography) {
     },
     faqRow: { marginBottom: spacing.lg },
     faqRowLast: { marginBottom: 0 },
-    question: { fontSize: 14, fontWeight: '700', color: colors.textPrimary, marginBottom: spacing.xs },
+    question: { fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, marginBottom: spacing.xs },
     answer: { ...typography.body, color: colors.textSecondary },
     secondaryButton: {
       flexDirection: 'row',
@@ -89,6 +89,6 @@ function makeStyles(colors, typography) {
       paddingVertical: spacing.sm + 2,
       ...shadow,
     },
-    secondaryButtonText: { fontSize: 13, fontWeight: '700', color: colors.textSecondary },
+    secondaryButtonText: { fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary },
   });
 }

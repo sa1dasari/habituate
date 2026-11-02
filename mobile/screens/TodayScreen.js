@@ -32,7 +32,7 @@ import { effectiveMonthlyTarget, effectiveWeeklyTarget } from '../utils/cadence'
 import { daysLeftInMonth, daysLeftInWeek } from '../utils/date';
 import { byScheduledTime } from '../utils/time';
 import { useAppTheme } from '../hooks/useAppTheme';
-import { gradients, radii, shadow, shadowLg, spacing } from '../theme';
+import { fonts, gradients, radii, shadow, shadowLg, spacing } from '../theme';
 
 // Shown below the daily list so a weekly habit can still be logged from Today
 // without being counted against today's progress.
@@ -496,7 +496,7 @@ function makeStyles(colors, typography) {
     marginBottom: spacing.xl,
   },
   headerText: { flex: 1 },
-  greeting: { fontSize: 14, color: colors.textSecondary },
+  greeting: { ...typography.body, color: colors.textSecondary },
   shieldBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -507,7 +507,7 @@ function makeStyles(colors, typography) {
     paddingVertical: spacing.xs,
     marginRight: spacing.sm,
   },
-  shieldBadgeText: { fontSize: 12, fontWeight: '800', color: colors.safe },
+  shieldBadgeText: { fontFamily: fonts.extraBold, fontSize: 12, color: colors.safe },
   name: { ...typography.screenTitle, marginTop: 2 },
   avatar: {
     width: 48,
@@ -519,7 +519,7 @@ function makeStyles(colors, typography) {
     overflow: 'hidden',
   },
   avatarPhoto: { width: 48, height: 48, borderRadius: radii.pill },
-  avatarText: { fontSize: 16, fontWeight: '700', color: colors.accent },
+  avatarText: { ...typography.cardTitle, color: colors.accent },
   summaryCard: {
     backgroundColor: colors.surface,
     borderRadius: radii.lg,
@@ -533,10 +533,10 @@ function makeStyles(colors, typography) {
     justifyContent: 'space-between',
   },
   summaryText: { flex: 1 },
-  summaryLabel: { fontSize: 14, color: colors.textSecondary },
+  summaryLabel: { ...typography.body, color: colors.textSecondary },
   summaryCount: {
+    fontFamily: fonts.extraBold,
     fontSize: 34,
-    fontWeight: '800',
     color: colors.textPrimary,
     marginTop: spacing.xs,
   },
@@ -560,6 +560,7 @@ function makeStyles(colors, typography) {
     borderRadius: radii.pill,
   },
   summaryNudge: {
+    fontFamily: fonts.regular,
     fontSize: 13,
     lineHeight: 18,
     color: colors.textSecondary,
@@ -572,7 +573,7 @@ function makeStyles(colors, typography) {
     marginBottom: spacing.md,
   },
   sectionTitle: { ...typography.sectionTitle, fontSize: 18 },
-  seeAll: { fontSize: 14, fontWeight: '600', color: colors.accent },
+  seeAll: { fontFamily: fonts.semiBold, fontSize: 14, color: colors.accent },
   laterSection: { marginTop: spacing.lg },
   sectionNote: { ...typography.meta, marginBottom: spacing.md },
   loaderRow: {
@@ -583,7 +584,7 @@ function makeStyles(colors, typography) {
     marginTop: spacing.lg,
   },
   loaderText: { ...typography.body, color: colors.textSecondary },
-  error: { color: colors.atRisk, fontSize: 13, marginBottom: spacing.md },
+  error: { fontFamily: fonts.regular, color: colors.atRisk, fontSize: 13, marginBottom: spacing.md },
   emptyCard: {
     backgroundColor: colors.surface,
     borderRadius: radii.lg,
@@ -593,6 +594,7 @@ function makeStyles(colors, typography) {
   },
   emptyTitle: { ...typography.cardTitle, marginBottom: spacing.sm },
   emptyBody: {
+    fontFamily: fonts.regular,
     fontSize: 13,
     lineHeight: 19,
     color: colors.textSecondary,

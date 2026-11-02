@@ -70,7 +70,7 @@ export default function HabitCard({
       <Pressable
         onPress={onRemoveLast}
         disabled={disabled || todayCount <= 0}
-        hitSlop={6}
+        hitSlop={8}
         accessibilityRole="button"
         accessibilityLabel={`Remove last check-in for ${name}`}
         style={({ pressed }) => [
@@ -89,7 +89,7 @@ export default function HabitCard({
       <Pressable
         onPress={onAdd}
         disabled={disabled}
-        hitSlop={6}
+        hitSlop={8}
         accessibilityRole="button"
         accessibilityLabel={`Add a check-in for ${name}`}
         style={({ pressed }) => [
@@ -253,7 +253,7 @@ export default function HabitCard({
                     setAmountInput('');
                   }}
                   disabled={disabled || !amountInput}
-                  hitSlop={6}
+                  hitSlop={8}
                   accessibilityRole="button"
                   accessibilityLabel="Add progress"
                   style={({ pressed }) => [

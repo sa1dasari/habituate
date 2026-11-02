@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '../hooks/useAppTheme';
-import { radii, shadow, spacing } from '../theme';
+import { fonts, radii, shadow, spacing } from '../theme';
 
 /**
  * Honest placeholder for screens whose phase hasn't been built yet, so the
@@ -44,14 +44,14 @@ function makeStyles(colors, typography) {
       ...shadow,
     },
     phase: {
+      fontFamily: fonts.bold,
       fontSize: 11,
-      fontWeight: '700',
       color: colors.accent,
       textTransform: 'uppercase',
       letterSpacing: 0.5,
     },
     summary: {
-      fontSize: 14,
+      ...typography.body,
       lineHeight: 20,
       color: colors.textSecondary,
       marginTop: spacing.sm,
@@ -59,6 +59,6 @@ function makeStyles(colors, typography) {
     },
     itemRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm },
     bullet: { width: 5, height: 5, borderRadius: radii.pill, backgroundColor: colors.textMuted },
-    itemText: { flex: 1, fontSize: 13, color: colors.textSecondary },
+    itemText: { flex: 1, fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary },
   });
 }

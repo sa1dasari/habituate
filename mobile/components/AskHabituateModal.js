@@ -24,7 +24,7 @@ import { useToast } from '../hooks/useToast';
 import { useTourTarget } from '../hooks/useTourTarget';
 import { TOUR_SCOPES, TOUR_TARGETS } from '../constants/onboardingTour';
 import { generateCoachStarterQuestions } from '../utils/consistency';
-import { radii, shadow, spacing } from '../theme';
+import { fonts, radii, shadow, spacing } from '../theme';
 
 // Small, fixed, Gen-Z-punchy reaction set — long-press any bubble (yours or
 // the AI's) to pick one. Same set the AI's own server-side heuristic picks
@@ -496,7 +496,7 @@ function makeStyles(colors, typography) {
       flexDirection: 'row',
       alignItems: 'center',
     },
-    backLinkText: { fontSize: 14, fontWeight: '600', color: colors.textSecondary },
+    backLinkText: { fontFamily: fonts.semiBold, fontSize: 14, color: colors.textSecondary },
     clearBtn: {
       width: 30,
       height: 30,
@@ -533,7 +533,7 @@ function makeStyles(colors, typography) {
       paddingVertical: spacing.sm + 2,
       maxWidth: '85%',
     },
-    userBubbleText: { fontSize: 14, color: colors.textPrimary, lineHeight: 20 },
+    userBubbleText: { ...typography.body, lineHeight: 20 },
     reactionBadgeRow: {
       flexDirection: 'row',
       gap: 4,
@@ -577,14 +577,14 @@ function makeStyles(colors, typography) {
     reactionPickerEmoji: { fontSize: 18 },
     assistantTurn: { marginBottom: spacing.lg },
     coachLabelRow: { marginBottom: spacing.sm },
-    coachLabel: { fontSize: 12, fontWeight: '600', color: colors.textMuted, marginBottom: spacing.sm },
+    coachLabel: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.textMuted, marginBottom: spacing.sm },
     replyCard: {
       backgroundColor: colors.surface,
       borderRadius: radii.lg,
       padding: spacing.md,
       ...shadow,
     },
-    replyText: { fontSize: 14, color: colors.textPrimary, lineHeight: 20 },
+    replyText: { ...typography.body, lineHeight: 20 },
     citationRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -594,7 +594,7 @@ function makeStyles(colors, typography) {
       borderTopWidth: 1,
       borderTopColor: colors.border,
     },
-    citationText: { fontSize: 11, color: colors.textMuted },
+    citationText: { fontFamily: fonts.regular, fontSize: 11, color: colors.textMuted },
     adjustmentCard: {
       backgroundColor: colors.surface,
       borderRadius: radii.lg,
@@ -603,18 +603,18 @@ function makeStyles(colors, typography) {
       ...shadow,
     },
     adjustmentEyebrowRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 4 },
-    adjustmentEyebrow: { fontSize: 12, fontWeight: '700', color: colors.safe },
-    adjustmentTitle: { fontSize: 16, fontWeight: '800', color: colors.textPrimary, marginBottom: 4 },
+    adjustmentEyebrow: { fontFamily: fonts.bold, fontSize: 12, color: colors.safe },
+    adjustmentTitle: { fontFamily: fonts.extraBold, fontSize: 16, color: colors.textPrimary, marginBottom: 4 },
     adjustmentDescription: { ...typography.body, color: colors.textSecondary, marginBottom: 4 },
-    creationMeta: { fontSize: 12, fontWeight: '600', color: colors.textMuted, marginBottom: 4 },
-    adjustmentCaption: { fontSize: 12, color: colors.textMuted, marginBottom: spacing.md },
+    creationMeta: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.textMuted, marginBottom: 4 },
+    adjustmentCaption: { ...typography.meta, color: colors.textMuted, marginBottom: spacing.md },
     confirmBtn: {
       backgroundColor: colors.safe,
       borderRadius: radii.pill,
       paddingVertical: spacing.sm + 2,
       alignItems: 'center',
     },
-    confirmBtnText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
+    confirmBtnText: { fontFamily: fonts.bold, fontSize: 14, color: '#FFFFFF' },
     secondaryRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
     secondaryBtn: {
       flex: 1,
@@ -624,11 +624,11 @@ function makeStyles(colors, typography) {
       paddingVertical: spacing.sm,
       alignItems: 'center',
     },
-    secondaryBtnText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
+    secondaryBtnText: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textSecondary },
     adjustmentStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    adjustmentStatusText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
+    adjustmentStatusText: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textSecondary },
     startersWrap: { marginTop: spacing.md },
-    startersLabel: { fontSize: 12, fontWeight: '700', color: colors.textMuted, marginBottom: spacing.sm },
+    startersLabel: { fontFamily: fonts.bold, fontSize: 12, color: colors.textMuted, marginBottom: spacing.sm },
     starterChip: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -646,8 +646,8 @@ function makeStyles(colors, typography) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    starterNumberText: { fontSize: 12, fontWeight: '700', color: colors.safe },
-    starterText: { fontSize: 14, color: colors.textPrimary, flex: 1 },
+    starterNumberText: { fontFamily: fonts.bold, fontSize: 12, color: colors.safe },
+    starterText: { ...typography.body, flex: 1 },
     inputBar: {
       flexDirection: 'row',
       alignItems: 'flex-end',
@@ -665,6 +665,7 @@ function makeStyles(colors, typography) {
       borderColor: colors.border,
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.sm + 2,
+      fontFamily: fonts.regular,
       fontSize: 14,
       color: colors.textPrimary,
       maxHeight: 100,
@@ -680,6 +681,7 @@ function makeStyles(colors, typography) {
     sendBtnDisabled: { opacity: 0.4 },
     disclaimer: {
       textAlign: 'center',
+      fontFamily: fonts.regular,
       fontSize: 11,
       color: colors.textMuted,
       paddingVertical: spacing.sm,

@@ -10,7 +10,7 @@ import { useGoals } from '../hooks/useGoals';
 import { useToast } from '../hooks/useToast';
 import { buildExportData, shareExport, toCsv, toJson } from '../utils/dataExport';
 import api from '../api/client';
-import { radii, shadow, spacing } from '../theme';
+import { fonts, radii, shadow, spacing } from '../theme';
 
 // TODO: replace with the real hosted privacy policy URL before store submission.
 const PRIVACY_POLICY_URL = 'https://habituate.app/privacy';
@@ -179,7 +179,7 @@ function makeStyles(colors, typography) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    rowLabel: { flex: 1, fontSize: 14, fontWeight: '600', color: colors.textPrimary },
+    rowLabel: { flex: 1, fontFamily: fonts.semiBold, fontSize: 14, color: colors.textPrimary },
     optionText: { flex: 1 },
     optionHint: { ...typography.meta, marginTop: 2 },
     sectionTitle: { ...typography.sectionTitle, marginTop: spacing.xl, marginBottom: spacing.xs },
@@ -197,6 +197,6 @@ function makeStyles(colors, typography) {
       paddingVertical: spacing.sm + 2,
       backgroundColor: colors.surface,
     },
-    secondaryButtonText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
+    secondaryButtonText: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textSecondary },
   });
 }

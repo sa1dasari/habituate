@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import StackHeader from '../components/StackHeader';
 import { useAppTheme } from '../hooks/useAppTheme';
-import { radii, shadow, spacing } from '../theme';
+import { fonts, radii, shadow, spacing } from '../theme';
 
 // Relocated verbatim from ProfileScreen's old "Appearance" card — this is
 // genuinely where it belongs. Other accessibility infra (dynamic type
@@ -81,7 +81,7 @@ function makeStyles(colors, typography) {
       backgroundColor: colors.background,
     },
     themePillActive: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
-    themePillText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
+    themePillText: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textSecondary },
     themePillTextActive: { color: colors.accent },
   });
 }

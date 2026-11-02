@@ -115,7 +115,7 @@ export default function GoalCard({
               setAmountInput('');
             }}
             disabled={disabled || !amountInput}
-            hitSlop={6}
+            hitSlop={8}
             accessibilityLabel={`Add progress toward ${goal.description}`}
           >
             <Text style={styles.amountButtonText}>Add</Text>
@@ -127,7 +127,7 @@ export default function GoalCard({
             style={[styles.stepperBtn, (disabled || goal.currentCount <= 0) && styles.stepperBtnDisabled]}
             onPress={() => onDecrement && onDecrement(goal)}
             disabled={disabled || goal.currentCount <= 0}
-            hitSlop={6}
+            hitSlop={8}
             accessibilityLabel={`Remove one from ${goal.description}`}
           >
             <MaterialCommunityIcons name="minus" size={16} color={colors.textSecondary} />
@@ -136,7 +136,7 @@ export default function GoalCard({
             style={[styles.stepperBtn, styles.stepperBtnAdd, disabled && styles.checkDisabled]}
             onPress={() => onIncrement && onIncrement(goal)}
             disabled={disabled}
-            hitSlop={6}
+            hitSlop={8}
             accessibilityLabel={`Add one to ${goal.description}`}
           >
             <MaterialCommunityIcons name="plus" size={16} color="#FFFFFF" />

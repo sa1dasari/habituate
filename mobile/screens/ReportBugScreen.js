@@ -20,7 +20,7 @@ import api from '../api/client';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useToast } from '../hooks/useToast';
 import { uploadFeedbackAttachment } from '../utils/uploadAttachment';
-import { radii, shadow, spacing } from '../theme';
+import { fonts, radii, shadow, spacing } from '../theme';
 
 const TYPES = [
   { value: 'BUG', label: 'Bug' },
@@ -281,7 +281,7 @@ function makeStyles(colors, typography) {
       backgroundColor: colors.surface,
     },
     typePillActive: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
-    typePillText: { fontSize: 14, fontWeight: '600', color: colors.textSecondary },
+    typePillText: { fontFamily: fonts.semiBold, fontSize: 14, color: colors.textSecondary },
     typePillTextActive: { color: colors.accent },
     label: { ...typography.label, marginBottom: spacing.sm },
     pageScroll: { marginBottom: spacing.lg },
@@ -295,7 +295,7 @@ function makeStyles(colors, typography) {
       backgroundColor: colors.surface,
     },
     pagePillActive: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
-    pagePillText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
+    pagePillText: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textSecondary },
     pagePillTextActive: { color: colors.accent },
     input: {
       backgroundColor: colors.surface,
@@ -304,6 +304,7 @@ function makeStyles(colors, typography) {
       borderColor: colors.border,
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.md,
+      fontFamily: fonts.regular,
       fontSize: 15,
       color: colors.textPrimary,
       minHeight: 140,
@@ -323,7 +324,7 @@ function makeStyles(colors, typography) {
       paddingVertical: spacing.sm + 2,
       marginBottom: spacing.sm,
     },
-    attachmentName: { flex: 1, fontSize: 13, color: colors.textPrimary },
+    attachmentName: { flex: 1, fontFamily: fonts.regular, fontSize: 13, color: colors.textPrimary },
     attachmentButtonsRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg },
     secondaryButton: {
       flex: 1,
@@ -337,7 +338,7 @@ function makeStyles(colors, typography) {
       paddingVertical: spacing.sm + 2,
       backgroundColor: colors.surface,
     },
-    secondaryButtonText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
+    secondaryButtonText: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textSecondary },
     primaryButton: {
       backgroundColor: colors.accent,
       borderRadius: radii.pill,
@@ -347,6 +348,6 @@ function makeStyles(colors, typography) {
       justifyContent: 'center',
     },
     primaryButtonDisabled: { opacity: 0.6 },
-    primaryButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+    primaryButtonText: { ...typography.cardTitle, color: '#FFFFFF' },
   });
 }

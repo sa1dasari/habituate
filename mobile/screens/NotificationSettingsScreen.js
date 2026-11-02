@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import StackHeader from '../components/StackHeader';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useNotificationSwipePrefs } from '../hooks/useNotificationSwipePrefs';
-import { radii, shadow, spacing } from '../theme';
+import { fonts, radii, shadow, spacing } from '../theme';
 
 const STATUS_LABELS = {
   granted: 'Allowed',
@@ -144,7 +144,7 @@ function makeStyles(colors, typography) {
       justifyContent: 'center',
     },
     rowInfo: { flex: 1 },
-    rowLabel: { fontSize: 14, fontWeight: '600', color: colors.textPrimary },
+    rowLabel: { fontFamily: fonts.semiBold, fontSize: 14, color: colors.textPrimary },
     rowMeta: { ...typography.meta, marginTop: 1 },
     secondaryButton: {
       flexDirection: 'row',
@@ -156,11 +156,11 @@ function makeStyles(colors, typography) {
       paddingVertical: spacing.sm + 2,
       ...shadow,
     },
-    secondaryButtonText: { fontSize: 13, fontWeight: '700', color: colors.textSecondary },
+    secondaryButtonText: { fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary },
     note: { ...typography.meta, marginTop: spacing.lg },
     sectionLabel: {
+      fontFamily: fonts.bold,
       fontSize: 13,
-      fontWeight: '700',
       color: colors.textPrimary,
       marginTop: spacing.xl,
       marginBottom: 2,

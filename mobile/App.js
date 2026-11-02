@@ -29,7 +29,7 @@ import { usePushToken } from './hooks/usePushToken';
 import { TourProvider, useAutoStartTour } from './hooks/useOnboardingTour';
 import api from './api/client';
 import { scrollToTop } from './utils/scrollToTopRegistry';
-import { navigationRef } from './utils/navigationRef';
+import { navigateToTab, navigationRef } from './utils/navigationRef';
 import {
   ChooseUsernameScreen,
   CommunityScreen,
@@ -151,6 +151,7 @@ function WidgetDeepLinkBridge() {
       const habitId = match ? Number(match[1]) : null;
       if (!habitId || loading) return;
       toggleCheckIn(habitId).catch(() => {});
+      navigateToTab('Today');
     };
 
     Linking.getInitialURL().then((url) => url && handleUrl({ url }));

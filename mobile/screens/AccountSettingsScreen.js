@@ -6,7 +6,7 @@ import StackHeader from '../components/StackHeader';
 import EditProfileModal from '../components/EditProfileModal';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useReplayTour } from '../hooks/useOnboardingTour';
-import { radii, shadow, spacing } from '../theme';
+import { fonts, radii, shadow, spacing } from '../theme';
 
 const ROWS = [
   { key: 'personalInfo', icon: 'account-outline', label: 'Personal Info' },
@@ -97,6 +97,6 @@ function makeStyles(colors, typography) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    rowLabel: { flex: 1, fontSize: 14, fontWeight: '600', color: colors.textPrimary },
+    rowLabel: { flex: 1, fontFamily: fonts.semiBold, fontSize: 14, color: colors.textPrimary },
   });
 }

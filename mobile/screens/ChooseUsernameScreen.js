@@ -15,7 +15,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import api from '../api/client';
 import { useAuth } from '../hooks/useAuth';
 import { useAppTheme } from '../hooks/useAppTheme';
-import { radii, spacing } from '../theme';
+import { fonts, radii, spacing } from '../theme';
 
 const USERNAME_PATTERN = /^[a-z0-9_]{3,20}$/;
 const CHECK_DEBOUNCE_MS = 400;
@@ -180,8 +180,8 @@ function makeStyles(colors, typography) {
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.sm + 2,
     },
-    atSign: { fontSize: 16, fontWeight: '700', color: colors.textMuted },
-    input: { flex: 1, fontSize: 16, color: colors.textPrimary },
+    atSign: { fontFamily: fonts.bold, fontSize: 16, color: colors.textMuted },
+    input: { flex: 1, fontFamily: fonts.regular, fontSize: 16, color: colors.textPrimary },
     hint: { ...typography.meta, marginTop: spacing.sm, marginBottom: spacing.xl },
     hintSafe: { color: colors.safe },
     hintError: { color: colors.atRisk },
@@ -193,7 +193,7 @@ function makeStyles(colors, typography) {
       alignItems: 'center',
     },
     primaryButtonDisabled: { opacity: 0.5 },
-    primaryButtonText: { color: '#FFFFFF', fontWeight: '700', fontSize: 15 },
+    primaryButtonText: { color: '#FFFFFF', fontFamily: fonts.bold, fontSize: 15 },
     signOutButton: { alignItems: 'center', marginTop: spacing.lg },
     signOutText: { ...typography.meta, color: colors.textSecondary },
   });

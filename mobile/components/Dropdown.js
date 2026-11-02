@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAppTheme } from '../hooks/useAppTheme';
-import { radii, shadow, spacing } from '../theme';
+import { fonts, radii, shadow, spacing } from '../theme';
 
 /**
  * Minimal single-select dropdown. Uses a modal sheet rather than a native
@@ -105,6 +105,6 @@ function makeStyles(colors, typography) {
   },
     optionActive: { backgroundColor: colors.accentSoft },
     optionText: { ...typography.body, fontSize: 15 },
-    optionTextActive: { color: colors.accent, fontWeight: '700' },
+    optionTextActive: { color: colors.accent, fontFamily: fonts.bold },
   });
 }

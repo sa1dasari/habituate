@@ -42,7 +42,7 @@ import { summarizeHabits, useHabits } from '../hooks/useHabits';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useOnboardingTour } from '../hooks/useOnboardingTour';
 import { useTourTarget } from '../hooks/useTourTarget';
-import { radii, shadow, spacing } from '../theme';
+import { fonts, radii, shadow, spacing } from '../theme';
 
 const emptyForm = {
   id: null,
@@ -310,6 +310,39 @@ export default function HabitsScreen() {
     [celebrateGoalProgress, logGoalAmount]
   );
 
+  const handleDecrementGoal = useCallback(
+    async (goal) => {
+      try {
+        await decrementGoal(goal.id);
+      } catch (err) {
+        showToast(`Could not update goal — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+      }
+    },
+    [decrementGoal, showToast]
+  );
+
+  const handleRolloverGoal = useCallback(
+    async (goal) => {
+      try {
+        await rolloverGoal(goal);
+      } catch (err) {
+        showToast(`Could not update goal — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+      }
+    },
+    [rolloverGoal, showToast]
+  );
+
+  const handleArchiveGoal = useCallback(
+    async (goal) => {
+      try {
+        await archiveGoal(goal.id);
+      } catch (err) {
+        showToast(`Could not update goal — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+      }
+    },
+    [archiveGoal, showToast]
+  );
+
   // Coming from the Today page's Goals summary card — jump straight to the
   // Goals section instead of landing at the top of a long habit list.
   useFocusEffect(
@@ -369,6 +402,22 @@ export default function HabitsScreen() {
     setShowForm(true);
     scrollToForm();
   };
+
+  // Coming from the Profile screen's habit list — tapping a habit name there
+  // should open it here, since the edit form is this app's closest thing to
+  // a habit detail view.
+  useFocusEffect(
+    useCallback(() => {
+      if (!route.params?.openHabitId) return;
+      const habit = habits.find((h) => h.id === route.params.openHabitId);
+      if (habit) {
+        openEdit(habit);
+        scrollToForm();
+      }
+      navigation.setParams({ openHabitId: undefined });
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [route.params?.openHabitId, navigation, habits])
+  );
 
   const submit = async () => {
     const name = form.name.trim();
@@ -869,12 +918,12 @@ export default function HabitsScreen() {
                 goal={goal}
                 disabled={goalsBusy}
                 onIncrement={() => handleIncrementGoal(goal)}
-                onDecrement={() => decrementGoal(goal.id)}
+                onDecrement={() => handleDecrementGoal(goal)}
                 onLogAmount={(g, amount) => handleLogGoalAmount(g, amount)}
                 onEdit={() => openEditGoal(goal)}
                 onDelete={() => confirmDeleteGoal(goal)}
-                onRollover={() => rolloverGoal(goal)}
-                onDismiss={() => archiveGoal(goal.id)}
+                onRollover={() => handleRolloverGoal(goal)}
+                onDismiss={() => handleArchiveGoal(goal)}
               />
             ))}
           </View>
@@ -1041,7 +1090,7 @@ function makeStyles(colors, typography) {
     fontSize: 15,
     color: colors.textPrimary,
   },
-  label: { ...typography.meta, fontWeight: '600', marginBottom: spacing.sm },
+  label: { ...typography.meta, fontFamily: fonts.semiBold, marginBottom: spacing.sm },
   switchRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1128,7 +1177,7 @@ function makeStyles(colors, typography) {
     justifyContent: 'space-between',
     marginBottom: spacing.md,
   },
-  archivedToggle: { ...typography.meta, color: colors.accent, fontWeight: '700' },
+  archivedToggle: { ...typography.meta, fontFamily: fonts.bold, color: colors.accent },
   archivedRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1140,7 +1189,7 @@ function makeStyles(colors, typography) {
     marginBottom: spacing.sm,
   },
   archivedMain: { flex: 1 },
-  archivedName: { ...typography.body, fontWeight: '600', color: colors.textSecondary },
+  archivedName: { ...typography.body, fontFamily: fonts.semiBold, color: colors.textSecondary },
   archivedMeta: { ...typography.meta, color: colors.textMuted, marginTop: 2 },
   archivedAction: { paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
   archivedActionText: { color: colors.accent, fontWeight: '700', fontSize: 14 },

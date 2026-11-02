@@ -106,12 +106,13 @@ export default function TourHighlight({ scope }) {
 
               <View style={styles.buttonsRow}>
                 {!isFirst ? (
-                  <Pressable onPress={back} style={styles.backBtn} accessibilityRole="button" accessibilityLabel="Back">
+                  <Pressable onPress={back} style={styles.backBtn} hitSlop={8} accessibilityRole="button" accessibilityLabel="Back">
                     <Text style={styles.backBtnText}>Back</Text>
                   </Pressable>
                 ) : null}
                 <Pressable
                   onPress={next}
+                  hitSlop={8}
                   accessibilityRole="button"
                   accessibilityLabel={isLast ? 'Finish tour' : 'Next'}
                 >

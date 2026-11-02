@@ -29,7 +29,12 @@ function Card({ title, actionLabel, onAction, children, styles }) {
       <View style={styles.cardHeader}>
         <Text style={styles.cardTitle}>{title}</Text>
         {actionLabel ? (
-          <Pressable onPress={onAction} accessibilityRole="button" accessibilityLabel={actionLabel}>
+          <Pressable
+            onPress={onAction}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={actionLabel}
+          >
             <Text style={styles.cardAction}>{actionLabel}</Text>
           </Pressable>
         ) : null}
@@ -79,6 +84,7 @@ export default function ProfileScreen() {
           </View>
           <Pressable
             style={styles.editBtn}
+            hitSlop={4}
             accessibilityRole="button"
             accessibilityLabel="Edit profile"
             onPress={() => setEditVisible(true)}
@@ -120,7 +126,13 @@ export default function ProfileScreen() {
               const done = habit.periodDone || 0;
               const percent = target > 0 ? Math.min(100, Math.round((done / target) * 100)) : 0;
               return (
-                <View key={habit.id} style={styles.habitRow}>
+                <Pressable
+                  key={habit.id}
+                  style={styles.habitRow}
+                  onPress={() => navigation.navigate('Habits', { openHabitId: habit.id })}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Open ${habit.name}`}
+                >
                   <View style={styles.habitIcon}>
                     <MaterialCommunityIcons name={categoryIcon(habit.category)} size={18} color={colors.accent} />
                   </View>
@@ -133,7 +145,8 @@ export default function ProfileScreen() {
                       <View style={[styles.progressFill, { width: `${Math.max(4, percent)}%` }]} />
                     </View>
                   </View>
-                </View>
+                  <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textMuted} />
+                </Pressable>
               );
             })
           )}
@@ -152,7 +165,13 @@ export default function ProfileScreen() {
               const accentColor = challenge.color || colors.accent;
               const percent = challenge.progressPercent || 0;
               return (
-                <View key={challenge.id} style={styles.habitRow}>
+                <Pressable
+                  key={challenge.id}
+                  style={styles.habitRow}
+                  onPress={() => navigation.navigate('Community', { openChallengeId: challenge.id })}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Open ${challenge.name}`}
+                >
                   <View style={[styles.habitIcon, { backgroundColor: `${accentColor}22` }]}>
                     <MaterialCommunityIcons name={challenge.icon || 'trophy-outline'} size={18} color={accentColor} />
                   </View>
@@ -167,7 +186,8 @@ export default function ProfileScreen() {
                       <View style={[styles.progressFill, { width: `${Math.max(4, percent)}%`, backgroundColor: accentColor }]} />
                     </View>
                   </View>
-                </View>
+                  <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textMuted} />
+                </Pressable>
               );
             })
           )}

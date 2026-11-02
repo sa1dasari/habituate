@@ -330,9 +330,7 @@ function makeStyles(colors, typography) {
       backgroundColor: colors.textPrimary,
     },
     tabText: {
-      fontSize: 13,
-      fontWeight: '600',
-      color: colors.textSecondary,
+      ...typography.label,
     },
     tabTextActive: {
       color: colors.background,
@@ -353,7 +351,7 @@ function makeStyles(colors, typography) {
       justifyContent: 'center',
     },
     periodRangeLabelWrap: { alignItems: 'center', minWidth: 140 },
-    periodRangeLabel: { fontSize: 13, fontWeight: '700', color: colors.textPrimary },
+    periodRangeLabel: { fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary },
     periodRangeSubLabel: { ...typography.meta, marginTop: 1 },
     consistencyCard: {
       backgroundColor: colors.surface,
@@ -368,14 +366,14 @@ function makeStyles(colors, typography) {
       alignItems: 'flex-start',
     },
     consistencyLabel: {
+      fontFamily: fonts.bold,
       fontSize: 11,
-      fontWeight: '700',
       color: colors.textMuted,
       letterSpacing: 0.5,
     },
     consistencyPercent: {
+      fontFamily: fonts.extraBold,
       fontSize: 32,
-      fontWeight: '800',
       color: colors.textPrimary,
       marginTop: 2,
     },
@@ -392,8 +390,8 @@ function makeStyles(colors, typography) {
       backgroundColor: colors.neutralSoft,
     },
     trendText: {
+      fontFamily: fonts.bold,
       fontSize: 12,
-      fontWeight: '700',
       color: colors.safe,
     },
     trendTextDown: {
@@ -406,9 +404,7 @@ function makeStyles(colors, typography) {
       marginVertical: spacing.lg,
     },
     messageTitle: {
-      fontSize: 16,
-      fontWeight: '700',
-      color: colors.textPrimary,
+      ...typography.cardTitle,
       marginBottom: 4,
     },
     messageSubtitle: {

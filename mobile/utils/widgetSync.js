@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { API_BASE_URL } from '../api/client';
+import { cadenceProgress, hasDailyTarget } from './cadence';
 
 /**
  * Bridges auth + today's-habits state from the main app's JS runtime into
@@ -67,23 +68,40 @@ async function writeIOSAppGroup(key, value) {
 
 /**
  * Called from `useHabits.js` every time the habit list refreshes. Keeps
- * only what a widget can actually use: not-yet-archived habits due today,
- * ranked the same way the Today screen ranks "Due Today" so the smallest
- * widget size shows the single most relevant habit.
+ * what a widget can actually use — every active habit, not just ones due
+ * today (a weekly/monthly-only habit never has a daily target, so it was
+ * silently excluded entirely until this included isDaily/cadenceLabel) —
+ * ranked not-done-first so the smallest widget size shows the single most
+ * relevant habit, regardless of its cadence.
+ *
+ * `done` means different things depending on the habit: for a daily-target
+ * habit it's "hit today's target"; for a weekly/monthly-only habit it's
+ * "already met this period's target" (not just "logged today") — showing a
+ * perpetual + on a habit you already finished this week would read as
+ * nagging, which cuts against the app's anti-guilt design.
  */
 export async function syncHabitSnapshot(habits) {
   const today = (habits || [])
-    .filter((h) => !h.archivedAt && h.dueToday !== false)
-    .slice(0, 8)
-    .map((h) => ({
-      id: h.id,
-      name: h.name,
-      color: h.color || '#2563EB',
-      category: h.category || 'General',
-      currentStreak: h.currentStreak ?? 0,
-      checkedInToday: !!h.checkedInToday,
-      trackingMode: h.trackingMode || 'BOOLEAN',
-    }));
+    .filter((h) => !h.archivedAt)
+    .map((h) => {
+      const progress = cadenceProgress(h);
+      const isDaily = hasDailyTarget(h);
+      return {
+        id: h.id,
+        name: h.name,
+        color: h.color || '#2563EB',
+        category: h.category || 'General',
+        currentStreak: h.currentStreak ?? 0,
+        trackingMode: h.trackingMode || 'BOOLEAN',
+        isDaily,
+        done: isDaily ? !progress.dueToday : progress.periodComplete,
+        cadenceLabel: progress.monthlyTarget ? 'Monthly' : progress.weeklyTarget ? 'Weekly' : null,
+        periodDone: progress.periodDone,
+        periodTarget: progress.periodTarget,
+      };
+    })
+    .sort((a, b) => Number(a.done) - Number(b.done))
+    .slice(0, 8);
 
   const payload = JSON.stringify({ habits: today, updatedAt: new Date().toISOString() });
 

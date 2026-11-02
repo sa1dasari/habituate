@@ -36,7 +36,7 @@ struct CheckInProvider: TimelineProvider {
 /// separate dark-mode branch to hand-maintain here the way
 /// `useAppTheme()` requires for in-app React Native screens.
 private func dotColor(for habit: SharedStore.HabitSnapshot) -> Color {
-    habit.checkedInToday ? Color("$safe") : Color(hex: habit.color) ?? Color("$accent")
+    habit.done ? Color("$safe") : Color(hex: habit.color) ?? Color("$accent")
 }
 
 private struct HabitRow: View {
@@ -46,17 +46,24 @@ private struct HabitRow: View {
     var body: some View {
         HStack(spacing: 8) {
             Circle().fill(dotColor(for: habit)).frame(width: 9, height: 9)
-            Text(habit.name)
-                .font(.system(size: compact ? 13 : 14, weight: .semibold))
-                .foregroundColor(Color("$textPrimary"))
-                .lineLimit(1)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(habit.name)
+                    .font(.system(size: compact ? 13 : 14, weight: .semibold))
+                    .foregroundColor(Color("$textPrimary"))
+                    .lineLimit(1)
+                if !compact, let label = habit.cadenceLabel {
+                    Text("\(label) · \(habit.periodDone)/\(habit.periodTarget)")
+                        .font(.system(size: 10))
+                        .foregroundColor(Color("$textSecondary"))
+                }
+            }
             Spacer()
             if !compact, habit.currentStreak > 0 {
                 Text("\(habit.currentStreak)🔥")
                     .font(.system(size: 11))
                     .foregroundColor(Color("$textSecondary"))
             }
-            if habit.checkedInToday {
+            if habit.done {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundColor(Color("$safe"))
             } else if #available(iOS 17.0, *) {
@@ -84,8 +91,10 @@ struct CheckInWidgetView: View {
     let entry: CheckInEntry
 
     var body: some View {
-        let notDone = entry.habits.filter { !$0.checkedInToday }
-        let ranked = notDone + entry.habits.filter { $0.checkedInToday }
+        let notDone = entry.habits.filter { !$0.done }
+        let ranked = notDone + entry.habits.filter { $0.done }
+        let dueTodayItems = entry.habits.filter { $0.isDaily }
+        let dueTodayDone = dueTodayItems.filter { $0.done }.count
 
         if ranked.isEmpty {
             emptyState
@@ -99,7 +108,7 @@ struct CheckInWidgetView: View {
             }()
             VStack(alignment: .leading, spacing: 6) {
                 if family != .systemSmall {
-                    Text("Due today")
+                    Text(dueTodayItems.isEmpty ? "Your habits" : "\(dueTodayDone) of \(dueTodayItems.count) due today")
                         .font(.system(size: 11))
                         .foregroundColor(Color("$textSecondary"))
                 }
@@ -128,7 +137,7 @@ struct CheckInWidgetView: View {
     /// `habituate://checkin?habitId=` deep link `App.js`'s
     /// `WidgetDeepLinkBridge` listens for on the Android side too.
     private func deepLink(for habit: SharedStore.HabitSnapshot?) -> URL? {
-        guard let habit, !habit.checkedInToday else { return URL(string: "habituate://") }
+        guard let habit, !habit.done else { return URL(string: "habituate://") }
         return URL(string: "habituate://checkin?habitId=\(habit.id)&source=widget")
     }
 }

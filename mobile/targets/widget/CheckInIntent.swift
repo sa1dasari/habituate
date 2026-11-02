@@ -137,14 +137,19 @@ struct CheckInIntent: AppIntent {
         var habits = SharedStore.readSnapshot()
         guard let index = habits.firstIndex(where: { $0.id == habitId }) else { return }
         let old = habits[index]
+        let periodDone = old.periodDone + 1
         habits[index] = SharedStore.HabitSnapshot(
             id: old.id,
             name: old.name,
             color: old.color,
             category: old.category,
             currentStreak: old.currentStreak + 1,
-            checkedInToday: true,
-            trackingMode: old.trackingMode
+            trackingMode: old.trackingMode,
+            isDaily: old.isDaily,
+            done: old.isDaily ? true : periodDone >= old.periodTarget,
+            cadenceLabel: old.cadenceLabel,
+            periodDone: periodDone,
+            periodTarget: old.periodTarget
         )
         SharedStore.writeSnapshot(habits)
     }

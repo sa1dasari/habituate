@@ -31,10 +31,10 @@ import { lightColors } from '../theme';
 const EMPTY_COPY = "You're all caught up today.";
 
 function HabitRow({ habit, compact }: { habit: any; compact?: boolean }) {
-  const dotColor = habit.checkedInToday ? lightColors.safe : habit.color || lightColors.accent;
+  const dotColor = habit.done ? lightColors.safe : habit.color || lightColors.accent;
   return (
     <FlexWidget
-      clickAction={habit.checkedInToday ? undefined : 'CHECK_IN'}
+      clickAction={habit.done ? undefined : 'CHECK_IN'}
       clickActionData={{ habitId: String(habit.id) }}
       style={{
         flexDirection: 'row',
@@ -53,15 +53,22 @@ function HabitRow({ habit, compact }: { habit: any; compact?: boolean }) {
           marginRight: 10,
         }}
       />
-      <TextWidget
-        text={habit.name}
-        style={{
-          fontSize: compact ? 13 : 14,
-          color: lightColors.textPrimary,
-          flex: 1,
-        }}
-        maxLines={1}
-      />
+      <FlexWidget style={{ flexDirection: 'column', flex: 1 }}>
+        <TextWidget
+          text={habit.name}
+          style={{
+            fontSize: compact ? 13 : 14,
+            color: lightColors.textPrimary,
+          }}
+          maxLines={1}
+        />
+        {!compact && habit.cadenceLabel ? (
+          <TextWidget
+            text={`${habit.cadenceLabel} · ${habit.periodDone}/${habit.periodTarget}`}
+            style={{ fontSize: 10, color: lightColors.textMuted }}
+          />
+        ) : null}
+      </FlexWidget>
       {!compact && habit.currentStreak > 0 ? (
         <TextWidget
           text={`${habit.currentStreak}\u{1F525}`}
@@ -69,10 +76,10 @@ function HabitRow({ habit, compact }: { habit: any; compact?: boolean }) {
         />
       ) : null}
       <TextWidget
-        text={habit.checkedInToday ? '✓' : '+'}
+        text={habit.done ? '✓' : '+'}
         style={{
           fontSize: 16,
-          color: habit.checkedInToday ? lightColors.safe : lightColors.accent,
+          color: habit.done ? lightColors.safe : lightColors.accent,
           marginLeft: 8,
           fontWeight: 'bold',
         }}
@@ -85,8 +92,10 @@ export function HabitWidget(props: any) {
   const width = props?.width ?? 180;
   const height = props?.height ?? 110;
   const snapshot: any[] = props?.snapshot || [];
-  const notDone = snapshot.filter((h) => !h.checkedInToday);
-  const ranked = [...notDone, ...snapshot.filter((h) => h.checkedInToday)];
+  const notDone = snapshot.filter((h) => !h.done);
+  const ranked = [...notDone, ...snapshot.filter((h) => h.done)];
+  const dueTodayItems = snapshot.filter((h) => h.isDaily);
+  const dueTodayDone = dueTodayItems.filter((h) => h.done).length;
 
   if (ranked.length === 0) {
     return (
@@ -127,7 +136,7 @@ export function HabitWidget(props: any) {
     >
       {!isSmall ? (
         <TextWidget
-          text="Due today"
+          text={dueTodayItems.length > 0 ? `${dueTodayDone} of ${dueTodayItems.length} due today` : 'Your habits'}
           style={{
             fontSize: 11,
             color: lightColors.textMuted,

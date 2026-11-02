@@ -73,11 +73,20 @@ export async function widgetTaskHandler(props) {
 
           // Optimistic local update so the widget reflects the check-in
           // immediately, without waiting for the main app to be opened
-          // and `useHabits`' refresh to re-sync the snapshot.
+          // and `useHabits`' refresh to re-sync the snapshot. For a
+          // weekly/monthly habit this just bumps periodDone and re-derives
+          // `done` from it — a real refresh corrects any drift later.
           const snapshot = await readSnapshot();
-          const updated = snapshot.map((h) =>
-            h.id === habitId ? { ...h, checkedInToday: true, currentStreak: (h.currentStreak || 0) + 1 } : h
-          );
+          const updated = snapshot.map((h) => {
+            if (h.id !== habitId) return h;
+            const periodDone = (h.periodDone || 0) + 1;
+            return {
+              ...h,
+              currentStreak: (h.currentStreak || 0) + 1,
+              periodDone,
+              done: h.isDaily ? true : periodDone >= h.periodTarget,
+            };
+          });
           try {
             await AsyncStorage.setItem(
               WIDGET_SNAPSHOT_KEY,

@@ -24,8 +24,17 @@ enum SharedStore {
         let color: String
         let category: String
         let currentStreak: Int
-        let checkedInToday: Bool
         let trackingMode: String
+        // isDaily/done/cadenceLabel/periodDone/periodTarget mirror the exact
+        // fields `syncHabitSnapshot` in widgetSync.js computes — `done` means
+        // "hit today's target" for a daily habit, or "already met this
+        // period's target" for a weekly/monthly-only one, never just
+        // "logged today" (see that file's comment for why).
+        let isDaily: Bool
+        let done: Bool
+        let cadenceLabel: String?
+        let periodDone: Int
+        let periodTarget: Int
     }
 
     struct SnapshotPayload: Codable {

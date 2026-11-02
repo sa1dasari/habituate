@@ -283,6 +283,13 @@ export function HabitsProvider({ children }) {
     [habits, runExclusive]
   );
 
+  // Server-validated (48h window, once/habit/month) — HabitCard's own guard is
+  // only a coarse pre-filter, so this can still reject with a specific message.
+  const repairStreak = useCallback(
+    (habitId) => runExclusive(habitId, () => api.repairStreak(habitId)),
+    [runExclusive]
+  );
+
   const archiveHabit = useCallback((habitId) => run(() => api.archiveHabit(habitId)), [run]);
 
   const restoreHabit = useCallback((habitId) => run(() => api.restoreHabit(habitId)), [run]);
@@ -306,6 +313,7 @@ export function HabitsProvider({ children }) {
       addCheckIn,
       removeLastCheckIn,
       toggleShield,
+      repairStreak,
       shieldsAvailable,
       archiveHabit,
       restoreHabit,
@@ -325,6 +333,7 @@ export function HabitsProvider({ children }) {
       addCheckIn,
       removeLastCheckIn,
       toggleShield,
+      repairStreak,
       shieldsAvailable,
       archiveHabit,
       restoreHabit,

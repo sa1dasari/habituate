@@ -92,6 +92,15 @@ public class HabitController {
         return habitService.deactivateShield(userId(req), habitId, timezone);
     }
 
+    /** Recovers a recently-broken (last 48h) personal streak — once per habit per calendar month. */
+    @PostMapping("/habits/{habitId}/repair-streak")
+    public HabitResponse repairStreak(
+            HttpServletRequest req,
+            @PathVariable Long habitId,
+            @RequestHeader(value = "X-Timezone", required = false) String timezone) {
+        return habitService.repairStreak(userId(req), habitId, timezone);
+    }
+
     @GetMapping("/habits/{habitId}/check-ins")
     public List<CheckInResponse> listCheckIns(HttpServletRequest req, @PathVariable Long habitId) {
         return habitService.listCheckIns(userId(req), habitId).stream()

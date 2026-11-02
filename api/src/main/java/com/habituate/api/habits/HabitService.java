@@ -27,6 +27,7 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -282,6 +283,65 @@ public class HabitService {
                 .ifPresent(streakFreezeRepository::delete);
 
         return toResponse(habit, zone);
+    }
+
+    private static final int STREAK_REPAIR_WINDOW_DAYS = 2;
+
+    /**
+     * Recovers a recently-broken personal streak — distinct from Shield Days
+     * (activateShield/PersonalStreakFreezeScheduler), which only ever protect a
+     * streak *before* it breaks and require a banked shield. This is the other
+     * direction: the streak already broke, nothing was banked to catch it, and
+     * the user wants it back. Framed as "pick back up," not a thing to earn.
+     *
+     * Finds the single most recent day in the last STREAK_REPAIR_WINDOW_DAYS
+     * (today exclusive — a day isn't "broken" until it's fully closed) that has
+     * no check-in, no existing freeze, and an active streak immediately before
+     * it — then freezes exactly that day, the same mechanism Shield Days use
+     * (StreakCalculator treats a freeze as a non-breaking gap either way).
+     * Capped at once per habit per calendar month.
+     */
+    @Transactional
+    public HabitResponse repairStreak(String userId, Long habitId, String timezone) {
+        Habit habit = requireOwnedHabit(userId, habitId);
+        ZoneId zone = resolveZone(timezone);
+        LocalDate today = Instant.now().atZone(zone).toLocalDate();
+        LocalDate habitCreatedDate = habit.getCreatedAt().atZone(zone).toLocalDate();
+
+        List<StreakFreeze> existingFreezes = streakFreezeRepository.findByHabitId(habitId);
+        boolean alreadyRepairedThisMonth = existingFreezes.stream().anyMatch(f ->
+                StreakFreeze.PERSONAL_REPAIR.equals(f.getSource())
+                        && f.getUsedOnDate().getYear() == today.getYear()
+                        && f.getUsedOnDate().getMonth() == today.getMonth());
+        if (alreadyRepairedThisMonth) {
+            throw new IllegalArgumentException("Streak repair already used for this habit this month");
+        }
+
+        Set<LocalDate> frozenDays = existingFreezes.stream()
+                .map(StreakFreeze::getUsedOnDate)
+                .collect(Collectors.toSet());
+        List<CheckIn> checkIns = checkInRepository.findByUserIdAndHabitIdOrderByOccurredAtAsc(userId, habitId);
+        Set<LocalDate> checkedInDays = checkIns.stream()
+                .map(c -> c.getOccurredAt().atZone(zone).toLocalDate())
+                .collect(Collectors.toSet());
+
+        for (int daysAgo = 1; daysAgo <= STREAK_REPAIR_WINDOW_DAYS; daysAgo++) {
+            LocalDate candidate = today.minusDays(daysAgo);
+            if (candidate.isBefore(habitCreatedDate)) {
+                break; // can't repair a day before the habit existed
+            }
+            if (checkedInDays.contains(candidate) || frozenDays.contains(candidate)) {
+                continue; // that day wasn't broken
+            }
+            Instant asOfCandidate = candidate.atStartOfDay(zone).toInstant();
+            StreakCalculator.Streaks asOfThen = StreakCalculator.compute(checkIns, zone, asOfCandidate, frozenDays);
+            if (asOfThen.current() > 0) {
+                streakFreezeRepository.save(new StreakFreeze(userId, habitId, candidate, StreakFreeze.PERSONAL_REPAIR));
+                return toResponse(habit, zone);
+            }
+        }
+
+        throw new IllegalArgumentException("No recently broken streak to repair for this habit");
     }
 
     public List<CheckIn> listCheckIns(String userId, Long habitId) {

@@ -161,6 +161,8 @@ export const api = {
 
   deactivateShield: (habitId) => request(`/api/habits/${habitId}/shield`, { method: 'DELETE' }),
 
+  repairStreak: (habitId) => request(`/api/habits/${habitId}/repair-streak`, { method: 'POST' }),
+
   listArchivedHabits: () => request('/api/habits?archived=true'),
 
   createHabit: (habit) =>

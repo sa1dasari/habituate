@@ -23,6 +23,11 @@ public class StreakFreeze {
 
     public static final String GROUP_GRACE = "group_grace";
     public static final String PERSONAL_GRACE = "personal_grace";
+    /** User-initiated recovery of an already-broken streak (within the last 48h, once per
+     * habit per calendar month) — distinct from PERSONAL_GRACE, which only ever protects
+     * a streak proactively (today, or automatically via PersonalStreakFreezeScheduler) and
+     * requires a banked Shield. See HabitService.repairStreak. */
+    public static final String PERSONAL_REPAIR = "personal_repair";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

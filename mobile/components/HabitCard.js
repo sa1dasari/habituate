@@ -55,6 +55,7 @@ export default function HabitCard({
   onPress,
   onEdit,
   onToggleShield,
+  onRepairStreak,
 }) {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
@@ -204,6 +205,25 @@ export default function HabitCard({
                 size={18}
                 color={shieldedToday ? colors.safe : colors.textMuted}
               />
+            </Pressable>
+          ) : null}
+
+          {/* Exact eligibility (48h window, once/month) is server-side only — this is a
+              coarse client-side filter to avoid showing it on a habit with zero history. */}
+          {onRepairStreak && streak === 0 && checkIns.length > 0 ? (
+            <Pressable
+              onPress={onRepairStreak}
+              disabled={disabled}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={`Repair streak for ${name}`}
+              style={({ pressed }) => [
+                styles.shieldToggle,
+                pressed && !disabled ? styles.checkPressed : null,
+                disabled ? styles.checkDisabled : null,
+              ]}
+            >
+              <MaterialCommunityIcons name="restore" size={18} color={colors.accent} />
             </Pressable>
           ) : null}
 

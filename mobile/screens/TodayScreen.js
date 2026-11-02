@@ -80,6 +80,7 @@ export default function TodayScreen() {
     addCheckIn,
     removeLastCheckIn,
     toggleShield,
+    repairStreak,
     shieldsAvailable,
   } = useHabits();
   const { goals } = useGoals();
@@ -210,6 +211,23 @@ export default function TodayScreen() {
     [toggleShield, shieldsAvailable, navigation]
   );
 
+  // Server validates the real eligibility (48h window, once/habit/month) --
+  // HabitCard's zero-streak guard is only a coarse pre-filter, so this
+  // commonly fails with a specific reason, not just succeeds.
+  const handleRepairStreak = useCallback(
+    async (habit) => {
+      try {
+        await repairStreak(habit.id);
+      } catch (err) {
+        showToast(`Couldn't repair streak — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+        return;
+      }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      showToast('Streak restored', 'success');
+    },
+    [repairStreak]
+  );
+
   const handleAdd = useCallback(
     async (habit) => {
       try {
@@ -333,12 +351,14 @@ export default function TodayScreen() {
         checkIns={habit.checkIns}
         expanded={expandedId === habit.id}
         checked={habit.checkedInToday}
+        streak={habit.streak}
         shieldedToday={habit.shieldedToday}
         shieldEligible={habit.shieldEligible}
         disabled={busy}
         onPress={() => setExpandedId((current) => (current === habit.id ? null : habit.id))}
         onToggle={() => handleToggle(habit)}
         onToggleShield={() => handleToggleShield(habit)}
+        onRepairStreak={() => handleRepairStreak(habit)}
         onAdd={() => handleAdd(habit)}
         onRemoveLast={() => handleRemoveLast(habit.id)}
         onLogAmount={(amount) => handleLogAmount(habit, amount)}

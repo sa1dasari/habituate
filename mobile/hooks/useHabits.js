@@ -290,10 +290,6 @@ export function HabitsProvider({ children }) {
     [runExclusive]
   );
 
-  const archiveHabit = useCallback((habitId) => run(() => api.archiveHabit(habitId)), [run]);
-
-  const restoreHabit = useCallback((habitId) => run(() => api.restoreHabit(habitId)), [run]);
-
   const deleteHabit = useCallback((habitId) => run(() => api.deleteHabit(habitId)), [run]);
 
   const summary = useMemo(() => summarizeHabits(habits), [habits]);
@@ -315,8 +311,6 @@ export function HabitsProvider({ children }) {
       toggleShield,
       repairStreak,
       shieldsAvailable,
-      archiveHabit,
-      restoreHabit,
       deleteHabit,
     }),
     [
@@ -335,8 +329,6 @@ export function HabitsProvider({ children }) {
       toggleShield,
       repairStreak,
       shieldsAvailable,
-      archiveHabit,
-      restoreHabit,
       deleteHabit,
     ]
   );

@@ -439,8 +439,11 @@ function makeStyles(colors, typography) {
     emptyCta: {
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'center',
       gap: spacing.xs,
       marginTop: spacing.md,
+      minHeight: 44,
+      paddingHorizontal: spacing.md,
     },
     emptyCtaText: { ...typography.label, color: colors.accent },
     coachCard: {

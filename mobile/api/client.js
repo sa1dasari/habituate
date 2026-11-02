@@ -168,15 +168,12 @@ export const api = {
   createHabit: (habit) =>
     request('/api/habits', { method: 'POST', body: JSON.stringify(habit) }),
 
+  // Archiving/restoring (reversible — history is kept) goes through this same
+  // PUT, with the caller sending the habit's full current field set alongside
+  // `archived`: the backend applies optional fields unconditionally, so a
+  // partial body would silently wipe weeklyTarget/monthlyTarget/motivation.
   updateHabit: (habitId, changes) =>
     request(`/api/habits/${habitId}`, { method: 'PUT', body: JSON.stringify(changes) }),
-
-  // Reversible: the habit leaves the active list but keeps its check-in history.
-  archiveHabit: (habitId) =>
-    request(`/api/habits/${habitId}`, { method: 'PUT', body: JSON.stringify({ archived: true }) }),
-
-  restoreHabit: (habitId) =>
-    request(`/api/habits/${habitId}`, { method: 'PUT', body: JSON.stringify({ archived: false }) }),
 
   // Permanent: removes the habit and every check-in logged against it.
   deleteHabit: (habitId) => request(`/api/habits/${habitId}`, { method: 'DELETE' }),

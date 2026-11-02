@@ -120,6 +120,31 @@ function deriveCadenceType() {
   return 'DAILY';
 }
 
+// Shared by submit/archive/restore so every PUT carries the habit's full
+// optional-field set — the backend applies weeklyTarget/monthlyTarget/
+// motivation unconditionally (null clears them), so a PUT missing a field
+// entirely silently wipes it, not just leaves it unchanged.
+function formToPayload(formState) {
+  const scheduledTime = formState.scheduledTime || '';
+  const dailyTarget = Number(formState.dailyTarget) || 1;
+  const weeklyTarget = Number(formState.weeklyTarget) || null;
+  const monthlyTarget = Number(formState.monthlyTarget) || null;
+
+  return {
+    name: formState.name.trim(),
+    category: formState.category || DEFAULT_HABIT_CATEGORY,
+    cadenceType: deriveCadenceType(formState),
+    cadenceTarget: dailyTarget,
+    weeklyTarget,
+    monthlyTarget,
+    trackingMode: formState.trackingMode,
+    featuredGoal: (weeklyTarget > 0 || monthlyTarget > 0) && formState.featuredGoal,
+    scheduledTime,
+    reminderEnabled: Boolean(scheduledTime) && formState.reminderEnabled,
+    motivation: formState.motivation.trim(),
+  };
+}
+
 export default function HabitsScreen() {
   const insets = useSafeAreaInsets();
   const { colors, typography } = useAppTheme();
@@ -133,8 +158,6 @@ export default function HabitsScreen() {
     removeLastCheckIn,
     createHabit,
     updateHabit,
-    archiveHabit,
-    restoreHabit,
     deleteHabit,
   } = useHabits();
   const {
@@ -412,26 +435,7 @@ export default function HabitsScreen() {
       return;
     }
 
-    // The time comes from the native picker, so it's always valid or blank.
-    const scheduledTime = form.scheduledTime || '';
-
-    const dailyTarget = Number(form.dailyTarget) || 1;
-    const weeklyTarget = Number(form.weeklyTarget) || null;
-    const monthlyTarget = Number(form.monthlyTarget) || null;
-
-    const payload = {
-      name,
-      category: form.category || DEFAULT_HABIT_CATEGORY,
-      cadenceType: deriveCadenceType(form),
-      cadenceTarget: dailyTarget,
-      weeklyTarget,
-      monthlyTarget,
-      trackingMode: form.trackingMode,
-      featuredGoal: (weeklyTarget > 0 || monthlyTarget > 0) && form.featuredGoal,
-      scheduledTime,
-      reminderEnabled: Boolean(scheduledTime) && form.reminderEnabled,
-      motivation: form.motivation.trim(),
-    };
+    const payload = formToPayload(form);
 
     try {
       if (isEditing) {
@@ -458,7 +462,7 @@ export default function HabitsScreen() {
     });
     if (!ok) return;
     try {
-      await archiveHabit(form.id);
+      await updateHabit(form.id, { ...formToPayload(form), archived: true });
       closeForm();
     } catch (err) {
       showToast(`Could not archive habit — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
@@ -482,9 +486,9 @@ export default function HabitsScreen() {
     }
   };
 
-  const restore = async (habitId) => {
+  const restore = async (habit) => {
     try {
-      await restoreHabit(habitId);
+      await updateHabit(habit.id, { ...formToPayload(formFromHabit(habit)), archived: false });
     } catch (err) {
       showToast(`Could not restore habit — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
     }
@@ -1025,7 +1029,7 @@ export default function HabitsScreen() {
 
                     <Pressable
                       style={styles.archivedAction}
-                      onPress={() => restore(habit.id)}
+                      onPress={() => restore(habit)}
                       disabled={busy}
                     >
                       <Text style={styles.archivedActionText}>Restore</Text>
@@ -1239,8 +1243,11 @@ function makeStyles(colors, typography) {
   emptyCta: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: spacing.xs,
     marginTop: spacing.lg,
+    minHeight: 44,
+    paddingHorizontal: spacing.md,
   },
   emptyCtaText: { ...typography.label, color: colors.accent },
   });

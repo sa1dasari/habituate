@@ -84,17 +84,21 @@ function makeStyles(colors, typography) {
     buttonRow: { flexDirection: 'row', gap: spacing.sm, width: '100%' },
     dismissBtn: {
       flex: 1,
+      minHeight: 44,
       paddingVertical: spacing.sm + 2,
       borderRadius: radii.pill,
       alignItems: 'center',
+      justifyContent: 'center',
       backgroundColor: colors.background,
     },
     dismissText: { fontFamily: fonts.bold, fontSize: 14, color: colors.textSecondary },
     allowBtn: {
       flex: 1.3,
+      minHeight: 44,
       paddingVertical: spacing.sm + 2,
       borderRadius: radii.pill,
       alignItems: 'center',
+      justifyContent: 'center',
     },
     allowText: { fontFamily: fonts.bold, fontSize: 14, color: '#FFFFFF' },
   });

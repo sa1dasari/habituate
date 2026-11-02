@@ -18,6 +18,7 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -84,11 +85,24 @@ public class ReminderScheduler {
             }
 
             LocalTime nowLocal = now.atZone(zone).toLocalTime().truncatedTo(ChronoUnit.MINUTES);
-            for (Habit habit : entry.getValue()) {
-                if (!nowLocal.equals(habit.getScheduledTime().truncatedTo(ChronoUnit.MINUTES))) {
-                    continue;
-                }
-                String body = reminderBody(habit, zone, now);
+            List<Habit> dueHabits = entry.getValue().stream()
+                    .filter(h -> nowLocal.equals(h.getScheduledTime().truncatedTo(ChronoUnit.MINUTES)))
+                    .toList();
+            if (dueHabits.isEmpty()) {
+                continue;
+            }
+
+            // One query for every check-in this user has, not one per due habit —
+            // the per-habit version this replaced issued a fresh query inside this
+            // loop for each habit due this exact minute. StreakCalculator.compute
+            // expects ascending order, same as the per-habit query this replaces
+            // (findByUserIdAndHabitIdOrderByOccurredAtAsc) guaranteed — findByUserId
+            // makes no ordering guarantee, so sort before grouping.
+            Map<Long, List<CheckIn>> checkInsByHabit = checkInRepository.findByUserId(userId).stream()
+                    .sorted(Comparator.comparing(CheckIn::getOccurredAt))
+                    .collect(Collectors.groupingBy(CheckIn::getHabitId));
+            for (Habit habit : dueHabits) {
+                String body = reminderBody(habit, zone, now, checkInsByHabit.getOrDefault(habit.getId(), List.of()));
                 for (PushToken token : tokens) {
                     messages.add(new ExpoPushMessage(
                             token.getToken(),
@@ -117,9 +131,7 @@ public class ReminderScheduler {
      * deliberately not factored in here (unlike StreakCalculator's other
      * callers) since this is a one-line text, not something a user acts on.
      */
-    private String reminderBody(Habit habit, ZoneId zone, Instant now) {
-        List<CheckIn> checkIns = checkInRepository.findByUserIdAndHabitIdOrderByOccurredAtAsc(
-                habit.getUserId(), habit.getId());
+    private String reminderBody(Habit habit, ZoneId zone, Instant now, List<CheckIn> checkIns) {
         int streak = StreakCalculator.compute(checkIns, zone, now).current();
         if (streak >= STREAK_MENTION_THRESHOLD) {
             return "You're on a " + streak + "-day streak — keep it going.";

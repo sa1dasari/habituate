@@ -40,17 +40,28 @@ public class InviteEmailService {
     }
 
     public void sendFriendRequestEmail(String toEmail, String requesterDisplayName) {
+        String name = stripNewlines(requesterDisplayName);
         send(toEmail,
-                requesterDisplayName + " wants to be friends on Habituate",
-                requesterDisplayName + " sent you a friend request on Habituate.\n\n"
+                name + " wants to be friends on Habituate",
+                name + " sent you a friend request on Habituate.\n\n"
                         + "Open the app to accept or decline — Community tab, Friends section.\n");
     }
 
     public void sendGroupInviteEmail(String toEmail, String inviterDisplayName, String groupName) {
+        String inviter = stripNewlines(inviterDisplayName);
+        String group = stripNewlines(groupName);
         send(toEmail,
-                inviterDisplayName + " invited you to \"" + groupName + "\" on Habituate",
-                inviterDisplayName + " invited you to share the habit \"" + groupName + "\" on Habituate.\n\n"
+                inviter + " invited you to \"" + group + "\" on Habituate",
+                inviter + " invited you to share the habit \"" + group + "\" on Habituate.\n\n"
                         + "Open the app to accept or decline — Community tab, Shared Habits section.\n");
+    }
+
+    // User-controlled (display name, group name) and only ever meant to be a
+    // single line — strips embedded CR/LF so it can't inject extra headers
+    // via SimpleMailMessage.setSubject, regardless of what the mail
+    // transport itself would or wouldn't block.
+    private static String stripNewlines(String value) {
+        return value == null ? "" : value.replaceAll("[\\r\\n]+", " ").trim();
     }
 
     private void send(String toEmail, String subject, String body) {

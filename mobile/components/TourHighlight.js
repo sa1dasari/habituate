@@ -194,6 +194,8 @@ function makeStyles(colors, typography) {
     fastPathBtn: {
       marginTop: spacing.md,
       alignSelf: 'flex-start',
+      minHeight: 44,
+      justifyContent: 'center',
     },
     fastPathText: {
       fontFamily: fonts.semiBold,

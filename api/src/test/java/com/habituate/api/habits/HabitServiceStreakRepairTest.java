@@ -2,6 +2,7 @@ package com.habituate.api.habits;
 
 import com.habituate.api.checkins.CheckIn;
 import com.habituate.api.checkins.CheckInRepository;
+import com.habituate.api.common.ForbiddenException;
 import com.habituate.api.groups.StreakFreeze;
 import com.habituate.api.groups.StreakFreezeRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -107,5 +108,13 @@ class HabitServiceStreakRepairTest {
 
         assertThatThrownBy(() -> habitService.repairStreak(userId, habitId, "UTC"))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void repairStreak_rejectsACallerWhoDoesNotOwnTheHabit() {
+        createHabit("repair-test-user-5", 5, 4, 3, 2);
+
+        assertThatThrownBy(() -> habitService.repairStreak("someone-else-entirely", habitId, "UTC"))
+                .isInstanceOf(ForbiddenException.class);
     }
 }

@@ -97,6 +97,18 @@ export default function TourHighlight({ scope }) {
             <Text style={styles.title}>{currentStep.title}</Text>
             <Text style={styles.body}>{currentStep.body}</Text>
 
+            {currentStep.fastPathLabel ? (
+              <Pressable
+                onPress={skip}
+                style={styles.fastPathBtn}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={currentStep.fastPathLabel}
+              >
+                <Text style={styles.fastPathText}>{currentStep.fastPathLabel}</Text>
+              </Pressable>
+            ) : null}
+
             <View style={styles.footerRow}>
               <View style={styles.dotsRow}>
                 {Array.from({ length: totalSteps }).map((_, i) => (
@@ -178,6 +190,15 @@ function makeStyles(colors, typography) {
       fontFamily: fonts.semiBold,
       fontSize: 13,
       color: colors.textMuted,
+    },
+    fastPathBtn: {
+      marginTop: spacing.md,
+      alignSelf: 'flex-start',
+    },
+    fastPathText: {
+      fontFamily: fonts.semiBold,
+      fontSize: 13,
+      color: colors.accent,
     },
     title: {
       ...typography.sectionTitle,

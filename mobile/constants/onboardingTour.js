@@ -43,6 +43,10 @@ export const TOUR_STEPS = [
     eyebrow: "LET'S GO",
     title: 'Welcome to Habituate',
     body: "60-second tour, real screens the whole way — not a slideshow. Bail anytime with Skip.",
+    // Only the welcome step offers this — it's the one moment a brand-new
+    // user is deciding between "show me around" and "let me just start,"
+    // before any of the 14 steps behind it have cost them anything yet.
+    fastPathLabel: 'Skip — just add my first habit',
   },
   {
     id: 'habits-intro',

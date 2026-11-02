@@ -3,6 +3,8 @@ package com.habituate.api.groups;
 import com.habituate.api.common.ForbiddenException;
 import com.habituate.api.habits.CreateHabitRequest;
 import com.habituate.api.habits.HabitService;
+import com.habituate.api.notifications.AppNotification;
+import com.habituate.api.notifications.AppNotificationRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,12 +44,16 @@ class GroupServiceTest {
     @Autowired
     private FriendshipRepository friendshipRepository;
 
+    @Autowired
+    private AppNotificationRepository appNotificationRepository;
+
     @MockBean
     private UserLookupService userLookupService;
 
     private final List<Long> habitIds = new ArrayList<>();
     private final List<Long> groupIds = new ArrayList<>();
     private final List<Long> friendshipIds = new ArrayList<>();
+    private final List<String> notifiedUserIds = new ArrayList<>();
 
     @AfterEach
     void cleanup() {
@@ -61,6 +67,10 @@ class GroupServiceTest {
         friendshipIds.clear();
         habitIds.forEach(id -> habitService.deleteHabit(ownerOf(id), id));
         habitIds.clear();
+        notifiedUserIds.forEach(userId ->
+                appNotificationRepository.findByUserIdAndReadFalse(userId)
+                        .forEach(n -> appNotificationRepository.deleteById(n.getId())));
+        notifiedUserIds.clear();
     }
 
     // Tracks which synthetic user owns which habit, since deleteHabit needs the owner's id.
@@ -176,6 +186,33 @@ class GroupServiceTest {
         GroupResponse afterAccept = groupService.acceptInvite(userB, group.id(), habitB);
 
         assertThat(afterAccept.participantCount()).isEqualTo(2);
+    }
+
+    @Test
+    void invite_createsInAppNotificationForInvitee() {
+        stubResolve();
+        String userA = "group-test-user-18a";
+        String userB = "group-test-user-18b";
+        notifiedUserIds.add(userA);
+        notifiedUserIds.add(userB);
+
+        when(userLookupService.findByEmail("friend18b@example.com"))
+                .thenReturn(Optional.of(new UserProfile(userB, "User B", "friend18b@example.com", null)));
+        var pending = friendshipService.sendRequest(userA, "friend18b@example.com");
+        friendshipIds.add(pending.id());
+        friendshipService.respond(userB, pending.id(), true);
+
+        Long habitA = createHabit(userA, "Habit A18");
+        GroupResponse group = groupService.createGroup(userA, new CreateGroupRequest("Group18", habitA, "ALL_MEMBERS"));
+        groupIds.add(group.id());
+
+        groupService.invite(userA, group.id(), userB);
+
+        List<AppNotification> notifications = appNotificationRepository.findByUserIdAndReadFalse(userB);
+        assertThat(notifications).anyMatch(n ->
+                AppNotification.GROUP_INVITE_RECEIVED.equals(n.getType())
+                        && group.id().equals(n.getGroupId())
+                        && n.getBody().contains("Group18"));
     }
 
     @Test

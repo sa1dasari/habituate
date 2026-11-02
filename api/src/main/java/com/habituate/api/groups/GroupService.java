@@ -10,6 +10,7 @@ import com.habituate.api.notifications.AppNotification;
 import com.habituate.api.notifications.AppNotificationService;
 import com.habituate.api.notifications.ExpoPushMessage;
 import com.habituate.api.notifications.ExpoPushService;
+import com.habituate.api.notifications.InviteEmailService;
 import com.habituate.api.notifications.PushToken;
 import com.habituate.api.notifications.PushTokenRepository;
 import com.habituate.api.users.User;
@@ -42,6 +43,7 @@ public class GroupService {
     private final ExpoPushService expoPushService;
     private final AppNotificationService appNotificationService;
     private final StreakFreezeRepository streakFreezeRepository;
+    private final InviteEmailService inviteEmailService;
 
     public GroupService(
             GroupRepository groupRepository,
@@ -55,7 +57,8 @@ public class GroupService {
             PushTokenRepository pushTokenRepository,
             ExpoPushService expoPushService,
             AppNotificationService appNotificationService,
-            StreakFreezeRepository streakFreezeRepository) {
+            StreakFreezeRepository streakFreezeRepository,
+            InviteEmailService inviteEmailService) {
         this.groupRepository = groupRepository;
         this.groupMemberRepository = groupMemberRepository;
         this.groupStreakRepository = groupStreakRepository;
@@ -68,6 +71,7 @@ public class GroupService {
         this.streakFreezeRepository = streakFreezeRepository;
         this.expoPushService = expoPushService;
         this.appNotificationService = appNotificationService;
+        this.inviteEmailService = inviteEmailService;
     }
 
     @Transactional
@@ -163,6 +167,19 @@ public class GroupService {
         }
 
         groupMemberRepository.save(new GroupMember(groupId, friendUserId, null, GroupMember.PENDING));
+
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new EntityNotFoundException("Group not found: " + groupId));
+        String inviterName = userLookupService.resolve(userId).displayName();
+        appNotificationService.notify(
+                friendUserId,
+                AppNotification.GROUP_INVITE_RECEIVED,
+                "Shared Habit invite",
+                inviterName + " invited you to \"" + group.getName() + "\"",
+                groupId, null, null);
+
+        String friendEmail = userLookupService.resolve(friendUserId).email();
+        inviteEmailService.sendGroupInviteEmail(friendEmail, inviterName, group.getName());
     }
 
     @Transactional

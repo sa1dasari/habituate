@@ -4,6 +4,7 @@ import com.habituate.api.common.DuplicateFriendRequestException;
 import com.habituate.api.common.ForbiddenException;
 import com.habituate.api.notifications.AppNotification;
 import com.habituate.api.notifications.AppNotificationService;
+import com.habituate.api.notifications.InviteEmailService;
 import com.habituate.api.users.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
@@ -27,16 +28,19 @@ public class FriendshipService {
     private final UserLookupService userLookupService;
     private final UserRepository userRepository;
     private final AppNotificationService appNotificationService;
+    private final InviteEmailService inviteEmailService;
 
     public FriendshipService(
             FriendshipRepository friendshipRepository,
             UserLookupService userLookupService,
             UserRepository userRepository,
-            AppNotificationService appNotificationService) {
+            AppNotificationService appNotificationService,
+            InviteEmailService inviteEmailService) {
         this.friendshipRepository = friendshipRepository;
         this.userLookupService = userLookupService;
         this.userRepository = userRepository;
         this.appNotificationService = appNotificationService;
+        this.inviteEmailService = inviteEmailService;
     }
 
     @Transactional
@@ -83,6 +87,9 @@ public class FriendshipService {
                 "New friend request",
                 requesterName + " wants to be friends",
                 null, null, null);
+
+        String targetEmail = userLookupService.resolve(targetUserId).email();
+        inviteEmailService.sendFriendRequestEmail(targetEmail, requesterName);
 
         return toResponse(friendship, userId);
     }

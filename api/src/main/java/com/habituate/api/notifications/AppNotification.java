@@ -39,6 +39,7 @@ public class AppNotification {
 
     public static final String FRIEND_REQUEST_RECEIVED = "FRIEND_REQUEST_RECEIVED";
     public static final String FRIEND_REQUEST_ACCEPTED = "FRIEND_REQUEST_ACCEPTED";
+    public static final String GROUP_INVITE_RECEIVED = "GROUP_INVITE_RECEIVED";
     public static final String GROUP_JOINED = "GROUP_JOINED";
     public static final String GROUP_CHECKIN = "GROUP_CHECKIN";
     public static final String GROUP_DELETED = "GROUP_DELETED";

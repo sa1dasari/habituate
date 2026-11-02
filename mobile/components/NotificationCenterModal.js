@@ -31,6 +31,7 @@ const SLIDE_OUT_CONFIG = { damping: 30, stiffness: 260, mass: 0.6 };
 const TYPE_ICON = {
   FRIEND_REQUEST_RECEIVED: 'account-plus-outline',
   FRIEND_REQUEST_ACCEPTED: 'account-heart-outline',
+  GROUP_INVITE_RECEIVED: 'account-multiple-plus-outline',
   GROUP_JOINED: 'account-group-outline',
   GROUP_CHECKIN: 'check-circle-outline',
   CHALLENGE_INVITE: 'trophy-outline',

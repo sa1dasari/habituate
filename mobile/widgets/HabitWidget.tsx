@@ -1,6 +1,12 @@
 import React from 'react';
 import { FlexWidget, TextWidget } from 'react-native-android-widget';
-import { lightColors } from '../theme';
+import { lightColors as lightColorsUntyped } from '../theme';
+
+// theme.js is plain JS, so its exports have no literal type — every value here
+// genuinely is a '#RRGGBB' string, but TS infers `string`, which doesn't satisfy
+// react-native-android-widget's `ColorProp` (`` `#${string}` | `rgba(...)` ``)
+// template-literal type. One honest re-cast here fixes every call site below.
+const lightColors = lightColorsUntyped as Record<keyof typeof lightColorsUntyped, `#${string}`>;
 
 /**
  * Android home-screen widget (SKILLS.md Phase 7 "Home-screen widget for

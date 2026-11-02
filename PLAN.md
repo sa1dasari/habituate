@@ -39,9 +39,9 @@ Item 19 needs 9–18 substantially done first to be meaningful; it's listed last
 
 ## B. Retention mechanics (from `GAPS.md`, each already cross-checked against what's built)
 
-20. **Personal streak freeze** — schema already supports it (`user_id` nullable on `streak_freezes`), group-side implementation already exists as a direct template. Cheapest item in this section. *(Duolingo)*
+20. ~~Personal streak freeze~~ — **already built** as "Shield Days" (`ShieldAwardService`/`PersonalStreakFreezeScheduler`), found during Phase 4 build before duplicating it. Removed from this list.
 21. **Pre-permission push explainer screen**, shown once before the OS prompt. *(Duolingo)*
-22. **Streak repair** — a non-punitive way to recover a recently-broken personal streak (e.g., one free repair/month), framed as "pick back up," not "redeem yourself." *(Duolingo)*
+22. **Streak repair** — a non-punitive way to recover a recently-broken personal streak *after* it's already broken (distinct from Shield Days, which only prevent a future break and only if a shield is already banked), e.g. one free repair/month, framed as "pick back up," not "redeem yourself." *(Duolingo)*
 23. **Reminder copy audit** — confirm `ReminderScheduler`'s actual notification text references what the habit is *for*, not just that it's due. *(Duolingo)*
 24. **Optional identity/"why" field** on habit creation, feeding `CoachContextBuilder` so Ask Habituate can ground answers in a stated motivation. *(Atoms)*
 25. **Onboarding speed audit** — measure time-to-first-logged-check-in through the current 15-step tour; if slow, add a "skip tour, just add your first habit" fast path. *(Atoms)*

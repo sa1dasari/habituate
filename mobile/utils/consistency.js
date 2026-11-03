@@ -1,5 +1,5 @@
 import { startOfMonth, startOfWeek, toDateKey } from './date';
-import { computeDayStats, dayHeatRatio, existedOn, sumValueForDay } from './dayStats';
+import { calendarHeatRatio, computeDayStats, dayHeatRatio, existedOn, sumValueForDay } from './dayStats';
 import { cadenceTarget, hasDailyTarget } from './cadence';
 
 /**
@@ -128,9 +128,16 @@ function windowStats(dayKeys, habits) {
 
   dayKeys.forEach((key) => {
     const stats = computeDayStats(key, habits);
-    if (stats.dailyTotal === 0) return;
+    if (stats.dailyTotal === 0 && stats.otherDone === 0) return;
     gradableCount += 1;
-    const ratio = dayHeatRatio(stats);
+    // dayHeatRatio is strictly daily-target-only by design, so an account
+    // with zero daily-cadence habits (weekly/monthly only) would otherwise
+    // never have a single gradable day and the ring would show "no data"
+    // forever. Days that DO have a daily habit keep exactly that behavior,
+    // unchanged — calendarHeatRatio only takes over once dailyTotal is 0,
+    // where it reduces to "was anything logged today at all," same
+    // never-penalize-a-day-it-wasn't-due rule the calendar grid already uses.
+    const ratio = stats.dailyTotal > 0 ? dayHeatRatio(stats) : calendarHeatRatio(stats);
     ratioSum += ratio;
     if (ratio === 1) fullyCompleteCount += 1;
     if (!mostRecentGradable) mostRecentGradable = stats;
@@ -161,10 +168,19 @@ export function computeConsistency(habits, period, now = new Date()) {
 
   if (period === 'daily') {
     const today = current.mostRecentGradable;
+    // today.dailyTotal === 0 here means every habit the user has is
+    // weekly/monthly-only (windowStats only counts a day with zero daily
+    // habits as gradable when something was actually logged) — "0/0"
+    // would read as nothing happened when the ring itself shows 100%.
+    const centerValue = !today
+      ? '0/0'
+      : today.dailyTotal > 0
+        ? `${today.dailyDone}/${today.dailyTotal}`
+        : `${today.otherDone}/${today.otherDone}`;
     return {
       percent: current.percent,
       trendDelta,
-      centerValue: today ? `${today.dailyDone}/${today.dailyTotal}` : '0/0',
+      centerValue,
       centerLabel: 'Habits completed',
       hasData: current.gradableCount > 0,
     };

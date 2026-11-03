@@ -2,8 +2,19 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Linking } from 'react-native';
 import { auth } from '../firebase';
 import api from '../api/client';
-import { HabitWidget } from './HabitWidget';
+import { HabitWidget, darkColors, lightColors } from './HabitWidget';
 import { WIDGET_SNAPSHOT_KEY } from '../utils/widgetSync';
+
+// Returns the library's `{ light, dark }` WidgetRepresentation shape —
+// Android swaps between the two at display time, no re-render needed (see
+// HabitWidget.tsx's file-level doc comment for why these two calls MUST
+// produce pixel-identical layouts, differing only in color).
+function buildBothThemes(props) {
+  return {
+    light: HabitWidget({ ...props, colors: lightColors }),
+    dark: HabitWidget({ ...props, colors: darkColors }),
+  };
+}
 
 /**
  * Registered from `index.js` via `registerWidgetTaskHandler` (outside the
@@ -47,7 +58,7 @@ async function readSnapshot() {
 
 async function renderCurrent(widgetInfo, renderWidget) {
   const snapshot = await readSnapshot();
-  renderWidget(HabitWidget({ ...widgetInfo, snapshot }));
+  renderWidget(buildBothThemes({ ...widgetInfo, snapshot }));
 }
 
 export async function widgetTaskHandler(props) {
@@ -93,7 +104,7 @@ export async function widgetTaskHandler(props) {
               JSON.stringify({ habits: updated, updatedAt: new Date().toISOString() })
             );
           } catch {}
-          renderWidget(HabitWidget({ ...widgetInfo, snapshot: updated }));
+          renderWidget(buildBothThemes({ ...widgetInfo, snapshot: updated }));
         } catch (e) {
           // Degraded path: no session reachable (rare — would mean the
           // device is signed out) or the API call itself failed (offline,
@@ -104,6 +115,14 @@ export async function widgetTaskHandler(props) {
           Linking.openURL(`habituate://checkin?habitId=${habitId}&source=widget`).catch(() => {});
           await renderCurrent(widgetInfo, renderWidget);
         }
+        return;
+      }
+
+      if (clickAction === 'OPEN_HABIT' && clickActionData?.habitId) {
+        // Tapped an already-done habit — nothing left to check in, so this
+        // opens that habit's own Insights detail instead (WidgetDeepLinkBridge
+        // in App.js), same destination Profile's habit list already links to.
+        Linking.openURL(`habituate://insights?habitId=${clickActionData.habitId}&source=widget`).catch(() => {});
         return;
       }
 

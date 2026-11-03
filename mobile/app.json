@@ -65,10 +65,12 @@
             {
               "name": "HabitWidget",
               "label": "Habituate Check-In",
-              "minWidth": "110dp",
-              "minHeight": "110dp",
-              "targetCellWidth": 2,
-              "targetCellHeight": 1,
+              "minWidth": "150dp",
+              "minHeight": "150dp",
+              "targetCellWidth": 3,
+              "targetCellHeight": 2,
+              "maxResizeWidth": "320dp",
+              "maxResizeHeight": "420dp",
               "resizeMode": "horizontal|vertical",
               "description": "Check in on today's habits without opening the app.",
               "updatePeriodMillis": 1800000

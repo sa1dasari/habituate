@@ -143,16 +143,29 @@ function WidgetDeepLinkBridge() {
 
   useEffect(() => {
     const handleUrl = ({ url }) => {
+      if (!url) return;
       // Regex rather than the `URL` global — RN's URL polyfill handles
-      // custom schemes inconsistently across SDK versions, and this
-      // pattern (`habituate://checkin?habitId=123`) is simple enough not
-      // to need a real parser.
-      if (!url || !/^habituate:\/\/checkin\b/.test(url)) return;
-      const match = url.match(/habitId=(\d+)/);
-      const habitId = match ? Number(match[1]) : null;
-      if (!habitId || loading) return;
-      toggleCheckIn(habitId).catch(() => {});
-      navigateToTab('Today');
+      // custom schemes inconsistently across SDK versions, and these
+      // patterns (`habituate://checkin?habitId=123`,
+      // `habituate://insights?habitId=123`) are simple enough not to need
+      // a real parser.
+      if (/^habituate:\/\/checkin\b/.test(url)) {
+        const match = url.match(/habitId=(\d+)/);
+        const habitId = match ? Number(match[1]) : null;
+        if (!habitId || loading) return;
+        toggleCheckIn(habitId).catch(() => {});
+        navigateToTab('Today');
+        return;
+      }
+      // A widget row for an already-done habit has nothing left to check
+      // in — tapping it instead opens that habit's own Insights detail,
+      // same destination Profile's habit list already links to.
+      if (/^habituate:\/\/insights\b/.test(url)) {
+        const match = url.match(/habitId=(\d+)/);
+        const habitId = match ? Number(match[1]) : null;
+        if (!habitId) return;
+        navigateToTab('Insights', { openHabitId: habitId });
+      }
     };
 
     Linking.getInitialURL().then((url) => url && handleUrl({ url }));

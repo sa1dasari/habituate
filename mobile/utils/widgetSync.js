@@ -122,10 +122,16 @@ export async function syncHabitSnapshot(habits) {
   if (Platform.OS === 'android') {
     try {
       const { requestWidgetUpdate } = require('react-native-android-widget');
-      const { HabitWidget } = require('../widgets/HabitWidget');
+      const { HabitWidget, lightColors, darkColors } = require('../widgets/HabitWidget');
       await requestWidgetUpdate({
         widgetName: 'HabitWidget',
-        renderWidget: (widgetInfo) => HabitWidget({ ...widgetInfo, snapshot: today }),
+        // {light, dark} — Android swaps between them at display time, see
+        // HabitWidget.tsx's file-level doc comment for why both calls here
+        // must stay pixel-identical, differing only in `colors`.
+        renderWidget: (widgetInfo) => ({
+          light: HabitWidget({ ...widgetInfo, snapshot: today, colors: lightColors }),
+          dark: HabitWidget({ ...widgetInfo, snapshot: today, colors: darkColors }),
+        }),
       });
     } catch (e) {
       if (__DEV__) console.warn('[widgetSync] Android widget nudge failed:', e?.message);

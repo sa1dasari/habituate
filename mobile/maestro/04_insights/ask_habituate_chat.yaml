@@ -11,6 +11,7 @@ appId: com.habituate.mobile
 - assertVisible: "Suggested questions"
 - tapOn: "Ask about your routine..."
 - inputText: "How am I doing overall?"
+- hideKeyboard
 - tapOn: "Send"
 - extendedWaitUntil:
     visible: "Ask about your routine..."

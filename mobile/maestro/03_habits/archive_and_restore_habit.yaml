@@ -10,10 +10,13 @@ appId: com.habituate.mobile
 - tapOn: "+ New"
 - tapOn: "e.g. Morning walk"
 - inputText: "Stretch"
+- hideKeyboard
 - tapOn: "e.g. 3"
 - inputText: "4"
+- hideKeyboard
 - tapOn: "Why does this matter to you? (optional)"
 - inputText: "Fewer aches at my desk"
+- hideKeyboard
 - tapOn: "Add habit"
 - assertVisible: "Stretch"
 

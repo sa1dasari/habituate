@@ -9,8 +9,10 @@ appId: com.habituate.mobile
 - assertVisible: "New goal"
 - tapOn: "e.g. Save $500 this month"
 - inputText: "Read 4 books"
+- hideKeyboard
 - tapOn: "Monthly"
 - tapOn: "e.g. 500"
 - inputText: "4"
+- hideKeyboard
 - tapOn: "Add goal"
 - assertVisible: "Read 4 books"

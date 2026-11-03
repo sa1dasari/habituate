@@ -8,6 +8,7 @@ appId: com.habituate.mobile
 - tapOn: "+ New"
 - tapOn: "e.g. Morning walk"
 - inputText: "Throwaway habit"
+- hideKeyboard
 - tapOn: "Add habit"
 - assertVisible: "Throwaway habit"
 - tapOn:

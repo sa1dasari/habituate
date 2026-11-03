@@ -16,8 +16,10 @@ appId: com.habituate.mobile
     clearState: true
 - tapOn: "yourname or you@example.com"
 - inputText: ${TEST_EMAIL}
+- hideKeyboard
 - tapOn: "••••••••"
 - inputText: ${TEST_PASSWORD}
+- hideKeyboard
 - tapOn: "Sign in"
 - runFlow: ../_shared/dismiss_samsung_pass.yaml
 - tapOn:
@@ -28,6 +30,7 @@ appId: com.habituate.mobile
 - tapOn: "By email"
 - tapOn: "friend@example.com"
 - inputText: ${TEST_EMAIL_2}
+- hideKeyboard
 - tapOn: "Send"
 - assertVisible: "Request sent"
 
@@ -37,8 +40,10 @@ appId: com.habituate.mobile
 - tapOn: "Sign out"
 - tapOn: "yourname or you@example.com"
 - inputText: ${TEST_EMAIL_2}
+- hideKeyboard
 - tapOn: "••••••••"
 - inputText: ${TEST_PASSWORD_2}
+- hideKeyboard
 - tapOn: "Sign in"
 - runFlow: ../_shared/dismiss_samsung_pass.yaml
 - tapOn:

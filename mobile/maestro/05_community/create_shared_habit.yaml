@@ -9,6 +9,7 @@ appId: com.habituate.mobile
 - tapOn: "+ New"
 - tapOn: "e.g. Morning walk"
 - inputText: "Gym"
+- hideKeyboard
 - tapOn: "Add habit"
 
 - tapOn: "Community"
@@ -17,6 +18,7 @@ appId: com.habituate.mobile
 - tapOn: "Gym"
 - tapOn: "Name (optional)"
 - inputText: "Gym Buddies"
+- hideKeyboard
 - tapOn: "Create"
 - tapOn: "Community"
 - assertVisible: "Gym Buddies"

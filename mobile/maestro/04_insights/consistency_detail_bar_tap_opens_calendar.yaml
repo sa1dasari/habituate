@@ -11,6 +11,7 @@ appId: com.habituate.mobile
 - tapOn: "+ New"
 - tapOn: "e.g. Morning walk"
 - inputText: "Journal"
+- hideKeyboard
 - tapOn: "Add habit"
 - tapOn: "Today"
 - tapOn:

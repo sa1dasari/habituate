@@ -8,10 +8,12 @@ appId: com.habituate.mobile
 - assertVisible: "New habit"
 - tapOn: "e.g. Morning walk"
 - inputText: "Evening stretch"
+- hideKeyboard
 - tapOn: "Choose a category"
 - tapOn: "Health"
 - tapOn: "Why does this matter to you? (optional)"
 - inputText: "So I sleep better"
+- hideKeyboard
 - tapOn: "Add habit"
 - assertVisible: "Evening stretch"
 # Re-open it and confirm the motivation field round-tripped.

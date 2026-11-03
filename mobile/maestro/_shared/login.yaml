@@ -7,8 +7,10 @@ appId: com.habituate.mobile
     clearState: true
 - tapOn: "yourname or you@example.com"
 - inputText: ${TEST_EMAIL}
+- hideKeyboard
 - tapOn: "••••••••"
 - inputText: ${TEST_PASSWORD}
+- hideKeyboard
 - tapOn: "Sign in"
 - runFlow: dismiss_samsung_pass.yaml
 - assertVisible: "Today"

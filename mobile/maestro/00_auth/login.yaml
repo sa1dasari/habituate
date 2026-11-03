@@ -7,8 +7,10 @@ appId: com.habituate.mobile
     clearState: true
 - tapOn: "yourname or you@example.com"
 - inputText: ${TEST_EMAIL}
+- hideKeyboard
 - tapOn: "••••••••"
 - inputText: "definitely-the-wrong-password"
+- hideKeyboard
 - tapOn: "Sign in"
 - assertNotVisible: "Today"
 # useAuth's error text isn't a fixed string worth hardcoding (it surfaces
@@ -17,6 +19,7 @@ appId: com.habituate.mobile
 - tapOn: "••••••••"
 - eraseText
 - inputText: ${TEST_PASSWORD}
+- hideKeyboard
 - tapOn: "Sign in"
 - runFlow: ../_shared/dismiss_samsung_pass.yaml
 - assertVisible: "Today"

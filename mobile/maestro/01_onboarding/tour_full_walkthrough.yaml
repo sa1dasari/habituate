@@ -9,8 +9,10 @@ appId: com.habituate.mobile
 - tapOn: ".*Create an account.*"
 - tapOn: "you@example.com"
 - inputText: ${TEST_EMAIL}
+- hideKeyboard
 - tapOn: "At least 6 characters"
 - inputText: ${TEST_PASSWORD}
+- hideKeyboard
 - tapOn: "Create account"
 - runFlow: ../_shared/dismiss_samsung_pass.yaml
 - runFlow: ../_shared/choose_username.yaml

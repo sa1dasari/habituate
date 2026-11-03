@@ -6,8 +6,10 @@ appId: com.habituate.mobile
 - assertVisible: "Create a Challenge"
 - tapOn: "Challenge name"
 - inputText: "10k steps a day"
+- hideKeyboard
 - tapOn: "e.g. 80"
 - inputText: "30"
+- hideKeyboard
 - tapOn: "Create & join"
 - assertVisible: "10k steps a day"
 - tapOn:

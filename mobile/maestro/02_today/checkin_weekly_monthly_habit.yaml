@@ -8,8 +8,10 @@ appId: com.habituate.mobile
 - tapOn: "+ New"
 - tapOn: "e.g. Morning walk"
 - inputText: "Call a friend"
+- hideKeyboard
 - tapOn: "e.g. 3"
 - inputText: "3"
+- hideKeyboard
 - tapOn: "Add habit"
 - assertVisible: "Call a friend"
 - tapOn: "Today"

@@ -5,6 +5,7 @@ appId: com.habituate.mobile
 - tapOn: "+ New"
 - tapOn: "e.g. Morning walk"
 - inputText: "Read before bed"
+- hideKeyboard
 - tapOn: "Add habit"
 - assertVisible: "Read before bed"
 - tapOn:
@@ -13,6 +14,7 @@ appId: com.habituate.mobile
 - tapOn: "Read before bed"
 - eraseText
 - inputText: "Read 20 pages"
+- hideKeyboard
 - tapOn: "Save changes"
 - assertVisible: "Read 20 pages"
 - assertNotVisible: "Read before bed"

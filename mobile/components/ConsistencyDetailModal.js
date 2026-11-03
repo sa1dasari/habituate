@@ -301,18 +301,14 @@ export default function ConsistencyDetailModal({
                     </View>
 
                     {hasAnyWindow ? (
-                      selectedHistories.length === 1 ? (
+                      selectedHistories.length === 1 ? (() => {
                         // No per-bar value row here by design — matches the hourly
                         // (daily) view's clean look, which has none either; the
                         // "Selected-period details" card below already gives the
                         // actual numbers in readable text, so a number squeezed
                         // under every single bar was pure duplication and, at 7+
                         // columns, visual clutter with little room to breathe.
-                        <ScrollView
-                          horizontal
-                          scrollEnabled={isDense}
-                          showsHorizontalScrollIndicator={false}
-                        >
+                        const bars = (
                           <View style={[styles.chartRow, isDense && styles.chartRowDense]}>
                             {bucketLabels.map((label, bucketIndex) => {
                               const bucket = selectedHistories[0].history.buckets[bucketIndex];
@@ -341,8 +337,23 @@ export default function ConsistencyDetailModal({
                               );
                             })}
                           </View>
-                        </ScrollView>
-                      ) : (
+                        );
+                        // Dense (hourly/yearly) genuinely scrolls, so it needs the
+                        // ScrollView for real content width. Non-dense (weekly/
+                        // monthly) must NOT be wrapped in one: a horizontal
+                        // ScrollView sizes its content to the children's natural
+                        // width rather than the screen width, so barColumn's
+                        // flex:1 has nothing to expand against and every bar
+                        // packs to its bare 28px with no gap between them —
+                        // scrollEnabled={false} alone doesn't fix that sizing.
+                        return isDense ? (
+                          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                            {bars}
+                          </ScrollView>
+                        ) : (
+                          bars
+                        );
+                      })() : (
                         <>
                           <TreeRingChart
                             selectedHistories={selectedHistories}

@@ -1,0 +1,64 @@
+appId: com.habituate.mobile
+# Taps through all 15 steps of TOUR_STEPS (constants/onboardingTour.js) via
+# "Next"/"Let's go", confirming each real screen/modal it's supposed to
+# spotlight actually opens and closes in step with the walkthrough —
+# not a static slideshow, per its own design.
+---
+- launchApp:
+    clearState: true
+- tapOn: "Create an account"
+- tapOn: "you@example.com"
+- inputText: ${TEST_EMAIL}
+- tapOn: "At least 6 characters"
+- inputText: ${TEST_PASSWORD}
+- tapOn: "Create account"
+
+# 1. welcome (Today)
+- assertVisible: "Welcome to Habituate"
+- tapOn: "Next"
+# 2. habits-intro (Habits tab, HABITS_ADD_BUTTON spotlighted)
+- assertVisible: "Habits start right here"
+- tapOn: "Next"
+# 3. habits-create-form (real create-habit form opens)
+- assertVisible: "You're looking at the real form"
+- assertVisible: "New habit"
+- tapOn: "Next"
+# 4. habits-shield (shield icon spotlighted)
+- assertVisible: "Shield Days have your back"
+- tapOn: "Next"
+# 5. shield-days-info (real Shield Days info modal)
+- assertVisible: "Here's exactly how it works"
+- tapOn: "Next"
+# 6. community-intro (Community tab)
+- assertVisible: "Community is where it gets social"
+- tapOn: "Next"
+# 7. community-create-group
+- assertVisible: "Shared Habits = one streak, two people"
+- tapOn: "Next"
+# 8. shared-habit-form (real create-shared-habit screen)
+- assertVisible: "The actual create screen"
+- tapOn: "Next"
+# 9. community-create-challenge
+- assertVisible: "Challenges play by different rules"
+- tapOn: "Next"
+# 10. challenge-form (real create-challenge screen)
+- assertVisible: "Build your own Challenge"
+- tapOn: "Next"
+# 11. streak-freeze-info
+- assertVisible: "Streak Freezes protect the group"
+- tapOn: "Next"
+# 12. insights-consistency (Insights tab)
+- assertVisible: "Your consistency, at a glance"
+- tapOn: "Next"
+# 13. insights-coach
+- assertVisible: "Meet Ask Habituate"
+- tapOn: "Next"
+# 14. ask-habituate-chat (real chat modal)
+- assertVisible: "You're in the real coach right now"
+- tapOn: "Next"
+# 15. finish (Today)
+- assertVisible: "You're set. Go build something."
+- tapOn: "Let's go"
+- assertVisible: "Today"
+# Nothing from the tour should be left open behind it.
+- assertNotVisible: "Skip tour"

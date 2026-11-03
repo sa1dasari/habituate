@@ -1,0 +1,39 @@
+appId: com.habituate.mobile
+# Regression check for this session's own fix: archiving/restoring used to
+# silently wipe weeklyTarget/motivation because the client sent a partial
+# {archived} body to an endpoint that applies optional fields
+# unconditionally. Sets a weekly target AND a motivation, archives,
+# restores, and confirms both are still there.
+---
+- runFlow: ../_shared/login.yaml
+- tapOn: "Habits"
+- tapOn: "+ New"
+- tapOn: "e.g. Morning walk"
+- inputText: "Stretch"
+- tapOn: "e.g. 3"
+- inputText: "4"
+- tapOn: "Why does this matter to you? (optional)"
+- inputText: "Fewer aches at my desk"
+- tapOn: "Add habit"
+- assertVisible: "Stretch"
+
+- tapOn:
+    text: "Edit Stretch"
+- scrollUntilVisible:
+    element: "Archive"
+    direction: DOWN
+- tapOn: "Archive"
+- assertVisible: "Archive this habit?"
+- tapOn: "Archive"
+- assertNotVisible: "Stretch"
+
+# Section header reads "Archived (N)" — regex match, not exact text.
+- tapOn: "Archived.*"
+- assertVisible: "Stretch"
+- tapOn: "Restore"
+- tapOn: "Habits"
+- assertVisible: "Stretch"
+- tapOn:
+    text: "Edit Stretch"
+- assertVisible: "4"
+- assertVisible: "Fewer aches at my desk"

@@ -1,0 +1,18 @@
+appId: com.habituate.mobile
+---
+- runFlow: ../_shared/login.yaml
+- tapOn: "Habits"
+- tapOn: "+ New"
+- tapOn: "e.g. Morning walk"
+- inputText: "Read before bed"
+- tapOn: "Add habit"
+- assertVisible: "Read before bed"
+- tapOn:
+    text: "Edit Read before bed"
+- assertVisible: "Edit habit"
+- tapOn: "Read before bed"
+- eraseText
+- inputText: "Read 20 pages"
+- tapOn: "Save changes"
+- assertVisible: "Read 20 pages"
+- assertNotVisible: "Read before bed"

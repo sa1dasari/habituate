@@ -1,0 +1,22 @@
+appId: com.habituate.mobile
+# Creation only — inviting a friend into it and that friend accepting is a
+# separate, genuinely two-account round trip; see add_friend.yaml for the
+# TEST_EMAIL_2 pattern this suite uses for multi-user flows. Not combined
+# here to keep this flow's one failure point easy to isolate.
+---
+- runFlow: ../_shared/login.yaml
+- tapOn: "Habits"
+- tapOn: "+ New"
+- tapOn: "e.g. Morning walk"
+- inputText: "Gym"
+- tapOn: "Add habit"
+
+- tapOn: "Community"
+- tapOn: "Create a shared habit"
+- assertVisible: "Create a Shared Habit"
+- tapOn: "Gym"
+- tapOn: "Name (optional)"
+- inputText: "Gym Buddies"
+- tapOn: "Create"
+- tapOn: "Community"
+- assertVisible: "Gym Buddies"

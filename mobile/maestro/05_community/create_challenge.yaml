@@ -1,0 +1,17 @@
+appId: com.habituate.mobile
+---
+- runFlow: ../_shared/login.yaml
+- tapOn: "Community"
+- tapOn: "Create a challenge"
+- assertVisible: "Create a Challenge"
+- tapOn: "Challenge name"
+- inputText: "10k steps a day"
+- tapOn: "e.g. 80"
+- inputText: "30"
+- tapOn: "Create & join"
+- assertVisible: "10k steps a day"
+- tapOn:
+    text: "Log today for 10k steps a day"
+- assertVisible:
+    text: "Unlog today for 10k steps a day"
+    optional: true

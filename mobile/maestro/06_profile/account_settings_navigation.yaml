@@ -1,0 +1,26 @@
+appId: com.habituate.mobile
+# Walks every row in AccountSettingsScreen.js's SETTINGS_ROWS and confirms
+# each one actually navigates somewhere, rather than asserting on each
+# destination screen's specific content (which would make this flow as
+# fragile as five separate ones for one check: "does tapping do something").
+---
+- runFlow: ../_shared/login.yaml
+- tapOn: "Profile"
+- tapOn: "Account Settings"
+- assertVisible: "Personal Info"
+
+- tapOn: "Personal Info"
+- back
+- tapOn: "Login & Security"
+- back
+- tapOn: "Privacy"
+- back
+- tapOn: "Notifications"
+- back
+- tapOn: "Accessibility"
+- back
+- tapOn: "Get Help"
+- back
+- tapOn: "Report a Bug / Suggestion"
+- back
+- assertVisible: "Account Settings"

@@ -1,0 +1,21 @@
+appId: com.habituate.mobile
+# Exercises the full create form, not the template shortcut — name, category,
+# weekly target, and the optional "why" motivation field added this session.
+---
+- runFlow: ../_shared/login.yaml
+- tapOn: "Habits"
+- tapOn: "+ New"
+- assertVisible: "New habit"
+- tapOn: "e.g. Morning walk"
+- inputText: "Evening stretch"
+- tapOn: "Choose a category"
+- tapOn: "Health"
+- tapOn: "Why does this matter to you? (optional)"
+- inputText: "So I sleep better"
+- tapOn: "Add habit"
+- assertVisible: "Evening stretch"
+# Re-open it and confirm the motivation field round-tripped.
+- tapOn:
+    text: "Edit Evening stretch"
+- assertVisible: "So I sleep better"
+- tapOn: "Cancel"

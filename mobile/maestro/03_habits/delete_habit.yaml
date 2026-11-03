@@ -1,0 +1,24 @@
+appId: com.habituate.mobile
+# Delete is only reachable from the Archived section (archive first, same
+# as confirmDelete's guard in HabitsScreen.js) — permanent, so this creates
+# a disposable habit rather than reusing one another flow depends on.
+---
+- runFlow: ../_shared/login.yaml
+- tapOn: "Habits"
+- tapOn: "+ New"
+- tapOn: "e.g. Morning walk"
+- inputText: "Throwaway habit"
+- tapOn: "Add habit"
+- assertVisible: "Throwaway habit"
+- tapOn:
+    text: "Edit Throwaway habit"
+- scrollUntilVisible:
+    element: "Archive"
+    direction: DOWN
+- tapOn: "Archive"
+- tapOn: "Archive"
+- tapOn: "Archived.*"
+- tapOn: "Delete"
+- assertVisible: "permanently"
+- tapOn: "Delete"
+- assertNotVisible: "Throwaway habit"

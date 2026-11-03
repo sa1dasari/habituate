@@ -1,0 +1,8 @@
+appId: com.habituate.mobile
+---
+- runFlow: ../_shared/login.yaml
+- tapOn: "Profile"
+- tapOn: "Edit profile"
+- assertVisible: "Change profile photo"
+- back
+- assertVisible: "Profile"

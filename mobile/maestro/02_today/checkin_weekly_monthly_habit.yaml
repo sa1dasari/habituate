@@ -1,0 +1,27 @@
+appId: com.habituate.mobile
+# A weekly-target-only habit (no daily cadence) should surface in Today's
+# "This Week" section, not the main due-today list, and its HabitCard still
+# supports a direct check-in from there.
+---
+- runFlow: ../_shared/login.yaml
+- tapOn: "Habits"
+- tapOn: "+ New"
+- tapOn: "e.g. Morning walk"
+- inputText: "Call a friend"
+- tapOn: "e.g. 3"
+- inputText: "3"
+- tapOn: "Add habit"
+- assertVisible: "Call a friend"
+- tapOn: "Today"
+- assertVisible: "This Week"
+- assertVisible: "Call a friend"
+- tapOn:
+    text: "Check in Call a friend"
+# Weekly-target habits track period progress (periodDone/periodTarget), not
+# a simple per-day toggle the way a daily habit does — the post-check-in
+# label text here isn't confirmed from code, so this is marked optional
+# rather than asserted as fact. First real run should confirm and this
+# comment should be replaced with the real label.
+- assertVisible:
+    text: "Undo check-in for Call a friend"
+    optional: true

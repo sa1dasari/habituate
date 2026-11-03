@@ -1,0 +1,23 @@
+appId: com.habituate.mobile
+# A fresh account has zero habits, so this adds a template habit first
+# (TemplateHabitsPicker), then exercises the real check-in toggle from the
+# Today tab's own HabitCard, then undoes it — both directions of the core
+# repeated action this whole app is built around.
+---
+- runFlow: ../_shared/login.yaml
+- tapOn: "Drink water"
+- tapOn:
+    text: "Add \"Drink water\" as a habit"
+- assertVisible: "Check in Drink water"
+- tapOn:
+    text: "Check in Drink water"
+- assertVisible: "Undo check-in for Drink water"
+# A real celebration overlay fires on check-in (buildCheckInCelebration) —
+# it auto-dismisses after ~2.8s (CheckInCelebration.js), but tap Close if
+# it's still up rather than waiting blind.
+- tapOn:
+    text: "Close"
+    optional: true
+- tapOn:
+    text: "Undo check-in for Drink water"
+- assertVisible: "Check in Drink water"

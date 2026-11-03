@@ -1,0 +1,19 @@
+appId: com.habituate.mobile
+# Calls the real Anthropic-backed coach endpoint — this is the one flow in
+# the suite that costs real API money per CLAUDE.md §6 ("Calls that cost
+# money... the real Anthropic API"). Run deliberately, not as part of a
+# default/CI batch.
+---
+- runFlow: ../_shared/login.yaml
+- tapOn: "Insights"
+- tapOn: "Open Ask Habituate"
+- assertVisible: "Ask Habituate"
+- assertVisible: "Suggested questions"
+- tapOn: "Ask about your routine..."
+- inputText: "How am I doing overall?"
+- tapOn: "Send"
+- extendedWaitUntil:
+    visible: "Ask about your routine..."
+    timeout: 20000
+- tapOn: "Insights"
+- assertVisible: "Today"

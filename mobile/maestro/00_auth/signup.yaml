@@ -1,0 +1,17 @@
+appId: com.habituate.mobile
+# Creates a brand-new account — ${TEST_EMAIL}/${TEST_PASSWORD} must NOT
+# already exist. Run once to provision the account the other flows'
+# _shared/login.yaml then reuses.
+---
+- launchApp:
+    clearState: true
+- tapOn: "Create an account"
+- tapOn: "you@example.com"
+- inputText: ${TEST_EMAIL}
+- tapOn: "At least 6 characters"
+- inputText: ${TEST_PASSWORD}
+- tapOn: "Create account"
+# First-ever login — the onboarding tour auto-starts (useAutoStartTour).
+- assertVisible: "Welcome to Habituate"
+- tapOn: "Skip — just add my first habit"
+- assertVisible: "Today"

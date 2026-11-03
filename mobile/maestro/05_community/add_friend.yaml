@@ -1,0 +1,47 @@
+appId: com.habituate.mobile
+# Genuine two-account round trip — needs both ${TEST_EMAIL}/${TEST_PASSWORD}
+# AND ${TEST_EMAIL_2}/${TEST_PASSWORD_2} to already exist (run
+# 00_auth/signup.yaml once for each first; this flow only signs in, it
+# doesn't create accounts, so it's safe to re-run without colliding on an
+# already-registered email). One device, one session at a time — signs in
+# as A, sends the request, signs out, signs in as B, confirms it arrived.
+#
+# Stops short of tapping Accept: AddFriendModal.js's accept/decline icons
+# (lines ~277-282) have no accessibilityLabel, just a bare MaterialCommunityIcons
+# — there's no reliable text selector for them. Worth adding one
+# ("Accept {name}'s request" / "Decline {name}'s request") the same way
+# every other action in this screen already has.
+---
+- launchApp:
+    clearState: true
+- tapOn: "yourname or you@example.com"
+- inputText: ${TEST_EMAIL}
+- tapOn: "••••••••"
+- inputText: ${TEST_PASSWORD}
+- tapOn: "Sign in"
+- tapOn:
+    text: "Skip — just add my first habit"
+    optional: true
+- tapOn: "Community"
+- tapOn: "Friends"
+- tapOn: "By email"
+- tapOn: "friend@example.com"
+- inputText: ${TEST_EMAIL_2}
+- tapOn: "Send"
+- assertVisible: "Request sent"
+
+# Switch to account B.
+- tapOn: "Profile"
+- tapOn: "Sign out"
+- tapOn: "Sign out"
+- tapOn: "yourname or you@example.com"
+- inputText: ${TEST_EMAIL_2}
+- tapOn: "••••••••"
+- inputText: ${TEST_PASSWORD_2}
+- tapOn: "Sign in"
+- tapOn:
+    text: "Skip — just add my first habit"
+    optional: true
+- tapOn: "Community"
+- tapOn: "Friends"
+- assertVisible: "Pending requests"

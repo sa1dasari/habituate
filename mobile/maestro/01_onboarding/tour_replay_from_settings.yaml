@@ -1,0 +1,12 @@
+appId: com.habituate.mobile
+---
+- runFlow: ../_shared/login.yaml
+- tapOn: "Profile"
+- tapOn: "Account Settings"
+- tapOn: "Replay tour"
+# Starting the tour switches back to Today itself (useReplayTour/start(),
+# via the module-level navigationRef) even from inside the nested
+# ProfileStack — no manual navigation needed.
+- assertVisible: "Welcome to Habituate"
+- tapOn: "Skip"
+- assertVisible: "Today"

@@ -1,0 +1,13 @@
+appId: com.habituate.mobile
+---
+- runFlow: ../_shared/login.yaml
+- tapOn: "Insights"
+- assertVisible: "Weekly"
+- tapOn: "Weekly"
+- assertVisible: "This week"
+- tapOn: "Monthly"
+- assertVisible: "This month"
+- tapOn: "Yearly"
+- assertVisible: "This year"
+- tapOn: "Daily"
+- assertVisible: "Today"

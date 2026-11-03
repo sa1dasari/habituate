@@ -1,0 +1,10 @@
+appId: com.habituate.mobile
+---
+- runFlow: ../_shared/login.yaml
+- tapOn: "Profile"
+- tapOn: "Sign out"
+# ConfirmModal (useConfirm), not the OS Alert — anti-guilt copy "You can
+# sign back in anytime", destructive-styled "Sign out" confirm button.
+- assertVisible: "Sign out?"
+- tapOn: "Sign out"
+- assertVisible: "yourname or you@example.com"

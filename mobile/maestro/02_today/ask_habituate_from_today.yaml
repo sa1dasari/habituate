@@ -1,0 +1,10 @@
+appId: com.habituate.mobile
+---
+- runFlow: ../_shared/login.yaml
+- tapOn: "Ask Habituate"
+- assertVisible: "Ask Habituate"
+# AskHabituateModal's back link always reads "Insights" regardless of which
+# tab opened it from (AskHabituateModal.js:207) — not a bug to "fix" here,
+# just worth knowing when reading this selector.
+- tapOn: "Insights"
+- assertVisible: "Today"

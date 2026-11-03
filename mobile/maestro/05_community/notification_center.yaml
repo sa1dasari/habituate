@@ -1,0 +1,12 @@
+appId: com.habituate.mobile
+---
+- runFlow: ../_shared/login.yaml
+- tapOn: "Community"
+- tapOn: "Notifications"
+- assertVisible:
+    text: "Notifications"
+    optional: true
+# Empty state (NotificationCenterModal.js) when a fresh account has none yet.
+- assertVisible:
+    text: "Nothing yet.*"
+    optional: true

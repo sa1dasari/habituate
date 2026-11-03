@@ -1,0 +1,37 @@
+appId: com.habituate.mobile
+# Covers this session's own feature: tapping a week/month/year bar in the
+# Consistency detail drill-down should open the real CalendarModal
+# (header "Habit Calendar") anchored at that bucket's date, not just show
+# a number. CalendarModal's close button has no accessibilityLabel in the
+# current code (just an icon) — using the hardware back button to dismiss
+# it instead of guessing a tap target.
+---
+- runFlow: ../_shared/login.yaml
+- tapOn: "Habits"
+- tapOn: "+ New"
+- tapOn: "e.g. Morning walk"
+- inputText: "Journal"
+- tapOn: "Add habit"
+- tapOn: "Today"
+- tapOn:
+    text: "Check in Journal"
+- tapOn:
+    text: "Close"
+    optional: true
+
+- tapOn: "Insights"
+- tapOn: "Open consistency detail"
+- assertVisible: "Consistency detail"
+- assertVisible: "Journal"
+# Weekly tab: day bars should be tappable and open the calendar on that day.
+- tapOn: "Weekly"
+- tapOn: "Mon.*"
+- assertVisible: "Habit Calendar"
+- back
+
+# Yearly tab: month bars should open the calendar on that month, read-only
+# (no day pre-selected — see ConsistencyDetailModal.js's openBucketInCalendar).
+- tapOn: "Yearly"
+- tapOn: "Jan.*"
+- assertVisible: "Habit Calendar"
+- back

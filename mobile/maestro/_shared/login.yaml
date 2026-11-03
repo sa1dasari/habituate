@@ -1,0 +1,20 @@
+appId: com.habituate.mobile
+# Reusable sign-in — runFlow'd from any flow that needs to start authenticated.
+# Needs ${TEST_EMAIL} / ${TEST_PASSWORD} passed via `maestro test --env ...`.
+# Assumes the account already exists (00_auth/signup.yaml creates one).
+---
+- launchApp:
+    clearState: true
+- tapOn: "yourname or you@example.com"
+- inputText: ${TEST_EMAIL}
+- tapOn: "••••••••"
+- inputText: ${TEST_PASSWORD}
+- tapOn: "Sign in"
+- assertVisible: "Today"
+# A fresh/never-toured account auto-starts the onboarding tour on first
+# login (useAutoStartTour) — most flows aren't testing the tour itself, so
+# skip it via the fast-path if it's showing. `optional: true` means this is
+# a no-op when the tour isn't present (an already-toured account).
+- tapOn:
+    text: "Skip — just add my first habit"
+    optional: true

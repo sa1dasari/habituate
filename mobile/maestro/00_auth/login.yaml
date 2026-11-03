@@ -1,0 +1,21 @@
+appId: com.habituate.mobile
+# Sanity check on the sign-in form itself, independent of _shared/login.yaml
+# (which other flows reuse) — also verifies a bad password is rejected
+# rather than silently succeeding.
+---
+- launchApp:
+    clearState: true
+- tapOn: "yourname or you@example.com"
+- inputText: ${TEST_EMAIL}
+- tapOn: "••••••••"
+- inputText: "definitely-the-wrong-password"
+- tapOn: "Sign in"
+- assertNotVisible: "Today"
+# useAuth's error text isn't a fixed string worth hardcoding (it surfaces
+# whatever Firebase returns) — not visible-on-Today is the real assertion.
+# Clear the bad password and sign in for real.
+- tapOn: "••••••••"
+- eraseText
+- inputText: ${TEST_PASSWORD}
+- tapOn: "Sign in"
+- assertVisible: "Today"

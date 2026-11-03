@@ -1,0 +1,24 @@
+appId: com.habituate.mobile
+# Precondition this flow does NOT set up itself: at least one groupmate
+# activity item already visible (a shared habit with another member who has
+# checked in). The activity feed deliberately excludes the viewer's own
+# check-ins (GroupActivityService.recentActivity), so a single-account
+# fixture can't produce one — run this against an account that already has
+# shared-habit activity (e.g. after add_friend.yaml + a manually-invited
+# shared habit), not a freshly signed-up one.
+---
+- runFlow: ../_shared/login.yaml
+- tapOn: "Community"
+- tapOn: "Recent activity"
+- assertVisible: "Cheer"
+- tapOn: "Cheer"
+- assertVisible: "Remove cheer"
+
+# Swipe-to-dismiss (this session's own feature) — permanent, per-viewer
+# removal via a new ActivityDismissal row; never deletes the underlying
+# check-in. Swiping the row left should make it disappear from the list.
+- swipe:
+    from:
+      text: "Remove cheer"
+    direction: LEFT
+- assertNotVisible: "Remove cheer"

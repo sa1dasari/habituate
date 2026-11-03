@@ -1,0 +1,7 @@
+appId: com.habituate.mobile
+---
+- runFlow: ../_shared/login.yaml
+- tapOn: "Profile"
+- tapOn: "View my stats"
+- assertVisible: "Share my stats"
+- back

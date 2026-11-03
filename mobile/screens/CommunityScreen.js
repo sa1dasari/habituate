@@ -252,17 +252,23 @@ export default function CommunityScreen({ navigation, route }) {
           </Text>
         ) : (
           <View style={styles.activityCard}>
-            {activity.map((item, index) => (
-              <DismissibleActivityRow
-                key={item.checkInId}
-                item={item}
-                styles={styles}
-                colors={colors}
-                avatarColor={AVATAR_COLORS[index % AVATAR_COLORS.length]}
-                onCheer={() => handleToggleCheer(item)}
-                onDismiss={() => handleDismissActivity(item)}
-              />
-            ))}
+            <ScrollView
+              style={styles.activityScroll}
+              nestedScrollEnabled
+              showsVerticalScrollIndicator
+            >
+              {activity.map((item, index) => (
+                <DismissibleActivityRow
+                  key={item.checkInId}
+                  item={item}
+                  styles={styles}
+                  colors={colors}
+                  avatarColor={AVATAR_COLORS[index % AVATAR_COLORS.length]}
+                  onCheer={() => handleToggleCheer(item)}
+                  onDismiss={() => handleDismissActivity(item)}
+                />
+              ))}
+            </ScrollView>
           </View>
         )}
 
@@ -524,6 +530,10 @@ function makeStyles(colors, typography) {
       marginBottom: spacing.md,
     },
     activityEmptyNote: { ...typography.meta, marginBottom: spacing.md },
+    // Caps the expanded card at roughly 5 rows tall and scrolls for the rest
+    // instead of either truncating the list or letting it grow unbounded
+    // inside the screen's own outer ScrollView.
+    activityScroll: { maxHeight: 280 },
     activityRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -571,7 +581,12 @@ function makeStyles(colors, typography) {
     },
     leftPanel: { left: 0 },
     rightPanel: { right: 0 },
-    dismissGlyph: { width: 84, alignItems: 'center', justifyContent: 'center', gap: 2 },
+    // flex:1 + width:'100%' (not a fixed pixel width) so this matches its
+    // animated parent (sidePanel)'s current width exactly, same as
+    // NotificationCenterModal's actionBtn — sidePanel has no overflow:hidden
+    // of its own, so a fixed-width child here would render at full size even
+    // while the parent is animated to 0 at rest, bleeding into the row.
+    dismissGlyph: { flex: 1, width: '100%', alignItems: 'center', justifyContent: 'center', gap: 2 },
     dismissGlyphText: { fontSize: 11, fontWeight: '700', color: '#FFFFFF' },
     sectionHeader: {
       flexDirection: 'row',

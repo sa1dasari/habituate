@@ -51,6 +51,9 @@ class ReminderSchedulerTest {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @Autowired
+    private AppNotificationRepository appNotificationRepository;
+
     private String userId;
     private Long habitId;
     private String token;
@@ -61,6 +64,7 @@ class ReminderSchedulerTest {
             habitService.deleteHabit(userId, habitId);
         }
         if (userId != null) {
+            appNotificationRepository.deleteByUserId(userId);
             userRepository.deleteById(userId);
         }
         if (token != null) {
@@ -91,6 +95,31 @@ class ReminderSchedulerTest {
         assertThat(captor.getValue()).hasSize(1);
         assertThat(captor.getValue().get(0).to()).isEqualTo(token);
         assertThat(captor.getValue().get(0).title()).contains("Morning Walk");
+    }
+
+    @Test
+    void sendsReminder_alsoCreatesAnInAppNotification() {
+        userId = "reminder-test-user-5";
+        ZoneId zone = ZoneId.of("America/New_York");
+        userRepository.save(new User(userId, zone.getId()));
+
+        token = "ExponentPushToken[reminder-test-5]";
+        pushTokenRepository.save(new PushToken(userId, token, "ios"));
+
+        Instant now = ZonedDateTime.now(zone).withHour(7).withMinute(30).withSecond(0).withNano(0).toInstant();
+        LocalTime scheduled = now.atZone(zone).toLocalTime();
+
+        habitId = habitService.createHabit(userId, new CreateHabitRequest(
+                "Morning Walk", "General", "DAILY", 1, null, null, "BOOLEAN", null,
+                scheduled.toString().substring(0, 5), true, null)).id();
+
+        reminderScheduler.sendDueReminders(now);
+
+        List<AppNotification> notifications = appNotificationRepository.findTop50ByUserIdOrderByCreatedAtDesc(userId);
+        assertThat(notifications).hasSize(1);
+        assertThat(notifications.get(0).getType()).isEqualTo(AppNotification.HABIT_REMINDER);
+        assertThat(notifications.get(0).getTitle()).contains("Morning Walk");
+        assertThat(notifications.get(0).getHabitId()).isEqualTo(habitId);
     }
 
     @Test

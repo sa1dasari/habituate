@@ -48,6 +48,8 @@ public class AppNotification {
     public static final String CHALLENGE_CHECKIN = "CHALLENGE_CHECKIN";
     public static final String CHALLENGE_DELETED = "CHALLENGE_DELETED";
     public static final String NUDGE = "NUDGE";
+    public static final String HABIT_REMINDER = "HABIT_REMINDER";
+    public static final String CHALLENGE_REMINDER = "CHALLENGE_REMINDER";
     public static final String CHEER_RECEIVED = "CHEER_RECEIVED";
     public static final String WEEKLY_SUMMARY = "WEEKLY_SUMMARY";
     public static final String MONTHLY_SUMMARY = "MONTHLY_SUMMARY";

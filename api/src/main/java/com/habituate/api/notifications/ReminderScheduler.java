@@ -43,18 +43,21 @@ public class ReminderScheduler {
     private final PushTokenRepository pushTokenRepository;
     private final ExpoPushService expoPushService;
     private final CheckInRepository checkInRepository;
+    private final AppNotificationService notificationService;
 
     public ReminderScheduler(
             HabitRepository habitRepository,
             UserRepository userRepository,
             PushTokenRepository pushTokenRepository,
             ExpoPushService expoPushService,
-            CheckInRepository checkInRepository) {
+            CheckInRepository checkInRepository,
+            AppNotificationService notificationService) {
         this.habitRepository = habitRepository;
         this.userRepository = userRepository;
         this.pushTokenRepository = pushTokenRepository;
         this.expoPushService = expoPushService;
         this.checkInRepository = checkInRepository;
+        this.notificationService = notificationService;
     }
 
     @Scheduled(cron = "0 * * * * *")
@@ -110,6 +113,12 @@ public class ReminderScheduler {
                             body,
                             Map.of("habitId", habit.getId())));
                 }
+                // Persisted counterpart to the push above — stays visible in the
+                // Notification Center even after the OS push itself is gone,
+                // same reasoning as every other AppNotificationService caller.
+                // Once per due habit, not once per token/device.
+                notificationService.notify(userId, AppNotification.HABIT_REMINDER,
+                        "Time for " + habit.getName(), body, null, null, habit.getId());
             }
         }
 

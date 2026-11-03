@@ -1,5 +1,7 @@
 package com.habituate.api.groups;
 
+import com.habituate.api.notifications.AppNotification;
+import com.habituate.api.notifications.AppNotificationRepository;
 import com.habituate.api.notifications.ExpoPushMessage;
 import com.habituate.api.notifications.ExpoPushService;
 import com.habituate.api.notifications.PushToken;
@@ -60,6 +62,9 @@ class ChallengeReminderSchedulerTest {
     @MockBean
     private ExpoPushService expoPushService;
 
+    @Autowired
+    private AppNotificationRepository appNotificationRepository;
+
     private String userId;
     private Long challengeId;
     private String token;
@@ -72,6 +77,7 @@ class ChallengeReminderSchedulerTest {
             challengeRepository.deleteById(challengeId);
         }
         if (userId != null) {
+            appNotificationRepository.deleteByUserId(userId);
             userRepository.deleteById(userId);
         }
         if (token != null) {
@@ -114,6 +120,32 @@ class ChallengeReminderSchedulerTest {
         assertThat(captor.getValue()).hasSize(1);
         assertThat(captor.getValue().get(0).to()).isEqualTo(token);
         assertThat(captor.getValue().get(0).title()).contains("Morning Routine");
+    }
+
+    @Test
+    void sendsReminder_alsoCreatesAnInAppNotification() {
+        stubResolve();
+        userId = "challenge-reminder-test-user-4";
+        ZoneId zone = ZoneId.of("America/New_York");
+        userRepository.save(new User(userId, zone.getId()));
+
+        token = "ExponentPushToken[challenge-reminder-4]";
+        pushTokenRepository.save(new PushToken(userId, token, "ios"));
+
+        Instant now = ZonedDateTime.now(zone).withHour(7).withMinute(30).withSecond(0).withNano(0).toInstant();
+        LocalTime reminderTime = now.atZone(zone).toLocalTime();
+
+        challengeId = challengeService.create(
+                userId, requestWithReminder("Morning Routine", reminderTime.toString().substring(0, 5)),
+                zone.getId()).id();
+
+        challengeReminderScheduler.sendDueReminders(now);
+
+        List<AppNotification> notifications = appNotificationRepository.findTop50ByUserIdOrderByCreatedAtDesc(userId);
+        assertThat(notifications).hasSize(1);
+        assertThat(notifications.get(0).getType()).isEqualTo(AppNotification.CHALLENGE_REMINDER);
+        assertThat(notifications.get(0).getTitle()).contains("Morning Routine");
+        assertThat(notifications.get(0).getChallengeId()).isEqualTo(challengeId);
     }
 
     @Test

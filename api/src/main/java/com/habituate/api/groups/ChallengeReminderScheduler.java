@@ -1,5 +1,7 @@
 package com.habituate.api.groups;
 
+import com.habituate.api.notifications.AppNotification;
+import com.habituate.api.notifications.AppNotificationService;
 import com.habituate.api.notifications.ExpoPushMessage;
 import com.habituate.api.notifications.ExpoPushService;
 import com.habituate.api.notifications.PushToken;
@@ -38,18 +40,21 @@ public class ChallengeReminderScheduler {
     private final UserRepository userRepository;
     private final PushTokenRepository pushTokenRepository;
     private final ExpoPushService expoPushService;
+    private final AppNotificationService notificationService;
 
     public ChallengeReminderScheduler(
             ChallengeRepository challengeRepository,
             ChallengeParticipantRepository participantRepository,
             UserRepository userRepository,
             PushTokenRepository pushTokenRepository,
-            ExpoPushService expoPushService) {
+            ExpoPushService expoPushService,
+            AppNotificationService notificationService) {
         this.challengeRepository = challengeRepository;
         this.participantRepository = participantRepository;
         this.userRepository = userRepository;
         this.pushTokenRepository = pushTokenRepository;
         this.expoPushService = expoPushService;
+        this.notificationService = notificationService;
     }
 
     @Scheduled(cron = "0 * * * * *")
@@ -75,14 +80,20 @@ public class ChallengeReminderScheduler {
                 if (!nowLocal.equals(challenge.getReminderTime().truncatedTo(ChronoUnit.MINUTES))) {
                     continue;
                 }
+                String body = "A gentle nudge from Habituate — whenever you're ready.";
                 List<PushToken> tokens = pushTokenRepository.findByUserId(participant.getUserId());
                 for (PushToken token : tokens) {
                     messages.add(new ExpoPushMessage(
                             token.getToken(),
                             "Time for " + challenge.getName(),
-                            "A gentle nudge from Habituate — whenever you're ready.",
+                            body,
                             Map.of("challengeId", challenge.getId())));
                 }
+                // Persisted counterpart to the push above, same as
+                // notifications.ReminderScheduler's habit-reminder version —
+                // once per due participant, not once per token/device.
+                notificationService.notify(participant.getUserId(), AppNotification.CHALLENGE_REMINDER,
+                        "Time for " + challenge.getName(), body, null, challenge.getId(), null);
             }
         }
 

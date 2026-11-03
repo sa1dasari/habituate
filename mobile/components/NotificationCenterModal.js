@@ -38,6 +38,8 @@ const TYPE_ICON = {
   CHALLENGE_JOINED: 'trophy-outline',
   CHALLENGE_CHECKIN: 'trophy-outline',
   NUDGE: 'hand-wave-outline',
+  HABIT_REMINDER: 'bell-ring-outline',
+  CHALLENGE_REMINDER: 'bell-ring-outline',
   WEEKLY_SUMMARY: 'calendar-week',
   MONTHLY_SUMMARY: 'calendar-month-outline',
   YEARLY_SUMMARY: 'calendar-star',

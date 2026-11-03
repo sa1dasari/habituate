@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { categoryIcon } from '../constants/habitCategories';
+import CalendarModal from './CalendarModal';
 import TreeRingChart from './TreeRingChart';
 import {
   CONSISTENCY_PERIODS,
@@ -84,6 +85,23 @@ export default function ConsistencyDetailModal({
   // habit, same single-habit starting point as before — tapping a chip
   // toggles it in/out from there rather than replacing the selection.
   const [selectedHabitIds, setSelectedHabitIds] = useState([]);
+  // Tapping a week/month/year bar opens the real calendar at that bucket's
+  // date, reusing its existing day-detail panel rather than building a
+  // second "what happened here" view from scratch.
+  const [calendarVisible, setCalendarVisible] = useState(false);
+  const [calendarAnchorDateKey, setCalendarAnchorDateKey] = useState(null);
+  const [calendarSelectedDayKey, setCalendarSelectedDayKey] = useState(null);
+
+  const openBucketInCalendar = (bucketPeriod, bucket) => {
+    if (!bucket.dateKey) return;
+    setCalendarAnchorDateKey(bucket.dateKey);
+    // Weekly/monthly bars each point at one specific day (the day itself,
+    // or a week's first in-month day) — pre-open that day's panel. Yearly
+    // bars point at a whole month, which the grid itself already shows in
+    // full once landed there, so no single day is pre-selected for those.
+    setCalendarSelectedDayKey(bucketPeriod === 'yearly' ? null : bucket.dateKey);
+    setCalendarVisible(true);
+  };
 
   useEffect(() => {
     if (!visible) return;
@@ -162,6 +180,7 @@ export default function ConsistencyDetailModal({
   })();
 
   return (
+    <>
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
@@ -314,11 +333,17 @@ export default function ConsistencyDetailModal({
                               const bucket = selectedHistories[0].history.buckets[bucketIndex];
                               const pct = maxBucketValue > 0 ? Math.round((bucket.value / maxBucketValue) * 100) : 0;
                               const colorSet = BAR_COLOR_SETS[0];
+                              // Hourly (daily tab) bars aren't tappable — an hour
+                              // doesn't map to the calendar's day-grain detail panel.
+                              const tappable = period !== 'daily' && bucket.dateKey;
                               return (
-                                <View
+                                <Pressable
                                   key={bucketIndex}
                                   style={[styles.barColumn, isDense && styles.barColumnDense]}
-                                  accessibilityLabel={`${label || bucketIndex}: ${bucket.value} day${bucket.value === 1 ? '' : 's'}`}
+                                  disabled={!tappable}
+                                  onPress={tappable ? () => openBucketInCalendar(period, bucket) : undefined}
+                                  accessibilityRole={tappable ? 'button' : undefined}
+                                  accessibilityLabel={`${label || bucketIndex}: ${bucket.value} day${bucket.value === 1 ? '' : 's'}${tappable ? ' — view check-ins' : ''}`}
                                 >
                                   <View style={styles.barGroup}>
                                     <View style={[styles.barTrack, isDense && styles.barTrackDense]}>
@@ -333,7 +358,7 @@ export default function ConsistencyDetailModal({
                                     </View>
                                   </View>
                                   <Text style={styles.barAxisLabel}>{label}</Text>
-                                </View>
+                                </Pressable>
                               );
                             })}
                           </View>
@@ -411,6 +436,15 @@ export default function ConsistencyDetailModal({
         </ScrollView>
       </SafeAreaView>
     </Modal>
+
+    <CalendarModal
+      visible={calendarVisible}
+      habits={habits}
+      initialAnchorDateKey={calendarAnchorDateKey}
+      initialSelectedDayKey={calendarSelectedDayKey}
+      onClose={() => setCalendarVisible(false)}
+    />
+    </>
   );
 }
 

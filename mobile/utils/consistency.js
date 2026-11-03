@@ -288,6 +288,7 @@ function buildWeekDaysBuckets(habit, anchor) {
       label: d.toLocaleDateString('en-US', { weekday: 'short' }),
       value: existed && habitDoneOnDay(habit, key) ? 1 : 0,
       windowLen: existed ? 1 : 0,
+      dateKey: key,
     });
   }
   return { buckets, bucketCount: 7, periodWord: 'day', currentLabel: 'This week' };
@@ -307,17 +308,28 @@ function buildMonthWeeksBuckets(habit, anchor) {
   while (cursor <= monthEnd) {
     let value = 0;
     let windowLen = 0;
+    let firstInMonthDay = null;
     for (let i = 0; i < 7; i++) {
       const d = new Date(cursor);
       d.setDate(d.getDate() + i);
       if (d < monthStart || d > monthEnd) continue;
+      if (!firstInMonthDay) firstInMonthDay = d;
       const key = toDateKey(d);
       if (!habit || !existedOn(habit, key)) continue;
       windowLen += 1;
       if (habitDoneOnDay(habit, key)) value += 1;
     }
     weekIndex += 1;
-    buckets.push({ label: `W${weekIndex}`, value, windowLen });
+    // The week's own start (cursor) can fall in the previous month (e.g. a
+    // month starting mid-week) — anchor on the first day of this bucket
+    // that's actually inside the month so opening the calendar on it lands
+    // on the right month.
+    buckets.push({
+      label: `W${weekIndex}`,
+      value,
+      windowLen,
+      dateKey: toDateKey(firstInMonthDay || cursor),
+    });
     cursor = new Date(cursor);
     cursor.setDate(cursor.getDate() + 7);
   }
@@ -340,7 +352,12 @@ function buildYearMonthsBuckets(habit, anchor) {
       windowLen += 1;
       if (habitDoneOnDay(habit, key)) value += 1;
     }
-    buckets.push({ label: monthStart.toLocaleDateString('en-US', { month: 'short' }), value, windowLen });
+    buckets.push({
+      label: monthStart.toLocaleDateString('en-US', { month: 'short' }),
+      value,
+      windowLen,
+      dateKey: toDateKey(monthStart),
+    });
   }
   return { buckets, bucketCount: 12, periodWord: 'month', currentLabel: 'This year' };
 }

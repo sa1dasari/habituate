@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Modal,
   Pressable,
@@ -28,8 +28,27 @@ const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
  *                      BOOLEAN habit's check-in for the selected day. Omit to
  *                      keep the day-detail panel read-only.
  *   busy            – disables the toggle while a request is in flight
+ *   initialAnchorDateKey – 'YYYY-MM-DD', optional. Opens the grid on that
+ *                      date's month instead of the current month — e.g. the
+ *                      Consistency detail chart's week/month/year bars jump
+ *                      here to show what was actually logged. Re-applied
+ *                      every time the modal opens (not just on first mount),
+ *                      so the same instance can be reused for a different
+ *                      bar tap without unmounting in between.
+ *   initialSelectedDayKey – 'YYYY-MM-DD', optional. Also pre-opens that
+ *                      exact day's detail panel (e.g. a Weekly-tab bar,
+ *                      which points at one specific day) — omit to land on
+ *                      just the month grid (e.g. a Yearly-tab bar).
  */
-export default function CalendarModal({ visible, habits = [], onClose, onToggleHabitDay, busy = false }) {
+export default function CalendarModal({
+  visible,
+  habits = [],
+  onClose,
+  onToggleHabitDay,
+  busy = false,
+  initialAnchorDateKey = null,
+  initialSelectedDayKey = null,
+}) {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const today = new Date();
@@ -39,6 +58,15 @@ export default function CalendarModal({ visible, habits = [], onClose, onToggleH
   // Empty set = "All habits". Non-empty = only these habits feed the grid,
   // day-detail panel, streak, and monthly summary below.
   const [filterHabitIds, setFilterHabitIds] = useState(() => new Set());
+
+  useEffect(() => {
+    if (!visible || !initialAnchorDateKey) return;
+    const anchor = new Date(`${initialAnchorDateKey}T00:00:00`);
+    setYear(anchor.getFullYear());
+    setMonth(anchor.getMonth());
+    setSelectedDay(initialSelectedDayKey || null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, initialAnchorDateKey, initialSelectedDayKey]);
 
   const toggleFilterHabit = (habitId) => {
     setFilterHabitIds((prev) => {

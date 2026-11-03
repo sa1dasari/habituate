@@ -185,6 +185,8 @@ function WidgetDeepLinkBridge() {
 function TourAutoStart() {
   const attemptAutoStart = useAutoStartTour();
   useEffect(() => {
+    // TEMP DIAGNOSTIC — see matching note in useOnboardingTour.js.
+    console.warn('[tour-diag] TourAutoStart mounted/effect fired');
     attemptAutoStart();
   }, [attemptAutoStart]);
   return null;

@@ -19,6 +19,7 @@ appId: com.habituate.mobile
 - tapOn: "••••••••"
 - inputText: ${TEST_PASSWORD}
 - tapOn: "Sign in"
+- runFlow: ../_shared/dismiss_samsung_pass.yaml
 - tapOn:
     text: "Skip — just add my first habit"
     optional: true
@@ -39,6 +40,7 @@ appId: com.habituate.mobile
 - tapOn: "••••••••"
 - inputText: ${TEST_PASSWORD_2}
 - tapOn: "Sign in"
+- runFlow: ../_shared/dismiss_samsung_pass.yaml
 - tapOn:
     text: "Skip — just add my first habit"
     optional: true

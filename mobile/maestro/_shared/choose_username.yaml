@@ -1,0 +1,11 @@
+appId: com.habituate.mobile
+# Every brand-new account lands on ChooseUsernameScreen right after signup,
+# before anything else (the tour, Today, etc.) — missed entirely in the
+# first version of these flows, found from a real run's screenshot.
+# ${TEST_USERNAME} must be unique across all Habituate accounts (3-20
+# chars, letters/numbers/underscores) — pass one via --env, or this
+# defaults to a fixed value that only works the first time it's claimed.
+---
+- tapOn: "yourname"
+- inputText: ${TEST_USERNAME}
+- tapOn: "Continue"

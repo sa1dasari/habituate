@@ -10,6 +10,7 @@ appId: com.habituate.mobile
 - tapOn: "••••••••"
 - inputText: ${TEST_PASSWORD}
 - tapOn: "Sign in"
+- runFlow: dismiss_samsung_pass.yaml
 - assertVisible: "Today"
 # A fresh/never-toured account auto-starts the onboarding tour on first
 # login (useAutoStartTour) — most flows aren't testing the tour itself, so

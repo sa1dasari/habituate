@@ -1,7 +1,7 @@
 appId: com.habituate.mobile
 # Creates a brand-new account — ${TEST_EMAIL}/${TEST_PASSWORD} must NOT
 # already exist. Run once to provision the account the other flows'
-# _shared/login.yaml then reuses.
+# _shared/login.yaml then reuses. ${TEST_USERNAME} must be globally unique.
 ---
 - launchApp:
     clearState: true
@@ -11,6 +11,9 @@ appId: com.habituate.mobile
 - tapOn: "At least 6 characters"
 - inputText: ${TEST_PASSWORD}
 - tapOn: "Create account"
+- runFlow: ../_shared/dismiss_samsung_pass.yaml
+# Every brand-new account must choose a username before anything else.
+- runFlow: ../_shared/choose_username.yaml
 # First-ever login — the onboarding tour auto-starts (useAutoStartTour).
 - assertVisible: "Welcome to Habituate"
 - tapOn: "Skip — just add my first habit"

@@ -18,4 +18,5 @@ appId: com.habituate.mobile
 - eraseText
 - inputText: ${TEST_PASSWORD}
 - tapOn: "Sign in"
+- runFlow: ../_shared/dismiss_samsung_pass.yaml
 - assertVisible: "Today"

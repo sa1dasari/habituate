@@ -1,0 +1,10 @@
+appId: com.habituate.mobile
+# Samsung's own "Save sign-in info to Samsung Pass?" system dialog pops up
+# after ANY password field is submitted on Samsung devices — confirmed from
+# a real run (screenshot showed it covering the post-signup username
+# screen). Not something the app controls; runFlow this right after every
+# "Sign in"/"Create account" tap. No-op on devices that don't show it.
+---
+- tapOn:
+    text: "Never for this app or website"
+    optional: true

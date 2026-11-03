@@ -11,6 +11,8 @@ appId: com.habituate.mobile
 - tapOn: "At least 6 characters"
 - inputText: ${TEST_PASSWORD}
 - tapOn: "Create account"
+- runFlow: ../_shared/dismiss_samsung_pass.yaml
+- runFlow: ../_shared/choose_username.yaml
 - assertVisible: "Welcome to Habituate"
 - tapOn: "Skip — just add my first habit"
 - assertVisible: "Today"

@@ -140,9 +140,10 @@ export default function ConsistencyDetailModal({
         : Math.max(1, ...selectedHistories.flatMap(({ history }) => history.buckets.map((b) => b.windowLen)))
       : 1;
   const hasAnyWindow = selectedHistories.some(({ history }) => history.buckets.some((b) => b.windowLen > 0));
-  // Dense hourly view — thinner bars, own horizontal scroll, no per-bucket
-  // value pills (24 of them would be unreadable clutter).
-  const isDense = bucketLabels.length > 12;
+  // Dense view (hourly's 24, yearly's 12) — thinner bars, own horizontal
+  // scroll, no per-bucket value pills (that many would be unreadable
+  // clutter squeezed into one screen width with no scroll).
+  const isDense = bucketLabels.length >= 12;
 
   // A "last bucket = status" pill makes sense when the last bucket IS the
   // live period (today's day-bucket, this week's day, etc.) — for hourly,
@@ -337,8 +338,11 @@ export default function ConsistencyDetailModal({
                             <View style={styles.bucketValueRow}>
                               {selectedHistories[0].history.buckets.map((bucket, i) => (
                                 <View key={i} style={styles.bucketValuePill}>
-                                  <Text style={styles.bucketValueText}>
-                                    {bucket.value} day{bucket.value === 1 ? '' : 's'}
+                                  <Text
+                                    style={styles.bucketValueText}
+                                    accessibilityLabel={`${bucket.value} day${bucket.value === 1 ? '' : 's'}`}
+                                  >
+                                    {bucket.value}d
                                   </Text>
                                 </View>
                               ))}

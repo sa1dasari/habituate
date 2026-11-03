@@ -5,7 +5,7 @@ appId: com.habituate.mobile
 ---
 - launchApp:
     clearState: true
-- tapOn: "Create an account"
+- tapOn: ".*Create an account.*"
 - tapOn: "you@example.com"
 - inputText: ${TEST_EMAIL}
 - tapOn: "At least 6 characters"

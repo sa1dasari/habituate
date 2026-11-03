@@ -44,4 +44,10 @@ public class GroupActivityController {
     public void uncheer(HttpServletRequest req, @PathVariable Long checkInId) {
         groupActivityService.uncheer(userId(req), checkInId);
     }
+
+    @PostMapping("/{checkInId}/dismiss")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void dismiss(HttpServletRequest req, @PathVariable Long checkInId) {
+        groupActivityService.dismiss(userId(req), checkInId);
+    }
 }

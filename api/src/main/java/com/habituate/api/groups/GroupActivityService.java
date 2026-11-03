@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -23,6 +24,7 @@ public class GroupActivityService {
     private final GroupMemberRepository groupMemberRepository;
     private final HabitRepository habitRepository;
     private final CheckInCheerRepository checkInCheerRepository;
+    private final ActivityDismissalRepository activityDismissalRepository;
     private final UserLookupService userLookupService;
     private final GroupRepository groupRepository;
     private final AppNotificationService notificationService;
@@ -32,6 +34,7 @@ public class GroupActivityService {
             GroupMemberRepository groupMemberRepository,
             HabitRepository habitRepository,
             CheckInCheerRepository checkInCheerRepository,
+            ActivityDismissalRepository activityDismissalRepository,
             UserLookupService userLookupService,
             GroupRepository groupRepository,
             AppNotificationService notificationService) {
@@ -39,6 +42,7 @@ public class GroupActivityService {
         this.groupMemberRepository = groupMemberRepository;
         this.habitRepository = habitRepository;
         this.checkInCheerRepository = checkInCheerRepository;
+        this.activityDismissalRepository = activityDismissalRepository;
         this.userLookupService = userLookupService;
         this.groupRepository = groupRepository;
         this.notificationService = notificationService;
@@ -55,6 +59,18 @@ public class GroupActivityService {
 
         List<CheckIn> checkIns = checkInRepository
                 .findTop20ByGroupIdInAndUserIdNotOrderByOccurredAtDesc(groupIds, viewingUserId);
+        if (checkIns.isEmpty()) {
+            return List.of();
+        }
+
+        // Swiped-away items never come back — permanent per-viewer removal,
+        // not a "mark read" that resurfaces on the next fetch.
+        Set<Long> dismissedIds = activityDismissalRepository
+                .findByUserIdAndCheckInIdIn(viewingUserId, checkIns.stream().map(CheckIn::getId).toList())
+                .stream()
+                .map(ActivityDismissal::getCheckInId)
+                .collect(Collectors.toSet());
+        checkIns = checkIns.stream().filter(c -> !dismissedIds.contains(c.getId())).toList();
         if (checkIns.isEmpty()) {
             return List.of();
         }
@@ -109,6 +125,16 @@ public class GroupActivityService {
     public void uncheer(String userId, Long checkInId) {
         checkInCheerRepository.findByCheckInIdAndUserId(checkInId, userId)
                 .ifPresent(checkInCheerRepository::delete);
+    }
+
+    /** Permanently removes a check-in from this user's own activity feed only —
+     * the check-in itself, and every other groupmate's feed, are untouched. */
+    @Transactional
+    public void dismiss(String userId, Long checkInId) {
+        requireVisible(userId, checkInId);
+        if (activityDismissalRepository.findByUserIdAndCheckInIdIn(userId, List.of(checkInId)).isEmpty()) {
+            activityDismissalRepository.save(new ActivityDismissal(checkInId, userId));
+        }
     }
 
     /** Best-effort, same convention as notifyGroupmatesOfCheckIn — a notification-write

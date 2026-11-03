@@ -274,6 +274,8 @@ export const api = {
 
   cheerCheckIn: (checkInId) => request(`/api/groups/activity/${checkInId}/cheer`, { method: 'POST' }),
 
+  dismissActivity: (checkInId) => request(`/api/groups/activity/${checkInId}/dismiss`, { method: 'POST' }),
+
   getUserProfile: () => request('/api/users/me'),
 
   updateUserProfile: (changes) =>

@@ -57,6 +57,9 @@ class GroupActivityServiceTest {
     @Autowired
     private CheckInCheerRepository checkInCheerRepository;
 
+    @Autowired
+    private ActivityDismissalRepository activityDismissalRepository;
+
     @MockBean
     private UserLookupService userLookupService;
 
@@ -179,5 +182,52 @@ class GroupActivityServiceTest {
 
         verify(appNotificationService, times(1))
                 .notify(eq(userA), eq(AppNotification.CHEER_RECEIVED), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void dismiss_removesTheItemFromThisViewersFeedOnly() {
+        String userA = "activity-test-user-a5";
+        String userB = "activity-test-user-b5";
+        Long habitA = setUpGroupOfTwo(userA, userB, "activity-b5@example.com");
+
+        var checkIn = habitService.createCheckIn(userA, habitA, new CheckInRequest(Instant.now(), 1, "manual"));
+        assertThat(groupActivityService.recentActivity(userB)).hasSize(1);
+
+        groupActivityService.dismiss(userB, checkIn.getId());
+
+        assertThat(groupActivityService.recentActivity(userB)).isEmpty();
+
+        activityDismissalRepository.findByUserIdAndCheckInIdIn(userB, List.of(checkIn.getId()))
+                .forEach(d -> activityDismissalRepository.deleteById(d.getId()));
+    }
+
+    @Test
+    void dismiss_isIdempotent() {
+        String userA = "activity-test-user-a6";
+        String userB = "activity-test-user-b6";
+        Long habitA = setUpGroupOfTwo(userA, userB, "activity-b6@example.com");
+
+        var checkIn = habitService.createCheckIn(userA, habitA, new CheckInRequest(Instant.now(), 1, "manual"));
+
+        groupActivityService.dismiss(userB, checkIn.getId());
+        groupActivityService.dismiss(userB, checkIn.getId()); // must not throw or duplicate the row
+
+        assertThat(activityDismissalRepository.findByUserIdAndCheckInIdIn(userB, List.of(checkIn.getId())))
+                .hasSize(1);
+
+        activityDismissalRepository.findByUserIdAndCheckInIdIn(userB, List.of(checkIn.getId()))
+                .forEach(d -> activityDismissalRepository.deleteById(d.getId()));
+    }
+
+    @Test
+    void dismiss_rejectsNonGroupmate() {
+        String userA = "activity-test-user-a7";
+        String userB = "activity-test-user-b7";
+        Long habitA = setUpGroupOfTwo(userA, userB, "activity-b7@example.com");
+
+        var checkIn = habitService.createCheckIn(userA, habitA, new CheckInRequest(Instant.now(), 1, "manual"));
+
+        assertThatThrownBy(() -> groupActivityService.dismiss("activity-test-stranger", checkIn.getId()))
+                .isInstanceOf(ForbiddenException.class);
     }
 }

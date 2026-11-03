@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import AvatarImage from '../components/AvatarImage';
+import DismissibleActivityRow from '../components/DismissibleActivityRow';
 import SharedHabitCard from '../components/SharedHabitCard';
 import ChallengeCard from '../components/ChallengeCard';
 import GroupsManageModal from '../components/GroupsManageModal';
@@ -32,21 +32,9 @@ import { useOnboardingTour } from '../hooks/useOnboardingTour';
 import { useToast } from '../hooks/useToast';
 import { useTourTarget } from '../hooks/useTourTarget';
 import { TOUR_SCOPES, TOUR_TARGETS } from '../constants/onboardingTour';
-import { timeAgo } from '../utils/date';
 import { radii, spacing } from '../theme';
 
-const ACTIVITY_LIMIT = 5;
 const AVATAR_COLORS = ['#2563EB', '#7C3AED', '#0891B2', '#DB2777', '#EA580C'];
-
-function initials(name) {
-  return String(name || '?')
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join('')
-    .toUpperCase();
-}
 
 export default function CommunityScreen({ navigation, route }) {
   const { colors, typography } = useAppTheme();
@@ -67,7 +55,7 @@ export default function CommunityScreen({ navigation, route }) {
     toggleCheckIn,
     addChallengeEntry,
   } = useChallenges();
-  const { activity, loading: activityLoading, toggleCheer } = useGroupActivity();
+  const { activity, loading: activityLoading, toggleCheer, dismiss: dismissActivity } = useGroupActivity();
 
   const [groupsModalVisible, setGroupsModalVisible] = useState(false);
   const [challengesModalVisible, setChallengesModalVisible] = useState(false);
@@ -175,6 +163,18 @@ export default function CommunityScreen({ navigation, route }) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
   };
 
+  // Row already slides/springs itself on swipe (DismissibleActivityRow) and
+  // useGroupActivity's dismiss() already removes the item from local state
+  // optimistically — this just surfaces a failure if the request didn't
+  // actually stick (the hook's own catch already re-fetches to restore it).
+  const handleDismissActivity = async (item) => {
+    try {
+      await dismissActivity(item);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Couldn't dismiss that — try again.", 'error');
+    }
+  };
+
   return (
     <>
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -252,45 +252,16 @@ export default function CommunityScreen({ navigation, route }) {
           </Text>
         ) : (
           <View style={styles.activityCard}>
-            {activity.slice(0, ACTIVITY_LIMIT).map((item, index) => (
-              <View key={item.checkInId} style={styles.activityRow}>
-                <View
-                  style={[
-                    styles.activityAvatar,
-                    item.userPhotoUrl
-                      ? styles.activityAvatarPhoto
-                      : { backgroundColor: AVATAR_COLORS[index % AVATAR_COLORS.length] },
-                  ]}
-                >
-                  {item.userPhotoUrl ? (
-                    <AvatarImage uri={item.userPhotoUrl} name={item.userName} size={32} fontSize={13} />
-                  ) : (
-                    <Text style={styles.activityAvatarText}>{initials(item.userName)}</Text>
-                  )}
-                </View>
-                <View style={styles.activityText}>
-                  <Text style={styles.activityLine} numberOfLines={2}>
-                    <Text style={styles.activityName}>{item.userName}</Text>{' '}
-                    {item.value != null && item.value > 1
-                      ? `logged ${item.value} for ${item.habitName}`
-                      : `completed ${item.habitName}`}
-                  </Text>
-                  <Text style={styles.activityMeta}>{timeAgo(item.occurredAt)}</Text>
-                </View>
-                <Pressable
-                  style={styles.cheerBtn}
-                  accessibilityRole="button"
-                  accessibilityLabel={item.cheeredByMe ? 'Remove cheer' : 'Cheer'}
-                  onPress={() => handleToggleCheer(item)}
-                >
-                  <MaterialCommunityIcons
-                    name={item.cheeredByMe ? 'heart' : 'heart-outline'}
-                    size={18}
-                    color={item.cheeredByMe ? colors.atRisk : colors.textMuted}
-                  />
-                  {item.cheerCount > 0 ? <Text style={styles.cheerCount}>{item.cheerCount}</Text> : null}
-                </Pressable>
-              </View>
+            {activity.map((item, index) => (
+              <DismissibleActivityRow
+                key={item.checkInId}
+                item={item}
+                styles={styles}
+                colors={colors}
+                avatarColor={AVATAR_COLORS[index % AVATAR_COLORS.length]}
+                onCheer={() => handleToggleCheer(item)}
+                onDismiss={() => handleDismissActivity(item)}
+              />
             ))}
           </View>
         )}
@@ -586,6 +557,22 @@ function makeStyles(colors, typography) {
       backgroundColor: colors.background,
     },
     cheerCount: { ...typography.meta, fontSize: 11 },
+    // Swipe-to-dismiss (DismissibleActivityRow) — rowWrapper clips the
+    // sliding row so the dismiss panel behind it never bleeds into a
+    // neighboring row; the panels themselves grow with the drag distance,
+    // same technique as NotificationCenterModal's NotificationRow.
+    rowWrapper: { overflow: 'hidden' },
+    sidePanel: {
+      position: 'absolute',
+      top: 0,
+      bottom: 0,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    leftPanel: { left: 0 },
+    rightPanel: { right: 0 },
+    dismissGlyph: { width: 84, alignItems: 'center', justifyContent: 'center', gap: 2 },
+    dismissGlyphText: { fontSize: 11, fontWeight: '700', color: '#FFFFFF' },
     sectionHeader: {
       flexDirection: 'row',
       alignItems: 'center',

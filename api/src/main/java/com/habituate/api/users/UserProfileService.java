@@ -7,6 +7,7 @@ import com.habituate.api.checkins.CheckInRepository;
 import com.habituate.api.coach.CoachMessageRepository;
 import com.habituate.api.feedback.FeedbackRepository;
 import com.habituate.api.goals.GoalRepository;
+import com.habituate.api.groups.ActivityDismissalRepository;
 import com.habituate.api.groups.Challenge;
 import com.habituate.api.groups.ChallengeCheckInRepository;
 import com.habituate.api.groups.ChallengeParticipantRepository;
@@ -48,6 +49,7 @@ public class UserProfileService {
 
     private final UserRepository userRepository;
     private final CheckInCheerRepository checkInCheerRepository;
+    private final ActivityDismissalRepository activityDismissalRepository;
     private final ChallengeCheckInRepository challengeCheckInRepository;
     private final CheckInRepository checkInRepository;
     private final HabitRepository habitRepository;
@@ -67,6 +69,7 @@ public class UserProfileService {
 
     public UserProfileService(UserRepository userRepository,
                                CheckInCheerRepository checkInCheerRepository,
+                               ActivityDismissalRepository activityDismissalRepository,
                                ChallengeCheckInRepository challengeCheckInRepository,
                                CheckInRepository checkInRepository,
                                HabitRepository habitRepository,
@@ -85,6 +88,7 @@ public class UserProfileService {
                                AppNotificationRepository appNotificationRepository) {
         this.userRepository = userRepository;
         this.checkInCheerRepository = checkInCheerRepository;
+        this.activityDismissalRepository = activityDismissalRepository;
         this.challengeCheckInRepository = challengeCheckInRepository;
         this.checkInRepository = checkInRepository;
         this.habitRepository = habitRepository;
@@ -288,8 +292,10 @@ public class UserProfileService {
                 .toList();
         if (!ownCheckInIds.isEmpty()) {
             checkInCheerRepository.deleteByCheckInIdIn(ownCheckInIds);
+            activityDismissalRepository.deleteByCheckInIdIn(ownCheckInIds);
         }
         checkInCheerRepository.deleteByUserId(userId);
+        activityDismissalRepository.deleteByUserId(userId);
         challengeCheckInRepository.deleteByUserId(userId);
         checkInRepository.deleteByUserId(userId);
         habitRepository.deleteByUserId(userId);

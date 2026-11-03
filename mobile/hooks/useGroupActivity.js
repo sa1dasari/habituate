@@ -47,9 +47,32 @@ export function GroupActivityProvider({ children }) {
     [refresh]
   );
 
+  // Permanent, per-viewer removal — optimistic so the swipe feels instant;
+  // if the request fails, refresh() brings the item back rather than
+  // leaving the UI showing something the server never actually dismissed.
+  const dismiss = useCallback(
+    (item) => {
+      if (pendingCheckInIds.current.has(item.checkInId)) {
+        return Promise.resolve();
+      }
+      pendingCheckInIds.current.add(item.checkInId);
+      setActivity((current) => current.filter((a) => a.checkInId !== item.checkInId));
+      return api
+        .dismissActivity(item.checkInId)
+        .catch((err) => {
+          refresh();
+          throw err;
+        })
+        .finally(() => {
+          pendingCheckInIds.current.delete(item.checkInId);
+        });
+    },
+    [refresh]
+  );
+
   const value = useMemo(
-    () => ({ activity, loading, error, refresh, toggleCheer }),
-    [activity, loading, error, refresh, toggleCheer]
+    () => ({ activity, loading, error, refresh, toggleCheer, dismiss }),
+    [activity, loading, error, refresh, toggleCheer, dismiss]
   );
 
   return createElement(GroupActivityContext.Provider, { value }, children);

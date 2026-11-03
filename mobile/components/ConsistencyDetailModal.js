@@ -302,19 +302,28 @@ export default function ConsistencyDetailModal({
 
                     {hasAnyWindow ? (
                       selectedHistories.length === 1 ? (
-                        <>
-                          <ScrollView
-                            horizontal
-                            scrollEnabled={isDense}
-                            showsHorizontalScrollIndicator={false}
-                          >
+                        // No per-bar value row here by design — matches the hourly
+                        // (daily) view's clean look, which has none either; the
+                        // "Selected-period details" card below already gives the
+                        // actual numbers in readable text, so a number squeezed
+                        // under every single bar was pure duplication and, at 7+
+                        // columns, visual clutter with little room to breathe.
+                        <ScrollView
+                          horizontal
+                          scrollEnabled={isDense}
+                          showsHorizontalScrollIndicator={false}
+                        >
                           <View style={[styles.chartRow, isDense && styles.chartRowDense]}>
                             {bucketLabels.map((label, bucketIndex) => {
                               const bucket = selectedHistories[0].history.buckets[bucketIndex];
                               const pct = maxBucketValue > 0 ? Math.round((bucket.value / maxBucketValue) * 100) : 0;
                               const colorSet = BAR_COLOR_SETS[0];
                               return (
-                                <View key={bucketIndex} style={[styles.barColumn, isDense && styles.barColumnDense]}>
+                                <View
+                                  key={bucketIndex}
+                                  style={[styles.barColumn, isDense && styles.barColumnDense]}
+                                  accessibilityLabel={`${label || bucketIndex}: ${bucket.value} day${bucket.value === 1 ? '' : 's'}`}
+                                >
                                   <View style={styles.barGroup}>
                                     <View style={[styles.barTrack, isDense && styles.barTrackDense]}>
                                       {bucket.value > 0 ? (
@@ -332,23 +341,7 @@ export default function ConsistencyDetailModal({
                               );
                             })}
                           </View>
-                          </ScrollView>
-
-                          {!isDense ? (
-                            <View style={styles.bucketValueRow}>
-                              {selectedHistories[0].history.buckets.map((bucket, i) => (
-                                <View key={i} style={styles.bucketValuePill}>
-                                  <Text
-                                    style={styles.bucketValueText}
-                                    accessibilityLabel={`${bucket.value} day${bucket.value === 1 ? '' : 's'}`}
-                                  >
-                                    {bucket.value}d
-                                  </Text>
-                                </View>
-                              ))}
-                            </View>
-                          ) : null}
-                        </>
+                        </ScrollView>
                       ) : (
                         <>
                           <TreeRingChart
@@ -540,13 +533,6 @@ function makeStyles(colors, typography) {
     barFill: { width: '100%', borderRadius: radii.sm },
     ringHint: { ...typography.meta, textAlign: 'center', marginTop: spacing.sm },
     barAxisLabel: { fontSize: 11, fontWeight: '600', color: colors.textMuted, marginTop: spacing.sm },
-    bucketValueRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-around',
-      marginTop: spacing.md,
-    },
-    bucketValuePill: { flex: 1, alignItems: 'center' },
-    bucketValueText: { fontSize: 12, fontWeight: '700', color: colors.textSecondary },
     legendRow: {
       flexDirection: 'row',
       flexWrap: 'wrap',

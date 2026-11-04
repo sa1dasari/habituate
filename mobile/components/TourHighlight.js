@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Dimensions, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAppTheme } from '../hooks/useAppTheme';
@@ -12,16 +12,21 @@ const CALLOUT_HEIGHT_ESTIMATE = 230;
 /**
  * The tour's spotlight + callout, mounted once inside EVERY screen/modal
  * that can host a step (one per TOUR_SCOPES value) — never once globally.
- * A native RN <Modal> (CreateGroupModal, AskHabituateModal, ProtectionInfoModal,
- * ...) renders in its own OS-level layer above the rest of the app, so an
- * overlay declared outside it could never draw on top of it; mounting this
- * locally inside each host, gated on `currentStep.scope`, sidesteps that
- * entirely — only the host matching the live step ever renders anything.
+ * Gated on `currentStep.scope`, so only the host matching the live step
+ * ever actually renders anything (the rest bail out with `return null`
+ * below) — that's what lets `measureTourTarget` find real, already-laid-out
+ * elements inside whichever host (a screen, or a host like CreateGroupModal,
+ * AskHabituateModal, ProtectionInfoModal) is live.
  *
- * Render this as a SIBLING of the host's top-level SafeAreaView (not a
- * child of it) so its coordinates line up with the window-relative rect
- * useOnboardingTour measures via measureInWindow — a SafeAreaView's own top
- * inset would otherwise double-offset everything.
+ * Renders its own `<Modal transparent>` rather than a plain absolutely
+ * positioned View — Android draws plain View siblings by `elevation`, not
+ * JSX order, so a `shadowLg`/`shadow` card elsewhere on the host screen
+ * (elevation 6 or 2) would composite ON TOP of a plain overlay despite it
+ * mounting later and being fully `active`, leaving the tour invisible. A
+ * `<Modal>` always renders into its own Android Window above everything,
+ * sidestepping that. `statusBarTranslucent` keeps its coordinate origin at
+ * the true screen top, matching the window-relative rect
+ * `useOnboardingTour` measures via `measureInWindow`.
  */
 export default function TourHighlight({ scope }) {
   const { colors, typography, gradients } = useAppTheme();
@@ -51,11 +56,18 @@ export default function TourHighlight({ scope }) {
   const isFirst = stepIndex === 0;
   const isLast = stepIndex === totalSteps - 1;
 
+  // A plain absolutely-positioned View here was invisible on Android: bare
+  // View siblings draw by elevation, not JSX order, so a `shadowLg`/`shadow`
+  // card elsewhere on the same screen (elevation 6 or 2) composited ON TOP
+  // of this overlay despite it mounting later and being fully `active`.
+  // A native <Modal> sidesteps that entirely by rendering into its own
+  // Android Window, above the whole app, the same guarantee the modal-scoped
+  // tour steps already rely on (see the class doc above). statusBarTranslucent
+  // keeps the Modal's coordinate origin at the true screen top, matching the
+  // window-relative rect useOnboardingTour measures via measureInWindow.
   return (
-    <View
-      style={[StyleSheet.absoluteFillObject, styles.overlayRoot]}
-      pointerEvents="box-none"
-    >
+    <Modal visible transparent animationType="fade" statusBarTranslucent onRequestClose={skip}>
+    <View style={StyleSheet.absoluteFillObject} pointerEvents="box-none">
       {rect ? (
         <>
           <View style={[styles.backdrop, { top: 0, left: 0, right: 0, height: rect.y }]} />
@@ -78,7 +90,7 @@ export default function TourHighlight({ scope }) {
           />
         </>
       ) : (
-        <View style={styles.backdrop} />
+        <View style={[styles.backdrop, StyleSheet.absoluteFillObject]} />
       )}
 
       <View style={[styles.calloutWrap, calloutTop != null ? { top: calloutTop } : styles.calloutCentered]}>
@@ -146,21 +158,12 @@ export default function TourHighlight({ scope }) {
         </View>
       </View>
     </View>
+    </Modal>
   );
 }
 
 function makeStyles(colors, typography) {
   return StyleSheet.create({
-    // Android draws siblings by elevation, not paint order — a `shadowLg`/
-    // `shadow` card elsewhere on the same screen (elevation 6 or 2) would
-    // otherwise composite ON TOP of this overlay even though it mounts
-    // later, leaving the tour fully invisible despite being `active`. iOS
-    // has no such rule (zIndex alone governs there), which is why this only
-    // ever reproduced on-device on Android.
-    overlayRoot: {
-      zIndex: 999,
-      ...Platform.select({ android: { elevation: 999 } }),
-    },
     backdrop: {
       position: 'absolute',
       backgroundColor: 'rgba(8, 10, 16, 0.68)',

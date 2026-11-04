@@ -29,6 +29,14 @@ export default function TourHighlight({ scope }) {
     useOnboardingTour();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
 
+  // TEMP DIAGNOSTIC — see useOnboardingTour.js's matching note.
+  console.warn(
+    '[tour-diag] TourHighlight render scope=', scope,
+    'active=', active,
+    'currentStep=', currentStep?.id ?? null,
+    'currentStep.scope=', currentStep?.scope ?? null
+  );
+
   if (!active || !currentStep || currentStep.scope !== scope) return null;
 
   const { height: winH } = Dimensions.get('window');

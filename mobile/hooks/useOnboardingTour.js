@@ -154,27 +154,14 @@ export function useAutoStartTour() {
   const triedRef = useRef(false);
 
   return useCallback(() => {
-    // TEMP DIAGNOSTIC — a real new-account run never showed the tour at
-    // all (confirmed twice, including after `adb shell pm clear`), and
-    // the only two failure points here (getItem throwing, or already
-    // having a truthy raw) are both silently swallowed/skipped with no
-    // visible symptom. Remove this console.warn once the real cause is
-    // identified from a logcat capture.
-    console.warn('[tour-diag] attemptAutoStart called, triedRef=', triedRef.current);
     if (triedRef.current) return;
     triedRef.current = true;
     AsyncStorage.getItem(STORAGE_KEY)
       .then((raw) => {
-        console.warn('[tour-diag] AsyncStorage.getItem resolved, raw=', JSON.stringify(raw));
-        if (!raw) {
-          console.warn('[tour-diag] calling start()');
-          start();
-        } else {
-          console.warn('[tour-diag] skipping start() — raw was truthy');
-        }
+        if (!raw) start();
       })
       .catch((e) => {
-        console.warn('[tour-diag] AsyncStorage.getItem THREW:', e?.message || e);
+        if (__DEV__) console.warn('useAutoStartTour: AsyncStorage.getItem failed', e);
       });
   }, [start]);
 }

@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAppTheme } from '../hooks/useAppTheme';
@@ -29,14 +29,6 @@ export default function TourHighlight({ scope }) {
     useOnboardingTour();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
 
-  // TEMP DIAGNOSTIC — see useOnboardingTour.js's matching note.
-  console.warn(
-    '[tour-diag] TourHighlight render scope=', scope,
-    'active=', active,
-    'currentStep=', currentStep?.id ?? null,
-    'currentStep.scope=', currentStep?.scope ?? null
-  );
-
   if (!active || !currentStep || currentStep.scope !== scope) return null;
 
   const { height: winH } = Dimensions.get('window');
@@ -60,7 +52,10 @@ export default function TourHighlight({ scope }) {
   const isLast = stepIndex === totalSteps - 1;
 
   return (
-    <View style={StyleSheet.absoluteFillObject} pointerEvents="box-none">
+    <View
+      style={[StyleSheet.absoluteFillObject, styles.overlayRoot]}
+      pointerEvents="box-none"
+    >
       {rect ? (
         <>
           <View style={[styles.backdrop, { top: 0, left: 0, right: 0, height: rect.y }]} />
@@ -156,6 +151,16 @@ export default function TourHighlight({ scope }) {
 
 function makeStyles(colors, typography) {
   return StyleSheet.create({
+    // Android draws siblings by elevation, not paint order — a `shadowLg`/
+    // `shadow` card elsewhere on the same screen (elevation 6 or 2) would
+    // otherwise composite ON TOP of this overlay even though it mounts
+    // later, leaving the tour fully invisible despite being `active`. iOS
+    // has no such rule (zIndex alone governs there), which is why this only
+    // ever reproduced on-device on Android.
+    overlayRoot: {
+      zIndex: 999,
+      ...Platform.select({ android: { elevation: 999 } }),
+    },
     backdrop: {
       position: 'absolute',
       backgroundColor: 'rgba(8, 10, 16, 0.68)',

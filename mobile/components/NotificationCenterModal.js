@@ -14,6 +14,7 @@ import { useAppTheme } from '../hooks/useAppTheme';
 import { useNotifications } from '../hooks/useNotifications';
 import { useNotificationSwipePrefs } from '../hooks/useNotificationSwipePrefs';
 import { timeAgo } from '../utils/date';
+import { navigateToTab } from '../utils/navigationRef';
 import { radii, shadow, spacing } from '../theme';
 
 const DELETE_ACTION_WIDTH = 76;
@@ -89,6 +90,9 @@ export default function NotificationCenterModal({
     } else if (item.challengeId != null) {
       onClose();
       onOpenChallenge?.(item.challengeId);
+    } else if (item.type === 'HABIT_REMINDER' && item.habitId != null) {
+      onClose();
+      navigateToTab('Today', { highlightHabitId: item.habitId });
     } else if (
       item.type === 'WEEKLY_SUMMARY' ||
       item.type === 'MONTHLY_SUMMARY' ||

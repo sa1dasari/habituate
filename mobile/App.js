@@ -25,7 +25,7 @@ import { NotificationsProvider } from './hooks/useNotifications';
 import { CelebrationProvider } from './hooks/useCelebration';
 import { ThemeProvider, useAppTheme } from './hooks/useAppTheme';
 import { AuthProvider, useAuth } from './hooks/useAuth';
-import { usePushToken, usePushPermissionPrompt } from './hooks/usePushToken';
+import { isExpoGo, usePushToken, usePushPermissionPrompt } from './hooks/usePushToken';
 import PushPermissionModal from './components/PushPermissionModal';
 import { TourProvider, useAutoStartTour } from './hooks/useOnboardingTour';
 import api from './api/client';
@@ -176,6 +176,59 @@ function WidgetDeepLinkBridge() {
   return null;
 }
 
+/**
+ * Routes a tap on a real OS push notification (habit/challenge reminder) to
+ * the right screen, same destination the in-app Notification Center already
+ * uses for the same notification types (see NotificationCenterModal's
+ * handlePress). No handling existed for this at all before — tapping a push
+ * did nothing but open the app to wherever it last was.
+ *
+ * `expo-notifications` is dynamically imported, never statically — see the
+ * comment on usePushToken's isExpoGo for why a static import crashes inside
+ * Expo Go. getLastNotificationResponseAsync() catches the response that
+ * cold-started the app (a plain listener alone only sees one received while
+ * the JS runtime is already alive), same getInitialURL()-then-subscribe
+ * shape WidgetDeepLinkBridge above uses for its own deep links.
+ */
+function PushNotificationTapBridge() {
+  useEffect(() => {
+    if (isExpoGo()) return undefined;
+
+    let cancelled = false;
+    let subscription;
+
+    const route = (data) => {
+      if (!data) return;
+      if (data.habitId != null) {
+        navigateToTab('Today', { highlightHabitId: Number(data.habitId) });
+      } else if (data.challengeId != null) {
+        navigateToTab('Community', { openChallengeId: Number(data.challengeId) });
+      }
+    };
+
+    (async () => {
+      try {
+        const Notifications = await import('expo-notifications');
+        const handleResponse = (response) => route(response?.notification?.request?.content?.data);
+
+        const last = await Notifications.getLastNotificationResponseAsync();
+        if (!cancelled && last) handleResponse(last);
+
+        subscription = Notifications.addNotificationResponseReceivedListener(handleResponse);
+      } catch (err) {
+        if (__DEV__) console.log('[habituate] Push tap listener skipped:', err?.message);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      subscription?.remove();
+    };
+  }, []);
+
+  return null;
+}
+
 // Fires the first-time-user tour exactly once, right after AppGate renders
 // the main tabs for the first time this session with the AsyncStorage flag
 // still unset — see useOnboardingTour.js's useAutoStartTour for the exact
@@ -271,6 +324,7 @@ function AppGate() {
                   <CelebrationProvider>
                     <TourProvider>
                       <WidgetDeepLinkBridge />
+                      <PushNotificationTapBridge />
                       <PushPermissionModal
                         visible={pushPrompt.visible}
                         onAllow={pushPrompt.onAllow}

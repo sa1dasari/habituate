@@ -1,6 +1,7 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  findNodeHandle,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -9,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -66,9 +67,12 @@ function encouragement({ total, done }, hasOtherHabits = false) {
 export default function TodayScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
+  const route = useRoute();
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const scrollRef = useRegisterScrollToTop('Today');
+  const cardRefsRef = useRef({});
+  const [highlightedId, setHighlightedId] = useState(null);
   const {
     habits,
     loading,
@@ -147,6 +151,79 @@ export default function TodayScreen() {
 
   // "Today's Progress" only counts habits actually due today.
   const summary = useMemo(() => summarizeHabits(groups.due), [groups]);
+
+  // Reached from a habit-reminder notification tap (NotificationCenterModal,
+  // and the real OS push listener, App.js's PushNotificationTapBridge) —
+  // navigateToTab('Today', { highlightHabitId }). Scrolls to that habit's
+  // card and rings it (cardShellHighlighted, accent not red) for a few
+  // seconds so the user can actually find what the reminder was about,
+  // instead of landing on an undifferentiated list.
+  //
+  // Split into two effects on purpose. The param needs clearing right away
+  // (InsightsScreen's openHabitId does the same) so re-focusing this screen
+  // later doesn't replay it — but this effect's own setParams call flips its
+  // OWN dependency back to undefined, and a single effect keyed on that
+  // param would have its cleanup run as part of React's normal
+  // cleanup-before-next-invocation lifecycle the instant that happens,
+  // killing the retry loop and the auto-clear timer before either got to
+  // finish (confirmed: the highlight never cleared, and the first scroll
+  // attempt's own callback found `cancelled` already true by the time the
+  // native measurement returned). Capturing the id into our own state here,
+  // and running the actual work off THAT state below, means clearing the
+  // nav param no longer tears down work we started because of it.
+  const [pendingHighlightHabitId, setPendingHighlightHabitId] = useState(null);
+  useEffect(() => {
+    const incoming = route.params?.highlightHabitId;
+    if (incoming == null) return;
+    navigation.setParams({ highlightHabitId: undefined });
+    setPendingHighlightHabitId(incoming);
+  }, [route.params?.highlightHabitId, navigation]);
+
+  // measureLayout against the ScrollView's own node (not measureInWindow)
+  // gives a scroll-content-relative y directly, no manual scroll-offset
+  // bookkeeping needed.
+  useEffect(() => {
+    const habitId = pendingHighlightHabitId;
+    if (habitId == null) return undefined;
+    setHighlightedId(habitId);
+
+    let cancelled = false;
+    let attempts = 0;
+    let timer = null;
+
+    const tryScroll = () => {
+      if (cancelled) return;
+      const cardNode = cardRefsRef.current[habitId];
+      const scrollNode = scrollRef.current;
+      const scrollHandle = scrollNode && findNodeHandle(scrollNode);
+      if (cardNode && scrollHandle) {
+        cardNode.measureLayout(
+          scrollHandle,
+          (x, y) => {
+            if (!cancelled) scrollNode.scrollTo({ y: Math.max(0, y - spacing.lg), animated: true });
+          },
+          () => {}
+        );
+        return;
+      }
+      attempts += 1;
+      // Covers the habits list still loading/laying out (e.g. a cold start
+      // from the real OS push, not just the in-app notification center).
+      if (attempts < 20) timer = setTimeout(tryScroll, 150);
+    };
+    tryScroll();
+
+    const clearTimer = setTimeout(() => {
+      setHighlightedId((current) => (current === habitId ? null : current));
+      setPendingHighlightHabitId((current) => (current === habitId ? null : current));
+    }, 2800);
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+      clearTimeout(clearTimer);
+    };
+  }, [pendingHighlightHabitId]);
 
   // Logging progress is the only action that gets a celebration; undoing stays
   // silent. Priority when more than one applies on the same check-in: a
@@ -333,9 +410,17 @@ export default function TodayScreen() {
   const renderHabit = (habit, focus = 'daily') => {
     const progress = focusedProgress(habit, focus);
     return (
-      <HabitCard
+      <View
         key={habit.id}
+        collapsable={false}
+        ref={(el) => {
+          if (el) cardRefsRef.current[habit.id] = el;
+          else delete cardRefsRef.current[habit.id];
+        }}
+      >
+      <HabitCard
         variant="today"
+        highlighted={highlightedId === habit.id}
         name={habit.name}
         category={habit.category}
         cadenceType={habit.cadenceType}
@@ -363,6 +448,7 @@ export default function TodayScreen() {
         onRemoveLast={() => handleRemoveLast(habit.id)}
         onLogAmount={(amount) => handleLogAmount(habit, amount)}
       />
+      </View>
     );
   };
 

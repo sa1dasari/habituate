@@ -49,10 +49,39 @@ export default function SharedHabitDetailModal({ visible, group, onClose }) {
   if (!group) return null;
 
   const state = resolveStreakState(group.streakStatus);
-  const people = Array.isArray(group.participants) ? group.participants : [];
   const isIndependent = group.trackingMode === 'INDEPENDENT';
+  // Most-checked-in-first, but ONLY in Independent mode, where each
+  // person's own streak is the thing actually rendered next to their name
+  // (memberStreakRow below) — the ordering has a visible reason. In
+  // all_members/any_member mode nobody's streak shows at all (it's one
+  // shared streak for the whole group), so sorting by it would quietly
+  // reorder the list by a number nobody can see: just "your friend is
+  // above you" with no visible cause, in a feature this app frames as
+  // cooperative ("one streak, two people"), not a leaderboard. Stable
+  // array order there instead.
+  const people = Array.isArray(group.participants)
+    ? isIndependent
+      ? group.participants.slice().sort((a, b) => {
+          const streakA = typeof a === 'object' && a ? a.currentStreak ?? -1 : -1;
+          const streakB = typeof b === 'object' && b ? b.currentStreak ?? -1 : -1;
+          return streakB - streakA;
+        })
+      : group.participants
+    : [];
   const myParticipant = people.find((p) => typeof p === 'object' && p && user && p.userId === user.uid);
   const myCheckedInToday = myParticipant ? myParticipant.checkedInToday : false;
+
+  // Avatar color assigned from each person's position in the ORIGINAL
+  // (unsorted) participant order, not the post-sort render index — keeps
+  // everyone's color stable instead of reshuffling whenever Independent-mode
+  // streak order changes their rank.
+  const colorKeyOf = (person, idx) => (typeof person === 'object' && person && person.userId) || `idx-${idx}`;
+  const colorByKey = new Map(
+    (Array.isArray(group.participants) ? group.participants : []).map((p, i) => [
+      colorKeyOf(p, i),
+      AVATAR_COLORS[i % AVATAR_COLORS.length],
+    ])
+  );
 
   // InviteFriendsSheet owns the success/failure feedback (including the
   // real backend reason, e.g. "already invited") — this just passes the
@@ -171,7 +200,7 @@ export default function SharedHabitDetailModal({ visible, group, onClose }) {
             const personPhotoUrl = typeof person === 'object' && person ? person.photoUrl : null;
             const isSelf = personUserId && user && personUserId === user.uid;
             return (
-              <View key={`${label}-${index}`} style={styles.memberRow}>
+              <View key={personUserId || `${label}-${index}`} style={styles.memberRow}>
                 <Pressable
                   style={styles.memberTapTarget}
                   disabled={!personUserId || isSelf}
@@ -184,7 +213,7 @@ export default function SharedHabitDetailModal({ visible, group, onClose }) {
                       styles.avatar,
                       personPhotoUrl
                         ? styles.avatarPhoto
-                        : { backgroundColor: AVATAR_COLORS[index % AVATAR_COLORS.length] },
+                        : { backgroundColor: colorByKey.get(colorKeyOf(person, index)) || AVATAR_COLORS[index % AVATAR_COLORS.length] },
                     ]}
                   >
                     {personPhotoUrl ? (
@@ -193,7 +222,10 @@ export default function SharedHabitDetailModal({ visible, group, onClose }) {
                       <Text style={styles.avatarText}>{initials(label)}</Text>
                     )}
                   </View>
-                  <Text style={styles.memberName}>{label}</Text>
+                  <Text style={styles.memberName}>
+                    {label}
+                    {isSelf ? ' (you)' : ''}
+                  </Text>
                 </Pressable>
                 {isIndependent ? (
                   <View style={styles.memberStreakRow}>

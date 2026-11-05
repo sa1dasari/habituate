@@ -5,8 +5,10 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AvatarImage from './AvatarImage';
 import FlameIcon from './FlameIcon';
+import SharedHabitDetailModal from './SharedHabitDetailModal';
 import StreakIndicator from './StreakIndicator';
 import { useAppTheme } from '../hooks/useAppTheme';
+import { useGroups } from '../hooks/useGroups';
 import api from '../api/client';
 import { gradients, radii, shadow, shadowLg, spacing } from '../theme';
 
@@ -26,9 +28,11 @@ export default function FriendProfileModal({ visible, userId, onClose }) {
   const { colors, typography } = useAppTheme();
   const styles = React.useMemo(() => makeStyles(colors, typography), [colors, typography]);
 
+  const { groups } = useGroups();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [selectedGroupId, setSelectedGroupId] = useState(null);
 
   useEffect(() => {
     if (!visible || !userId) {
@@ -57,6 +61,11 @@ export default function FriendProfileModal({ visible, userId, onClose }) {
 
   const isPublic = profile?.visibility === 'PUBLIC';
   const sharedStreaks = profile?.sharedGroupStreaks || [];
+  // FriendProfileModal's own summary only carries groupId/name/streak — the
+  // full participant/check-in detail SharedHabitDetailModal needs lives in
+  // the already-loaded groups list (this friend's shared group is one we're
+  // also a member of, so it's guaranteed to be in our own `groups`).
+  const selectedGroup = groups.find((g) => g.id === selectedGroupId) || null;
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
@@ -162,21 +171,44 @@ export default function FriendProfileModal({ visible, userId, onClose }) {
             {sharedStreaks.length === 0 ? (
               <Text style={styles.emptyNote}>No Shared Habits in common yet.</Text>
             ) : (
-              sharedStreaks.map((group) => (
-                <View key={group.groupId} style={styles.groupRow}>
-                  <View style={styles.groupIcon}>
-                    <MaterialCommunityIcons name="account-multiple-outline" size={16} color={colors.accent} />
-                  </View>
-                  <Text style={styles.groupName} numberOfLines={1}>
-                    {group.groupName}
-                  </Text>
-                  <StreakIndicator streak={group.currentStreak} status={group.status} compact />
-                </View>
-              ))
+              sharedStreaks.map((group) => {
+                // This summary only ever carries id/name/streak — opening the
+                // real detail needs the full group object from our own
+                // already-loaded groups list (see selectedGroup above). If
+                // it's not there (stale cache, not yet loaded), don't offer
+                // a tap that would silently do nothing.
+                const resolvable = groups.some((g) => g.id === group.groupId);
+                return (
+                  <Pressable
+                    key={group.groupId}
+                    style={styles.groupRow}
+                    disabled={!resolvable}
+                    onPress={() => setSelectedGroupId(group.groupId)}
+                    accessibilityRole={resolvable ? 'button' : undefined}
+                    accessibilityLabel={resolvable ? `View ${group.groupName} shared habit` : undefined}
+                  >
+                    <View style={styles.groupIcon}>
+                      <MaterialCommunityIcons name="account-multiple-outline" size={16} color={colors.accent} />
+                    </View>
+                    <Text style={styles.groupName} numberOfLines={1}>
+                      {group.groupName}
+                    </Text>
+                    <StreakIndicator streak={group.currentStreak} status={group.status} compact />
+                    {resolvable ? (
+                      <MaterialCommunityIcons name="chevron-right" size={18} color={colors.textMuted} />
+                    ) : null}
+                  </Pressable>
+                );
+              })
             )}
           </ScrollView>
         ) : null}
       </SafeAreaView>
+      <SharedHabitDetailModal
+        visible={!!selectedGroup}
+        group={selectedGroup}
+        onClose={() => setSelectedGroupId(null)}
+      />
     </Modal>
   );
 }

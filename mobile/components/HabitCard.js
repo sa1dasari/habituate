@@ -45,6 +45,7 @@ export default function HabitCard({
   streakStatus = 'safe',
   checked = false,
   disabled = false,
+  highlighted = false,
   variant = 'detailed',
   shieldedToday = false,
   shieldEligible = false,
@@ -138,7 +139,7 @@ export default function HabitCard({
     );
 
     return (
-      <View style={styles.cardShell}>
+      <View style={[styles.cardShell, highlighted ? styles.cardShellHighlighted : null]}>
         <Pressable
           style={({ pressed }) => [styles.cardRow, pressed && onPress ? styles.cardPressed : null]}
           onPress={onPress}
@@ -446,7 +447,17 @@ function makeStyles(colors, typography) {
     borderRadius: radii.lg,
     marginBottom: spacing.md,
     overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'transparent',
     ...shadow,
+  },
+  // Deep-linked in from a reminder notification tap — a visible, temporary
+  // ring (accent, not red/urgent) so the user can find which habit the
+  // notification was actually about, same anti-guilt palette as everything
+  // else. Reuses the border the unhighlighted state already reserves at
+  // transparent so nothing shifts size when this toggles on.
+  cardShellHighlighted: {
+    borderColor: colors.accent,
   },
   cardRow: {
     flexDirection: 'row',

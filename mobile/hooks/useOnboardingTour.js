@@ -34,9 +34,25 @@ export function TourProvider({ children }) {
 
   const currentStep = active ? TOUR_STEPS[stepIndex] : null;
 
+  // What TourHighlight actually RENDERS, kept one step behind `currentStep`
+  // until that step's target is ready. `currentStep` itself still updates
+  // the instant stepIndex changes — screens key their own side effects off
+  // it directly (HabitsScreen opening the real create form/Shield info modal
+  // in step with the walkthrough, for one) and that has to fire immediately
+  // so the target exists to measure at all. But if TourHighlight rendered
+  // straight off `currentStep` too, its title/body would flip to the new
+  // step instantly while `targetRect` was still null/stale mid-measurement —
+  // a visible flash of full-dim-no-spotlight, or the new copy pointing at
+  // the old cutout, on every cross-tab/cross-scope step. Swapping title and
+  // rect together, only once the new one is actually ready, removes both.
+  const [displayStep, setDisplayStep] = useState(null);
+  const [displayTargetRect, setDisplayTargetRect] = useState(null);
+
   useEffect(() => {
     if (!currentStep) {
       setTargetRect(null);
+      setDisplayStep(null);
+      setDisplayTargetRect(null);
       return undefined;
     }
     if (currentStep.tab) navigateToTab(currentStep.tab, currentStep.tabParams);
@@ -45,29 +61,41 @@ export function TourProvider({ children }) {
     let attempts = 0;
     let timer = null;
 
+    const commit = (rect) => {
+      if (cancelled) return;
+      setTargetRect(rect);
+      setDisplayStep(currentStep);
+      setDisplayTargetRect(rect);
+    };
+
     const tryMeasure = async () => {
       if (cancelled) return;
       if (!currentStep.targetKey) {
-        setTargetRect(null);
+        commit(null);
         return;
       }
       const rect = await measureTourTarget(currentStep.targetKey);
       if (cancelled) return;
       if (rect) {
-        setTargetRect(rect);
+        commit(rect);
         return;
       }
       attempts += 1;
       // Keeps trying for ~4.5s — long enough for a tab switch plus a
-      // pageSheet modal's slide-in animation to finish and lay out.
+      // pageSheet modal's slide-in animation to finish and lay out. If it
+      // never resolves, commit anyway with no rect (full-dim fallback)
+      // rather than leaving the previous step on screen forever.
       if (attempts < 30) {
         timer = setTimeout(tryMeasure, 150);
+      } else {
+        commit(null);
       }
     };
 
-    setTargetRect(null);
     // Small initial delay so the tab-switch/modal-open above has a frame to
-    // start before the first measurement attempt.
+    // start before the first measurement attempt. displayStep/displayRect
+    // deliberately aren't touched here — the previous step keeps rendering
+    // until tryMeasure actually has something to show.
     timer = setTimeout(tryMeasure, 220);
 
     return () => {
@@ -80,11 +108,24 @@ export function TourProvider({ children }) {
   // after the polling above already gave up, or moved (e.g. keyboard, font).
   useEffect(() => {
     if (!currentStep?.targetKey) return undefined;
-    return onTourTargetRegistered(async (key) => {
+    let cancelled = false;
+    const unsubscribe = onTourTargetRegistered(async (key) => {
       if (key !== currentStep.targetKey) return;
       const rect = await measureTourTarget(key);
-      if (rect) setTargetRect(rect);
+      // currentStep itself may have moved on (Next/Back/Skip) during that
+      // await — without this guard a late resolution here could overwrite
+      // displayStep with a step that's no longer current, surviving into
+      // whatever runs next (including a later start()).
+      if (!cancelled && rect) {
+        setTargetRect(rect);
+        setDisplayStep(currentStep);
+        setDisplayTargetRect(rect);
+      }
     });
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, [currentStep]);
 
   const finish = useCallback(() => {
@@ -115,10 +156,19 @@ export function TourProvider({ children }) {
     setStepIndex((i) => Math.max(0, i - 1));
   }, []);
 
+  const resolvedDisplayStep = displayStep ?? currentStep;
+
   const value = useMemo(
     () => ({
       active,
       currentStep,
+      // What TourHighlight should actually render — see the comment above
+      // displayStep's declaration. Falls back to currentStep/targetRect
+      // while active is first becoming true, before the initial measure
+      // pass has committed anything yet.
+      displayStep: resolvedDisplayStep,
+      displayStepIndex: resolvedDisplayStep ? TOUR_STEPS.indexOf(resolvedDisplayStep) : 0,
+      displayTargetRect: displayStep ? displayTargetRect : targetRect,
       stepIndex,
       totalSteps: TOUR_STEPS.length,
       targetRect,
@@ -128,7 +178,7 @@ export function TourProvider({ children }) {
       skip: finish,
       finish,
     }),
-    [active, currentStep, stepIndex, targetRect, start, next, back, finish]
+    [active, currentStep, resolvedDisplayStep, displayStep, displayTargetRect, stepIndex, targetRect, start, next, back, finish]
   );
 
   return createElement(TourContext.Provider, { value }, children);

@@ -42,11 +42,11 @@ export const TOUR_STEPS = [
     tab: 'Today',
     eyebrow: "LET'S GO",
     title: 'Welcome to Habituate',
-    body: "60-second tour, real screens the whole way — not a slideshow. Bail anytime with Skip.",
+    body: "60-second tour, real screens the whole way, not a slideshow. Bail anytime with Skip.",
     // Only the welcome step offers this — it's the one moment a brand-new
     // user is deciding between "show me around" and "let me just start,"
     // before any of the 14 steps behind it have cost them anything yet.
-    fastPathLabel: 'Skip — just add my first habit',
+    fastPathLabel: 'Just add my first habit',
   },
   {
     id: 'habits-intro',
@@ -55,7 +55,7 @@ export const TOUR_STEPS = [
     targetKey: TOUR_TARGETS.HABITS_ADD_BUTTON,
     eyebrow: 'BUILD YOUR ROUTINE',
     title: 'Habits start right here',
-    body: '"+ New" builds one from scratch — name it, set a cadence (daily, weekly, monthly, or stack all three), pick how you log it.',
+    body: '"+ New" builds one from scratch: name it, set a cadence (daily, weekly, monthly, or stack all three), pick how you log it.',
   },
   {
     id: 'habits-create-form',
@@ -64,7 +64,7 @@ export const TOUR_STEPS = [
     targetKey: TOUR_TARGETS.HABITS_FORM_CARD,
     eyebrow: 'MAKE IT YOURS',
     title: "You're looking at the real form",
-    body: 'Name it, set a target, save. Editing works the exact same way later — tap any habit\'s pencil to reopen this, where Archive and Delete permanently also live.',
+    body: 'Name it, set a target, save. Editing works the exact same way later: tap any habit\'s pencil to reopen this, where Archive and Delete permanently also live.',
   },
   {
     id: 'habits-shield',
@@ -73,7 +73,7 @@ export const TOUR_STEPS = [
     targetKey: TOUR_TARGETS.HABITS_SHIELD_ICON,
     eyebrow: 'NO GUILT TRIPS HERE',
     title: 'Shield Days have your back',
-    body: 'Long streaks bank a Shield automatically — up to 3. Miss a day with one banked and your streak survives overnight, no action needed.',
+    body: 'Long streaks bank a Shield automatically (up to 3). Miss a day with one banked and your streak survives overnight, no action needed.',
   },
   {
     id: 'shield-days-info',
@@ -90,7 +90,7 @@ export const TOUR_STEPS = [
     targetKey: TOUR_TARGETS.COMMUNITY_HEADER_ACTIONS,
     eyebrow: 'BRING PEOPLE IN',
     title: 'Community is where it gets social',
-    body: 'Add friends and catch notifications here. Shared Habits and Challenges live below — real setup screens coming up.',
+    body: 'Add friends and catch notifications here. Shared Habits and Challenges live below. Real setup screens coming up.',
   },
   {
     id: 'community-create-group',
@@ -117,7 +117,7 @@ export const TOUR_STEPS = [
     targetKey: TOUR_TARGETS.COMMUNITY_CREATE_CHALLENGE,
     eyebrow: 'TIME-BOXED, ON PURPOSE',
     title: 'Challenges play by different rules',
-    body: 'No running streak — just a target and a window, a week to a year. Solo, with friends, or thrown open to the public.',
+    body: 'No running streak: just a target and a window, anywhere from a week to a year. Solo, with friends, or thrown open to the public.',
   },
   {
     id: 'challenge-form',
@@ -126,7 +126,7 @@ export const TOUR_STEPS = [
     targetKey: TOUR_TARGETS.MODAL_CREATE_CHALLENGE_HEADER,
     eyebrow: 'THE REAL SCREEN',
     title: 'Build your own Challenge',
-    body: 'Name, target, cadence, duration, public or private — all your call. "Create & join" is one tap away whenever you mean it.',
+    body: 'Name, target, cadence, duration, public or private. All your call. "Create & join" is one tap away whenever you mean it.',
   },
   {
     id: 'streak-freeze-info',
@@ -134,7 +134,7 @@ export const TOUR_STEPS = [
     tab: 'Community',
     eyebrow: 'GROUP STREAKS, COVERED',
     title: 'Streak Freezes protect the group',
-    body: "If a Shared Habit's streak would break, a freeze auto-applies overnight if one's available — that day shows as frozen, never broken, never red.",
+    body: "If a Shared Habit's streak would break, a freeze auto-applies overnight if one's available: that day shows as frozen, never broken, never red.",
   },
   {
     id: 'insights-consistency',
@@ -143,7 +143,7 @@ export const TOUR_STEPS = [
     targetKey: TOUR_TARGETS.INSIGHTS_CONSISTENCY_CARD,
     eyebrow: 'SEE THE PATTERN',
     title: 'Your consistency, at a glance',
-    body: 'Daily through yearly. Tap the ring for a real per-habit breakdown — history, bar graph, plain-language takeaway.',
+    body: 'Daily through yearly. Tap the ring for a real per-habit breakdown: history, bar graph, plain-language takeaway.',
   },
   {
     id: 'insights-coach',
@@ -152,7 +152,7 @@ export const TOUR_STEPS = [
     targetKey: TOUR_TARGETS.INSIGHTS_COACH_CARD,
     eyebrow: 'YOUR AI COACH',
     title: 'Meet Ask Habituate',
-    body: "Grounded in YOUR real check-ins, not generic advice. It can even suggest a tweak — nothing changes until you confirm.",
+    body: "Grounded in YOUR real check-ins, not generic advice. It can even suggest a tweak, but nothing changes until you confirm.",
   },
   {
     id: 'ask-habituate-chat',
@@ -161,7 +161,7 @@ export const TOUR_STEPS = [
     targetKey: TOUR_TARGETS.MODAL_ASK_HABITUATE_HEADER,
     eyebrow: 'THE ACTUAL CHAT',
     title: "You're in the real coach right now",
-    body: 'Starter questions are right there any time. It can propose creating or adjusting a habit — you always get the final say.',
+    body: 'Starter questions are right there any time. It can propose creating or adjusting a habit, but you always get the final say.',
   },
   {
     id: 'finish',

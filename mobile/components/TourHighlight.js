@@ -12,9 +12,10 @@ const CALLOUT_HEIGHT_ESTIMATE = 230;
 /**
  * The tour's spotlight + callout, mounted once inside EVERY screen/modal
  * that can host a step (one per TOUR_SCOPES value) — never once globally.
- * Gated on `currentStep.scope`, so only the host matching the live step
- * ever actually renders anything (the rest bail out with `return null`
- * below) — that's what lets `measureTourTarget` find real, already-laid-out
+ * Gated on `displayStep.scope` (not the live `currentStep.scope` — see the
+ * in-function comment), so only the host matching the actually-displayed
+ * step ever renders anything (the rest bail out with `return null` below)
+ * — that's what lets `measureTourTarget` find real, already-laid-out
  * elements inside whichever host (a screen, or a host like CreateGroupModal,
  * AskHabituateModal, ProtectionInfoModal) is live.
  *
@@ -30,19 +31,26 @@ const CALLOUT_HEIGHT_ESTIMATE = 230;
  */
 export default function TourHighlight({ scope }) {
   const { colors, typography, gradients } = useAppTheme();
-  const { active, currentStep, targetRect, stepIndex, totalSteps, next, back, skip } =
+  const { active, displayStep, displayTargetRect, displayStepIndex, totalSteps, next, back, skip } =
     useOnboardingTour();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
 
-  if (!active || !currentStep || currentStep.scope !== scope) return null;
+  // Gated on displayStep, not the live currentStep — see useOnboardingTour's
+  // comment on displayStep. currentStep can jump to a different scope the
+  // instant next()/back() fires (that's what lets the destination screen's
+  // real modal start opening immediately), but this host should keep
+  // rendering its OWN still-consistent step right up until displayStep
+  // itself swaps over, so the old spotlight never disappears before the new
+  // one is ready to take its place.
+  if (!active || !displayStep || displayStep.scope !== scope) return null;
 
   const { height: winH } = Dimensions.get('window');
-  const rect = targetRect
+  const rect = displayTargetRect
     ? {
-        x: Math.max(0, targetRect.x - PAD),
-        y: Math.max(0, targetRect.y - PAD),
-        width: targetRect.width + PAD * 2,
-        height: targetRect.height + PAD * 2,
+        x: Math.max(0, displayTargetRect.x - PAD),
+        y: Math.max(0, displayTargetRect.y - PAD),
+        width: displayTargetRect.width + PAD * 2,
+        height: displayTargetRect.height + PAD * 2,
       }
     : null;
 
@@ -53,8 +61,8 @@ export default function TourHighlight({ scope }) {
       : Math.max(spacing.xxl, rect.y - CALLOUT_HEIGHT_ESTIMATE)
     : null;
 
-  const isFirst = stepIndex === 0;
-  const isLast = stepIndex === totalSteps - 1;
+  const isFirst = displayStepIndex === 0;
+  const isLast = displayStepIndex === totalSteps - 1;
 
   // A plain absolutely-positioned View here was invisible on Android: bare
   // View siblings draw by elevation, not JSX order, so a `shadowLg`/`shadow`
@@ -88,6 +96,19 @@ export default function TourHighlight({ scope }) {
               { top: rect.y, left: rect.x, width: rect.width, height: rect.height },
             ]}
           />
+          {/* The cutout itself has no view over it otherwise — nothing in the
+              Modal's own content occupies that gap — so a tap there fell
+              straight through to whatever real element the spotlight is
+              highlighting underneath (e.g. actually opening the create-habit
+              form a step early). This intercepts it and treats a tap on the
+              highlighted element exactly like "Next", same as the button. */}
+          <Pressable
+            onPress={next}
+            hitSlop={8}
+            style={{ position: 'absolute', top: rect.y, left: rect.x, width: rect.width, height: rect.height }}
+            accessibilityRole="button"
+            accessibilityLabel={isLast ? 'Finish tour' : 'Next'}
+          />
         </>
       ) : (
         <View style={[styles.backdrop, StyleSheet.absoluteFillObject]} />
@@ -98,7 +119,7 @@ export default function TourHighlight({ scope }) {
           <LinearGradient colors={gradients.accent} style={styles.accentBar} />
           <View style={styles.calloutBody}>
             <View style={styles.headerRow}>
-              <Text style={styles.eyebrow}>{currentStep.eyebrow}</Text>
+              <Text style={styles.eyebrow}>{displayStep.eyebrow}</Text>
               <Pressable
                 onPress={skip}
                 hitSlop={10}
@@ -109,25 +130,25 @@ export default function TourHighlight({ scope }) {
               </Pressable>
             </View>
 
-            <Text style={styles.title}>{currentStep.title}</Text>
-            <Text style={styles.body}>{currentStep.body}</Text>
+            <Text style={styles.title}>{displayStep.title}</Text>
+            <Text style={styles.body}>{displayStep.body}</Text>
 
-            {currentStep.fastPathLabel ? (
+            {displayStep.fastPathLabel ? (
               <Pressable
                 onPress={skip}
                 style={styles.fastPathBtn}
                 hitSlop={8}
                 accessibilityRole="button"
-                accessibilityLabel={currentStep.fastPathLabel}
+                accessibilityLabel={displayStep.fastPathLabel}
               >
-                <Text style={styles.fastPathText}>{currentStep.fastPathLabel}</Text>
+                <Text style={styles.fastPathText}>{displayStep.fastPathLabel}</Text>
               </Pressable>
             ) : null}
 
             <View style={styles.footerRow}>
               <View style={styles.dotsRow}>
                 {Array.from({ length: totalSteps }).map((_, i) => (
-                  <View key={i} style={[styles.dot, i === stepIndex && styles.dotActive]} />
+                  <View key={i} style={[styles.dot, i === displayStepIndex && styles.dotActive]} />
                 ))}
               </View>
 

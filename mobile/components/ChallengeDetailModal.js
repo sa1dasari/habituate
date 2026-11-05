@@ -61,7 +61,28 @@ export default function ChallengeDetailModal({ visible, challenge, onClose }) {
 
   if (!challenge) return null;
 
-  const people = Array.isArray(challenge.participants) ? challenge.participants : [];
+  // Most-checked-in-first: person.progress is the real check-in count toward
+  // the target. .slice() so we never mutate the array the provider owns.
+  const people = Array.isArray(challenge.participants)
+    ? challenge.participants
+        .slice()
+        .sort((a, b) => {
+          const progressA = typeof a === 'object' && a ? a.progress ?? -1 : -1;
+          const progressB = typeof b === 'object' && b ? b.progress ?? -1 : -1;
+          return progressB - progressA;
+        })
+    : [];
+  // Avatar color assigned from each person's position in the ORIGINAL
+  // (unsorted) participant order, not the post-sort render index — keeps
+  // everyone's color stable instead of reshuffling whenever progress order
+  // changes their rank.
+  const colorKeyOf = (person, idx) => (typeof person === 'object' && person && person.userId) || `idx-${idx}`;
+  const colorByKey = new Map(
+    (Array.isArray(challenge.participants) ? challenge.participants : []).map((p, i) => [
+      colorKeyOf(p, i),
+      AVATAR_COLORS[i % AVATAR_COLORS.length],
+    ])
+  );
   const isCount = challenge.trackingMode === 'COUNT';
   const accentColor = challenge.color || colors.accent;
 
@@ -192,7 +213,7 @@ export default function ChallengeDetailModal({ visible, challenge, onClose }) {
             const photoUrl = typeof person === 'object' && person ? person.photoUrl : null;
             const isSelf = personUserId && user && personUserId === user.uid;
             return (
-              <View key={`${label}-${index}`} style={styles.memberRow}>
+              <View key={personUserId || `${label}-${index}`} style={styles.memberRow}>
                 <Pressable
                   style={styles.memberTapTarget}
                   disabled={!personUserId || isSelf}
@@ -203,7 +224,9 @@ export default function ChallengeDetailModal({ visible, challenge, onClose }) {
                   <View
                     style={[
                       styles.avatar,
-                      photoUrl ? styles.avatarPhoto : { backgroundColor: AVATAR_COLORS[index % AVATAR_COLORS.length] },
+                      photoUrl
+                        ? styles.avatarPhoto
+                        : { backgroundColor: colorByKey.get(colorKeyOf(person, index)) || AVATAR_COLORS[index % AVATAR_COLORS.length] },
                     ]}
                   >
                     {photoUrl ? (
@@ -213,7 +236,10 @@ export default function ChallengeDetailModal({ visible, challenge, onClose }) {
                     )}
                   </View>
                   <View style={styles.memberInfo}>
-                    <Text style={styles.memberName}>{label}</Text>
+                    <Text style={styles.memberName}>
+                      {label}
+                      {isSelf ? ' (you)' : ''}
+                    </Text>
                     {progress != null ? (
                       <View style={styles.memberProgressTrack}>
                         <View style={[styles.memberProgressFill, { width: `${Math.max(4, percent || 0)}%` }]} />

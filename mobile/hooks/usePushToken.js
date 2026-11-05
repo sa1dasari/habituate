@@ -23,7 +23,7 @@ const EXPLAINER_SHOWN_KEY = '@habituate/pushExplainerShown';
  * returns `'expo'` only for real Expo Go (`null` for a dev-client build) —
  * the deprecated field is the correct choice for this specific check.
  */
-function isExpoGo() {
+export function isExpoGo() {
   return Constants.appOwnership === 'expo';
 }
 

@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  findNodeHandle,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -195,10 +194,17 @@ export default function TodayScreen() {
       if (cancelled) return;
       const cardNode = cardRefsRef.current[habitId];
       const scrollNode = scrollRef.current;
-      const scrollHandle = scrollNode && findNodeHandle(scrollNode);
-      if (cardNode && scrollHandle) {
+      // scrollRef.current is ScrollView's own composite wrapper (it's what
+      // exposes .scrollTo below) — NOT a host element itself, so Fabric's
+      // measureLayout rejects it (and rejects a plain findNodeHandle()
+      // number too: it now requires `instanceof ReactNativeElement`, a real
+      // ref to a native component, see ReactNativeElement.js's
+      // measureLayout). getNativeScrollRef() is ScrollView's own accessor
+      // for that actual underlying host node.
+      const scrollHostNode = scrollNode && scrollNode.getNativeScrollRef();
+      if (cardNode && scrollHostNode) {
         cardNode.measureLayout(
-          scrollHandle,
+          scrollHostNode,
           (x, y) => {
             if (!cancelled) scrollNode.scrollTo({ y: Math.max(0, y - spacing.lg), animated: true });
           },

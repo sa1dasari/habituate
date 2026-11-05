@@ -561,7 +561,15 @@ export default function HabitsScreen() {
         <View style={styles.titleRow}>
           <Text style={styles.title}>Habits</Text>
           <View style={styles.titleActions}>
-            {habits.length > 0 ? (
+            {/* Normally hidden for a zero-habit account — Shield Days has
+                nothing to protect yet. But the tour's 'habits-shield' step
+                always reaches here with zero habits (the previous step only
+                shows the create form, it doesn't submit it), and the icon
+                not existing meant its target could never be measured: every
+                first-time user saw ~4.5s of a full-dim screen with no
+                spotlight before the callout finally appeared anchored to
+                nothing. Render it during that one step regardless. */}
+            {habits.length > 0 || (tourActive && tourStep?.id === 'habits-shield') ? (
               <Pressable
                 ref={tourShieldIconRef}
                 style={styles.iconButton}

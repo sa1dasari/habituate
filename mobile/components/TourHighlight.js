@@ -1,5 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Dimensions, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAppTheme } from '../hooks/useAppTheme';
@@ -31,9 +32,33 @@ const CALLOUT_HEIGHT_ESTIMATE = 230;
  */
 export default function TourHighlight({ scope }) {
   const { colors, typography, gradients } = useAppTheme();
+  const insets = useSafeAreaInsets();
   const { active, displayStep, displayTargetRect, displayStepIndex, totalSteps, next, back, skip } =
     useOnboardingTour();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
+
+  const isLive = active && !!displayStep && displayStep.scope === scope;
+
+  // For a step whose host is itself a real native <Modal> (ProtectionInfoModal,
+  // CreateGroupModal, CreateChallengeModal, AskHabituateModal) opening in the
+  // SAME transition as the tour advancing, two native Dialog windows race to
+  // open in the same frame — React's state is correct (confirmed via a live
+  // logcat capture: this component is told to render with a matching scope),
+  // but Android can finish adding the HOST's window on top of this one,
+  // leaving the tour's own Modal fully invisible despite rendering correctly
+  // underneath. A screen host (not a Modal) never hit this — the only real
+  // Modal in that race was this component's own. Deferring this Modal's own
+  // `visible` by one tick lets the host's window land first, so this one is
+  // guaranteed to be the most-recently-added (topmost) window when it opens.
+  const [modalVisible, setModalVisible] = useState(false);
+  useEffect(() => {
+    if (!isLive) {
+      setModalVisible(false);
+      return undefined;
+    }
+    const timer = setTimeout(() => setModalVisible(true), 0);
+    return () => clearTimeout(timer);
+  }, [isLive]);
 
   // Gated on displayStep, not the live currentStep — see useOnboardingTour's
   // comment on displayStep. currentStep can jump to a different scope the
@@ -42,16 +67,28 @@ export default function TourHighlight({ scope }) {
   // rendering its OWN still-consistent step right up until displayStep
   // itself swaps over, so the old spotlight never disappears before the new
   // one is ready to take its place.
-  if (!active || !displayStep || displayStep.scope !== scope) return null;
+  if (!isLive || !modalVisible) return null;
 
   const { height: winH } = Dimensions.get('window');
+  // A target that sits close to the top of its screen (a header icon row,
+  // say) can have less than PAD of real gap above it — padding out by PAD
+  // unconditionally then pushed the ring/cutout's top edge above the status
+  // bar, into the OS chrome itself. Clamp the top edge to the safe-area
+  // inset instead, trimming the padded height by the same amount so the
+  // BOTTOM edge (the one that actually has room) stays exactly where PAD
+  // would have put it.
   const rect = displayTargetRect
-    ? {
-        x: Math.max(0, displayTargetRect.x - PAD),
-        y: Math.max(0, displayTargetRect.y - PAD),
-        width: displayTargetRect.width + PAD * 2,
-        height: displayTargetRect.height + PAD * 2,
-      }
+    ? (() => {
+        const rawTop = displayTargetRect.y - PAD;
+        const rawBottom = displayTargetRect.y + displayTargetRect.height + PAD;
+        const top = Math.max(insets.top, rawTop);
+        return {
+          x: Math.max(0, displayTargetRect.x - PAD),
+          y: top,
+          width: displayTargetRect.width + PAD * 2,
+          height: Math.max(0, rawBottom - top),
+        };
+      })()
     : null;
 
   const spaceBelow = rect ? winH - (rect.y + rect.height) : 0;

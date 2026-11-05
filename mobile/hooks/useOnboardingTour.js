@@ -14,8 +14,21 @@ import { navigateToTab } from '../utils/navigationRef';
 import { measureTourTarget, onTourTargetRegistered } from '../utils/tourRegistry';
 
 const STORAGE_KEY = '@habituate/hasCompletedTour';
+// Sub-pixel jitter between two real measurements of the same settled layout
+// is normal; anything bigger means the layout genuinely moved (resized,
+// safe-area insets just applied, etc.) and is worth one more look.
+const RECT_MATCH_TOLERANCE = 1;
 
 const TourContext = createContext(null);
+
+function rectsMatch(a, b) {
+  return (
+    Math.abs(a.x - b.x) <= RECT_MATCH_TOLERANCE &&
+    Math.abs(a.y - b.y) <= RECT_MATCH_TOLERANCE &&
+    Math.abs(a.width - b.width) <= RECT_MATCH_TOLERANCE &&
+    Math.abs(a.height - b.height) <= RECT_MATCH_TOLERANCE
+  );
+}
 
 /**
  * Drives the first-time-user onboarding tour: which step is active, which
@@ -60,6 +73,7 @@ export function TourProvider({ children }) {
     let cancelled = false;
     let attempts = 0;
     let timer = null;
+    let lastRect = null;
 
     const commit = (rect) => {
       if (cancelled) return;
@@ -77,9 +91,24 @@ export function TourProvider({ children }) {
       const rect = await measureTourTarget(currentStep.targetKey);
       if (cancelled) return;
       if (rect) {
-        commit(rect);
+        // Android's edge-to-edge safe-area layout can take an extra frame
+        // to settle right after a tab switch — a header measured the
+        // instant it mounts can report a transient, too-high position
+        // (safe-area insets not applied yet) that still passes the
+        // truthy/non-zero check below, and a mismatched spotlight (seen
+        // on-device: the ring landing up over the status bar instead of
+        // around "+ New") got locked in as final. Require two consecutive
+        // measurements to agree before committing, instead of trusting
+        // whichever one happens to arrive first.
+        if (lastRect && rectsMatch(lastRect, rect)) {
+          commit(rect);
+          return;
+        }
+        lastRect = rect;
+        timer = setTimeout(tryMeasure, 80);
         return;
       }
+      lastRect = null;
       attempts += 1;
       // Keeps trying for ~4.5s — long enough for a tab switch plus a
       // pageSheet modal's slide-in animation to finish and lay out. If it
@@ -92,11 +121,17 @@ export function TourProvider({ children }) {
       }
     };
 
-    // Small initial delay so the tab-switch/modal-open above has a frame to
-    // start before the first measurement attempt. displayStep/displayRect
-    // deliberately aren't touched here — the previous step keeps rendering
-    // until tryMeasure actually has something to show.
-    timer = setTimeout(tryMeasure, 220);
+    // Try immediately, not after an artificial delay — a same-tab step (most
+    // of them: three Habits-tab steps in a row, two Insights-tab steps in a
+    // row) has its target already mounted, so waiting here was pure added
+    // latency before the callout appeared. A step that DOES need a tab
+    // switch or a modal's slide-in to finish first just fails this first
+    // attempt and picks it up on the very next 150ms retry below — the
+    // retry loop was already the real safety net, this was never load-
+    // bearing. displayStep/displayRect deliberately aren't touched here —
+    // the previous step keeps rendering until tryMeasure actually has
+    // something to show.
+    tryMeasure();
 
     return () => {
       cancelled = true;

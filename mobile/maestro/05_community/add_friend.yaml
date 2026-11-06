@@ -23,7 +23,7 @@ appId: com.habituate.mobile
 - tapOn: "Sign in"
 - runFlow: ../_shared/dismiss_samsung_pass.yaml
 - tapOn:
-    text: "Skip — just add my first habit"
+    text: "Just add my first habit"
     optional: true
 - tapOn: "Community"
 - tapOn: "Friends"
@@ -47,7 +47,7 @@ appId: com.habituate.mobile
 - tapOn: "Sign in"
 - runFlow: ../_shared/dismiss_samsung_pass.yaml
 - tapOn:
-    text: "Skip — just add my first habit"
+    text: "Just add my first habit"
     optional: true
 - tapOn: "Community"
 - tapOn: "Friends"

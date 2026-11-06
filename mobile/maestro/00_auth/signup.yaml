@@ -18,5 +18,5 @@ appId: com.habituate.mobile
 - runFlow: ../_shared/choose_username.yaml
 # First-ever login — the onboarding tour auto-starts (useAutoStartTour).
 - assertVisible: "Welcome to Habituate"
-- tapOn: "Skip — just add my first habit"
+- tapOn: "Just add my first habit"
 - assertVisible: "Today"

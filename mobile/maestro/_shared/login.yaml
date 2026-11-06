@@ -19,5 +19,5 @@ appId: com.habituate.mobile
 # skip it via the fast-path if it's showing. `optional: true` means this is
 # a no-op when the tour isn't present (an already-toured account).
 - tapOn:
-    text: "Skip — just add my first habit"
+    text: "Just add my first habit"
     optional: true

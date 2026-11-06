@@ -173,6 +173,19 @@ export default function HabitCard({
               >
                 {subtitle}
               </Text>
+              {/* Was only ever shown on the Habits tab's detailed row — the
+                  Today card never surfaced a habit's streak at all, even
+                  though it's exactly the moment (right before checking in)
+                  where seeing "6 days" is the most motivating. Same
+                  component, same anti-guilt color states, just compact.
+                  Shown unconditionally, including at 0 — StreakIndicator is
+                  explicitly designed with no "broken" state (a lapsed
+                  streak just renders as a neutral 0-day badge), and the
+                  Habits tab already shows it unconditionally too; hiding it
+                  here only at 0 would make the badge silently vanish the
+                  day a streak breaks, an unlabelled loss signal that's the
+                  opposite of what the neutral zero state exists to avoid. */}
+              <StreakIndicator streak={streak} status={streakStatus} compact />
             </View>
 
             {showBar ? (

@@ -12,6 +12,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import HabitCard from '../components/HabitCard';
 import GoalsSummaryCard from '../components/GoalsSummaryCard';
@@ -27,7 +28,12 @@ import { useRegisterScrollToTop } from '../hooks/useRegisterScrollToTop';
 import { useFeaturedGoalReviews } from '../hooks/useFeaturedGoalReviews';
 import { useGoals } from '../hooks/useGoals';
 import { summarizeHabits, useHabits } from '../hooks/useHabits';
-import { buildAllDoneCelebration, buildCheckInCelebration, buildHabitMilestone } from '../utils/celebration';
+import {
+  buildAllDoneCelebration,
+  buildCheckInCelebration,
+  buildHabitMilestone,
+  buildStreakMilestone,
+} from '../utils/celebration';
 import { effectiveMonthlyTarget, effectiveWeeklyTarget } from '../utils/cadence';
 import { daysLeftInMonth, daysLeftInWeek } from '../utils/date';
 import { byScheduledTime } from '../utils/time';
@@ -151,6 +157,44 @@ export default function TodayScreen() {
   // "Today's Progress" only counts habits actually due today.
   const summary = useMemo(() => summarizeHabits(groups.due), [groups]);
 
+  // Progress bar eases to its new width instead of snapping — a completed
+  // check-in should feel like it landed, not just update a number. Badge
+  // gets a small spring settle the moment the list goes from incomplete to
+  // fully done. Both are gated on a shared "baseline" ref: habits loads
+  // async, so the very first time this effect sees real data (summary.total
+  // goes from its initial 0 to a real count) is just the list arriving, not
+  // anything the user just did — without this guard, reopening the app on a
+  // day already fully logged would sweep the bar in and pop the badge as if
+  // the user had just that moment finished, celebrating stale state. The
+  // first real read sets both values directly (no animation) and marks the
+  // baseline; only genuine changes after that animate.
+  const progressWidth = useSharedValue(summary.percent);
+  const progressFillStyle = useAnimatedStyle(() => ({ width: `${progressWidth.value}%` }));
+
+  const badgeScale = useSharedValue(1);
+  const wasCompleteRef = useRef(false);
+  const hasBaselineRef = useRef(false);
+  useEffect(() => {
+    if (!hasBaselineRef.current) {
+      if (summary.total === 0) return;
+      progressWidth.value = summary.percent;
+      wasCompleteRef.current = summary.total > 0 && summary.done >= summary.total;
+      hasBaselineRef.current = true;
+      return;
+    }
+
+    progressWidth.value = withTiming(summary.percent, { duration: 450 });
+
+    const isComplete = summary.total > 0 && summary.done >= summary.total;
+    if (isComplete && !wasCompleteRef.current) {
+      // Understated, matching the app's own voice ("Logged.", "Good rep.")
+      // rather than a showy bounce — a small, well-damped settle, not a pop.
+      badgeScale.value = withSequence(withSpring(1.12, { damping: 14 }), withSpring(1));
+    }
+    wasCompleteRef.current = isComplete;
+  }, [summary.done, summary.total, summary.percent]);
+  const badgeAnimatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: badgeScale.value }] }));
+
   // Reached from a habit-reminder notification tap (NotificationCenterModal,
   // and the real OS push listener, App.js's PushNotificationTapBridge) —
   // navigateToTab('Today', { highlightHabitId }). Scrolls to that habit's
@@ -233,17 +277,25 @@ export default function TodayScreen() {
 
   // Logging progress is the only action that gets a celebration; undoing stays
   // silent. Priority when more than one applies on the same check-in: a
-  // habit's own target being met, then finishing every habit due today, then
-  // the routine card — showing more than one at once would be excessive. The
-  // routine card only shows on the FIRST check-in of the day for a habit —
-  // a count-mode habit tapped 5 times for 5 applications shouldn't pop up 5
-  // times, though a milestone crossed on tap 3 still always shows.
+  // streak crossing a multiple of 7 (the same threshold that earns a
+  // Shield), THEN a habit's own weekly/monthly target being met, then
+  // finishing every habit due today, then the routine card — showing more
+  // than one at once would be excessive. Streak milestone goes first: for
+  // an untargeted daily habit (the common case), buildHabitMilestone's own
+  // "target met" fires on literally every first check-in of the day
+  // (periodTarget defaults to 1 with nothing set), which would otherwise
+  // permanently shadow the streak milestone for exactly the habit type
+  // whose daily streaks are the whole point. The routine card only shows
+  // on the FIRST check-in of the day for a habit — a count-mode habit
+  // tapped 5 times for 5 applications shouldn't pop up 5 times, though a
+  // milestone crossed on tap 3 still always shows.
   const celebrate = useCallback(
     (habit, delta = 1) => {
       const previousDone = summary.done;
       const todayDone = habit.dueToday ? Math.min(summary.total, previousDone + delta) : previousDone;
 
       const payload =
+        buildStreakMilestone(habit, { shieldsAvailable }) ||
         buildHabitMilestone(habit, delta, { todayDone, todayTotal: summary.total }) ||
         buildAllDoneCelebration(previousDone, todayDone, summary.total) ||
         (habit.checkedInToday
@@ -256,7 +308,7 @@ export default function TodayScreen() {
         showCelebration(payload);
       }
     },
-    [summary, showCelebration]
+    [summary, showCelebration, shieldsAvailable]
   );
 
   const handleToggle = useCallback(
@@ -443,6 +495,7 @@ export default function TodayScreen() {
         expanded={expandedId === habit.id}
         checked={habit.checkedInToday}
         streak={habit.streak}
+        streakStatus={habit.streakStatus}
         shieldedToday={habit.shieldedToday}
         shieldEligible={habit.shieldEligible}
         disabled={busy}
@@ -498,22 +551,24 @@ export default function TodayScreen() {
               </Text>
             </View>
 
-            <View style={styles.summaryBadge}>
+            <Animated.View style={[styles.summaryBadge, badgeAnimatedStyle]}>
               <MaterialCommunityIcons
                 name="check-circle-outline"
                 size={28}
                 color={colors.safe}
               />
-            </View>
+            </Animated.View>
           </View>
 
           <View style={styles.progressTrack}>
-            <LinearGradient
-              colors={gradients.safe}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={[styles.progressFill, { width: `${summary.percent}%` }]}
-            />
+            <Animated.View style={[styles.progressFill, progressFillStyle]}>
+              <LinearGradient
+                colors={gradients.safe}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={StyleSheet.absoluteFillObject}
+              />
+            </Animated.View>
           </View>
 
           <Text style={styles.summaryNudge}>
@@ -670,6 +725,10 @@ function makeStyles(colors, typography) {
   progressFill: {
     height: '100%',
     borderRadius: radii.pill,
+    // The gradient now fills this View (absoluteFillObject) instead of
+    // carrying its own rounded corners directly — without clipping here,
+    // the fill's trailing edge at partial width is square, not rounded.
+    overflow: 'hidden',
   },
   summaryNudge: {
     fontFamily: fonts.regular,

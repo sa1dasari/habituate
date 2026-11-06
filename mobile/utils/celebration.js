@@ -103,6 +103,49 @@ function prospectiveHabitComplete(habit, delta) {
   return weeklyMet && monthlyMet;
 }
 
+const STREAK_MILESTONE_INTERVAL = 7;
+// Matches ProtectionInfoModal's own documented cap ("banked up to 3 at a
+// time") — there's no shared constant to import (the real cap enforcement
+// is backend-only), so this mirrors the same number already shown to users
+// elsewhere rather than inventing a new one.
+const MAX_SHIELDS_BANKED = 3;
+
+/**
+ * Null unless this exact check-in is the one that pushes a habit's streak
+ * past a multiple of 7 — the same threshold ProtectionInfoModal documents
+ * for earning a Shield ("every time any habit's streak crosses a multiple
+ * of 7 days, you earn one Shield"), so this celebrates a real, already-
+ * meaningful moment rather than an arbitrary one. Gated on `!checkedInToday`
+ * (the pre-check-in snapshot) so a second same-day tap — which leaves
+ * prospectiveStreak unchanged — can't re-fire it.
+ *
+ * `shieldsAvailable` is the pre-check-in count (optional — callers that
+ * don't track it just get the plain streak line). Only claims a Shield was
+ * banked when the bank wasn't already full, so this never asserts something
+ * that didn't actually happen.
+ */
+export function buildStreakMilestone(habit, { shieldsAvailable } = {}) {
+  if (habit.checkedInToday) return null;
+  const streak = prospectiveStreak(habit);
+  if (streak <= 0 || streak % STREAK_MILESTONE_INTERVAL !== 0) return null;
+
+  const earnsShield = typeof shieldsAvailable === 'number' && shieldsAvailable < MAX_SHIELDS_BANKED;
+  const progressLine = earnsShield
+    ? `${habit.name}: ${streak} days in a row. That's a Shield banked.`
+    : `${habit.name}: ${streak} days in a row.`;
+
+  return {
+    key: `milestone-streak-${habit.id}-${streak}`,
+    variant: 'milestone',
+    headline: 'Streak milestone! 🔥',
+    subhead: habit.name,
+    progressLine,
+    streakLine: null,
+    streak,
+    shareText: progressLine,
+  };
+}
+
 /** Null unless this exact check-in is what completes the habit's target(s). */
 export function buildHabitMilestone(habit, delta = 1, { todayDone, todayTotal } = {}) {
   if (habit.periodComplete) return null; // already met before this check-in

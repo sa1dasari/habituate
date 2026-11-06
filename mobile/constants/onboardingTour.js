@@ -22,6 +22,7 @@ export const TOUR_SCOPES = {
 };
 
 export const TOUR_TARGETS = {
+  TODAY_COACH_BUTTON: 'today-coach-button',
   HABITS_ADD_BUTTON: 'habits-add-button',
   HABITS_FORM_CARD: 'habits-form-card',
   HABITS_SHIELD_ICON: 'habits-shield-icon',
@@ -29,7 +30,6 @@ export const TOUR_TARGETS = {
   COMMUNITY_CREATE_GROUP: 'community-create-group',
   COMMUNITY_CREATE_CHALLENGE: 'community-create-challenge',
   INSIGHTS_CONSISTENCY_CARD: 'insights-consistency-card',
-  INSIGHTS_COACH_CARD: 'insights-coach-card',
   MODAL_CREATE_GROUP_HEADER: 'modal-create-group-header',
   MODAL_CREATE_CHALLENGE_HEADER: 'modal-create-challenge-header',
   MODAL_ASK_HABITUATE_HEADER: 'modal-ask-habituate-header',
@@ -143,13 +143,13 @@ export const TOUR_STEPS = [
     targetKey: TOUR_TARGETS.INSIGHTS_CONSISTENCY_CARD,
     eyebrow: 'SEE THE PATTERN',
     title: 'Your consistency, at a glance',
-    body: 'Daily through yearly. Tap the ring for a real per-habit breakdown: history, bar graph, plain-language takeaway.',
+    body: "Daily through yearly, with a real per-habit breakdown right below: history, bar graph, plain-language takeaway. Pinch the graph to zoom, swipe to move through time.",
   },
   {
     id: 'insights-coach',
-    scope: TOUR_SCOPES.INSIGHTS,
-    tab: 'Insights',
-    targetKey: TOUR_TARGETS.INSIGHTS_COACH_CARD,
+    scope: TOUR_SCOPES.TODAY,
+    tab: 'Today',
+    targetKey: TOUR_TARGETS.TODAY_COACH_BUTTON,
     eyebrow: 'YOUR AI COACH',
     title: 'Meet Ask Habituate',
     body: "Grounded in YOUR real check-ins, not generic advice. It can even suggest a tweak, but nothing changes until you confirm.",
@@ -157,7 +157,7 @@ export const TOUR_STEPS = [
   {
     id: 'ask-habituate-chat',
     scope: TOUR_SCOPES.ASK_HABITUATE_MODAL,
-    tab: 'Insights',
+    tab: 'Today',
     targetKey: TOUR_TARGETS.MODAL_ASK_HABITUATE_HEADER,
     eyebrow: 'THE ACTUAL CHAT',
     title: "You're in the real coach right now",

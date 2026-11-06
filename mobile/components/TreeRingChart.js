@@ -27,7 +27,7 @@ function describeArc(cx, cy, r, startAngle, endAngle) {
 
 /**
  * Tree-ring-style radial consistency chart — replaces the grouped bar chart
- * in ConsistencyDetailModal.js once 2+ habits are selected (a bar chart gets
+ * on InsightsScreen.js once 2+ habits are selected (a bar chart gets
  * crowded fast once there are several color-coded groups per column;
  * concentric rings scale better and read more like an at-a-glance pattern).
  *

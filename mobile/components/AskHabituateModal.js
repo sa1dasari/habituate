@@ -41,8 +41,8 @@ const REACTION_EMOJIS = ['🔥', '❤️', '😂', '😮', '👍', '💯'];
  * user taps Confirm, matching the design's "Nothing changes until you
  * confirm" copy and this app's anti-guilt, user-in-control conventions.
  *
- * Full-page modal, same pattern as CalendarModal/ConsistencyDetailModal —
- * this app has no stack navigator wrapping the tab screens.
+ * Full-page modal, same pattern as CalendarModal — this app has no stack
+ * navigator wrapping the tab screens.
  */
 export default function AskHabituateModal({ visible, onClose, initialQuestion, habits = [] }) {
   const { colors, typography } = useAppTheme();
@@ -204,7 +204,7 @@ export default function AskHabituateModal({ visible, onClose, initialQuestion, h
           <View style={styles.topRow}>
             <Pressable onPress={onClose} hitSlop={12} style={styles.backLink}>
               <MaterialCommunityIcons name="chevron-left" size={20} color={colors.textSecondary} />
-              <Text style={styles.backLinkText}>Insights</Text>
+              <Text style={styles.backLinkText}>Back</Text>
             </Pressable>
             {messages.length > 0 ? (
               <Pressable

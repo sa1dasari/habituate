@@ -3,6 +3,7 @@ import { Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInp
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import AvatarImage from './AvatarImage';
 import FriendProfileModal from './FriendProfileModal';
 import Toast from './Toast';
 import { useAppTheme } from '../hooks/useAppTheme';
@@ -168,8 +169,14 @@ export default function GroupsManageModal({ visible, onClose }) {
                             handleInviteFriend(group.id, friend.otherUserId, friend.otherUserName || friend.otherUserEmail)
                           }
                         >
-                          <MaterialCommunityIcons name="account-plus-outline" size={18} color={colors.accent} />
+                          <AvatarImage
+                            uri={friend.otherUserPhotoUrl}
+                            name={friend.otherUserName || friend.otherUserEmail}
+                            size={24}
+                            fontSize={11}
+                          />
                           <Text style={styles.habitRowText}>{friend.otherUserName || friend.otherUserEmail}</Text>
+                          <MaterialCommunityIcons name="account-plus-outline" size={18} color={colors.accent} style={{ marginLeft: 'auto' }} />
                         </Pressable>
                       ))
                     )
@@ -190,7 +197,17 @@ export default function GroupsManageModal({ visible, onClose }) {
             <Section title="Friend requests" styles={styles}>
               {pendingRequests.map((request) => (
                 <View key={request.id} style={styles.friendRow}>
-                  <Text style={styles.friendName}>{request.otherUserName || request.otherUserEmail}</Text>
+                  <View style={styles.friendIdentity}>
+                    <AvatarImage
+                      uri={request.otherUserPhotoUrl}
+                      name={request.otherUserName || request.otherUserEmail}
+                      size={28}
+                      fontSize={12}
+                    />
+                    <Text style={styles.friendName} numberOfLines={1}>
+                      {request.otherUserName || request.otherUserEmail}
+                    </Text>
+                  </View>
                   <View style={styles.inlineButtonRow}>
                     <Pressable
                       style={styles.secondaryButton}
@@ -240,7 +257,17 @@ export default function GroupsManageModal({ visible, onClose }) {
                   accessibilityRole="button"
                   accessibilityLabel={`View ${friend.otherUserName || friend.otherUserEmail}'s profile`}
                 >
-                  <Text style={styles.friendName}>{friend.otherUserName || friend.otherUserEmail}</Text>
+                  <View style={styles.friendIdentity}>
+                    <AvatarImage
+                      uri={friend.otherUserPhotoUrl}
+                      name={friend.otherUserName || friend.otherUserEmail}
+                      size={28}
+                      fontSize={12}
+                    />
+                    <Text style={styles.friendName} numberOfLines={1}>
+                      {friend.otherUserName || friend.otherUserEmail}
+                    </Text>
+                  </View>
                   <MaterialCommunityIcons name="chevron-right" size={18} color={colors.textMuted} />
                 </Pressable>
               ))
@@ -388,7 +415,8 @@ function makeStyles(colors, typography) {
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
     },
-    friendName: { fontSize: 14, color: colors.textPrimary },
+    friendIdentity: { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: spacing.sm },
+    friendName: { fontSize: 14, color: colors.textPrimary, marginLeft: spacing.sm, flexShrink: 1 },
     inviteRow: { flexDirection: 'row', gap: spacing.sm, alignItems: 'center', marginBottom: spacing.md },
     inviteInput: { flex: 1, marginTop: 0 },
   });

@@ -1,6 +1,7 @@
 appId: com.habituate.mobile
 # Covers this session's own feature: tapping a week/month/year bar in the
-# Consistency detail drill-down should open the real CalendarModal
+# Insights consistency breakdown (inlined directly on the page, no longer a
+# separate drill-down modal) should open the real CalendarModal
 # (header "Habit Calendar") anchored at that bucket's date, not just show
 # a number. CalendarModal's close button has no accessibilityLabel in the
 # current code (just an icon) — using the hardware back button to dismiss
@@ -21,8 +22,6 @@ appId: com.habituate.mobile
     optional: true
 
 - tapOn: "Insights"
-- tapOn: "Open consistency detail"
-- assertVisible: "Consistency detail"
 - assertVisible: "Journal"
 # Weekly tab: day bars should be tappable and open the calendar on that day.
 - tapOn: "Weekly"
@@ -31,7 +30,7 @@ appId: com.habituate.mobile
 - back
 
 # Yearly tab: month bars should open the calendar on that month, read-only
-# (no day pre-selected — see ConsistencyDetailModal.js's openBucketInCalendar).
+# (no day pre-selected — see InsightsScreen.js's openBucketInCalendar).
 - tapOn: "Yearly"
 - tapOn: "Jan.*"
 - assertVisible: "Habit Calendar"

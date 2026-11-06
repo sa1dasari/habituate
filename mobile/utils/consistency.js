@@ -13,18 +13,34 @@ export const CONSISTENCY_PERIODS = ['daily', 'weekly', 'monthly', 'yearly'];
 
 /**
  * Past-period navigation for Insights (weekly/monthly/yearly prev/next).
- * Since every period here is already a trailing window ending at `now`
- * (not a calendar-aligned week/month/year — see the comment above), moving
- * to "the previous period" is just sliding that same window back by its
- * own length. This is the one piece of math InsightsScreen needs to add
- * prev/next without a new backend endpoint — `computeConsistency` and
- * `habitPeriodHistory` already take a `now` anchor, they just always got
- * `new Date()` before.
+ * Daily/weekly slide the trailing window back by its own length (1/7 days —
+ * exactly a calendar day/week, so the per-habit breakdown's calendar-aligned
+ * buckets — see habitPeriodHistory below — always land on the month/year
+ * "previous" actually moved to.
+ *
+ * Monthly/yearly can't use a flat day count the same way: habitPeriodHistory
+ * zooms into the exact calendar month/year `anchor` falls in via
+ * startOfMonth/getFullYear, but calendar months run 28-31 days and years
+ * 365-366 — a flat 30 or 365-day step can land back in the SAME calendar
+ * month/year (e.g. Jan 31 minus 30 days is still January), making
+ * "previous"/pinch-zoom visibly do nothing to the breakdown card even
+ * though the ring's own trailing-window percent above it did change. Real
+ * calendar steps (setMonth/setFullYear) fix that; monthly also clamps the
+ * day-of-month to 1 first to dodge the classic JS Date overflow (e.g. Mar
+ * 31 minus 1 month rolling into Mar 3, not February) — harmless here since
+ * only the month/year identity matters, never the exact day.
  */
 export function shiftAnchor(period, anchor, steps) {
-  const days = WINDOW_DAYS[period] || WINDOW_DAYS.daily;
   const next = new Date(anchor);
-  next.setDate(next.getDate() + days * steps);
+  if (period === 'monthly') {
+    next.setDate(1);
+    next.setMonth(next.getMonth() + steps);
+  } else if (period === 'yearly') {
+    next.setFullYear(next.getFullYear() + steps);
+  } else {
+    const days = WINDOW_DAYS[period] || WINDOW_DAYS.daily;
+    next.setDate(next.getDate() + days * steps);
+  }
   return next;
 }
 
@@ -52,56 +68,6 @@ export function periodRangeLabel(period, anchor) {
   );
   const endLabel = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   return `${startLabel} – ${endLabel}`;
-}
-
-/**
- * Calendar-aligned navigation for the Consistency *detail* drill-down only
- * (ConsistencyDetailModal) — distinct from shiftAnchor/isCurrentPeriod/
- * periodRangeLabel above, which stay rolling-window and keep driving the
- * Insights ring unchanged. The detail chart zooms into one calendar unit at
- * a time (a day, a Mon-Sun week, a calendar month, a calendar year) and
- * shows its natural sub-buckets (hours/days/weeks/months — see
- * habitPeriodHistory below), so "previous"/"next" here means the previous
- * or next calendar unit, not "shift back by N days."
- */
-export function shiftCalendarAnchor(period, anchor, steps) {
-  const next = new Date(anchor);
-  if (period === 'daily') next.setDate(next.getDate() + steps);
-  else if (period === 'weekly') next.setDate(next.getDate() + steps * 7);
-  else if (period === 'monthly') next.setMonth(next.getMonth() + steps);
-  else next.setFullYear(next.getFullYear() + steps);
-  return next;
-}
-
-/** Whether `anchor` falls in the calendar unit containing `now` — disables "next" past it. */
-export function isCurrentCalendarPeriod(period, anchor, now = new Date()) {
-  if (period === 'daily') return toDateKey(anchor) === toDateKey(now);
-  if (period === 'weekly') return toDateKey(startOfWeek(anchor)) === toDateKey(startOfWeek(now));
-  if (period === 'monthly') return anchor.getFullYear() === now.getFullYear() && anchor.getMonth() === now.getMonth();
-  return anchor.getFullYear() === now.getFullYear();
-}
-
-/** Human label for the calendar unit `anchor` falls in, e.g. "Oct 15" / "Oct 13 – Oct 19, 2026" / "October 2026" / "2026". */
-export function calendarPeriodRangeLabel(period, anchor) {
-  if (period === 'daily') {
-    return anchor.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-  }
-  if (period === 'weekly') {
-    const start = startOfWeek(anchor);
-    const end = new Date(start);
-    end.setDate(end.getDate() + 6);
-    const sameYear = start.getFullYear() === end.getFullYear();
-    const startLabel = start.toLocaleDateString(
-      'en-US',
-      sameYear ? { month: 'short', day: 'numeric' } : { month: 'short', day: 'numeric', year: 'numeric' }
-    );
-    const endLabel = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    return `${startLabel} – ${endLabel}`;
-  }
-  if (period === 'monthly') {
-    return anchor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-  }
-  return `${anchor.getFullYear()}`;
 }
 
 function dayKeysEndingAt(date, count) {
@@ -232,13 +198,17 @@ function formatHourLabel(hour) {
 }
 
 /**
- * Per-habit bar-chart buckets for the Consistency detail drill-down
+ * Per-habit bar-chart buckets for the Consistency breakdown on Insights
  * (design/Consistency detail.png) — each period tab zooms into ONE calendar
  * unit and shows its natural sub-buckets: a day broken into its 24 hours, a
  * week into its 7 days, a month into its Mon-Sun weeks, a year into its 12
  * months. This is a "zoom in one level" chart, not a multi-period trend —
- * `anchor` names which single day/week/month/year to zoom into (see
- * shiftCalendarAnchor for how the detail modal's prev/next moves it).
+ * `anchor` names which single day/week/month/year to zoom into. It shares
+ * InsightsScreen's own anchor state (see shiftAnchor above) rather than a
+ * separate one, so prev/next/pinch all move one consistent value — daily/
+ * weekly steps are already calendar-exact (1/7 days), and shiftAnchor steps
+ * monthly/yearly by real calendar units too, so the anchor this reads is
+ * always genuinely inside the month/year "previous"/"next" just moved to.
  *
  * Hourly is the one level finer than a day, so it reads check-in timestamps
  * directly rather than going through computeDayStats (day-granularity

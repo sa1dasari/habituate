@@ -1,10 +1,10 @@
 appId: com.habituate.mobile
+# Ask Habituate's entry point lives on Today's header (chat icon, top-right)
+# now, not Insights — this covers both that icon and the lower teaser banner
+# opening the real chat modal directly, no cross-tab navigation involved.
 ---
 - runFlow: ../_shared/login.yaml
 - tapOn: "Ask Habituate"
 - assertVisible: "Ask Habituate"
-# AskHabituateModal's back link always reads "Insights" regardless of which
-# tab opened it from (AskHabituateModal.js:207) — not a bug to "fix" here,
-# just worth knowing when reading this selector.
-- tapOn: "Insights"
+- tapOn: "Back"
 - assertVisible: "Today"

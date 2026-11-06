@@ -5,8 +5,7 @@ appId: com.habituate.mobile
 # default/CI batch.
 ---
 - runFlow: ../_shared/login.yaml
-- tapOn: "Insights"
-- tapOn: "Open Ask Habituate"
+- tapOn: "Open AI coach chat"
 - assertVisible: "Ask Habituate"
 - assertVisible: "Suggested questions"
 - tapOn: "Ask about your routine..."
@@ -16,5 +15,5 @@ appId: com.habituate.mobile
 - extendedWaitUntil:
     visible: "Ask about your routine..."
     timeout: 20000
-- tapOn: "Insights"
+- tapOn: "Back"
 - assertVisible: "Today"

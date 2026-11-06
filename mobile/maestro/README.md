@@ -50,9 +50,9 @@ Every flow that needs to be signed in starts with `runFlow: ../_shared/login.yam
 - `_shared/` — reusable sub-flows (`runFlow`'d from other files), not meant to be run standalone.
 - `00_auth/` — sign up, sign in, sign out.
 - `01_onboarding/` — the first-run tour: full walkthrough, the fast-path skip, replay from settings.
-- `02_today/` — the Today tab: check-in, undo, Shield Days, streak repair, the empty-state template picker.
+- `02_today/` — the Today tab: check-in, undo, Shield Days, streak repair, the empty-state template picker, Ask Habituate (its entry point lives here now, not Insights).
 - `03_habits/` — habit CRUD: create (full form), edit, archive/restore, delete, goals.
-- `04_insights/` — period switching, the Consistency detail drill-down (including the bar-tap-opens-calendar feature), Ask Habituate.
+- `04_insights/` — period switching, the inline consistency breakdown (including the bar-tap-opens-calendar feature).
 - `05_community/` — friends, shared habits, challenges, the activity feed (cheer/dismiss), notifications.
 - `06_profile/` — profile editing, visibility, stats, account settings navigation.
 

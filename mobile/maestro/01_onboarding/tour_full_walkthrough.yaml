@@ -54,7 +54,7 @@ appId: com.habituate.mobile
 # 12. insights-consistency (Insights tab)
 - assertVisible: "Your consistency, at a glance"
 - tapOn: "Next"
-# 13. insights-coach
+# 13. insights-coach (back on Today tab, chat icon spotlighted)
 - assertVisible: "Meet Ask Habituate"
 - tapOn: "Next"
 # 14. ask-habituate-chat (real chat modal)

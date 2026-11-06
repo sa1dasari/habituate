@@ -18,12 +18,15 @@ import HabitCard from '../components/HabitCard';
 import GoalsSummaryCard from '../components/GoalsSummaryCard';
 import AvatarImage from '../components/AvatarImage';
 import TemplateHabitsPicker from '../components/TemplateHabitsPicker';
+import AskHabituateModal from '../components/AskHabituateModal';
 import TourHighlight from '../components/TourHighlight';
 import Toast from '../components/Toast';
 import { useToast } from '../hooks/useToast';
-import { TOUR_SCOPES } from '../constants/onboardingTour';
+import { TOUR_SCOPES, TOUR_TARGETS } from '../constants/onboardingTour';
 import { useAuth } from '../hooks/useAuth';
 import { useCelebration } from '../hooks/useCelebration';
+import { useOnboardingTour } from '../hooks/useOnboardingTour';
+import { useTourTarget } from '../hooks/useTourTarget';
 import { useRegisterScrollToTop } from '../hooks/useRegisterScrollToTop';
 import { useFeaturedGoalReviews } from '../hooks/useFeaturedGoalReviews';
 import { useGoals } from '../hooks/useGoals';
@@ -98,6 +101,26 @@ export default function TodayScreen() {
   const { celebrate: showCelebration } = useCelebration();
   const [expandedId, setExpandedId] = useState(null);
   const { toast, showToast, hideToast } = useToast();
+  const [coachVisible, setCoachVisible] = useState(false);
+  const [coachInitialQuestion, setCoachInitialQuestion] = useState(null);
+
+  const { active: tourActive, currentStep: tourStep } = useOnboardingTour();
+  const tourCoachButtonRef = useTourTarget(TOUR_TARGETS.TODAY_COACH_BUTTON);
+
+  // Real-screen tour step: opens the actual Ask Habituate chat in step with
+  // the walkthrough, and closes it the moment the tour ends.
+  useEffect(() => {
+    if (!tourActive) {
+      setCoachVisible(false);
+      return;
+    }
+    if (tourStep?.id === 'ask-habituate-chat') {
+      setCoachInitialQuestion(null);
+      setCoachVisible(true);
+    } else {
+      setCoachVisible(false);
+    }
+  }, [tourActive, tourStep]);
 
   const featuredHabits = useMemo(() => habits.filter((h) => h.featuredGoal), [habits]);
   const { reviews: habitGoalReviews } = useFeaturedGoalReviews(featuredHabits);
@@ -533,6 +556,19 @@ export default function TodayScreen() {
           ) : null}
 
           <Pressable
+            ref={tourCoachButtonRef}
+            style={styles.coachIconBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Open AI coach chat"
+            onPress={() => {
+              setCoachInitialQuestion(null);
+              setCoachVisible(true);
+            }}
+          >
+            <MaterialCommunityIcons name="chat-processing-outline" size={20} color={colors.accent} />
+          </Pressable>
+
+          <Pressable
             style={styles.avatar}
             accessibilityRole="button"
             accessibilityLabel="Open profile"
@@ -585,7 +621,10 @@ export default function TodayScreen() {
           style={({ pressed }) => [styles.coachTeaser, pressed ? styles.coachTeaserPressed : null]}
           accessibilityRole="button"
           accessibilityLabel="Ask Habituate"
-          onPress={() => navigation.navigate('Insights', { openCoach: true })}
+          onPress={() => {
+            setCoachInitialQuestion(null);
+            setCoachVisible(true);
+          }}
         >
           <MaterialCommunityIcons name="chat-processing-outline" size={18} color={colors.accent} />
           <Text style={styles.coachTeaserText}>Ask Habituate anything about your progress</Text>
@@ -646,6 +685,14 @@ export default function TodayScreen() {
         )}
       </ScrollView>
     </SafeAreaView>
+
+    <AskHabituateModal
+      visible={coachVisible}
+      habits={habits}
+      initialQuestion={coachInitialQuestion}
+      onClose={() => setCoachVisible(false)}
+    />
+
     <TourHighlight scope={TOUR_SCOPES.TODAY} />
     <Toast toast={toast} onHide={hideToast} />
     </>
@@ -676,6 +723,15 @@ function makeStyles(colors, typography) {
   },
   shieldBadgeText: { fontFamily: fonts.extraBold, fontSize: 12, color: colors.safe },
   name: { ...typography.screenTitle, marginTop: 2 },
+  coachIconBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.accentSoft,
+    marginRight: spacing.sm,
+  },
   avatar: {
     width: 48,
     height: 48,

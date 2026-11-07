@@ -193,6 +193,13 @@ Also:
 
 ## 7. Working agreement
 
+### Session defaults
+- Work in the main session. Do not spawn subagents unless the user explicitly asks — this overrides the "Use agents for long or complicated work" guidance below.
+- Read only the files needed. Grep before reading.
+- Keep replies short: brief summaries of what was done, not a narration.
+- Run targeted tests only (one class, one file), not the full suite, unless asked.
+- Stop after two failed attempts at the same fix and report to the user, rather than trying a third variation.
+
 ### Confirm the plan before changing code
 Before any edit to a file, post a short plan and wait for the user to say go. This applies to small changes too. For a tiny change the plan can be two lines.
 

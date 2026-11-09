@@ -57,6 +57,12 @@
         }
       ],
       "expo-dev-client",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Habituate uses your approximate location so the skyline's sky matches your local weather. Location is never shown precisely, never shared, and stored only on this device."
+        }
+      ],
       "@bacons/apple-targets",
       [
         "react-native-android-widget",

@@ -24,6 +24,8 @@ import { GroupActivityProvider } from './hooks/useGroupActivity';
 import { NotificationsProvider } from './hooks/useNotifications';
 import { CelebrationProvider } from './hooks/useCelebration';
 import { ThemeProvider, useAppTheme } from './hooks/useAppTheme';
+import { TapToBuildProvider } from './hooks/useTapToBuild';
+import { WindowCountProvider } from './hooks/useWindowCount';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { isExpoGo, usePushToken, usePushPermissionPrompt } from './hooks/usePushToken';
 import PushPermissionModal from './components/PushPermissionModal';
@@ -41,6 +43,14 @@ import {
   TodayScreen,
 } from './screens';
 import ProfileStack from './navigation/ProfileStack';
+// Skyline rebuild dev screens only (SKYLINE.md section 11) — __DEV__-gated
+// below, never shown in a release build. SkylineEngineScreen is the Phase 1
+// fixture-only render check; SkylineScreen is Phase 2's real-data screen,
+// not yet the live tab (TowerSheet-only actions like Shield Day and streak
+// repair aren't reachable until Phase 3). Delete both dev entries and this
+// comment once Phase 3 closes that gap and the real tab takes over.
+import SkylineEngineScreen from './screens/dev/SkylineEngineScreen';
+import SkylineScreen from './screens/SkylineScreen';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -123,6 +133,24 @@ function Tabs() {
         }}
         listeners={{ tabPress: () => scrollToTop('Profile') }}
       />
+      {__DEV__ && (
+        <Tab.Screen
+          name="SkylineEngine"
+          component={SkylineEngineScreen}
+          options={{ title: 'Engine', tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="flask-outline" size={size} color={color} />
+          ) }}
+        />
+      )}
+      {__DEV__ && (
+        <Tab.Screen
+          name="SkylineReal"
+          component={SkylineScreen}
+          options={{ title: 'Skyline2', tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="office-building" size={size} color={color} />
+          ) }}
+        />
+      )}
     </Tab.Navigator>
   );
 }
@@ -322,19 +350,23 @@ function AppGate() {
               <GroupActivityProvider>
                 <NotificationsProvider>
                   <CelebrationProvider>
-                    <TourProvider>
-                      <WidgetDeepLinkBridge />
-                      <PushNotificationTapBridge />
-                      <PushPermissionModal
-                        visible={pushPrompt.visible}
-                        onAllow={pushPrompt.onAllow}
-                        onDismiss={pushPrompt.onDismiss}
-                      />
-                      <NavigationContainer ref={navigationRef} theme={navigationTheme}>
-                        <Tabs />
-                      </NavigationContainer>
-                      <TourAutoStart />
-                    </TourProvider>
+                    <TapToBuildProvider>
+                      <WindowCountProvider>
+                        <TourProvider>
+                          <WidgetDeepLinkBridge />
+                          <PushNotificationTapBridge />
+                          <PushPermissionModal
+                            visible={pushPrompt.visible}
+                            onAllow={pushPrompt.onAllow}
+                            onDismiss={pushPrompt.onDismiss}
+                          />
+                          <NavigationContainer ref={navigationRef} theme={navigationTheme}>
+                            <Tabs />
+                          </NavigationContainer>
+                          <TourAutoStart />
+                        </TourProvider>
+                      </WindowCountProvider>
+                    </TapToBuildProvider>
                   </CelebrationProvider>
                 </NotificationsProvider>
               </GroupActivityProvider>

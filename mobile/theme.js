@@ -183,3 +183,129 @@ export function resolveStreakState(status, states = streakStates) {
   const key = String(status || 'safe').replace(/-/g, '_');
   return states[key] || states.safe;
 }
+
+// ─── Skyline (SKYLINE.md) ──────────────────────────────────────────────────
+//
+// A separate token namespace, not a change to lightColors/darkColors above —
+// the skyline rebuild has its own dark-mode-first design (design/skyline/)
+// and its own tower-face contrast needs. First-draft light values here are
+// an open decision per SKYLINE.md section 14 #7: derived now, meant to be
+// reviewed against an actual render, not pre-approved hex.
+
+function hexShade(hex, amount) {
+  const n = parseInt(hex.replace('#', ''), 16);
+  const r = Math.max(0, Math.min(255, (n >> 16) + amount));
+  const g = Math.max(0, Math.min(255, ((n >> 8) & 0xff) + amount));
+  const b = Math.max(0, Math.min(255, (n & 0xff) + amount));
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+}
+
+/** Dark values are the design/skyline/ mockups' own UI base (SKYLINE.md
+ * section 8). Light is a first-draft derived counterpart. */
+export const skylineUI = {
+  dark: {
+    background: '#0F1216',
+    surfaceLow: '#161B21',
+    surfaceHigh: '#1E252D',
+    text: '#F2F4F6',
+    muted: '#A3ADB8',
+    amber: '#F2C14E',
+  },
+  light: {
+    background: '#EAF0F7',
+    surfaceLow: '#FFFFFF',
+    surfaceHigh: '#F3F6FA',
+    text: '#15202B',
+    muted: '#5B6B7A',
+    amber: '#B45309',
+  },
+};
+
+/**
+ * Tower rendering tokens that aren't per-category (open-floor void, shield
+ * block, crane, monument, best-run ledge, windows). Per
+ * concept_screens/tower_floor_states_windows_and_shield.png: a real
+ * check-in always draws windows (windowLit inside the current run,
+ * windowDark once the run has passed it) — that presence/absence is the
+ * primary non-color signal (section 13), color is secondary. Shield Days
+ * are a flat shieldFill block with no windows at all, never the category
+ * color. Open floors are a dark void (openFill + openStroke), not a
+ * see-through outline.
+ */
+export const skylineTowerTheme = {
+  dark: {
+    openFill: '#12161C',
+    openStroke: '#5B6472',
+    shieldFill: '#5B7083',
+    windowLit: '#FFE9B0',
+    windowDark: '#6B4A38',
+    tierLine: '#3A4552',
+    monumentOverlay: 'rgba(163,173,184,0.55)',
+    craneColor: '#A3ADB8',
+    flagColor: '#F2C14E',
+    ledgeColor: '#F2F4F6',
+  },
+  light: {
+    openFill: '#D7DEE6',
+    openStroke: '#9AA7B5',
+    shieldFill: '#8FA3B8',
+    windowLit: '#FFE9B0',
+    windowDark: '#8A6652',
+    tierLine: '#C7D1DB',
+    monumentOverlay: 'rgba(91,107,122,0.4)',
+    craneColor: '#5B6B7A',
+    flagColor: '#B45309',
+    ledgeColor: '#15202B',
+  },
+};
+
+/**
+ * Two-stop (top-to-bottom) gradients per sky kind (SKYLINE.md section 7/2
+ * mockup 5). Light variants are deliberately less saturated than a literal
+ * daytime photo would be, so a bright sky doesn't fight the app's light
+ * chrome around it — first-draft, same review note as skylineUI.light.
+ */
+export const skyGradients = {
+  dark: {
+    dawn: ['#241B33', '#8C5B75'],
+    day: ['#1B2838', '#3E6490'],
+    overcast: ['#232A33', '#3E4750'],
+    rain: ['#1A2027', '#323B46'],
+    snow: ['#232B36', '#4A5A6B'],
+    night: ['#0B0F17', '#1B2330'],
+  },
+  light: {
+    dawn: ['#FBD9C4', '#F3A6B4'],
+    day: ['#AFD8F5', '#EAF6FF'],
+    overcast: ['#C7D1DB', '#E4E9EF'],
+    rain: ['#A9B6C2', '#D3DBE2'],
+    snow: ['#D7E3EE', '#F3F7FB'],
+    night: ['#1B2330', '#3A4552'],
+  },
+};
+
+/**
+ * Per-category tower-face color, light and dark. Derived from the existing
+ * HABIT_CATEGORY_COLORS hue (so a Fitness tower matches its icon tile
+ * elsewhere in the app) rather than a hand-picked second list — dark keeps
+ * the category hex as-is (already close to the mockup's saturated sample
+ * towers), light is darkened for the ~3:1 contrast section 8 asks for
+ * against a light sky. Pass a HABIT_CATEGORY_COLORS map in; kept out of
+ * this module to avoid a constants/ -> theme.js import for one function.
+ */
+// Home and Digital Wellbeing's category hex are dark, muted tones that read
+// under the 3:1 section 8 target against a night sky as-is (measured 2.23
+// and 2.08) — brightened for the dark tower variant only; their icon tiles
+// elsewhere in the app are untouched.
+const DARK_TOWER_BRIGHTEN = { Home: 40, 'Digital Wellbeing': 40 };
+
+export function buildCategoryTowerColors(categoryColors) {
+  const dark = {};
+  const light = {};
+  Object.entries(categoryColors).forEach(([category, hex]) => {
+    const brighten = DARK_TOWER_BRIGHTEN[category];
+    dark[category] = brighten ? hexShade(hex, brighten) : hex;
+    light[category] = hexShade(hex, -40);
+  });
+  return { dark, light };
+}

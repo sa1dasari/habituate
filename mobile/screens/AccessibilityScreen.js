@@ -1,9 +1,11 @@
 import React, { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import StackHeader from '../components/StackHeader';
 import { useAppTheme } from '../hooks/useAppTheme';
+import { useTapToBuild } from '../hooks/useTapToBuild';
+import { WINDOW_COUNT_OPTIONS, useWindowCount } from '../hooks/useWindowCount';
 import { fonts, radii, shadow, spacing } from '../theme';
 
 // Relocated verbatim from ProfileScreen's old "Appearance" card — this is
@@ -18,6 +20,8 @@ const MODE_OPTIONS = [
 
 export default function AccessibilityScreen({ navigation }) {
   const { colors, typography, mode, setMode } = useAppTheme();
+  const { tapToBuild, setTapToBuild } = useTapToBuild();
+  const { windowCount, setWindowCount } = useWindowCount();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
 
   return (
@@ -50,6 +54,45 @@ export default function AccessibilityScreen({ navigation }) {
             })}
           </View>
         </View>
+        <View style={styles.card}>
+          <View style={styles.switchRow}>
+            <View style={styles.switchLabelWrap}>
+              <Text style={styles.cardTitle}>Tap to build</Text>
+              <Text style={styles.cardNote}>
+                Build a skyline floor with a quick tap instead of a one-second hold.
+              </Text>
+            </View>
+            <Switch
+              value={tapToBuild}
+              onValueChange={setTapToBuild}
+              accessibilityLabel="Tap to build"
+              accessibilityRole="switch"
+            />
+          </View>
+        </View>
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Windows per floor</Text>
+          <Text style={styles.cardNote}>
+            How many lit windows each built floor shows on your skyline.
+          </Text>
+          <View style={styles.themeRow}>
+            {WINDOW_COUNT_OPTIONS.map((count) => {
+              const active = windowCount === count;
+              return (
+                <Pressable
+                  key={count}
+                  style={[styles.themePill, active && styles.themePillActive]}
+                  onPress={() => setWindowCount(count)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${count} windows per floor`}
+                  accessibilityState={{ selected: active }}
+                >
+                  <Text style={[styles.themePillText, active && styles.themePillTextActive]}>{count}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -58,7 +101,7 @@ export default function AccessibilityScreen({ navigation }) {
 function makeStyles(colors, typography) {
   return StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: colors.background },
-    container: { padding: spacing.lg, paddingBottom: spacing.xxl },
+    container: { padding: spacing.lg, paddingBottom: spacing.xxl, gap: spacing.lg },
     card: {
       backgroundColor: colors.surface,
       borderRadius: radii.lg,
@@ -67,6 +110,8 @@ function makeStyles(colors, typography) {
     },
     cardTitle: { ...typography.cardTitle, marginBottom: spacing.xs },
     cardNote: { ...typography.meta, marginBottom: spacing.md },
+    switchRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+    switchLabelWrap: { flex: 1 },
     themeRow: { flexDirection: 'row', gap: spacing.sm },
     themePill: {
       flex: 1,

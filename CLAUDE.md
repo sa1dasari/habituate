@@ -9,7 +9,7 @@ Habituate is a habit tracker for iOS and Android. Every habit is a tower in the 
 The app is being rebuilt from the old list-and-ring UI to the new skyline UI. The backend, data model, hooks and product rules stay. Only the visual layer and some UI wording change. The target UI is specified in `SKYLINE.md` and drawn in `design/skyline/`.
 
 Three things set it apart from generic trackers:
-1. A skyline UI where progress is physical and visible: towers, floors, a lit current run, glass Shield Day floors.
+1. A skyline UI where progress is physical and visible: daily habits as towers with floors and a lit current run, weekly/monthly-target habits as lots (houses-on-pads or rings — see `SKYLINE.md` section 4a), solid-block Shield Days.
 2. An AI coach grounded in real check-in data, not a generic chatbot.
 3. Shared Habits (towers joined by a skybridge) with an explicit streak rule, plus Challenges (a landmark built together).
 
@@ -21,14 +21,14 @@ Core goals, in priority order:
 ### Product rules (non-negotiable)
 - No red X for missed days anywhere. No shaming copy. Use trend framing, not perfection framing.
 - A missed day is a soft outline on the tower, labeled "open". Never draw a hole, crack, dark gap, broken tower or "missed" label. Floors are never removed or taken down.
-- A streak freeze (Shield Day) has its own visual state: a glass floor with a diagonal hatch. Color is never the only signal.
+- A streak freeze (Shield Day) has its own visual state: a plain solid block with no windows (revised 2026-11-10 — was a glass floor with a diagonal hatch). Every real check-in draws windows (lit inside the current run, dark once past it); a Shield Day floor never has any, which is the signal — not the color alone.
 - Coach and any insight copy stays non-causal and tied to real data: "you complete Y on X% of the days you complete X", never "X causes Y". `CoachPrompts` enforces this in the system prompt.
 - The coach never changes data on its own. A proposal only takes effect when the user confirms (`CoachService.confirmProposal`).
 - Shared Habits and Challenges are separate in the data model and the UI. Do not merge them.
 - Group streak recomputation happens synchronously, in the same request as the check-in write. Do not build a separate async pipeline for it.
 - Another user's data is readable only through friendship-gated endpoints. Profiles default to PRIVATE.
 - Check-in is a hold of about one second on the tower. A "Tap to build" setting under Accessibility turns it into a tap. Both call the same check-in API. Screen readers get an accessibility action that checks in directly.
-- A tower is "topped out" only when the user chooses, and only after the tower is about 60 days old. Topping out never resets the run. See `SKYLINE.md` section 6.
+- A tower is "topped out" only when the user chooses, and only for daily-cadence habits — weekly/monthly-target habits never top out. Default eligibility is 30 days old, but it's a per-habit setting the user can change at creation or edit (revised 2026-11-10 — was a fixed ~60 days for every habit). Topping out never resets the run. See `SKYLINE.md` section 6.
 - Location is approximate only, asked once, after the user's first floor, with a plain-language explainer first. Without it the sky follows the clock and skips weather. No precise location, ever.
 - Design first, mobile first. `design/skyline/*.png` is the UI spec. Target 360 to 430dp widths and 44dp touch targets. Expo web is a dev preview only, never the acceptance target.
 
@@ -37,7 +37,8 @@ User-facing text uses the skyline vocabulary. Code, API paths, database tables a
 
 | Code name | UI wording |
 |---|---|
-| habit | tower |
+| habit (daily cadence) | tower |
+| habit (weekly/monthly target) | period lot (revised 2026-11-10 — see `SKYLINE.md` section 4a) |
 | create habit | Lay a foundation |
 | check-in | build a floor |
 | streak | run ("9 day run") |

@@ -9,8 +9,9 @@ Replace the list-and-ring UI with a skyline. Each habit is a tower. Each check-i
 Decisions already made by the owner:
 - The Skyline is the home screen. One tower per habit, one floor per check-in.
 - Check-in is a hold of about 1 second. A "Tap to build" setting under Accessibility is the fallback.
-- After about 2 months the user may top out a tower. The old tower is finished and no longer under construction, and a new tower starts for the same habit.
-- Retired (archived) habits stay as grey monuments.
+- A daily-cadence tower may top out once it's old enough — default 30 days, user-configurable per habit at creation or edit (revised 2026-11-10, `SKYLINE-ADDENDUM.md` decision 2; was a fixed ~60 days). The old tower is finished and no longer under construction, and a new tower starts for the same habit. Weekly/monthly-target habits never top out — see the next bullet.
+- Revised 2026-11-10 (`SKYLINE-ADDENDUM.md`): the Skyline tab has two views behind a segmented switch, not one — **Daily** (towers, as originally designed) and **Weekly and monthly** (lots: houses-on-pads for a weekly target, nested rings for a monthly target >1, a single pad for a monthly target of 1). It is not a fifth tab. A habit lives in whichever view matches its cadence. See section 4a.
+- Retired (archived) habits stay as grey monuments (daily view) or a grey "Retired" list (weekly/monthly view — they don't top out or monument the same way).
 - The sky follows the user's local time and weather.
 - Existing models are reused. Terminology and form layouts change.
 - The Habits tab is removed. Today is renamed Skyline.
@@ -57,7 +58,7 @@ One floor per calendar day in the user's timezone (use the existing `X-Timezone`
 | set, in run band | check-in done that day, inside the current streak | solid face in the category color, lit windows |
 | set, past run | check-in done that day, streak has since moved past it | solid face in the category color, dark/unlit windows |
 | open | no check-in, no penalty | a dark void block with a thin outline — not a see-through dashed outline |
-| glass | Shield Day used | a flat, distinct-colored block, no windows at all — never the category color |
+| glass | Shield Day used | a flat, distinct-colored block, no windows at all — never the category color. Storage resolved 2026-11-10 (`SKYLINE-ADDENDUM.md` decision 5): a new table/column records the specific shielded date (daily view) or period (weekly/monthly view) directly; `shield_awards` stays as award-history only. Not yet built. |
 | not due | habit not scheduled that day | no floor drawn, tower does not grow |
 | ledge | best run | a thin white ledge at the top of that run |
 
@@ -66,9 +67,30 @@ Windows (revised 2026-11-09, `concept_screens/tower_floor_states_windows_and_shi
 Rules:
 - Floors are never removed and the tower never shrinks.
 - Not-due days (weekly or monthly cadence) add no floor and no open outline. Use `habitPeriodHistory` in `utils/consistency.js` for cadence-aware logic. Do not recompute streaks in the scene builder. Take them from `utils/streaks` or the existing hook output.
-- Quantitative habits: a floor is "set" when the day's value meets the target. A partial day is "open". Do not draw partial floors in v1. Open question raised 2026-11-09, not yet resolved: today's partial COUNT progress isn't visible anywhere on the skyline, and the Phase 2 hold gesture logs +1 per hold with no batch-amount input — both deferred to Phase 3's tower sheet.
+- Quantitative (COUNT) habits, revised 2026-11-10 (`SKYLINE-ADDENDUM.md` section 3, replacing the "no partial floors in v1" rule): the day's floor fills to the logged fraction and keeps that fill level forever, even once the day is over — it does not snap to fully "open" or fully "set". The run only moves forward once the day's target is actually met. The habit row shows the real numbers ("5 of 8 glasses today"). Not yet implemented — `utils/skylineScene.js`'s `faceShapes` currently only draws binary open/set/glass; a partial-fill face variant is new work for the phase that picks this up.
 - Shared habits: the skybridge between member towers is solid when the group streak is safe, flickers amber when at risk, and turns glass when frozen. Never red.
 - Challenges: one landmark tower. Each floor is colored by the contributor.
+
+## 4a. Weekly and monthly view: lots
+
+Added 2026-11-10 from `SKYLINE-ADDENDUM.md` (full detail there until it's merged in and the file deleted — see the note at the top of that file). A habit with a weekly or monthly target lives here instead of the Daily towers view; a segmented switch at the top of the Skyline tab picks the view (not a fifth tab), remembers the last choice, and shows a small count on the inactive view's label when it has something open today.
+
+Each habit is a row: name + cadence ("Gym, 3 a week"), then a horizontal strip of lots scrolling back through history, newest on the right. A lot is a rounded square, 76dp on the main view.
+
+- **Weekly target**: one lot per week, holding small pads (up to 7) — each check-in puts a house on the next pad. Unbuilt pads in the current week are dashed previews. Houses never disappear once built; a week that came up short just keeps fewer houses, dark windows, no "missed" label. Windows are lit only while that week is part of the current run of consecutive met weeks. Extra check-ins past target add houses (a number past 7). A shielded week is one plain solid block. Caption is plain text: "3/3", "2/3", "1/3 now".
+- **Monthly target above 1**: one lot per month, nested rounded-square rings — one ring per week-block (day blocks 1-7/8-14/15-21/22-28/29-end, resolved 2026-11-10 decision 1; gives 4 rings in February, 5 otherwise), week 1 in the middle. Ring shade follows that week's check-in count (0/1/2/3+ as four brightness steps, not hue alone). Target met for the month gives the lot an amber border; under target gets nothing extra, no red, no label. A shielded month is one plain solid block. No windows on rings — the month run is shown as row text ("3 month run").
+- **Monthly target of 1**: a single pad per month, no rings — same rules as a weekly pad.
+- **Count habits with a period total** ("100 pages a week"): same lot shapes, each logging is one house/ring step, shade follows share of pace needed, caption shows the real total ("62 of 100 pages").
+
+Checking in: hold the current lot (≥44dp target) or the same hold-pill already used on daily rows — same ring fill, haptics, Tap to build setting, screen-reader action. "Add for another day" (a link on the row) backdates into the last 7 days, even across a period boundary (resolved 2026-11-10 decision 4) — **no new backend work needed**, confirmed 2026-11-10: `HabitService.java` already accepts and validates a client-supplied `occurredAt` for any BOOLEAN/COUNT habit regardless of cadence, and `components/CalendarModal.js` already has a working day-detail panel (`onToggleHabitDay`) that backdates/undoes any past day up to today. One check-in per calendar day for BOOLEAN habits (any cadence) is already enforced server-side (`DuplicateCheckInException`, keyed on `trackingMode`, not `cadenceType`) — confirmed 2026-11-10, no change needed (decision 3). COUNT habits already allow unlimited check-ins per day, which a period-total habit needs.
+
+Undo: tapping a lot opens a sheet listing that period's check-ins with dates, each removable. The backend `DELETE /api/check-ins/{id}` endpoint this needs already exists and is already used elsewhere (`removeLastCheckIn`) — confirmed 2026-11-10 — but no client UI today lets a user browse a period's check-ins and delete an arbitrary one (today's only undo is "remove the single most recent check-in for today"). The lot sheet's list-and-delete view is new client UI only, no backend change.
+
+Confirmed gap, logged 2026-11-10 (not solved, flagged for whichever phase picks up shared habits/challenges with non-daily cadence): `GroupStreakEngine.java` is purely day-by-day (`qualifiesToday`, `previousLastQualifyingDate`, one increment per calendar day) — it has no concept of a week or month. A shared habit or challenge with a weekly/monthly target cannot have its group streak computed by the existing engine as-is; that's backend work, not a client view, and isn't scoped into any phase yet.
+
+New pure builder, not yet written: `utils/lots.js`, `buildLots(habit, checkIns, options)` — same purity rules as `buildScene` (no React, no I/O, no clock reads, caller passes `today`; reuses `habitPeriodHistory` in `utils/consistency.js` for period bucketing rather than a second streak calculator). New components, not yet written: `components/LotsView.js`, `components/LotTile.js`, budget ~300 shapes on screen. `SkylineScreen` gains the view switch; the habit row and hold-handling stay shared with the daily view.
+
+Weekly/monthly habits retire to a grey "Retired" list under the view, not a monument — they never top out.
 
 ## 5. First-run flow
 
@@ -86,12 +108,13 @@ Goal: the user builds their first floor within 60 seconds of choosing a username
 
 States: active (crane on top), topped out (gold cap and flag), monument (grey, retired), empty lot (plus sign).
 
-Top out:
-- Offered when a tower is at least about 60 days old. The offer is a button in the tower sheet. It is never automatic and never nagging.
+Top out (daily-cadence towers only, revised 2026-11-10 — weekly/monthly habits never top out, see section 4a):
+- Offered when a tower is old enough — default 30 days, confirmed 2026-11-10 (`SKYLINE-ADDENDUM.md` decision 2). This is now a per-habit setting, not a fixed global rule: the habit form needs a top-out-threshold field (editable at creation or edit time), which is new scope not in the original section 10 form mapping. The offer itself is a button in the tower sheet. It is never automatic and never nagging.
 - Topping out does not reset the run, shields, group membership or widgets. The habit keeps one row.
-- Data model, proposed and NOT yet confirmed by the owner: keep one `Habit` row and add a `habit_towers` table with `id`, `habit_id`, `user_id`, `started_at`, `topped_out_at` (nullable), `best_run_in_segment`. The active segment has no `topped_out_at`. Check-ins are not duplicated. A segment owns the check-ins whose `occurredAt` falls between its start and end.
-- Ask the owner to confirm this model before Phase 3 starts. Add the entity, repository, service methods and a `POST /api/habits/{id}/top-out` endpoint with ownership checks and tests. `ddl-auto=update` creates the table. Backfill one open segment per existing habit lazily on first read, not in a migration.
-- Visual, captured 2026-11-09 (`concept_screens/topped_out_tower_fades_behind_new_tower.png`), for Phase 3's renderer: a topped-out segment and its active successor share one horizontal slot, not two — the old tower renders behind and desaturated (muted brown, not the vivid category color, with all-dark windows per section 4's window rule below), offset back-left; the new tower renders in front, full category color, offset forward-right, with its own crane. The two overlap at the base. This is a compositing change to `SkylineTower`/`buildScene` (two tower renders per habit instead of one when a topped-out segment exists) — not attempted in Phase 2, since Phase 2's adapter has no segment data yet (every habit renders as a single `active` tower).
+- Data model, CONFIRMED by the owner 2026-11-10 (`SKYLINE-ADDENDUM.md` decision 6): keep one `Habit` row and add a `habit_towers` table with `id`, `habit_id`, `user_id`, `started_at`, `topped_out_at` (nullable), `best_run_in_segment`. The active segment has no `topped_out_at`. Check-ins are not duplicated. A segment owns the check-ins whose `occurredAt` falls between its start and end. The per-habit top-out threshold lives on the `Habit` row itself, not per-segment.
+- Add the entity, repository, service methods and a `POST /api/habits/{id}/top-out` endpoint with ownership checks and tests. `ddl-auto=update` creates the table. Backfill one open segment per existing habit lazily on first read, not in a migration.
+- Fuller result spec, confirmed 2026-11-10 (`SKYLINE-ADDENDUM.md` section 3): topping out gives the old tower a gold cap and flag, drops it to about 40% opacity, and keeps it visible — show at most the latest two faded towers behind a habit's current one; older ones fold into a count on the tower sheet ("3 earlier towers"). See the compositing note below.
+- Visual, captured 2026-11-09 (`concept_screens/topped_out_tower_fades_behind_new_tower.png`), refined 2026-11-10 with the ~40%-opacity/two-tower-max detail above: a topped-out segment and its active successor share one horizontal slot, not two — the old tower renders behind, desaturated (muted brown, not the vivid category color) and at ~40% opacity, with all-dark windows per section 4's window rule, offset back-left; the new tower renders in front at full opacity and category color, offset forward-right, with its own crane. The two overlap at the base. This is a compositing change to `SkylineTower`/`buildScene` (up to three tower renders per habit slot — two faded plus the active one — instead of one) — not attempted in Phase 2, since Phase 2's adapter has no segment data yet (every habit renders as a single `active` tower).
 
 Retire:
 - Retire is the existing archive. A retired habit shows as a grey monument at its final height. It no longer takes check-ins.
@@ -142,7 +165,7 @@ Early phases need no backend change. The client already loads `listCheckIns` per
 
 Reuse every existing field. Change layout and labels only.
 
-Lay a foundation (habit): name, category (14), check-in mode (Check-off or Quantitative), cadence with per-day, per-week or per-month targets, ideal time, optional "why", reminder, pinned goal. Show a live tower preview that updates with the category color.
+Lay a foundation (habit): name, category (14), check-in mode (Check-off or Quantitative), cadence with per-day, per-week or per-month targets, ideal time, optional "why", reminder, pinned goal. Revised 2026-11-10 (`SKYLINE-ADDENDUM.md` section 6, 7): cadence is asked early, since it decides which preview shape to show — a tower for daily, a lot for weekly/monthly, both in the category color. A daily-cadence habit also gets a top-out-threshold field (days, default 30, section 6) — new field, not in the original mapping. Changing cadence later (edit form) moves the habit between the Daily and Weekly/monthly views; past check-ins are kept and regrouped into the new view's periods, never deleted.
 
 Build together (shared habit): name, goal type (Unified or Split), streak type (Cooperative or Independent), streak rule (Any or All members), skip days per month (0 to 3), detail visibility (Full or Status only), invitees. Explain streak rule in one plain sentence under the control.
 
@@ -153,6 +176,8 @@ Keep all existing validation and error messages. Errors show `err.message` throu
 ## 11. Phases
 
 One phase at a time. Do not start a phase until the gate of the previous one is met and the owner says go. Each phase ends with the `CLAUDE.md` section 5 checks, the advisory review loop if it was a major build, and ticked items below.
+
+Revised 2026-11-10 (`SKYLINE-ADDENDUM.md` section 8) — not yet applied to the checklists below, recorded here as the plan: Phase 0 should also have drawn mockups for the Weekly/monthly view, the lot sheet, "Add for another day," and the faded-top-out result (not done — Phase 0 already closed before the addendum landed; catch up before Phase 2b starts). A new **Phase 2b** (Weekly and monthly view) is inserted after Phase 2 — see below. Phase 3's top-out scope narrows to daily towers only, with the faded-old-tower compositing. Phase 4's forms ask cadence first. Phase 6 waits on the `GroupStreakEngine` gap (section 4a) before promising shared/challenge support for non-daily cadence.
 
 ### Phase 0: spike and lock
 - [x] Run `npx expo-doctor` and write the result here. 2026-11-06: 19/21 checks passed. 2 failures, neither a blocker: (1) `react-native-shared-group-preferences` flagged untested-on-New-Arch / unmaintained — pre-existing, unrelated to the skyline rebuild; (2) 9 packages one patch version behind the SDK 57 baseline (expo, expo-constants, expo-dev-client, expo-image-manipulator, expo-image-picker, expo-notifications, expo-sharing, expo-splash-screen, expo-updates) — cosmetic drift, not attempted to fix here since it's outside this task's scope. No worklets/gesture-handler issues reported.
@@ -188,17 +213,28 @@ One phase at a time. Do not start a phase until the gate of the previous one is 
 - [ ] Empty state with lots. Widgets still sync (`utils/widgetSync.js`).
 - [ ] Tab renamed Skyline in `App.js` once parity with `TodayScreen` is ticked.
 - Gate: a user can build a floor with a hold, undo-free, and the streak updates on the widgets.
+- Note added 2026-11-10: this phase's current code (`screens/SkylineScreen.js`) renders every habit as a tower via `utils/skylineAdapter.js`, with no view switch — weekly/monthly habits are not yet filtered into a separate view. That's Phase 2b's job, not a bug in what's already built.
 
-### Phase 3: tower sheet, inside view, top out
-- [ ] Owner confirms the `habit_towers` model.
-- [ ] Backend segment entity, top-out endpoint, tests.
+### Phase 2b: Weekly and monthly view (new 2026-11-10, `SKYLINE-ADDENDUM.md`)
+- [ ] View switch (Daily / Weekly and monthly) on the Skyline screen — not a fifth tab, remembers last choice, shows a count badge when the other view has something open today.
+- [ ] `utils/lots.js` (`buildLots`) with fixtures and tests — February, a 5-block month, a midweek start, a shielded period, a cadence change, a count habit.
+- [ ] `components/LotsView.js`, `components/LotTile.js` — houses-on-pads (weekly), nested rings (monthly >1), single pad (monthly = 1). Budget ~300 shapes.
+- [ ] Hold / Tap to build on the current lot, same hold-pill pattern as daily rows.
+- [ ] "Add for another day" (backdate, last 7 days across period boundaries) and the lot sheet (list a period's check-ins, delete one) — both reuse existing backend endpoints, confirmed 2026-11-10, no backend change needed.
+- [ ] Accessibility labels per lot ("Gym, week of Nov 3, 3 of 3, target met").
+- [ ] Light/dark ring-shade ramp, checked for contrast and grayscale distinguishability.
+- Gate: a user can hold a lot to log a weekly/monthly habit, backdate into the last 7 days, and delete a wrong entry from a lot's sheet — all without leaving the Skyline tab.
+
+### Phase 3: tower sheet, inside view, top out (daily towers only)
+- [x] Owner confirms the `habit_towers` model. 2026-11-10, as specified in section 6.
+- [ ] Backend segment entity, top-out endpoint, tests. Habit-level top-out-threshold field (default 30 days, user-editable) added to the form per section 10.
 - [ ] Tower sheet with stats, edit, Shield Day, Retire, Top out, contextual Ask Habituate.
 - [ ] Inside view (cross section) with set, open and glass floors.
-- [ ] Top out confirm and animation. Monument state for retired habits.
-- Gate: top out keeps the run, the old tower shows a gold cap, a new tower starts, group streaks and widgets unchanged.
+- [ ] Top out confirm and animation. Old tower fades to ~40% opacity behind the new one (gold cap, flag); at most the latest two faded towers shown, older fold into a tower-sheet count. Monument state for retired habits (daily view only — weekly/monthly retire to a grey list, section 4a).
+- Gate: top out keeps the run, the old tower fades behind at ~40% opacity with a gold cap, a new tower starts in front, group streaks and widgets unchanged.
 
 ### Phase 4: forms and Habits tab removal
-- [ ] Lay a foundation, Build together, Raise a landmark forms with live previews.
+- [ ] Lay a foundation, Build together, Raise a landmark forms with live previews. Cadence asked early (section 10); daily habits also get the top-out-threshold field.
 - [ ] Every Habits screen action reachable from the Skyline (parity checklist all ticked for `HabitsScreen`).
 - [ ] Habits tab removed from `App.js`. Four tabs live.
 - Gate: no capability lost versus the old Habits tab.
@@ -213,6 +249,7 @@ One phase at a time. Do not start a phase until the gate of the previous one is 
 - [ ] Draw friend skyline first.
 - [ ] Friends, friend skylines (friendship-gated endpoint), shared habits with skybridge, challenges as landmarks, activity feed, cheers.
 - [ ] Notification center entry point per section 14.
+- [ ] Shared habits/challenges with a weekly or monthly cadence (using the lots from section 4a) are blocked on a confirmed backend gap: `GroupStreakEngine.java` is purely day-by-day and cannot express a weekly/monthly period. Don't promise this without doing that backend work first (new scope, not estimated).
 - Gate: another user's data is reachable only through friendship-gated endpoints, with a test for the denied case.
 
 ### Phase 7: Profile, first-run, tour, notifications
@@ -314,21 +351,33 @@ Checklist: (written Phase 0, from grepping each file's interactive elements — 
 - Light and dark both pass contrast checks.
 - Cold start and Skyline load must not be slower than the Phase 0 baseline by more than about 15 percent.
 
+Added 2026-11-10 (`SKYLINE-ADDENDUM.md` section 9), for Phase 2b:
+- A user with 2 of 3 gym days this week sees 2 houses, dark windows, "2/3" caption, no warning text.
+- A user can log a run they forgot on Sunday from Monday morning without leaving the Skyline tab.
+- A user can remove a wrong check-in from a lot's sheet.
+- Hold works one-handed on the current lot and on the row's hold-pill. Tap to build works on both.
+- Grayscale screenshot of the lots view still shows which rings are dark and which weeks are open.
+- Switching between the Daily and Weekly/monthly views keeps scroll position and does not reload data.
+
 ## 14. Open decisions
 
 Ask the owner before the phase that depends on each. Proposed defaults are shown but are not decisions.
 
-1. Shield Day storage (before Phase 3). Today the toggle is manual and `shield_awards` records awards only. The glass floor needs a per-date record. Proposal: store the shielded dates on the habit (or a small `shield_days` table) and keep `shield_awards` for award history.
+1. ~~Shield Day storage~~ RESOLVED 2026-11-10 (`SKYLINE-ADDENDUM.md` decision 5): store the shielded date (daily) or period (weekly/monthly) directly in a new table/column; keep `shield_awards` as award-history only. Not yet built.
 2. ~~Weather provider~~ RESOLVED 2026-11-09: Option B — a keyless public API (Open-Meteo), coarse coordinates only, called from the device behind a thin `utils/weather.js` wrapper so moving to Option A (backend proxy) later is a one-file change. Open-Meteo also returns sunrise/sunset, used to give `skyKind` real dawn/day/night boundaries instead of just a weather code.
 3. Goals feature (before Phase 5). The new design has no home for it. Proposal: a Goals list at the bottom of Insights, using the space left by the removed coach card.
 4. Notification center entry (before Phase 6). Proposal: a bell in the Community header.
 5. Contextual Ask Habituate (before Phase 3). The Insights entry is removed and the Skyline chat icon stays. Proposal: also keep "Ask about this tower" buttons on the tower sheet and inside view, opening the same `AskHabituateModal`.
 6. Habituate Wrapped (before Phase 5). Keep, restyle or drop.
 7. Light mode palette (Phase 1). Needs owner review of the first render.
-8. Top-out data model (before Phase 3). Segment table in section 6.
+8. ~~Top-out data model~~ RESOLVED 2026-11-10 (`SKYLINE-ADDENDUM.md` decision 6). `habit_towers` segment table confirmed as specified in section 6; top-out threshold is now a per-habit field (default 30 days), not a fixed global rule.
 9. Monument restore (Phase 3). Check whether the current app allows unarchive. If it does, keep it.
 10. ~~Skia and `expo-location` approvals~~ RESOLVED: Skia not needed (Phase 0 spike — react-native-svg hit the target under the merged-path budget). `expo-location` approved 2026-11-09 for Phase 2's weather pass — requires one EAS dev-client rebuild before it can be used on-device.
-11. Mockups not yet drawn: friend skyline, first-run lots, notification explainer, light mode.
+11. Mockups not yet drawn: friend skyline, first-run lots, notification explainer, light mode, and (added 2026-11-10) the Weekly/monthly lots view, the lot sheet, "Add for another day," and the faded-top-out result.
+12. ~~Month-ring split~~ RESOLVED 2026-11-10 (`SKYLINE-ADDENDUM.md` decision 1): day blocks 1-7/8-14/15-21/22-28/29-end, not calendar weeks.
+13. ~~One check-in/day for weekly/monthly habits~~ RESOLVED 2026-11-10 (decision 3): already correct as-is — BOOLEAN habits are capped at 1/day server-side regardless of cadence, COUNT habits are uncapped. No change needed.
+14. ~~"Add for another day" window~~ RESOLVED 2026-11-10 (decision 4): last 7 days, including across a period boundary.
+15. Confirmed gap, not resolved, logged 2026-11-10: `GroupStreakEngine.java` cannot express a weekly/monthly period (see Phase 6 and section 4a). Needs real backend work before shared habits/challenges with non-daily cadence can be promised.
 
 ## 15. Progress log
 
@@ -336,3 +385,4 @@ Keep this to one line per finished phase: date, what shipped, what was not verif
 
 - 2026-11-06/07: Phase 0 (spike and lock) — expo-doctor clean, renderer chosen (react-native-svg), 15 mockups in `design/skyline/`, parity checklist, baseline (1695ms JS-to-Today-loaded). Not verified: iPhone frame time (no device available).
 - 2026-11-08/09: Phase 1 (engine and palettes) — `buildScene`/`skyKind` with tests, light/dark skyline palettes, per-category tower colors, the three render components, dev screen confirmed in both modes/all sky kinds on Android. Not verified: iPhone, real on-screen frame time with the actual (non-fixture) shape count, light-mode palette not yet owner-signed-off (first draft only). Advisory subagent review failed (API limit) — self-reviewed instead, caught and fixed two gaps (missing run-band visual, monument color-only signal).
+- 2026-11-10: `SKYLINE-ADDENDUM.md` landed (weekly/monthly lots view, revised Shield Day/window/top-out visuals, partial-fill COUNT floors) and its 6 open decisions were answered by the owner, then folded into this file (sections 1, 4, 4a (new), 6, 10, 11 (Phase 2b added), 13, 14) and the addendum deleted. Verified before folding: backdating already works end-to-end (`HabitService.java` + `CalendarModal.js`), one-check-in-per-day is already correctly enforced (keyed on tracking mode, not cadence), check-in deletion has a backend endpoint but no "browse and delete one" client UI yet, and `GroupStreakEngine.java` cannot express weekly/monthly cadence (logged as a real gap, not solved). None of the addendum's new UI (view switch, lots, partial-fill floors, faded top-out compositing, top-out-threshold field) is built yet — Phase 2's existing code still renders every habit as a daily tower with no view switch.

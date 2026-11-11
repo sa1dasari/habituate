@@ -206,14 +206,14 @@ Revised 2026-11-10 (`SKYLINE-ADDENDUM.md` section 8) — not yet applied to the 
 - Gate: a dev-only screen (`screens/dev/SkylineEngineScreen.js`, replacing the Phase 0 spike tab) renders the fixture skyline in both light and dark, across all 6 sky kinds, checked on-device (Android) 2026-11-08/09 — all floor/lifecycle states visually confirmed distinct in both modes. Not verified: iPhone (none available), actual on-screen frame time with this real shape count (Phase 0's spike numbers are the standing evidence; Phase 2 is the next point real interaction/animation gets measured). Two advisory-review subagents (mobile lens, product lens) were spawned per the working agreement but both failed on a weekly API limit before producing output — the review was done directly instead (self-review caught the two issues fixed above: the run-band state was silently unimplemented, and monument relied on a color-only signal).
 
 ### Phase 2: Skyline home, hold, sky
-- [ ] New Skyline screen in a new file, wired to the existing hooks.
-- [ ] Hold-to-build and Tap-to-build setting (Accessibility settings).
-- [ ] Screen-reader action to build a floor, tower labels, full list in the bottom sheet.
-- [ ] Sky from the clock. Weather and `expo-location` after the owner approves the dependency and the provider decision.
-- [ ] Empty state with lots. Widgets still sync (`utils/widgetSync.js`).
-- [ ] Tab renamed Skyline in `App.js` once parity with `TodayScreen` is ticked.
-- Gate: a user can build a floor with a hold, undo-free, and the streak updates on the widgets.
-- Note added 2026-11-10: this phase's current code (`screens/SkylineScreen.js`) renders every habit as a tower via `utils/skylineAdapter.js`, with no view switch — weekly/monthly habits are not yet filtered into a separate view. That's Phase 2b's job, not a bug in what's already built.
+- [x] New Skyline screen in a new file, wired to the existing hooks. `screens/SkylineScreen.js`, uses `useHabits` directly, 2026-11-10.
+- [x] Hold-to-build and Tap-to-build setting (Accessibility settings). Verified on-device 2026-11-10: hold builds a floor with the "pours in" animation (replaced an earlier ring design per live feedback), BOOLEAN habits correctly blocked from a second hold once checked in today (undo-free, the gate's main correctness requirement), COUNT habits allow repeat holds. `hooks/useTapToBuild.js` setting wired into `AccessibilityScreen.js`.
+- [~] Screen-reader action to build a floor and tower labels are wired (`SkylineHoldLayer.js`'s `accessibilityActions`/`onAccessibilityAction`, `buildScene`'s per-tower labels) but not device-tested with TalkBack/VoiceOver, and the bottom-sheet full-list alternative isn't built yet.
+- [x] Sky from the clock, plus weather and `expo-location` — approved and built 2026-11-10. Verified end-to-end on-device: real coordinates (rounded to ~1km), real sunrise/sunset, real weather code cached and correctly feeding `skyKind`. Required one EAS dev-client rebuild (done). The one-time plain-language explainer (`LocationPermissionModal.js`) fires after a successful first build, not on mount, confirmed on-device.
+- [ ] Empty state with lots. Not built — no empty-lot UI yet in `SkylineScreen.js`.
+- [ ] Tab renamed Skyline in `App.js`. Deliberately not done — Shield Day toggle and streak repair live in the Phase 3 tower sheet, which doesn't exist yet; renaming now would lose capability versus `TodayScreen`. Still reachable only via the `__DEV__` "Skyline2" tab.
+- Gate: a user can build a floor with a hold, undo-free, and the streak updates on the widgets. **Met and verified on-device 2026-11-10** for the hold/undo-free part; widget-update propagation itself wasn't separately re-checked this session (relies on `useHabits`' existing refresh → `syncHabitSnapshot` path, unchanged by this phase's work).
+- Note added 2026-11-10: this phase's current code renders every habit as a tower via `utils/skylineAdapter.js`, with no view switch — weekly/monthly habits are not yet filtered into a separate view. That's Phase 2b's job, not a bug in what's already built.
 
 ### Phase 2b: Weekly and monthly view (new 2026-11-10, `SKYLINE-ADDENDUM.md`)
 - [ ] View switch (Daily / Weekly and monthly) on the Skyline screen — not a fifth tab, remembers last choice, shows a count badge when the other view has something open today.

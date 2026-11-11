@@ -26,9 +26,16 @@ export const DX = 10;
 export const DY = -6;
 export const FLOOR_H = 10;
 
-// A tower draws at most ~60 floors; older floors collapse into one tier
-// block (section 8). 59 individual + 1 tier keeps the cap at 60 shapes-tall.
-const MAX_INDIVIDUAL_FLOORS = 59;
+// A tower draws at most ~60 floors total as a shape-count/performance
+// ceiling (section 8/4) — but 59 individual floors at FLOOR_H=10 each is
+// 590px tall, taller than BASE_Y itself (500), which draws the tower's
+// upper floors above y=0, off the top of the scene entirely. A real habit
+// old enough to approach the old cap surfaced this (towers visibly running
+// past the available height, crowding the header/sky above them) — fixtures
+// never lived long enough to hit it. 35 individual + 1 tier (older floors
+// folded into it, same as before) + the crane/flag height above the top
+// floor comfortably fits within BASE_Y with headroom for the sky above.
+const MAX_INDIVIDUAL_FLOORS = 35;
 const TIER_HEIGHT = FLOOR_H * 3;
 const CRANE_HEIGHT = 38;
 const DEFAULT_WINDOW_COUNT = 3;
@@ -173,12 +180,15 @@ function faceShapes({
   }
 
   if (state === 'open') {
-    // A void, not a see-through outline: solid dark fill with a thin
-    // border, reading as "not built yet" rather than a ghost of a floor.
+    // A transparent cutout, not a void: fill 'none' lets the sky behind the
+    // tower show straight through, with a visible outline tracing the same
+    // floor shape every other state uses. The floor's slot and outline stay
+    // fully present — only its fill is missing — so it reads as "not built
+    // yet, see-through" rather than a hole, crack or broken structure.
     shapes.push(
-      { id: `${id}-front`, kind: 'path', d: pointsToPath(faces.front), fill: theme.openFill, stroke: theme.openStroke, strokeWidth: 1, opacity },
-      { id: `${id}-right`, kind: 'path', d: pointsToPath(faces.right), fill: shade(theme.openFill, -10), stroke: theme.openStroke, strokeWidth: 1, opacity },
-      { id: `${id}-top`, kind: 'path', d: pointsToPath(faces.top), fill: shade(theme.openFill, 10), stroke: theme.openStroke, strokeWidth: 1, opacity },
+      { id: `${id}-front`, kind: 'path', d: pointsToPath(faces.front), fill: 'none', stroke: theme.openStroke, strokeWidth: 1, opacity },
+      { id: `${id}-right`, kind: 'path', d: pointsToPath(faces.right), fill: 'none', stroke: theme.openStroke, strokeWidth: 1, opacity },
+      { id: `${id}-top`, kind: 'path', d: pointsToPath(faces.top), fill: 'none', stroke: theme.openStroke, strokeWidth: 1, opacity },
     );
     return shapes;
   }

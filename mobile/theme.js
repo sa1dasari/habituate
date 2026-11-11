@@ -229,12 +229,14 @@ export const skylineUI = {
  * windowDark once the run has passed it) — that presence/absence is the
  * primary non-color signal (section 13), color is secondary. Shield Days
  * are a flat shieldFill block with no windows at all, never the category
- * color. Open floors are a dark void (openFill + openStroke), not a
- * see-through outline.
+ * color. An open floor is a transparent cutout — its outline (openStroke) is
+ * drawn but its fill is 'none', so the sky shows through, not a solid void.
+ * That keeps CLAUDE.md's "no hole, no dark gap" rule: the floor's full
+ * outline and height are always present, just see-through, so it reads as
+ * "not built yet" rather than damage or a missing floor.
  */
 export const skylineTowerTheme = {
   dark: {
-    openFill: '#12161C',
     openStroke: '#5B6472',
     shieldFill: '#5B7083',
     windowLit: '#FFE9B0',
@@ -246,7 +248,6 @@ export const skylineTowerTheme = {
     ledgeColor: '#F2F4F6',
   },
   light: {
-    openFill: '#D7DEE6',
     openStroke: '#9AA7B5',
     shieldFill: '#8FA3B8',
     windowLit: '#FFE9B0',

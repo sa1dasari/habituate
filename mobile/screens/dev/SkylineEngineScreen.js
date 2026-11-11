@@ -1,12 +1,14 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { HABIT_CATEGORY_COLORS } from '../../constants/habitCategories';
 import { buildCategoryTowerColors, skyGradients, skylineTowerTheme, skylineUI } from '../../theme';
 import { SKYLINE_FIXTURE_HABITS, FIXTURE_TODAY } from '../../utils/__fixtures__/skylineFixtures';
 import { SKY_KINDS } from '../../utils/sky';
 import { buildScene } from '../../utils/skylineScene';
 import { useWindowCount } from '../../hooks/useWindowCount';
+import { VIEW_H } from '../../utils/skylineScene';
 import SkylineView from '../../components/SkylineView';
+import SkyBackdrop from '../../components/SkyBackdrop';
 
 /**
  * Phase 1 gate screen (SKYLINE.md section 11): renders a sample skyline from
@@ -22,6 +24,8 @@ export default function SkylineEngineScreen() {
   const [mode, setMode] = useState('dark');
   const [sky, setSky] = useState('day');
   const { windowCount } = useWindowCount();
+  const { width: windowWidth } = useWindowDimensions();
+  const containerWidth = windowWidth - 32; // root's paddingHorizontal: 16 on each side
 
   const ui = skylineUI[mode];
   const towerTheme = skylineTowerTheme[mode];
@@ -69,7 +73,15 @@ export default function SkylineEngineScreen() {
         ))}
       </ScrollView>
 
-      <SkylineView habits={habits} scene={scene} skyStops={skyStops} containerWidth={390} theme={ui} />
+      {/* A confined preview box on purpose, unlike the real SkylineScreen —
+          this dev tool compares all 6 sky kinds side by side next to the
+          mode/sky chips, so it isn't a full page. */}
+      <View style={[styles.previewBox, { width: containerWidth, height: VIEW_H }]}>
+        <View style={StyleSheet.absoluteFill}>
+          <SkyBackdrop stops={skyStops} kind={sky} now={FIXTURE_TODAY} width={containerWidth} height={VIEW_H} />
+        </View>
+        <SkylineView habits={habits} scene={scene} containerWidth={containerWidth} theme={ui} />
+      </View>
     </View>
   );
 }
@@ -81,4 +93,5 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   chip: { paddingVertical: 8, paddingHorizontal: 10, borderRadius: 8 },
   chipText: { fontSize: 12 },
+  previewBox: { overflow: 'hidden', borderRadius: 12 },
 });

@@ -4,20 +4,22 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg from 'react-native-svg';
 import { BASE_Y, STEP, TOWER_W, VIEW_H, X0 } from '../utils/skylineScene';
 import SkylineTower from './SkylineTower';
-import SkyBackdrop from './SkyBackdrop';
 import { fonts } from '../theme';
 
 const LABEL_Y = BASE_Y + 12;
 const EMPTY_LOT_SIZE = 40;
 
 /**
- * Composes the sky backdrop (fixed, does not scroll) with the horizontally
- * scrolling row of towers. Takes an already-built `scene` (from
- * utils/skylineScene.js's buildScene) rather than building one itself — the
- * caller builds it once and can reuse the same hitTargets/labels for an
- * interactive overlay (see SkylineHoldLayer.js) without paying for a second
- * buildScene pass. `habits` is only used here for the tower paint order.
- * `onTowerPress` is optional and unused until Phase 3 wires the tower sheet.
+ * The horizontally scrolling row of towers. Renders no sky of its own —
+ * the sky is a full-page backdrop painted by the screen itself
+ * (SkyBackdrop.js, behind everything, not confined to this component's box)
+ * so the weather look isn't boxed in behind the towers. Takes an
+ * already-built `scene` (from utils/skylineScene.js's buildScene) rather
+ * than building one itself — the caller builds it once and can reuse the
+ * same hitTargets/labels for an interactive overlay (see
+ * SkylineHoldLayer.js) without paying for a second buildScene pass.
+ * `habits` is only used here for the tower paint order. `onTowerPress` is
+ * optional and unused until Phase 3 wires the tower sheet.
  * `interactiveOverlay` (e.g. SkylineHoldLayer) renders as an extra child
  * INSIDE the same scrolling Svg content — not as an external sibling — so
  * its touch targets scroll in lockstep with the towers instead of staying
@@ -30,7 +32,6 @@ const EMPTY_LOT_SIZE = 40;
 export default function SkylineView({
   habits,
   scene,
-  skyStops,
   containerWidth,
   onTowerPress,
   onAddHabit,
@@ -51,9 +52,6 @@ export default function SkylineView({
 
   return (
     <View style={[styles.root, { width: containerWidth, height: VIEW_H }]}>
-      <View style={StyleSheet.absoluteFill}>
-        <SkyBackdrop stops={skyStops} width={containerWidth} height={VIEW_H} />
-      </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={StyleSheet.absoluteFill}>
         <Svg
           width={scene.width + STEP}
@@ -67,10 +65,11 @@ export default function SkylineView({
         {habits.map((habit, i) => (
           <Text
             key={`label-${habit.id}`}
-            numberOfLines={1}
+            numberOfLines={2}
+            ellipsizeMode="tail"
             style={[
               styles.label,
-              { color: theme.text, left: X0 + i * STEP - 8, top: LABEL_Y, width: TOWER_W + 16 },
+              { color: theme.text, left: X0 + i * STEP - 4, top: LABEL_Y, width: STEP - 8 },
             ]}
           >
             {habit.name}
@@ -115,7 +114,7 @@ export default function SkylineView({
         )}
         {onAddHabit && (
           <Text
-            style={[styles.label, { color: theme.muted, left: emptyLotX - 8, top: LABEL_Y, width: TOWER_W + 16 }]}
+            style={[styles.label, { color: theme.muted, left: emptyLotX - 4, top: LABEL_Y, width: STEP - 8 }]}
           >
             New
           </Text>
@@ -127,7 +126,7 @@ export default function SkylineView({
 
 const styles = StyleSheet.create({
   root: { overflow: 'hidden' },
-  label: { position: 'absolute', fontFamily: fonts.semiBold, fontSize: 12, textAlign: 'center' },
+  label: { position: 'absolute', fontFamily: fonts.semiBold, fontSize: 12, lineHeight: 15, textAlign: 'center' },
   emptyLot: {
     position: 'absolute',
     width: EMPTY_LOT_SIZE,

@@ -1,7 +1,6 @@
 const { buildScene, X0, STEP, BASE_Y } = require('./skylineScene');
 
 const theme = {
-  openFill: '#111',
   openStroke: '#999',
   shieldFill: '#abc',
   windowLit: '#ffe',
@@ -54,7 +53,7 @@ describe('buildScene', () => {
     const scene = buildScene([dailyHabit()], { today: TODAY, theme });
     const openShapes = scene.shapes.filter((s) => s.id.includes('f3-front')); // index 3 = 11-04
     expect(openShapes).toHaveLength(1);
-    expect(openShapes[0].fill).toBe(theme.openFill);
+    expect(openShapes[0].fill).toBe('none');
     expect(openShapes[0].stroke).toBe(theme.openStroke);
   });
 
@@ -138,7 +137,7 @@ describe('buildScene', () => {
 
   test('a tower older than the individual-floor cap collapses older floors into one tier', () => {
     const start = new Date('2026-11-01T00:00:00');
-    start.setDate(start.getDate() - 90); // ~90 due days, well over the ~59 cap
+    start.setDate(start.getDate() - 90); // ~90 due days, well over the individual-floor cap
     const checkInDays = [];
     for (let i = 0; i < 90; i += 1) {
       const d = new Date(start);

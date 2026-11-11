@@ -85,6 +85,27 @@ const FALLBACK_CATEGORY = 'Other';
  * @param {Record<string, string>} categoryColors - resolved per-mode tower
  *   colors (theme.js's buildCategoryTowerColors()[mode]).
  */
+/**
+ * Converts a hydrated habit into utils/lots.js's input shape (SKYLINE.md
+ * section 4a) — much lighter than toSceneHabit above, since buildLots
+ * buckets raw check-ins into period windows itself rather than needing a
+ * pre-classified per-day state. `shieldPeriods` is left empty, same
+ * deliberate-gap reasoning as toSceneHabit's `shieldDays` — per-period
+ * Shield Day storage is still open decision SKYLINE.md section 14 #1.
+ */
+export function toLotHabit(habit, categoryColors) {
+  return {
+    id: habit.id,
+    name: habit.name,
+    color: categoryColors[habit.category] || categoryColors[FALLBACK_CATEGORY],
+    trackingMode: habit.trackingMode,
+    weeklyTarget: habit.weeklyTarget,
+    monthlyTarget: habit.monthlyTarget,
+    checkIns: habit.checkIns || [],
+    shieldPeriods: new Set(),
+  };
+}
+
 export function toSceneHabit(habit, categoryColors) {
   const setDays = checkInDaySet(habit);
   return {

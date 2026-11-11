@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { AppState, StyleSheet, Text, View } from 'react-native';
+import { AppState, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useHabits } from '../hooks/useHabits';
+import { useAuth } from '../hooks/useAuth';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useTapToBuild } from '../hooks/useTapToBuild';
 import { useWindowCount } from '../hooks/useWindowCount';
@@ -10,14 +12,18 @@ import { useWeatherSky } from '../hooks/useWeatherSky';
 import { useToast } from '../hooks/useToast';
 import Toast from '../components/Toast';
 import LocationPermissionModal from '../components/LocationPermissionModal';
+import AskHabituateModal from '../components/AskHabituateModal';
+import TemplateHabitsPicker from '../components/TemplateHabitsPicker';
+import AvatarImage from '../components/AvatarImage';
 import { HABIT_CATEGORY_COLORS } from '../constants/habitCategories';
-import { buildCategoryTowerColors, skyGradients, skylineTowerTheme, skylineUI } from '../theme';
+import { buildCategoryTowerColors, fonts, skyGradients, skylineTowerTheme, skylineUI } from '../theme';
 import { buildScene } from '../utils/skylineScene';
 import { toSceneHabit } from '../utils/skylineAdapter';
 import { skyKind } from '../utils/sky';
-import { isCountMode } from '../utils/cadence';
+import { isCountMode, isDueToday } from '../utils/cadence';
 import SkylineView from '../components/SkylineView';
 import SkylineHoldLayer from '../components/SkylineHoldLayer';
+import SkylineHabitSheet from '../components/SkylineHabitSheet';
 
 /**
  * The real Skyline screen (SKYLINE.md Phase 2), wired to the existing
@@ -26,13 +32,23 @@ import SkylineHoldLayer from '../components/SkylineHoldLayer';
  * tab: Shield Day toggle and streak repair live in the tower sheet, which
  * is Phase 3, so renaming the tab now would lose capability versus the old
  * TodayScreen. Reachable for now via the __DEV__ tab in App.js.
+ *
+ * Layout matches concept_screens/1-skyline-daily.png: header (title, date +
+ * built count, chat/profile icons), the sky+towers scene, then a persistent
+ * bottom sheet listing every habit as a row — the full non-visual
+ * equivalent of the skyline (section 13).
  */
 
 const towerColorsByMode = buildCategoryTowerColors(HABIT_CATEGORY_COLORS);
 const SKY_REFRESH_MS = 60000;
 
-export default function SkylineScreen() {
-  const { habits, loading, toggleCheckIn, addCheckIn } = useHabits();
+function formatHeaderDate(date) {
+  return date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+}
+
+export default function SkylineScreen({ navigation }) {
+  const { habits, loading, toggleCheckIn, addCheckIn, createHabit } = useHabits();
+  const { user } = useAuth();
   const { effectiveMode } = useAppTheme();
   const { tapToBuild } = useTapToBuild();
   const { windowCount } = useWindowCount();
@@ -40,6 +56,8 @@ export default function SkylineScreen() {
   const { needsLocationPrompt, weatherCode, sunrise, sunset, requestLocation, skipLocationPrompt } =
     useWeatherSky();
   const [today, setToday] = useState(() => new Date());
+  const [chatVisible, setChatVisible] = useState(false);
+  const [addHabitVisible, setAddHabitVisible] = useState(false);
   // "Asked once, after the user's first floor" (SKYLINE.md section 5) — not
   // on mount. This tracks whether a build has happened yet during this visit
   // to the screen; the actual "only once ever" guarantee is
@@ -89,6 +107,14 @@ export default function SkylineScreen() {
     return map;
   }, [habits]);
 
+  // Header's "X of Y built today" — daily-target habits only (matches
+  // TodayScreen's own "Due Today" convention); a weekly/monthly-target habit
+  // isn't "due" on any single day, so it would skew this count.
+  const dueTodayCount = useMemo(() => {
+    const due = habits.filter((h) => isDueToday(h) || h.checkedInToday);
+    return { total: due.length, done: due.filter((h) => h.checkedInToday).length };
+  }, [habits]);
+
   // The one correctness-critical rule in this screen: a BOOLEAN habit
   // already checked in today can't be held again — toggleCheckIn is a
   // toggle, and allowing a second hold would delete today's check-in. COUNT
@@ -122,8 +148,59 @@ export default function SkylineScreen() {
     [habitsById, addCheckIn, toggleCheckIn, showToast],
   );
 
+  // Same sensible-defaults template flow as TodayScreen's own empty state —
+  // the Skyline's empty-lot tap doesn't need the full "Lay a foundation"
+  // form to offer a fast first habit (that form is Phase 4 scope).
+  const handleAddTemplateHabit = useCallback(
+    async (template) => {
+      try {
+        await createHabit({
+          name: template.name,
+          category: template.category,
+          cadenceType: 'DAILY',
+          cadenceTarget: 1,
+          weeklyTarget: null,
+          monthlyTarget: null,
+          trackingMode: 'BOOLEAN',
+          featuredGoal: false,
+          scheduledTime: '',
+          reminderEnabled: false,
+        });
+        setAddHabitVisible(false);
+      } catch (err) {
+        showToast(`Could not add habit — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+      }
+    },
+    [createHabit, showToast],
+  );
+
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: ui.background }]} edges={['top']}>
+      <View style={styles.header}>
+        <View style={styles.headerText}>
+          <Text style={[styles.title, { color: ui.text }]}>Skyline</Text>
+          <Text style={[styles.subtitle, { color: ui.muted }]}>
+            {formatHeaderDate(today)} · {dueTodayCount.done} of {dueTodayCount.total} built today
+          </Text>
+        </View>
+        <Pressable
+          style={styles.iconBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Open Ask Habituate"
+          onPress={() => setChatVisible(true)}
+        >
+          <MaterialCommunityIcons name="chat-processing-outline" size={20} color={ui.text} />
+        </Pressable>
+        <Pressable
+          style={styles.iconBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Open profile"
+          onPress={() => navigation.navigate('Profile')}
+        >
+          <AvatarImage uri={user?.photoURL} name={user?.displayName} size={36} />
+        </Pressable>
+      </View>
+
       {loading && habits.length === 0 ? (
         // Only the true cold-start case blanks the screen — `loading` also
         // flips true→false on every refresh after a check-in (useHabits.js's
@@ -132,38 +209,66 @@ export default function SkylineScreen() {
         // single floor build, flashing blank each time.
         <Text style={[styles.loading, { color: ui.muted }]}>Loading your skyline…</Text>
       ) : (
-        <View style={styles.sceneWrap}>
-          <SkylineView
+        <>
+          <View style={styles.sceneWrap}>
+            <SkylineView
+              habits={sceneHabits}
+              scene={scene}
+              skyStops={skyStops}
+              containerWidth={390}
+              showTouchables={false}
+              theme={ui}
+              onAddHabit={() => setAddHabitVisible(true)}
+              interactiveOverlay={
+                <SkylineHoldLayer
+                  hitTargets={scene.hitTargets}
+                  labels={scene.accessibilityLabels}
+                  getCanBuild={getCanBuild}
+                  onBuild={handleBuild}
+                  tapToBuild={tapToBuild}
+                  theme={ui}
+                />
+              }
+            />
+          </View>
+          <SkylineHabitSheet
             habits={sceneHabits}
-            scene={scene}
-            skyStops={skyStops}
-            containerWidth={390}
-            showTouchables={false}
-            interactiveOverlay={
-              <SkylineHoldLayer
-                hitTargets={scene.hitTargets}
-                labels={scene.accessibilityLabels}
-                getCanBuild={getCanBuild}
-                onBuild={handleBuild}
-                tapToBuild={tapToBuild}
-                theme={ui}
-              />
-            }
+            getCanBuild={getCanBuild}
+            onBuild={handleBuild}
+            tapToBuild={tapToBuild}
+            theme={ui}
           />
-        </View>
+        </>
       )}
+
       <Toast toast={toast} onHide={hideToast} />
       <LocationPermissionModal
         visible={hasBuiltOnce && needsLocationPrompt}
         onAllow={requestLocation}
         onDismiss={skipLocationPrompt}
       />
+      <AskHabituateModal visible={chatVisible} onClose={() => setChatVisible(false)} habits={habits} />
+      <Modal visible={addHabitVisible} transparent animationType="fade" onRequestClose={() => setAddHabitVisible(false)}>
+        <Pressable style={styles.backdrop} onPress={() => setAddHabitVisible(false)}>
+          <Pressable style={[styles.addHabitCard, { backgroundColor: ui.surfaceLow }]} onPress={() => {}}>
+            <Text style={[styles.title, { color: ui.text, marginBottom: 12 }]}>Lay a foundation</Text>
+            <TemplateHabitsPicker onSelect={handleAddTemplateHabit} />
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12 },
+  headerText: { flex: 1 },
+  title: { fontFamily: fonts.extraBold, fontSize: 28 },
+  subtitle: { fontFamily: fonts.regular, fontSize: 14, marginTop: 2 },
+  iconBtn: { marginLeft: 10 },
   loading: { padding: 24, fontSize: 14 },
   sceneWrap: { height: 560 },
+  backdrop: { flex: 1, backgroundColor: 'rgba(8,10,16,0.5)', alignItems: 'center', justifyContent: 'center', padding: 20 },
+  addHabitCard: { width: '100%', maxWidth: 420, borderRadius: 20, padding: 20 },
 });

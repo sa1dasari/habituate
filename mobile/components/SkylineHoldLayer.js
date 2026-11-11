@@ -1,21 +1,14 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, {
-  runOnJS,
-  useAnimatedProps,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
+import { GestureDetector } from 'react-native-gesture-handler';
+import Animated, { useAnimatedProps, useAnimatedStyle } from 'react-native-reanimated';
 import Svg, { G, Path } from 'react-native-svg';
 import { FLOOR_H, TOWER_W, previewFloorPaths } from '../utils/skylineScene';
+import { useHoldGesture } from '../hooks/useHoldGesture';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 const AnimatedG = Animated.createAnimatedComponent(G);
 
-const HOLD_MS = 1000;
 // Faces fade in during the last stretch of the hold, once the "pour" is
 // mostly full — reads as the floor capping off rather than popping in.
 const CAP_FADE_START = 0.7;
@@ -34,74 +27,12 @@ const CAP_FADE_START = 0.7;
  * generic loading ring — "floor pours in," matching the mockup's own
  * language, and it previews the actual shape that's about to land.
  *
- * `canBuild` is the one correctness-critical prop: when false (a BOOLEAN
- * habit already checked in today), the gesture is disabled entirely, so the
- * only check-in call this ever makes is the create path — never the
- * toggle-off/delete path. That's what makes a hold undo-free.
+ * The gesture itself (timing, haptics, the undo-free `canBuild` guard) is
+ * shared with the bottom sheet's row Hold pill via `useHoldGesture` — this
+ * component only owns the floor-shaped visual.
  */
 function HoldableTower({ hit, label, canBuild, tapToBuild, onBuild, theme }) {
-  const progress = useSharedValue(0);
-  const lift = useSharedValue(0);
-  const pourVisible = useSharedValue(0);
-
-  const liftUp = () => {
-    lift.value = withTiming(-4, { duration: 100 });
-  };
-  const liftDown = () => {
-    lift.value = withTiming(0, { duration: 150 });
-  };
-  const hidePour = () => {
-    pourVisible.value = withTiming(0, { duration: 120 });
-    progress.value = withTiming(0, { duration: 120 });
-  };
-  // Shared "the build landed" sequence for both the hold's completed pour
-  // and a plain tap: success haptic, settle the lift, call the screen.
-  const complete = () => {
-    liftDown();
-    hidePour();
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    onBuild();
-  };
-
-  const startHold = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    liftUp();
-    pourVisible.value = 1;
-    progress.value = withTiming(1, { duration: HOLD_MS });
-  };
-
-  const cancelHold = () => {
-    liftDown();
-    hidePour();
-  };
-
-  const longPress = Gesture.LongPress()
-    .minDuration(HOLD_MS)
-    .maxDistance(24)
-    .enabled(canBuild && !tapToBuild)
-    .onBegin(() => {
-      runOnJS(startHold)();
-    })
-    .onStart(() => {
-      runOnJS(complete)();
-    })
-    .onFinalize((_event, success) => {
-      if (!success) runOnJS(cancelHold)();
-    });
-
-  const tap = Gesture.Tap()
-    .enabled(canBuild && tapToBuild)
-    .onBegin(() => {
-      runOnJS(liftUp)();
-    })
-    .onStart(() => {
-      runOnJS(complete)();
-    })
-    .onFinalize((_event, success) => {
-      if (!success) runOnJS(liftDown)();
-    });
-
-  const gesture = tapToBuild ? tap : longPress;
+  const { gesture, progress, lift, active, complete } = useHoldGesture({ canBuild, tapToBuild, onBuild });
 
   const animatedLift = useAnimatedStyle(() => ({
     transform: [{ translateY: lift.value }],
@@ -120,7 +51,7 @@ function HoldableTower({ hit, label, canBuild, tapToBuild, onBuild, theme }) {
   // scale at the floor's bottom instead of its center.
   const animatedPourGroup = useAnimatedProps(() => ({
     transform: `translate(0 ${localAnchorY}) scale(1 ${progress.value}) translate(0 ${-localAnchorY})`,
-    opacity: pourVisible.value,
+    opacity: active.value,
   }));
   // The right/top "lid" faces only fade in once the pour is mostly full —
   // reads as the floor capping off, not popping in from nothing.

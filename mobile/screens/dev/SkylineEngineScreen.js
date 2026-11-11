@@ -69,7 +69,7 @@ export default function SkylineEngineScreen() {
         ))}
       </ScrollView>
 
-      <SkylineView habits={habits} scene={scene} skyStops={skyStops} containerWidth={390} />
+      <SkylineView habits={habits} scene={scene} skyStops={skyStops} containerWidth={390} theme={ui} />
     </View>
   );
 }

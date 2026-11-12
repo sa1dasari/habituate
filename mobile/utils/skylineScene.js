@@ -37,7 +37,7 @@ export const FLOOR_H = 10;
 // floor comfortably fits within BASE_Y with headroom for the sky above.
 const MAX_INDIVIDUAL_FLOORS = 35;
 const TIER_HEIGHT = FLOOR_H * 3;
-const CRANE_HEIGHT = 38;
+export const CRANE_HEIGHT = 38;
 const DEFAULT_WINDOW_COUNT = 3;
 
 /** Evenly spaced window x-fractions (0-1 across the floor width) for a given

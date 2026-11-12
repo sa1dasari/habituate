@@ -29,6 +29,7 @@ import SkylineHoldLayer from '../components/SkylineHoldLayer';
 import SkylineHabitSheet, { SHEET_PEEK_HEIGHT } from '../components/SkylineHabitSheet';
 import TowerSheet from '../components/TowerSheet';
 import TowerInsideView from '../components/TowerInsideView';
+import TowerForm from '../components/TowerForm';
 import LotsView from '../components/LotsView';
 import LotSheet from '../components/LotSheet';
 
@@ -77,6 +78,9 @@ export default function SkylineScreen({ navigation }) {
   const [chatInitialQuestion, setChatInitialQuestion] = useState(null);
   const [towerSheetHabitId, setTowerSheetHabitId] = useState(null);
   const [insideViewHabitId, setInsideViewHabitId] = useState(null);
+  // null habitId + visible = create mode; a real id = edit mode.
+  const [towerFormVisible, setTowerFormVisible] = useState(false);
+  const [towerFormHabitId, setTowerFormHabitId] = useState(null);
   const [addHabitVisible, setAddHabitVisible] = useState(false);
   const [stageHeight, setStageHeight] = useState(0);
   // Measured, not guessed — concept_screens/1-skyline-daily.png shows the
@@ -221,6 +225,16 @@ export default function SkylineScreen({ navigation }) {
   const closeInsideView = useCallback(() => setInsideViewHabitId(null), []);
   const insideViewHabit = insideViewHabitId ? habitsById[insideViewHabitId] : null;
   const insideViewSceneHabit = insideViewHabitId ? sceneHabitsById[insideViewHabitId] : null;
+
+  // Phase 4's "Lay a foundation" form — opened either from the empty lot's
+  // "Create your own" link (create mode) or from the tower sheet's Edit row
+  // (edit mode, repointed off the old HabitsScreen deep-link).
+  const handleOpenTowerForm = useCallback((habit) => {
+    setTowerFormHabitId(habit ? habit.id : null);
+    setTowerFormVisible(true);
+  }, []);
+  const closeTowerForm = useCallback(() => setTowerFormVisible(false), []);
+  const towerFormHabit = towerFormHabitId ? habitsById[towerFormHabitId] : null;
 
   const handleAskAboutTower = useCallback((habit) => {
     setChatInitialQuestion(`Tell me about my progress on "${habit.name}"`);
@@ -471,6 +485,7 @@ export default function SkylineScreen({ navigation }) {
                 theme={ui}
                 onAskAboutTower={handleAskAboutTower}
                 onOpenInsideView={handleOpenInsideView}
+                onEdit={handleOpenTowerForm}
               />
               <TowerInsideView
                 visible={!!insideViewHabitId}
@@ -481,6 +496,15 @@ export default function SkylineScreen({ navigation }) {
                 uiTheme={ui}
                 towerTheme={towerTheme}
                 onAskAboutTower={handleAskAboutTower}
+              />
+              <TowerForm
+                key={towerFormHabitId ?? 'new'}
+                visible={towerFormVisible}
+                onClose={closeTowerForm}
+                habit={towerFormHabit}
+                theme={ui}
+                towerTheme={towerTheme}
+                categoryColors={categoryColors}
               />
             </View>
           </>
@@ -503,6 +527,16 @@ export default function SkylineScreen({ navigation }) {
           <Pressable style={[styles.addHabitCard, { backgroundColor: ui.surfaceLow }]} onPress={() => {}}>
             <Text style={[styles.title, { color: ui.text, marginBottom: 12 }]}>Lay a foundation</Text>
             <TemplateHabitsPicker onSelect={handleAddTemplateHabit} />
+            <Pressable
+              onPress={() => {
+                setAddHabitVisible(false);
+                handleOpenTowerForm(null);
+              }}
+              style={styles.customTowerLink}
+              testID="skyline-custom-tower-link"
+            >
+              <Text style={[styles.customTowerLinkText, { color: ui.amber }]}>Create your own tower ›</Text>
+            </Pressable>
           </Pressable>
         </Pressable>
       </Modal>
@@ -556,4 +590,6 @@ const styles = StyleSheet.create({
   sceneAnchorBottom: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 560 },
   backdrop: { flex: 1, backgroundColor: 'rgba(8,10,16,0.5)', alignItems: 'center', justifyContent: 'center', padding: 20 },
   addHabitCard: { width: '100%', maxWidth: 420, borderRadius: 20, padding: 20 },
+  customTowerLink: { alignItems: 'center', paddingTop: 16 },
+  customTowerLinkText: { fontFamily: fonts.semiBold, fontSize: 14 },
 });

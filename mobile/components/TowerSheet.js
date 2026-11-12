@@ -2,7 +2,6 @@ import React from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
 import ConfirmModal from './ConfirmModal';
 import Toast from './Toast';
 import { useConfirm } from '../hooks/useConfirm';
@@ -21,13 +20,11 @@ const DEFAULT_TOP_OUT_THRESHOLD_DAYS = 30;
  * (SkylineHoldLayer.js's composed gesture — a long press still builds,
  * a quick tap opens this sheet; the two roles swap under "Tap to build").
  *
- * Edit deep-links to the existing HabitsScreen form (`editHabitId` route
- * param) rather than duplicating it here — that form is real, working
- * edit UI; a trimmed rebuild now would just be redone in Phase 4, which
- * is where the Skyline-styled replacement actually belongs (section 10's
- * "forms with live previews"). This keeps the capability parity
- * SKYLINE.md's tab-rename note calls for without front-loading Phase 4's
- * scope.
+ * Edit opens Phase 4's TowerForm.js (passed in as `onEdit`) — it used to
+ * deep-link to the old HabitsScreen form via an `editHabitId` route param;
+ * repointed once TowerForm existed, 2026-11-12. HabitsScreen.js itself is
+ * untouched and still reachable by other paths until Phase 4's cleanup
+ * commit removes it.
  *
  * "Best run" here is the habit's all-time longest streak
  * (HabitResponse.longestStreak), not scoped to this specific tower
@@ -45,8 +42,7 @@ const DEFAULT_TOP_OUT_THRESHOLD_DAYS = 30;
  * case is a Top out button that shows a little early or late, not an
  * action that incorrectly succeeds.
  */
-export default function TowerSheet({ visible, onClose, habit, theme, onAskAboutTower, onOpenInsideView }) {
-  const navigation = useNavigation();
+export default function TowerSheet({ visible, onClose, habit, theme, onAskAboutTower, onOpenInsideView, onEdit }) {
   const { toggleShield, updateHabit, topOutHabit, shieldsAvailable } = useHabits();
   const { toast, showToast, hideToast } = useToast();
   const { request, confirm, respond } = useConfirm();
@@ -66,7 +62,7 @@ export default function TowerSheet({ visible, onClose, habit, theme, onAskAboutT
 
   const handleEdit = () => {
     onClose();
-    navigation.navigate('Habits', { editHabitId: habit.id });
+    onEdit?.(habit);
   };
 
   const handleShieldToggle = async () => {

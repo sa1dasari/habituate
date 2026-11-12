@@ -27,8 +27,28 @@ import { daysInMonth, startOfDay, startOfMonth, startOfWeek, toDateKey } from '.
  * skylineScene.js not re-deriving which habits are "due".
  */
 
-const HISTORY_WEEKS = 8;
-const HISTORY_MONTHS = 6;
+const MIN_HISTORY_WEEKS = 8;
+const MAX_HISTORY_WEEKS = 104; // ~2 years — bounds the strip even for a very old habit
+const MIN_HISTORY_MONTHS = 6;
+const MAX_HISTORY_MONTHS = 36; // ~3 years
+
+/** How many weekly/monthly periods to generate so the lot sheet's backdating
+ * reach covers a habit's whole life (CLAUDE.md: never before it was
+ * created), not just the default lookback — clamped at both ends so a
+ * brand-new habit still gets the old minimum strip and a years-old one
+ * doesn't blow up the period count. */
+function historyWeeksFor(startDate, today) {
+  if (!startDate) return MIN_HISTORY_WEEKS;
+  const weeksSince = Math.floor((startOfWeek(today) - startOfWeek(new Date(`${startDate}T00:00:00`))) / (7 * 86400000)) + 1;
+  return Math.min(MAX_HISTORY_WEEKS, Math.max(MIN_HISTORY_WEEKS, weeksSince));
+}
+
+function historyMonthsFor(startDate, today) {
+  if (!startDate) return MIN_HISTORY_MONTHS;
+  const start = new Date(`${startDate}T00:00:00`);
+  const monthsSince = (today.getFullYear() - start.getFullYear()) * 12 + (today.getMonth() - start.getMonth()) + 1;
+  return Math.min(MAX_HISTORY_MONTHS, Math.max(MIN_HISTORY_MONTHS, monthsSince));
+}
 
 function addDays(date, days) {
   const d = new Date(date);
@@ -102,6 +122,22 @@ function buildDays(startDate, count, checkIns, countMode, today) {
   return days;
 }
 
+/** A period's own real check-in rows, sorted newest first — used by the lot
+ * sheet's "CHECK-INS THIS WEEK/MONTH" list and its per-entry Remove. Derived
+ * from `period.days` bounds rather than re-deriving a window from scratch,
+ * so the sheet's list always matches exactly what the tile's cells show. */
+export function checkInsInPeriod(checkIns, period) {
+  if (!period.days || period.days.length === 0) return [];
+  const start = `${period.days[0].dateKey}T00:00:00`;
+  const endExclusive = addDays(new Date(`${period.days[period.days.length - 1].dateKey}T00:00:00`), 1);
+  return (checkIns || [])
+    .filter((ci) => {
+      const t = new Date(ci.occurredAt);
+      return t >= new Date(start) && t < endExclusive;
+    })
+    .sort((a, b) => new Date(b.occurredAt) - new Date(a.occurredAt));
+}
+
 // Weekly BOOLEAN lots use the spec's terse "3/3" / "1/3 now" style; a
 // monthly lot or any COUNT-mode period total uses the longer "62 of 100"
 // style (section 4a's own count-habit example, "62 of 100 pages", is
@@ -141,10 +177,10 @@ function markRunBand(periods) {
   return lit;
 }
 
-function buildWeeklyPeriods(habit, today, countMode, target, shieldPeriods) {
+function buildWeeklyPeriods(habit, today, countMode, target, shieldPeriods, historyWeeks) {
   const periods = [];
   const thisWeekStart = startOfWeek(today);
-  for (let i = HISTORY_WEEKS - 1; i >= 0; i -= 1) {
+  for (let i = historyWeeks - 1; i >= 0; i -= 1) {
     const weekStart = addDays(thisWeekStart, -7 * i);
     const weekEnd = addDays(weekStart, 7);
     const key = toDateKey(weekStart);
@@ -192,10 +228,10 @@ function buildWeeklyPeriods(habit, today, countMode, target, shieldPeriods) {
   return periods;
 }
 
-function buildMonthlyPeriods(habit, today, countMode, target, shieldPeriods) {
+function buildMonthlyPeriods(habit, today, countMode, target, shieldPeriods, historyMonths) {
   const periods = [];
   const thisMonthStart = startOfMonth(today);
-  for (let i = HISTORY_MONTHS - 1; i >= 0; i -= 1) {
+  for (let i = historyMonths - 1; i >= 0; i -= 1) {
     const monthStart = addMonths(thisMonthStart, -i);
     const monthEnd = addMonths(monthStart, 1);
     const key = toDateKey(monthStart);
@@ -267,11 +303,13 @@ export function buildLots(habits, options) {
     if (monthlyTarget > 0) {
       periodKind = 'monthly';
       target = monthlyTarget;
-      periods = buildMonthlyPeriods(normalizedHabit, today, countMode, target, shieldPeriods);
+      const historyMonths = historyMonthsFor(habit.startDate, today);
+      periods = buildMonthlyPeriods(normalizedHabit, today, countMode, target, shieldPeriods, historyMonths);
     } else {
       periodKind = 'weekly';
       target = weeklyTarget;
-      periods = buildWeeklyPeriods(normalizedHabit, today, countMode, target, shieldPeriods);
+      const historyWeeks = historyWeeksFor(habit.startDate, today);
+      periods = buildWeeklyPeriods(normalizedHabit, today, countMode, target, shieldPeriods, historyWeeks);
     }
 
     const litIndices = markRunBand(periods);
@@ -284,6 +322,16 @@ export function buildLots(habits, options) {
     const current = periods[periods.length - 1];
     if (current && !current.shielded && !current.met) openToday += 1;
 
+    // `periods` can now reach back years to cover a habit's whole lifetime
+    // (the lot sheet's backdating range) — fine for the sheet's own
+    // navigation, but the horizontal strip on the Weekly & Monthly tab
+    // renders every one of these as its own tile, and that's exactly the
+    // tab-switch lag already reported once. The strip only ever needs the
+    // recent default window; `recentPeriods` is a plain suffix of
+    // `periods`, so it's always the same current period at the end.
+    const stripCount = periodKind === 'monthly' ? MIN_HISTORY_MONTHS : MIN_HISTORY_WEEKS;
+    const recentPeriods = periods.slice(-stripCount);
+
     rows.push({
       habitId: habit.id,
       name: habit.name,
@@ -295,6 +343,7 @@ export function buildLots(habits, options) {
       runLabel: currentRun > 0 ? `${currentRun} ${periodWord}${currentRun === 1 ? '' : 's'} run` : null,
       cadenceLabel: periodKind === 'monthly' ? `${target} a month` : `${target} a week`,
       periods,
+      recentPeriods,
     });
   });
 

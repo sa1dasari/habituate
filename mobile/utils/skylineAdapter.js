@@ -103,6 +103,10 @@ export function toLotHabit(habit, categoryColors) {
     monthlyTarget: habit.monthlyTarget,
     checkIns: habit.checkIns || [],
     shieldPeriods: new Set(),
+    // Lets buildLots size a habit's history back to when it was actually
+    // created (LotSheet's backdating reach), instead of always stopping at
+    // the fixed default lookback.
+    startDate: habit.createdAt ? toDateKey(habit.createdAt) : null,
   };
 }
 

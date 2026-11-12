@@ -1,4 +1,4 @@
-const { buildLots } = require('./lots');
+const { buildLots, checkInsInPeriod } = require('./lots');
 
 function ci(dateStr, value) {
   return { occurredAt: `${dateStr}T09:00:00`, value: value != null ? value : 1 };
@@ -199,6 +199,76 @@ describe('buildLots — count habits with a period total', () => {
     const current = rows[0].periods[rows[0].periods.length - 1];
     expect(current.met).toBe(true);
     expect(current.exceeded).toBe(true);
+  });
+});
+
+describe('checkInsInPeriod', () => {
+  test('returns only this period\'s check-ins, newest first', () => {
+    const checkIns = [ci('2026-02-02'), ci('2026-02-09'), ci('2026-02-10'), ci('2026-02-20')];
+    const { rows } = buildLots([weeklyHabit({ checkIns })], { today: new Date('2026-02-11T12:00:00') }); // week of 02-09
+    const current = rows[0].periods[rows[0].periods.length - 1];
+    const result = checkInsInPeriod(checkIns, current);
+    expect(result).toHaveLength(2); // 02-09 and 02-10 fall in this week; 02-02 and 02-20 don't
+    expect(result[0].occurredAt.slice(0, 10)).toBe('2026-02-10'); // newest first
+  });
+
+  test('returns an empty array for a shielded period (no days)', () => {
+    const { rows } = buildLots([weeklyHabit({ shieldPeriods: new Set(['2026-02-09']) })], {
+      today: new Date('2026-02-11T12:00:00'),
+    });
+    const current = rows[0].periods[rows[0].periods.length - 1];
+    expect(checkInsInPeriod([], current)).toEqual([]);
+  });
+});
+
+describe('buildLots — history window reaches back to habit creation', () => {
+  test('a weekly habit older than the 8-week default reaches back to the Monday of its creation week', () => {
+    // 2025-11-01 is a Saturday; its week starts Monday 2025-10-27.
+    const habit = weeklyHabit({ startDate: '2025-11-01' });
+    const { rows } = buildLots([habit], { today: new Date('2026-02-11T12:00:00') }); // week of 2026-02-09
+    const oldest = rows[0].periods[0];
+    expect(oldest.days[0].dateKey).toBe('2025-10-27');
+  });
+
+  test('a habit created on a Sunday still gets a full oldest week that contains that exact day', () => {
+    // 2025-11-02 is a Sunday — the last day of the same week as the case above.
+    const habit = weeklyHabit({ startDate: '2025-11-02' });
+    const { rows } = buildLots([habit], { today: new Date('2026-02-11T12:00:00') });
+    const oldest = rows[0].periods[0];
+    expect(oldest.days[0].dateKey).toBe('2025-10-27');
+    expect(oldest.days[6].dateKey).toBe('2025-11-02'); // creation day itself, last cell of that week
+  });
+
+  test('a habit with no startDate keeps the fixed 8-week default (unchanged behavior)', () => {
+    const { rows } = buildLots([weeklyHabit()], { today: new Date('2026-02-11T12:00:00') });
+    expect(rows[0].periods).toHaveLength(8);
+    expect(rows[0].recentPeriods).toHaveLength(8);
+  });
+
+  test('recentPeriods stays bounded to the default window even when periods reaches back years, and both end on the same current period', () => {
+    const habit = weeklyHabit({ startDate: '2025-11-01' }); // 16 periods back
+    const { rows } = buildLots([habit], { today: new Date('2026-02-11T12:00:00') });
+    expect(rows[0].periods.length).toBeGreaterThan(8);
+    expect(rows[0].recentPeriods).toHaveLength(8);
+    const periods = rows[0].periods;
+    const recent = rows[0].recentPeriods;
+    expect(recent[recent.length - 1]).toBe(periods[periods.length - 1]);
+  });
+
+  test('a monthly habit older than the 6-month default gets enough periods to reach its startDate', () => {
+    const habit = {
+      id: 'm2',
+      name: 'Apply to jobs',
+      color: '#00ff00',
+      trackingMode: 'BOOLEAN',
+      weeklyTarget: null,
+      monthlyTarget: 10,
+      checkIns: [],
+      startDate: '2025-06-01', // ~9 months before the fixture "today" below
+    };
+    const { rows } = buildLots([habit], { today: new Date('2026-03-15T12:00:00') });
+    const oldest = rows[0].periods[0];
+    expect(oldest.days[0].dateKey.slice(0, 7)).toBe('2025-06');
   });
 });
 

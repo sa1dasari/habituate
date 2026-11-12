@@ -125,4 +125,21 @@ public class HabitController {
     public void deleteCheckIn(HttpServletRequest req, @PathVariable Long checkInId) {
         habitService.deleteCheckIn(userId(req), checkInId);
     }
+
+    /** Closes the current tower segment and starts a new one (SKYLINE.md section 6, daily-cadence only). */
+    @PostMapping("/habits/{habitId}/top-out")
+    public HabitResponse topOutHabit(
+            HttpServletRequest req,
+            @PathVariable Long habitId,
+            @RequestHeader(value = "X-Timezone", required = false) String timezone) {
+        return habitService.topOutHabit(userId(req), habitId, timezone);
+    }
+
+    /** Every date (yyyy-MM-dd) this habit was shielded — backs the inside view's glass/shield floors. */
+    @GetMapping("/habits/{habitId}/shielded-dates")
+    public List<String> getShieldedDates(HttpServletRequest req, @PathVariable Long habitId) {
+        return habitService.getShieldedDates(userId(req), habitId).stream()
+                .map(Object::toString)
+                .toList();
+    }
 }

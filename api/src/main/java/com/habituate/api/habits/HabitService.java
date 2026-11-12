@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.DateTimeException;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -44,6 +45,8 @@ public class HabitService {
     private final ShieldAwardRepository shieldAwardRepository;
     private final UserLookupService userLookupService;
     private final AppNotificationService appNotificationService;
+    private final HabitTowerRepository habitTowerRepository;
+    private final HabitTowerService habitTowerService;
 
     public HabitService(
             HabitRepository habitRepository,
@@ -54,7 +57,9 @@ public class HabitService {
             ShieldAwardService shieldAwardService,
             ShieldAwardRepository shieldAwardRepository,
             UserLookupService userLookupService,
-            AppNotificationService appNotificationService) {
+            AppNotificationService appNotificationService,
+            HabitTowerRepository habitTowerRepository,
+            HabitTowerService habitTowerService) {
         this.habitRepository = habitRepository;
         this.checkInRepository = checkInRepository;
         this.groupMemberRepository = groupMemberRepository;
@@ -64,6 +69,8 @@ public class HabitService {
         this.shieldAwardRepository = shieldAwardRepository;
         this.userLookupService = userLookupService;
         this.appNotificationService = appNotificationService;
+        this.habitTowerRepository = habitTowerRepository;
+        this.habitTowerService = habitTowerService;
     }
 
     public List<HabitResponse> listHabits(String userId, String timezone) {
@@ -184,6 +191,9 @@ public class HabitService {
         if (request.archived() != null) {
             habit.setArchived(request.archived());
         }
+        if (request.topOutThresholdDays() != null) {
+            habit.setTopOutThresholdDays(request.topOutThresholdDays());
+        }
 
         return toResponse(habitRepository.save(habit));
     }
@@ -222,6 +232,7 @@ public class HabitService {
         checkInRepository.deleteByHabitId(habit.getId());
         streakFreezeRepository.deleteByHabitId(habit.getId());
         shieldAwardRepository.deleteByHabitId(habit.getId());
+        habitTowerRepository.deleteByHabitId(habit.getId());
         habitRepository.delete(habit);
     }
 
@@ -466,5 +477,73 @@ public class HabitService {
         if (checkIn.getGroupId() != null) {
             recomputeGroupStreakQuietly(checkIn.getGroupId());
         }
+    }
+
+    /**
+     * Closes the habit's current tower segment and starts a new one
+     * (SKYLINE.md section 6). Daily-cadence only — a weekly/monthly habit
+     * has no tower to top out. Age is measured from the *current segment's*
+     * own start, not the habit's overall createdAt, so a freshly topped-out
+     * tower has to earn its own age again before it can be topped out a
+     * second time.
+     */
+    @Transactional
+    public HabitResponse topOutHabit(String userId, Long habitId, String timezone) {
+        Habit habit = requireOwnedHabit(userId, habitId);
+        if (!hasDailyTarget(habit)) {
+            throw new IllegalArgumentException("Only daily habits can be topped out");
+        }
+
+        ZoneId zone = resolveZone(timezone);
+        HabitTower current = habitTowerService.currentSegment(habit);
+        long ageDays = Duration.between(current.getStartedAt(), Instant.now()).toDays();
+        int threshold = habit.getTopOutThresholdDays();
+        if (ageDays < threshold) {
+            throw new IllegalArgumentException(
+                    "This tower needs to be at least " + threshold + " days old to top out (currently " + ageDays + ")");
+        }
+
+        habitTowerService.topOut(habit, zone);
+        return toResponse(habit, zone);
+    }
+
+    /**
+     * Mirrors mobile's utils/cadence.js hasDailyTarget — a habit is a tower
+     * (not a weekly/monthly "lot") unless it's explicitly a legacy
+     * WEEKLY/MONTHLY cadenceType, or it carries a period target with a
+     * default (<=1) cadenceTarget. The real creation form always sends
+     * cadenceType=DAILY (mobile/screens/HabitsScreen.js's deriveCadenceType),
+     * even for a period-only habit, so cadenceType alone can't tell a tower
+     * habit apart from a lot habit — this has to look at the targets too.
+     * One intentional gap: mobile's own check also reads a client-only
+     * `dailyTargetExplicit` flag that is never sent to or stored by this
+     * backend, so a habit that explicitly sets both a daily target *and* a
+     * period target with cadenceTarget<=1 reads here as period-only even
+     * though the mobile client would call it a tower. Narrow and
+     * pre-existing (not introduced by this check) — SKYLINE.md section 4a's
+     * "add explicit daily-target storage" item, not solved by this phase.
+     */
+    private boolean hasDailyTarget(Habit habit) {
+        String cadenceKey = habit.getCadenceType() == null ? "DAILY" : habit.getCadenceType().toUpperCase();
+        if ("WEEKLY".equals(cadenceKey) || "MONTHLY".equals(cadenceKey)) {
+            return false;
+        }
+        boolean hasPeriodTarget = (habit.getWeeklyTarget() != null && habit.getWeeklyTarget() > 0)
+                || (habit.getMonthlyTarget() != null && habit.getMonthlyTarget() > 0);
+        if (hasPeriodTarget) {
+            return habit.getCadenceTarget() != null && habit.getCadenceTarget() > 1;
+        }
+        return true;
+    }
+
+    /** Every date this habit was shielded (either personal grace or a repaired day) —
+     * both read as "protected" with no visual distinction between the two (CLAUDE.md). */
+    public List<LocalDate> getShieldedDates(String userId, Long habitId) {
+        requireOwnedHabit(userId, habitId);
+        return streakFreezeRepository.findByHabitId(habitId).stream()
+                .map(StreakFreeze::getUsedOnDate)
+                .distinct()
+                .sorted()
+                .toList();
     }
 }

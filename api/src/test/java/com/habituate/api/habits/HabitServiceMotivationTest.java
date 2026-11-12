@@ -54,7 +54,7 @@ class HabitServiceMotivationTest {
                 "Meditate", "Wellness", "DAILY", 1, null, null, "BOOLEAN", null, null, null, null)).id();
 
         HabitResponse updated = habitService.updateHabit(userId, habitId, new UpdateHabitRequest(
-                null, null, null, null, null, null, null, null, null, null, null, "Calmer with the kids"));
+                null, null, null, null, null, null, null, null, null, null, null, "Calmer with the kids", null));
 
         assertThat(updated.motivation()).isEqualTo("Calmer with the kids");
     }
@@ -67,7 +67,7 @@ class HabitServiceMotivationTest {
                 "So I'm calmer with my kids")).id();
 
         HabitResponse updated = habitService.updateHabit(userId, habitId, new UpdateHabitRequest(
-                null, null, null, null, null, null, null, null, null, null, null, "   "));
+                null, null, null, null, null, null, null, null, null, null, null, "   ", null));
 
         assertThat(updated.motivation()).isNull();
     }

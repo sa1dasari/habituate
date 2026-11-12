@@ -30,9 +30,9 @@ export function GroupsProvider({ children }) {
 
   // Rethrows on failure (doesn't swallow to a boolean) so callers can show
   // the backend's actual reason — e.g. "User is already invited or a member
-  // of this group" — instead of a generic message. Matches useHabits/
-  // useGoals' existing pattern; this hook used to differ and every caller's
-  // error handling paid for it with a useless fallback message.
+  // of this group" — instead of a generic message. Matches useHabits'
+  // existing pattern; this hook used to differ and every caller's error
+  // handling paid for it with a useless fallback message.
   const run = useCallback(
     async (action) => {
       setBusy(true);

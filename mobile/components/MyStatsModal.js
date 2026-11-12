@@ -10,7 +10,6 @@ import Toast from './Toast';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
-import { useGoals } from '../hooks/useGoals';
 import { useGroups } from '../hooks/useGroups';
 import api from '../api/client';
 import { navigateToTab } from '../utils/navigationRef';
@@ -45,11 +44,9 @@ export default function MyStatsModal({ visible, onClose }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [shieldDays, setShieldDays] = useState(null);
-  const { goals } = useGoals();
   const { groups } = useGroups();
   const shareCardRef = useRef(null);
 
-  const completeGoalCount = goals.filter((g) => g.complete).length;
   const bestGroupStreak = groups.length > 0 ? Math.max(0, ...groups.map((g) => g.streak || 0)) : null;
 
   const goTo = (tab) => {
@@ -232,15 +229,6 @@ export default function MyStatsModal({ visible, onClose }) {
                     icon={<MaterialCommunityIcons name="shield-check-outline" size={20} color={colors.accent} />}
                     label="Shield Days banked"
                     value={String(shieldDays)}
-                  />
-                ) : null}
-                {goals.length > 0 ? (
-                  <StatTile
-                    styles={styles}
-                    colors={colors}
-                    icon={<MaterialCommunityIcons name="flag-checkered" size={20} color={colors.accent} />}
-                    label="Goals on track"
-                    value={`${completeGoalCount}/${goals.length}`}
                   />
                 ) : null}
                 {bestGroupStreak !== null ? (

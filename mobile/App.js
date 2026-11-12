@@ -16,7 +16,6 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AvatarImage from './components/AvatarImage';
 import { HabitsProvider, useHabits } from './hooks/useHabits';
-import { GoalsProvider } from './hooks/useGoals';
 import { FriendsProvider } from './hooks/useFriends';
 import { GroupsProvider } from './hooks/useGroups';
 import { ChallengesProvider } from './hooks/useChallenges';
@@ -343,37 +342,35 @@ function AppGate() {
 
   return (
     <HabitsProvider>
-      <GoalsProvider>
-        <FriendsProvider>
-          <GroupsProvider>
-            <ChallengesProvider>
-              <GroupActivityProvider>
-                <NotificationsProvider>
-                  <CelebrationProvider>
-                    <TapToBuildProvider>
-                      <WindowCountProvider>
-                        <TourProvider>
-                          <WidgetDeepLinkBridge />
-                          <PushNotificationTapBridge />
-                          <PushPermissionModal
-                            visible={pushPrompt.visible}
-                            onAllow={pushPrompt.onAllow}
-                            onDismiss={pushPrompt.onDismiss}
-                          />
-                          <NavigationContainer ref={navigationRef} theme={navigationTheme}>
-                            <Tabs />
-                          </NavigationContainer>
-                          <TourAutoStart />
-                        </TourProvider>
-                      </WindowCountProvider>
-                    </TapToBuildProvider>
-                  </CelebrationProvider>
-                </NotificationsProvider>
-              </GroupActivityProvider>
-            </ChallengesProvider>
-          </GroupsProvider>
-        </FriendsProvider>
-      </GoalsProvider>
+      <FriendsProvider>
+        <GroupsProvider>
+          <ChallengesProvider>
+            <GroupActivityProvider>
+              <NotificationsProvider>
+                <CelebrationProvider>
+                  <TapToBuildProvider>
+                    <WindowCountProvider>
+                      <TourProvider>
+                        <WidgetDeepLinkBridge />
+                        <PushNotificationTapBridge />
+                        <PushPermissionModal
+                          visible={pushPrompt.visible}
+                          onAllow={pushPrompt.onAllow}
+                          onDismiss={pushPrompt.onDismiss}
+                        />
+                        <NavigationContainer ref={navigationRef} theme={navigationTheme}>
+                          <Tabs />
+                        </NavigationContainer>
+                        <TourAutoStart />
+                      </TourProvider>
+                    </WindowCountProvider>
+                  </TapToBuildProvider>
+                </CelebrationProvider>
+              </NotificationsProvider>
+            </GroupActivityProvider>
+          </ChallengesProvider>
+        </GroupsProvider>
+      </FriendsProvider>
     </HabitsProvider>
   );
 }

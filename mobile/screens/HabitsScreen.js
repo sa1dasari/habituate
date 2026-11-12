@@ -14,7 +14,6 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import CalendarModal from '../components/CalendarModal';
 import ConfirmModal from '../components/ConfirmModal';
 import Dropdown from '../components/Dropdown';
-import GoalCard from '../components/GoalCard';
 import HabitCard from '../components/HabitCard';
 import ScrubberInput from '../components/ScrubberInput';
 import ProtectionInfoModal from '../components/ProtectionInfoModal';
@@ -32,12 +31,10 @@ import { effectiveMonthlyTarget, effectiveWeeklyTarget, hasDailyTarget } from '.
 import {
   buildAllDoneCelebration,
   buildCheckInCelebration,
-  buildGoalMilestone,
   buildHabitMilestone,
 } from '../utils/celebration';
 import { useCelebration } from '../hooks/useCelebration';
 import { useRegisterScrollToTop } from '../hooks/useRegisterScrollToTop';
-import { useGoals } from '../hooks/useGoals';
 import { summarizeHabits, useHabits } from '../hooks/useHabits';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useOnboardingTour } from '../hooks/useOnboardingTour';
@@ -68,13 +65,6 @@ const emptyForm = {
   // TowerSheet.js's Edit deep-link): null here means "leave it alone",
   // matching UpdateHabitRequest's own null-is-a-no-op semantics.
   topOutThresholdDays: null,
-};
-
-const emptyGoalForm = {
-  id: null,
-  description: '',
-  period: 'MONTHLY',
-  targetCount: '',
 };
 
 function formFromHabit(habit) {
@@ -109,15 +99,6 @@ function formFromHabit(habit) {
     reminderEnabled: Boolean(habit.reminderEnabled),
     motivation: habit.motivation || '',
     topOutThresholdDays: habit.topOutThresholdDays ?? null,
-  };
-}
-
-function goalFromRecord(goal) {
-  return {
-    id: goal.id,
-    description: goal.description || '',
-    period: goal.period === 'WEEKLY' ? 'WEEKLY' : 'MONTHLY',
-    targetCount: goal.targetCount ? String(goal.targetCount) : '',
   };
 }
 
@@ -171,18 +152,6 @@ export default function HabitsScreen() {
     updateHabit,
     deleteHabit,
   } = useHabits();
-  const {
-    goals,
-    busy: goalsBusy,
-    createGoal,
-    updateGoal,
-    increment: incrementGoal,
-    decrement: decrementGoal,
-    logAmount: logGoalAmount,
-    rollover: rolloverGoal,
-    archiveGoal,
-    deleteGoal,
-  } = useGoals();
   const { celebrate: showCelebration } = useCelebration();
   const navigation = useNavigation();
   const route = useRoute();
@@ -191,8 +160,6 @@ export default function HabitsScreen() {
   const [showArchived, setShowArchived] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [showShieldInfo, setShowShieldInfo] = useState(false);
-  const [goalForm, setGoalForm] = useState(emptyGoalForm);
-  const [showGoalForm, setShowGoalForm] = useState(false);
   const scrollRef = useRegisterScrollToTop('Habits');
   const goalsSectionY = useRef(0);
   const { toast, showToast, hideToast } = useToast();
@@ -227,10 +194,9 @@ export default function HabitsScreen() {
   }, [tourActive, tourStep]);
 
   const isEditing = form.id != null;
-  const isEditingGoal = goalForm.id != null;
 
   const featuredHabits = habits.filter((h) => h.featuredGoal);
-  const hasGoals = featuredHabits.length > 0 || goals.length > 0;
+  const hasGoals = featuredHabits.length > 0;
 
   // Same "Due Today" concept Today's Progress uses, so the check-in
   // celebration's progress line reads the same wherever the check-in happens.
@@ -310,77 +276,9 @@ export default function HabitsScreen() {
     [removeLastCheckIn]
   );
 
-  // Freeform goals only celebrate when they actually hit their target —
-  // there's no "today" progress or streak to report on every tap here.
-  const celebrateGoalProgress = useCallback(
-    (goal, delta) => {
-      const payload = buildGoalMilestone(goal, delta);
-      if (payload) showCelebration(payload);
-    },
-    [showCelebration]
-  );
-
-  const handleIncrementGoal = useCallback(
-    async (goal) => {
-      try {
-        await incrementGoal(goal.id);
-      } catch (err) {
-        showToast(`Could not update goal — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
-        return;
-      }
-      celebrateGoalProgress(goal, 1);
-    },
-    [celebrateGoalProgress, incrementGoal]
-  );
-
-  const handleLogGoalAmount = useCallback(
-    async (goal, amount) => {
-      try {
-        await logGoalAmount(goal.id, amount);
-      } catch (err) {
-        showToast(`Could not update goal — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
-        return;
-      }
-      celebrateGoalProgress(goal, amount);
-    },
-    [celebrateGoalProgress, logGoalAmount]
-  );
-
-  const handleDecrementGoal = useCallback(
-    async (goal) => {
-      try {
-        await decrementGoal(goal.id);
-      } catch (err) {
-        showToast(`Could not update goal — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
-      }
-    },
-    [decrementGoal, showToast]
-  );
-
-  const handleRolloverGoal = useCallback(
-    async (goal) => {
-      try {
-        await rolloverGoal(goal);
-      } catch (err) {
-        showToast(`Could not update goal — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
-      }
-    },
-    [rolloverGoal, showToast]
-  );
-
-  const handleArchiveGoal = useCallback(
-    async (goal) => {
-      try {
-        await archiveGoal(goal.id);
-      } catch (err) {
-        showToast(`Could not update goal — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
-      }
-    },
-    [archiveGoal, showToast]
-  );
-
-  // Coming from the Today page's Goals summary card — jump straight to the
-  // Goals section instead of landing at the top of a long habit list.
+  // Coming from the Today page's featured-targets summary card — jump
+  // straight to the featured-habits section instead of landing at the top
+  // of a long habit list.
   useFocusEffect(
     useCallback(() => {
       if (!route.params?.scrollToGoals) return;
@@ -520,63 +418,6 @@ export default function HabitsScreen() {
       await updateHabit(habit.id, { ...formToPayload(formFromHabit(habit)), archived: false });
     } catch (err) {
       showToast(`Could not restore habit — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
-    }
-  };
-
-  const closeGoalForm = () => {
-    setGoalForm(emptyGoalForm);
-    setShowGoalForm(false);
-  };
-
-  const openCreateGoal = () => {
-    setGoalForm(emptyGoalForm);
-    setShowGoalForm(true);
-  };
-
-  const openEditGoal = (goal) => {
-    setGoalForm(goalFromRecord(goal));
-    setShowGoalForm(true);
-  };
-
-  const submitGoal = async () => {
-    const description = goalForm.description.trim();
-    if (!description) {
-      showToast('Give the goal a short description first.', 'error');
-      return;
-    }
-    const targetCount = Number(goalForm.targetCount);
-    if (!targetCount || targetCount < 1) {
-      showToast('Set a target count for this goal.', 'error');
-      return;
-    }
-
-    try {
-      if (isEditingGoal) {
-        await updateGoal(goalForm.id, { description, targetCount });
-      } else {
-        await createGoal({ description, period: goalForm.period, targetCount });
-      }
-      closeGoalForm();
-    } catch (err) {
-      showToast(
-        `${isEditingGoal ? 'Could not save changes' : 'Could not create goal'} — ${err instanceof Error ? err.message : 'Unknown error'}`,
-        'error'
-      );
-    }
-  };
-
-  const confirmDeleteGoal = async (goal) => {
-    const ok = await confirm({
-      title: `Delete "${goal.description}"?`,
-      message: 'This removes the goal and its progress. It cannot be undone.',
-      confirmLabel: 'Delete',
-      destructive: true,
-    });
-    if (!ok) return;
-    try {
-      await deleteGoal(goal.id);
-    } catch (err) {
-      showToast(`Could not delete goal — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
     }
   };
 
@@ -851,7 +692,7 @@ export default function HabitsScreen() {
           </View>
         ) : null}
 
-        {hasGoals || showGoalForm ? (
+        {hasGoals ? (
           <View
             style={styles.section}
             onLayout={(e) => {
@@ -859,76 +700,8 @@ export default function HabitsScreen() {
             }}
           >
             <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>Goals</Text>
-              <Pressable onPress={() => (showGoalForm ? closeGoalForm() : openCreateGoal())}>
-                <Text style={styles.sectionAction}>{showGoalForm ? 'Cancel' : '+ New goal'}</Text>
-              </Pressable>
+              <Text style={styles.sectionTitle}>Featured targets</Text>
             </View>
-
-            {showGoalForm ? (
-              <View style={styles.formCard}>
-                <Text style={styles.formTitle}>{isEditingGoal ? 'Edit goal' : 'New goal'}</Text>
-
-                <Text style={styles.label}>Description</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="e.g. Save $500 this month"
-                  placeholderTextColor={colors.textMuted}
-                  value={goalForm.description}
-                  onChangeText={(value) => setGoalForm({ ...goalForm, description: value })}
-                />
-
-                {!isEditingGoal ? (
-                  <View>
-                    <Text style={styles.label}>Period</Text>
-                    <View style={styles.modeRow}>
-                      <Pressable
-                        style={[styles.modePill, goalForm.period === 'WEEKLY' && styles.modePillActive]}
-                        onPress={() => setGoalForm({ ...goalForm, period: 'WEEKLY' })}
-                      >
-                        <Text
-                          style={[
-                            styles.modePillText,
-                            goalForm.period === 'WEEKLY' && styles.modePillTextActive,
-                          ]}
-                        >
-                          Weekly
-                        </Text>
-                      </Pressable>
-                      <Pressable
-                        style={[styles.modePill, goalForm.period === 'MONTHLY' && styles.modePillActive]}
-                        onPress={() => setGoalForm({ ...goalForm, period: 'MONTHLY' })}
-                      >
-                        <Text
-                          style={[
-                            styles.modePillText,
-                            goalForm.period === 'MONTHLY' && styles.modePillTextActive,
-                          ]}
-                        >
-                          Monthly
-                        </Text>
-                      </Pressable>
-                    </View>
-                  </View>
-                ) : null}
-
-                <Text style={styles.label}>Target count</Text>
-                <TextInput
-                  style={styles.input}
-                  keyboardType="number-pad"
-                  placeholder="e.g. 500"
-                  placeholderTextColor={colors.textMuted}
-                  value={goalForm.targetCount}
-                  onChangeText={(v) => setGoalForm({ ...goalForm, targetCount: v.replace(/[^0-9]/g, '') })}
-                />
-
-                <Pressable style={styles.primaryButton} onPress={submitGoal} disabled={goalsBusy}>
-                  <Text style={styles.primaryButtonText}>
-                    {goalsBusy ? 'Saving…' : isEditingGoal ? 'Save changes' : 'Add goal'}
-                  </Text>
-                </Pressable>
-              </View>
-            ) : null}
 
             {featuredHabits.map((habit) => (
               <HabitCard
@@ -951,21 +724,6 @@ export default function HabitsScreen() {
                 onAdd={() => handleAddHabit(habit)}
                 onRemoveLast={() => handleRemoveLastHabit(habit.id)}
                 onEdit={() => openEdit(habit)}
-              />
-            ))}
-
-            {goals.map((goal) => (
-              <GoalCard
-                key={goal.id}
-                goal={goal}
-                disabled={goalsBusy}
-                onIncrement={() => handleIncrementGoal(goal)}
-                onDecrement={() => handleDecrementGoal(goal)}
-                onLogAmount={(g, amount) => handleLogGoalAmount(g, amount)}
-                onEdit={() => openEditGoal(goal)}
-                onDelete={() => confirmDeleteGoal(goal)}
-                onRollover={() => handleRolloverGoal(goal)}
-                onDismiss={() => handleArchiveGoal(goal)}
               />
             ))}
           </View>

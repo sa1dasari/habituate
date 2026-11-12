@@ -192,26 +192,6 @@ export const api = {
   // Closes the habit's current tower segment and starts a new one — daily-cadence only.
   topOutHabit: (habitId) => request(`/api/habits/${habitId}/top-out`, { method: 'POST' }),
 
-  listGoals: () => request('/api/goals'),
-
-  listArchivedGoals: () => request('/api/goals?archived=true'),
-
-  createGoal: (goal) => request('/api/goals', { method: 'POST', body: JSON.stringify(goal) }),
-
-  updateGoal: (goalId, changes) =>
-    request(`/api/goals/${goalId}`, { method: 'PUT', body: JSON.stringify(changes) }),
-
-  adjustGoalProgress: (goalId, delta) =>
-    request(`/api/goals/${goalId}/progress`, { method: 'POST', body: JSON.stringify({ delta }) }),
-
-  rolloverGoal: (goalId, periodStart) =>
-    request(`/api/goals/${goalId}/rollover`, { method: 'POST', body: JSON.stringify({ periodStart }) }),
-
-  archiveGoal: (goalId) =>
-    request(`/api/goals/${goalId}`, { method: 'PUT', body: JSON.stringify({ archived: true }) }),
-
-  deleteGoal: (goalId) => request(`/api/goals/${goalId}`, { method: 'DELETE' }),
-
   listFriends: () => request('/api/friendships'),
 
   listPendingFriendRequests: () => request('/api/friendships/pending'),

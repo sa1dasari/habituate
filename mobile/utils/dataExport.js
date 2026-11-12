@@ -16,11 +16,11 @@ function toCsvRow(values) {
 
 /**
  * Builds the export payload directly from what's already loaded client-side
- * (useHabits/useGoals) — no new backend endpoint, since every field here is
- * already fetched for the app's own screens. habits is the enriched array
- * from useHabits (each carries its own .checkIns).
+ * (useHabits) — no new backend endpoint, since every field here is already
+ * fetched for the app's own screens. habits is the enriched array from
+ * useHabits (each carries its own .checkIns).
  */
-export function buildExportData(habits, goals) {
+export function buildExportData(habits) {
   return {
     exportedAt: new Date().toISOString(),
     habits: habits.map((h) => ({
@@ -38,14 +38,6 @@ export function buildExportData(habits, goals) {
         value: c.value,
         source: c.source,
       })),
-    })),
-    goals: goals.map((g) => ({
-      id: g.id,
-      description: g.description,
-      period: g.period,
-      targetCount: g.targetCount,
-      currentCount: g.currentCount,
-      periodStart: g.periodStart,
     })),
   };
 }

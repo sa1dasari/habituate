@@ -15,7 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import HabitCard from '../components/HabitCard';
-import GoalsSummaryCard from '../components/GoalsSummaryCard';
+import FeaturedTargetsSummaryCard from '../components/FeaturedTargetsSummaryCard';
 import AvatarImage from '../components/AvatarImage';
 import TemplateHabitsPicker from '../components/TemplateHabitsPicker';
 import AskHabituateModal from '../components/AskHabituateModal';
@@ -29,7 +29,6 @@ import { useOnboardingTour } from '../hooks/useOnboardingTour';
 import { useTourTarget } from '../hooks/useTourTarget';
 import { useRegisterScrollToTop } from '../hooks/useRegisterScrollToTop';
 import { useFeaturedGoalReviews } from '../hooks/useFeaturedGoalReviews';
-import { useGoals } from '../hooks/useGoals';
 import { summarizeHabits, useHabits } from '../hooks/useHabits';
 import {
   buildAllDoneCelebration,
@@ -95,7 +94,6 @@ export default function TodayScreen() {
     repairStreak,
     shieldsAvailable,
   } = useHabits();
-  const { goals } = useGoals();
   const { user } = useAuth();
   const displayName = user?.displayName || 'there';
   const { celebrate: showCelebration } = useCelebration();
@@ -125,26 +123,21 @@ export default function TodayScreen() {
   const featuredHabits = useMemo(() => habits.filter((h) => h.featuredGoal), [habits]);
   const { reviews: habitGoalReviews } = useFeaturedGoalReviews(featuredHabits);
 
-  // One combined list so the summary card can report across both habit-linked
-  // and freeform goals without caring which is which. `percent` carries actual
-  // partial progress (not just done/not-done) so the summary bar reflects
-  // trend rather than looking empty until something hits 100%.
+  // Featured-habit targets only — the freeform Goals feature was removed
+  // (owner decision, 2026-11-13); this used to also fold in goals.map(...)
+  // here, reported through the same summary card regardless of which kind
+  // it was. `percent` carries actual partial progress (not just done/not-done)
+  // so the summary bar reflects trend rather than looking empty until
+  // something hits 100%.
   const goalItems = useMemo(
-    () => [
-      ...featuredHabits.map((h) => ({
+    () =>
+      featuredHabits.map((h) => ({
         id: `habit-${h.id}`,
         complete: h.periodComplete,
         percent: h.periodTarget > 0 ? Math.min(100, Math.round((h.periodDone / h.periodTarget) * 100)) : 0,
         needsReview: habitGoalReviews.some((r) => r.habit.id === h.id),
       })),
-      ...goals.map((g) => ({
-        id: `goal-${g.id}`,
-        complete: g.complete,
-        percent: g.percent,
-        needsReview: g.needsReview,
-      })),
-    ],
-    [featuredHabits, habitGoalReviews, goals]
+    [featuredHabits, habitGoalReviews]
   );
 
   // "Due Today" is only genuinely daily habits (habit.dueToday, from
@@ -612,7 +605,7 @@ export default function TodayScreen() {
           </Text>
         </View>
 
-        <GoalsSummaryCard
+        <FeaturedTargetsSummaryCard
           items={goalItems}
           onPress={() => navigation.navigate('Habits', { scrollToGoals: true })}
         />

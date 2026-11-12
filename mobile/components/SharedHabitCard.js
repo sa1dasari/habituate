@@ -164,7 +164,7 @@ function makeStyles(colors, typography) {
     flexShrink: 1,
   },
   // Shared with ChallengeCard — the one consistent visual cue that marks a
-  // social card apart from a solo HabitCard/GoalCard by silhouette alone.
+  // social card apart from a solo HabitCard by silhouette alone.
   socialBadge: {
     width: 18,
     height: 18,

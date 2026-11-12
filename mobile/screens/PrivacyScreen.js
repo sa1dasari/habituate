@@ -6,7 +6,6 @@ import StackHeader from '../components/StackHeader';
 import Toast from '../components/Toast';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useHabits } from '../hooks/useHabits';
-import { useGoals } from '../hooks/useGoals';
 import { useToast } from '../hooks/useToast';
 import { buildExportData, shareExport, toCsv, toJson } from '../utils/dataExport';
 import api from '../api/client';
@@ -19,7 +18,6 @@ export default function PrivacyScreen({ navigation }) {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const { habits } = useHabits();
-  const { goals } = useGoals();
   const { toast, showToast, hideToast } = useToast();
   const [exporting, setExporting] = useState(null); // 'json' | 'csv' | null
 
@@ -65,7 +63,7 @@ export default function PrivacyScreen({ navigation }) {
   const handleExport = async (format) => {
     setExporting(format);
     try {
-      const data = buildExportData(habits, goals);
+      const data = buildExportData(habits);
       if (format === 'json') {
         await shareExport(toJson(data), 'habituate-export.json', 'application/json');
       } else {
@@ -131,7 +129,7 @@ export default function PrivacyScreen({ navigation }) {
         </View>
 
         <Text style={styles.sectionTitle}>Your data</Text>
-        <Text style={styles.cardNote}>A copy of your habits, check-ins, and goals — yours to keep.</Text>
+        <Text style={styles.cardNote}>A copy of your habits and check-ins — yours to keep.</Text>
         <View style={styles.exportRow}>
           <Pressable style={styles.secondaryButton} disabled={!!exporting} onPress={() => handleExport('json')}>
             {exporting === 'json' ? (

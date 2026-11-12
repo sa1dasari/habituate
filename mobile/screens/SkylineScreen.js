@@ -28,6 +28,7 @@ import SkyBackdrop from '../components/SkyBackdrop';
 import SkylineHoldLayer from '../components/SkylineHoldLayer';
 import SkylineHabitSheet, { SHEET_PEEK_HEIGHT } from '../components/SkylineHabitSheet';
 import LotsView from '../components/LotsView';
+import LotSheet from '../components/LotSheet';
 
 function hexToRgba(hex, alpha) {
   const n = parseInt(hex.replace('#', ''), 16);
@@ -58,7 +59,7 @@ function formatHeaderDate(date) {
 export default function SkylineScreen({ navigation }) {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const { habits, loading, toggleCheckIn, addCheckIn, createHabit } = useHabits();
+  const { habits, loading, toggleCheckIn, addCheckIn, removeCheckIn, createHabit } = useHabits();
   const { user } = useAuth();
   const { effectiveMode } = useAppTheme();
   const { tapToBuild } = useTapToBuild();
@@ -189,19 +190,38 @@ export default function SkylineScreen({ navigation }) {
     [habitsById, addCheckIn, toggleCheckIn, showToast],
   );
 
-  // The lot-sheet mockups (concept _screens/3-lot-sheet-weekly.png and
-  // 5-lot-sheet-monthly.png) show "Add for another day" opening a sheet to
-  // backdate or remove a check-in for a specific day in the period — that
-  // sheet is a separate, not-yet-built screen (tracked in SKYLINE.md), so
-  // this stands the entry point up now without building the sheet behind
-  // it yet.
-  const handleAddForAnotherDay = useCallback(
-    (habitId) => {
+  // The lot sheet (concept _screens/3-lot-sheet-weekly.png,
+  // 5-lot-sheet-monthly.png — SKYLINE.md section 4a's Phase 2b gate):
+  // backdates or deletes a check-in for any day in a period, from a
+  // LotTile tap or a row's "Add for another day" link. Errors are caught
+  // and toasted inside LotSheet.js itself (same as InviteFriendsSheet's
+  // pattern), not here — these two just do the real work and let a
+  // rejection propagate.
+  const handleBuildForDay = useCallback(
+    async (habitId, dayKey) => {
       const habit = habitsById[habitId];
-      showToast(`Pick a day to add a ${habit ? habit.name : 'habit'} check-in — coming soon`, 'info');
+      if (!habit) return;
+      if (isCountMode(habit)) {
+        await addCheckIn(habitId, 1, dayKey);
+      } else {
+        await toggleCheckIn(habitId, dayKey);
+      }
     },
-    [habitsById, showToast],
+    [habitsById, addCheckIn, toggleCheckIn],
   );
+
+  // Keyed by id, not the row/period objects themselves — those get rebuilt
+  // fresh on every `lots` recompute (e.g. right after a hold inside the
+  // sheet), so holding onto the old objects would freeze the sheet's grid
+  // and caption at whatever they looked like the moment it opened.
+  const [lotSheetKey, setLotSheetKey] = useState(null); // { habitId, periodKey } | null
+  const handleOpenLotSheet = useCallback(
+    (row, period) => setLotSheetKey({ habitId: row.habitId, periodKey: period.key }),
+    [],
+  );
+  const closeLotSheet = useCallback(() => setLotSheetKey(null), []);
+  const lotSheetRow = lotSheetKey ? lots.rows.find((r) => r.habitId === lotSheetKey.habitId) : null;
+  const lotSheetPeriod = lotSheetRow ? lotSheetRow.periods.find((p) => p.key === lotSheetKey.periodKey) : null;
 
   // Same sensible-defaults template flow as TodayScreen's own empty state —
   // the Skyline's empty-lot tap doesn't need the full "Lay a foundation"
@@ -309,66 +329,95 @@ export default function SkylineScreen({ navigation }) {
         </View>
 
         {loading && habits.length === 0 ? (
-        // Only the true cold-start case blanks the screen — `loading` also
-        // flips true→false on every refresh after a check-in (useHabits.js's
-        // `run()` wraps every mutation in a refresh), and gating the whole
-        // tree on that alone unmounted/remounted the entire skyline on every
-        // single floor build, flashing blank each time.
-        <Text style={[styles.loading, { color: ui.muted }]}>Loading your skyline…</Text>
-      ) : view === 'lots' ? (
-        <View style={styles.stage}>
-          <LotsView
-            rows={lots.rows}
-            habitsById={habitsById}
-            getCanBuild={getCanBuild}
-            onBuild={handleBuild}
-            onAddForAnotherDay={handleAddForAnotherDay}
-            tapToBuild={tapToBuild}
-            theme={ui}
-          />
-        </View>
-      ) : (
-        <View style={styles.stage} onLayout={(e) => setStageHeight(e.nativeEvent.layout.height)}>
-          {/* Cropped from the top (sky), never the bottom — a short screen
-              shows less sky above the towers, not a tower's base/labels
-              clipped off behind the collapsed sheet (see SHEET_PEEK_HEIGHT). */}
-          <View
-            style={[
-              styles.sceneWrap,
-              stageHeight > 0 && { height: Math.min(560, stageHeight - SHEET_PEEK_HEIGHT) },
-            ]}
-          >
-            <View style={styles.sceneAnchorBottom}>
-              <SkylineView
-                habits={sceneHabits}
-                scene={scene}
-                containerWidth={windowWidth}
-                showTouchables={false}
+          // Only the true cold-start case blanks the screen — `loading` also
+          // flips true→false on every refresh after a check-in
+          // (useHabits.js's `run()` wraps every mutation in a refresh), and
+          // gating the whole tree on that alone unmounted/remounted the
+          // entire skyline on every single floor build, flashing blank each
+          // time.
+          <Text style={[styles.loading, { color: ui.muted }]}>Loading your skyline…</Text>
+        ) : (
+          // Both tabs stay mounted at once, toggled with `display` instead
+          // of a `view === 'lots' ? A : B` ternary — the ternary used to
+          // fully unmount/remount whichever tab wasn't active, which is what
+          // made switching tabs laggy (rebuilding the SVG tower scene or the
+          // lot strip from scratch every time), not anything React.memo
+          // could fix. `display: 'none'` removes a view from layout *and*
+          // touch routing in RN, so the hidden tab can't receive taps or let
+          // its hold gesture fire — verified on-device, not just assumed.
+          <>
+            <View style={[styles.stage, view !== 'lots' && styles.hidden]}>
+              <LotsView
+                rows={lots.rows}
+                habitsById={habitsById}
+                getCanBuild={getCanBuild}
+                onBuild={handleBuild}
+                onOpenSheet={handleOpenLotSheet}
+                tapToBuild={tapToBuild}
                 theme={ui}
-                onAddHabit={() => setAddHabitVisible(true)}
-                interactiveOverlay={
-                  <SkylineHoldLayer
-                    hitTargets={scene.hitTargets}
-                    labels={scene.accessibilityLabels}
-                    getCanBuild={getCanBuild}
-                    onBuild={handleBuild}
-                    tapToBuild={tapToBuild}
-                    theme={ui}
-                  />
-                }
+              />
+              <LotSheet
+                // Keyed by the period being shown — see LotSheet.js's doc
+                // comment on why this must force a fresh mount per period
+                // rather than letting stale local state (the selected day)
+                // survive from whichever period was open before.
+                key={lotSheetKey ? `${lotSheetKey.habitId}-${lotSheetKey.periodKey}` : 'none'}
+                visible={!!lotSheetKey}
+                onClose={closeLotSheet}
+                row={lotSheetRow}
+                period={lotSheetPeriod}
+                habit={lotSheetKey ? habitsById[lotSheetKey.habitId] : null}
+                tapToBuild={tapToBuild}
+                theme={ui}
+                onBuildDay={handleBuildForDay}
+                onRemoveCheckIn={removeCheckIn}
               />
             </View>
-          </View>
-          <SkylineHabitSheet
-            habits={sceneHabits}
-            getCanBuild={getCanBuild}
-            onBuild={handleBuild}
-            tapToBuild={tapToBuild}
-            theme={ui}
-            stageHeight={stageHeight}
-          />
-        </View>
-      )}
+            <View
+              style={[styles.stage, view !== 'daily' && styles.hidden]}
+              onLayout={(e) => setStageHeight(e.nativeEvent.layout.height)}
+            >
+              {/* Cropped from the top (sky), never the bottom — a short screen
+                  shows less sky above the towers, not a tower's base/labels
+                  clipped off behind the collapsed sheet (see SHEET_PEEK_HEIGHT). */}
+              <View
+                style={[
+                  styles.sceneWrap,
+                  stageHeight > 0 && { height: Math.min(560, stageHeight - SHEET_PEEK_HEIGHT) },
+                ]}
+              >
+                <View style={styles.sceneAnchorBottom}>
+                  <SkylineView
+                    habits={sceneHabits}
+                    scene={scene}
+                    containerWidth={windowWidth}
+                    showTouchables={false}
+                    theme={ui}
+                    onAddHabit={() => setAddHabitVisible(true)}
+                    interactiveOverlay={
+                      <SkylineHoldLayer
+                        hitTargets={scene.hitTargets}
+                        labels={scene.accessibilityLabels}
+                        getCanBuild={getCanBuild}
+                        onBuild={handleBuild}
+                        tapToBuild={tapToBuild}
+                        theme={ui}
+                      />
+                    }
+                  />
+                </View>
+              </View>
+              <SkylineHabitSheet
+                habits={sceneHabits}
+                getCanBuild={getCanBuild}
+                onBuild={handleBuild}
+                tapToBuild={tapToBuild}
+                theme={ui}
+                stageHeight={stageHeight}
+              />
+            </View>
+          </>
+        )}
 
       <Toast toast={toast} onHide={hideToast} />
       <LocationPermissionModal
@@ -406,7 +455,7 @@ const styles = StyleSheet.create({
   title: { fontFamily: fonts.extraBold, fontSize: 28 },
   subtitle: { fontFamily: fonts.regular, fontSize: 14, marginTop: 2 },
   iconBtn: { marginLeft: 10 },
-  viewSwitch: { flexDirection: 'row', paddingHorizontal: 12, marginBottom: 8, gap: 8 },
+  viewSwitch: { flexDirection: 'row', paddingHorizontal: 12, marginTop: 14, marginBottom: 8, gap: 8 },
   viewSwitchSeg: {
     flex: 1,
     flexDirection: 'row',
@@ -430,6 +479,7 @@ const styles = StyleSheet.create({
   badgeText: { fontFamily: fonts.bold, fontSize: 11, color: '#1A1300' },
   loading: { padding: 24, fontSize: 14 },
   stage: { flex: 1, overflow: 'hidden' },
+  hidden: { display: 'none' },
   sceneWrap: { height: 560, overflow: 'hidden' },
   sceneAnchorBottom: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 560 },
   backdrop: { flex: 1, backgroundColor: 'rgba(8,10,16,0.5)', alignItems: 'center', justifyContent: 'center', padding: 20 },

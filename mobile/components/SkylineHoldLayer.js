@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { GestureDetector } from 'react-native-gesture-handler';
-import Animated, { useAnimatedProps, useAnimatedStyle } from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { runOnJS, useAnimatedProps, useAnimatedStyle } from 'react-native-reanimated';
 import Svg, { G, Path } from 'react-native-svg';
 import { FLOOR_H, TOWER_W, previewFloorPaths } from '../utils/skylineScene';
 import { useHoldGesture } from '../hooks/useHoldGesture';
@@ -31,8 +31,35 @@ const CAP_FADE_START = 0.7;
  * shared with the bottom sheet's row Hold pill via `useHoldGesture` — this
  * component only owns the floor-shaped visual.
  */
-function HoldableTower({ hit, label, canBuild, tapToBuild, onBuild, theme }) {
-  const { gesture, progress, lift, active, complete } = useHoldGesture({ canBuild, tapToBuild, onBuild });
+function HoldableTower({ hit, label, canBuild, tapToBuild, onBuild, onOpenSheet, theme }) {
+  const { gesture: buildGesture, progress, lift, active, complete } = useHoldGesture({ canBuild, tapToBuild, onBuild });
+
+  // SKYLINE.md section 8's gesture spec: "Tap opens the tower sheet. With
+  // 'Tap to build' on, a tap builds the floor and a long press opens the
+  // sheet" — the two roles swap with the same setting that swaps build
+  // itself. Gesture.Exclusive gives the build gesture priority; the open
+  // gesture only activates when the build one fails to recognize (e.g. a
+  // press that's too short to satisfy LongPress's minDuration falls
+  // through to the plain Tap below). Unverified on-device this round (ADB
+  // was unavailable) — if a quick tap on a not-yet-built-today tower seems
+  // to do nothing instead of opening the sheet, start here.
+  const openSheetGesture = tapToBuild
+    ? Gesture.LongPress()
+        .minDuration(1000)
+        .onStart(() => {
+          if (onOpenSheet) runOnJS(onOpenSheet)();
+        })
+    : Gesture.Tap()
+        // RNGH's Tap defaults to a 500ms maxDuration. The build long-press
+        // needs the full 1000ms (HOLD_MS in useHoldGesture.js) to fail
+        // before this Tap gets a turn in the Exclusive below, so without
+        // raising this, any release between ~500ms and 1000ms satisfies
+        // neither gesture and the tower does nothing at all.
+        .maxDuration(1200)
+        .onStart(() => {
+          if (onOpenSheet) runOnJS(onOpenSheet)();
+        });
+  const gesture = Gesture.Exclusive(buildGesture, openSheetGesture);
 
   const animatedLift = useAnimatedStyle(() => ({
     transform: [{ translateY: lift.value }],
@@ -95,7 +122,7 @@ function HoldableTower({ hit, label, canBuild, tapToBuild, onBuild, theme }) {
  * `getCanBuild`/`onBuild` are supplied by the screen, which owns the actual
  * check-in call and the BOOLEAN-vs-COUNT branching (see SkylineScreen.js).
  */
-export default function SkylineHoldLayer({ hitTargets, labels, getCanBuild, onBuild, tapToBuild, theme }) {
+export default function SkylineHoldLayer({ hitTargets, labels, getCanBuild, onBuild, onOpenSheet, tapToBuild, theme }) {
   return hitTargets.map((hit) => (
     <HoldableTower
       key={hit.towerId}
@@ -104,6 +131,7 @@ export default function SkylineHoldLayer({ hitTargets, labels, getCanBuild, onBu
       canBuild={getCanBuild(hit.towerId)}
       tapToBuild={tapToBuild}
       onBuild={() => onBuild(hit.towerId)}
+      onOpenSheet={onOpenSheet ? () => onOpenSheet(hit.towerId) : undefined}
       theme={theme}
     />
   ));

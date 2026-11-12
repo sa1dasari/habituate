@@ -27,6 +27,7 @@ import SkylineView from '../components/SkylineView';
 import SkyBackdrop from '../components/SkyBackdrop';
 import SkylineHoldLayer from '../components/SkylineHoldLayer';
 import SkylineHabitSheet, { SHEET_PEEK_HEIGHT } from '../components/SkylineHabitSheet';
+import TowerSheet from '../components/TowerSheet';
 import LotsView from '../components/LotsView';
 import LotSheet from '../components/LotSheet';
 
@@ -69,6 +70,11 @@ export default function SkylineScreen({ navigation }) {
     useWeatherSky();
   const [today, setToday] = useState(() => new Date());
   const [chatVisible, setChatVisible] = useState(false);
+  // Pre-fills Ask Habituate's prompt when opened from a tower sheet's "Ask
+  // about this tower" (SKYLINE.md section 14 #5) — full `habits` context
+  // still goes to the coach either way, this just seeds the question.
+  const [chatInitialQuestion, setChatInitialQuestion] = useState(null);
+  const [towerSheetHabitId, setTowerSheetHabitId] = useState(null);
   const [addHabitVisible, setAddHabitVisible] = useState(false);
   const [stageHeight, setStageHeight] = useState(0);
   // Measured, not guessed — concept_screens/1-skyline-daily.png shows the
@@ -190,6 +196,21 @@ export default function SkylineScreen({ navigation }) {
     [habitsById, addCheckIn, toggleCheckIn, showToast],
   );
 
+  // Opened by SkylineHoldLayer's composed gesture (a tap, or a long press
+  // under "Tap to build") — Phase 3b's tower sheet.
+  const handleOpenTowerSheet = useCallback((habitId) => setTowerSheetHabitId(habitId), []);
+  const closeTowerSheet = useCallback(() => setTowerSheetHabitId(null), []);
+  const towerSheetHabit = towerSheetHabitId ? habitsById[towerSheetHabitId] : null;
+
+  const handleAskAboutTower = useCallback((habit) => {
+    setChatInitialQuestion(`Tell me about my progress on "${habit.name}"`);
+    setChatVisible(true);
+  }, []);
+  const closeChat = useCallback(() => {
+    setChatVisible(false);
+    setChatInitialQuestion(null);
+  }, []);
+
   // The lot sheet (concept _screens/3-lot-sheet-weekly.png,
   // 5-lot-sheet-monthly.png — SKYLINE.md section 4a's Phase 2b gate):
   // backdates or deletes a check-in for any day in a period, from a
@@ -274,7 +295,14 @@ export default function SkylineScreen({ navigation }) {
             style={styles.iconBtn}
             accessibilityRole="button"
             accessibilityLabel="Open Ask Habituate"
-            onPress={() => setChatVisible(true)}
+            onPress={() => {
+              // Always clear any stale tower-scoped question before opening
+              // from this plain icon — AskHabituateModal auto-sends
+              // initialQuestion on becoming visible, so a leftover value
+              // from a prior "Ask about this tower" would re-send it here.
+              setChatInitialQuestion(null);
+              setChatVisible(true);
+            }}
           >
             <MaterialCommunityIcons name="chat-processing-outline" size={20} color={ui.text} />
           </Pressable>
@@ -400,6 +428,7 @@ export default function SkylineScreen({ navigation }) {
                         labels={scene.accessibilityLabels}
                         getCanBuild={getCanBuild}
                         onBuild={handleBuild}
+                        onOpenSheet={handleOpenTowerSheet}
                         tapToBuild={tapToBuild}
                         theme={ui}
                       />
@@ -415,6 +444,13 @@ export default function SkylineScreen({ navigation }) {
                 theme={ui}
                 stageHeight={stageHeight}
               />
+              <TowerSheet
+                visible={!!towerSheetHabitId}
+                onClose={closeTowerSheet}
+                habit={towerSheetHabit}
+                theme={ui}
+                onAskAboutTower={handleAskAboutTower}
+              />
             </View>
           </>
         )}
@@ -425,7 +461,12 @@ export default function SkylineScreen({ navigation }) {
         onAllow={requestLocation}
         onDismiss={skipLocationPrompt}
       />
-      <AskHabituateModal visible={chatVisible} onClose={() => setChatVisible(false)} habits={habits} />
+      <AskHabituateModal
+        visible={chatVisible}
+        onClose={closeChat}
+        habits={habits}
+        initialQuestion={chatInitialQuestion}
+      />
       <Modal visible={addHabitVisible} transparent animationType="fade" onRequestClose={() => setAddHabitVisible(false)}>
         <Pressable style={styles.backdrop} onPress={() => setAddHabitVisible(false)}>
           <Pressable style={[styles.addHabitCard, { backgroundColor: ui.surfaceLow }]} onPress={() => {}}>

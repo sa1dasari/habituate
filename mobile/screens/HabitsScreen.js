@@ -428,6 +428,24 @@ export default function HabitsScreen() {
     scrollToForm();
   };
 
+  // Coming from the Skyline tower sheet's "Edit" button (Part C of the
+  // rebuild) — this screen's own form is still the real edit UI (Phase 4
+  // is where a Skyline-styled replacement gets built), so the tower sheet
+  // deep-links here with the habit id rather than duplicating the form.
+  useFocusEffect(
+    useCallback(() => {
+      const editHabitId = route.params?.editHabitId;
+      if (!editHabitId) return;
+      const habit = habits.find((h) => h.id === editHabitId);
+      if (habit) {
+        openEdit(habit);
+        scrollToForm();
+      }
+      navigation.setParams({ editHabitId: undefined });
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [route.params?.editHabitId, habits, navigation])
+  );
+
   const submit = async () => {
     const name = form.name.trim();
     if (!name) {

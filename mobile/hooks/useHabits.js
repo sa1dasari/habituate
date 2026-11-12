@@ -27,6 +27,13 @@ function optimisticCheckIn(dayKey, value) {
   return { id: `optimistic-${dayKey}-${Date.now()}`, occurredAt: instantForDayKey(dayKey), value, source: 'manual' };
 }
 
+/** Applies a partial field patch to one habit immediately — the same
+ * "flip the UI before the network call lands" idea as patchHabitCheckIns,
+ * for a scalar field rather than the check-ins array. */
+function patchHabitFields(setHabits, habitId, fields) {
+  setHabits((prev) => prev.map((h) => (h.id === habitId ? { ...h, ...fields } : h)));
+}
+
 /** Applies `updater` to one habit's `checkIns` immediately, recomputing
  * `checkedInToday` from the result — the two fields `getCanBuild` and
  * `HoldPillButton`'s `built` state actually key off. Every check-in mutator
@@ -367,7 +374,13 @@ export function HabitsProvider({ children }) {
       runExclusive(habitId, async () => {
         const habit = habits.find((item) => item.id === habitId);
         if (!habit) return;
-        if (habit.shieldedToday) {
+        const wasShielded = habit.shieldedToday;
+        // Optimistic flip, same reasoning as the check-in mutators — the
+        // server can still reject this (streak too short, no shield
+        // banked, already shielded), in which case refresh() flips it back
+        // within one cycle, same as a check-in race self-healing.
+        patchHabitFields(setHabits, habitId, { shieldedToday: !wasShielded });
+        if (wasShielded) {
           await api.deactivateShield(habitId);
         } else {
           await api.activateShield(habitId);
@@ -384,6 +397,15 @@ export function HabitsProvider({ children }) {
   );
 
   const deleteHabit = useCallback((habitId) => run(() => api.deleteHabit(habitId)), [run]);
+
+  // Closes the habit's current tower segment and opens a new one (SKYLINE.md
+  // section 6, daily-cadence only) — server-validated (ownership, cadence,
+  // age threshold), so this can still reject with a specific message even
+  // if a caller's own eligibility check was stale.
+  const topOutHabit = useCallback(
+    (habitId) => runExclusive(habitId, () => api.topOutHabit(habitId)),
+    [runExclusive]
+  );
 
   const summary = useMemo(() => summarizeHabits(habits), [habits]);
 
@@ -406,6 +428,7 @@ export function HabitsProvider({ children }) {
       repairStreak,
       shieldsAvailable,
       deleteHabit,
+      topOutHabit,
     }),
     [
       habits,
@@ -425,6 +448,7 @@ export function HabitsProvider({ children }) {
       repairStreak,
       shieldsAvailable,
       deleteHabit,
+      topOutHabit,
     ]
   );
 

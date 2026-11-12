@@ -185,6 +185,13 @@ export const api = {
 
   deleteCheckIn: (checkInId) => request(`/api/check-ins/${checkInId}`, { method: 'DELETE' }),
 
+  // Every date (yyyy-MM-dd) a habit was shielded — backs the inside view's
+  // glass/shield floors (SKYLINE.md section 6/14 #1).
+  getShieldedDates: (habitId) => request(`/api/habits/${habitId}/shielded-dates`),
+
+  // Closes the habit's current tower segment and starts a new one — daily-cadence only.
+  topOutHabit: (habitId) => request(`/api/habits/${habitId}/top-out`, { method: 'POST' }),
+
   listGoals: () => request('/api/goals'),
 
   listArchivedGoals: () => request('/api/goals?archived=true'),

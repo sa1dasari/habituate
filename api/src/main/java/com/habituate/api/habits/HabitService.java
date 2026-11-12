@@ -115,7 +115,27 @@ public class HabitService {
         boolean shieldedToday = frozenDays.contains(today);
         boolean shieldEligible = streaks.current() >= ShieldAwardService.MILESTONE_INTERVAL;
 
-        return HabitResponse.from(habit, streaks.current(), streaks.longest(), shieldedToday, shieldEligible);
+        // Phase 3d compositing: one cheap indexed lookup per habit (almost
+        // always a single open segment, zero closed ones, for every habit
+        // that's never been topped out) rather than a second per-habit
+        // round trip from the client. Reuses the checkIns list already
+        // fetched above for the streak calc instead of re-querying it.
+        List<HabitTower> segments = habitTowerRepository.findByHabitIdOrderByStartedAtAsc(habit.getId());
+        List<HabitTower> closedSegments = segments.stream().filter(s -> s.getToppedOutAt() != null).toList();
+        List<HabitTowerResponse> recentClosedSegments = closedSegments.stream()
+                .skip(Math.max(0, closedSegments.size() - 2))
+                .map(s -> HabitTowerResponse.from(s, countCheckInsInWindow(checkIns, s.getStartedAt(), s.getToppedOutAt())))
+                .toList();
+
+        return HabitResponse.from(
+                habit, streaks.current(), streaks.longest(), shieldedToday, shieldEligible,
+                closedSegments.size(), recentClosedSegments);
+    }
+
+    private int countCheckInsInWindow(List<CheckIn> checkIns, Instant start, Instant end) {
+        return (int) checkIns.stream()
+                .filter(c -> !c.getOccurredAt().isBefore(start) && c.getOccurredAt().isBefore(end))
+                .count();
     }
 
     private HabitResponse toResponse(Habit habit) {

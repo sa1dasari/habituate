@@ -88,6 +88,22 @@ class HabitServiceTopOutTest {
         entityManager.clear();
     }
 
+    /** Same idea as backdateHabitCreation, but for the currently-open
+     * segment's own started_at (habit_towers, not habits) — needed when a
+     * test tops out more than once in a row, since each new segment must
+     * independently clear the age threshold before it can be topped out
+     * again. */
+    void backdateCurrentSegment(Long habitId, int daysAgo) {
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            entityManager.createNativeQuery(
+                            "UPDATE habit_towers SET started_at = ?1 WHERE habit_id = ?2 AND topped_out_at IS NULL")
+                    .setParameter(1, Instant.now().minus(daysAgo, ChronoUnit.DAYS))
+                    .setParameter(2, habitId)
+                    .executeUpdate();
+        });
+        entityManager.clear();
+    }
+
     @Test
     void topOutHabit_rejectsLegacyWeeklyMonthlyShapedHabits() {
         userId = "topout-test-user-1";
@@ -183,5 +199,47 @@ class HabitServiceTopOutTest {
 
         assertThatThrownBy(() -> habitService.getShieldedDates("someone-else", habitId))
                 .isInstanceOf(ForbiddenException.class);
+    }
+
+    @Test
+    void listHabits_aFreshHabitHasNoClosedSegments() {
+        createDailyHabit("topout-test-user-9", null);
+
+        var response = habitService.listHabits(userId, "UTC").get(0);
+
+        assertThat(response.closedSegmentCount()).isZero();
+        assertThat(response.recentClosedSegments()).isEmpty();
+    }
+
+    @Test
+    void listHabits_aToppedOutHabitCarriesItsClosedSegmentWithAFloorCount() {
+        createDailyHabit("topout-test-user-10", 10);
+        backdateHabitCreation(habitId, 15);
+        checkInRepository.save(new CheckIn(habitId, userId, Instant.now().minus(1, ChronoUnit.DAYS), 1, "manual"));
+        habitService.topOutHabit(userId, habitId, "UTC");
+        checkInRepository.save(new CheckIn(habitId, userId, Instant.now(), 1, "manual")); // lands in the new open segment
+
+        var response = habitService.listHabits(userId, "UTC").get(0);
+
+        assertThat(response.closedSegmentCount()).isEqualTo(1);
+        assertThat(response.recentClosedSegments()).hasSize(1);
+        assertThat(response.recentClosedSegments().get(0).toppedOutAt()).isNotNull();
+        assertThat(response.recentClosedSegments().get(0).floorCount()).isEqualTo(1);
+    }
+
+    @Test
+    void listHabits_onlyTheTwoMostRecentClosedSegmentsAreCarried() {
+        createDailyHabit("topout-test-user-11", 1);
+        backdateHabitCreation(habitId, 20);
+        habitService.topOutHabit(userId, habitId, "UTC");
+        backdateCurrentSegment(habitId, 2);
+        habitService.topOutHabit(userId, habitId, "UTC");
+        backdateCurrentSegment(habitId, 2);
+        habitService.topOutHabit(userId, habitId, "UTC");
+
+        var response = habitService.listHabits(userId, "UTC").get(0);
+
+        assertThat(response.closedSegmentCount()).isEqualTo(3);
+        assertThat(response.recentClosedSegments()).hasSize(2);
     }
 }

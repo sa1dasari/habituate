@@ -28,6 +28,7 @@ import SkyBackdrop from '../components/SkyBackdrop';
 import SkylineHoldLayer from '../components/SkylineHoldLayer';
 import SkylineHabitSheet, { SHEET_PEEK_HEIGHT } from '../components/SkylineHabitSheet';
 import TowerSheet from '../components/TowerSheet';
+import TowerInsideView from '../components/TowerInsideView';
 import LotsView from '../components/LotsView';
 import LotSheet from '../components/LotSheet';
 
@@ -75,6 +76,7 @@ export default function SkylineScreen({ navigation }) {
   // still goes to the coach either way, this just seeds the question.
   const [chatInitialQuestion, setChatInitialQuestion] = useState(null);
   const [towerSheetHabitId, setTowerSheetHabitId] = useState(null);
+  const [insideViewHabitId, setInsideViewHabitId] = useState(null);
   const [addHabitVisible, setAddHabitVisible] = useState(false);
   const [stageHeight, setStageHeight] = useState(0);
   // Measured, not guessed — concept_screens/1-skyline-daily.png shows the
@@ -150,6 +152,18 @@ export default function SkylineScreen({ navigation }) {
     return map;
   }, [habits]);
 
+  // TowerInsideView.js needs the already-classified scene shape (color,
+  // checkInDays, currentRun, startDate) rather than the raw hydrated habit —
+  // this keeps its set/open/glass classification identical to what the
+  // tower itself draws, via the shared classifyDays helper.
+  const sceneHabitsById = useMemo(() => {
+    const map = {};
+    sceneHabits.forEach((h) => {
+      map[h.id] = h;
+    });
+    return map;
+  }, [sceneHabits]);
+
   // Header's "X of Y built today" — daily-target habits only (matches
   // TodayScreen's own "Due Today" convention); a weekly/monthly-target habit
   // isn't "due" on any single day, so it would skew this count.
@@ -201,6 +215,12 @@ export default function SkylineScreen({ navigation }) {
   const handleOpenTowerSheet = useCallback((habitId) => setTowerSheetHabitId(habitId), []);
   const closeTowerSheet = useCallback(() => setTowerSheetHabitId(null), []);
   const towerSheetHabit = towerSheetHabitId ? habitsById[towerSheetHabitId] : null;
+
+  // Phase 3c's inside view, opened from the tower sheet's "Look inside" row.
+  const handleOpenInsideView = useCallback((habit) => setInsideViewHabitId(habit.id), []);
+  const closeInsideView = useCallback(() => setInsideViewHabitId(null), []);
+  const insideViewHabit = insideViewHabitId ? habitsById[insideViewHabitId] : null;
+  const insideViewSceneHabit = insideViewHabitId ? sceneHabitsById[insideViewHabitId] : null;
 
   const handleAskAboutTower = useCallback((habit) => {
     setChatInitialQuestion(`Tell me about my progress on "${habit.name}"`);
@@ -449,6 +469,17 @@ export default function SkylineScreen({ navigation }) {
                 onClose={closeTowerSheet}
                 habit={towerSheetHabit}
                 theme={ui}
+                onAskAboutTower={handleAskAboutTower}
+                onOpenInsideView={handleOpenInsideView}
+              />
+              <TowerInsideView
+                visible={!!insideViewHabitId}
+                onClose={closeInsideView}
+                habit={insideViewHabit}
+                sceneHabit={insideViewSceneHabit}
+                today={today}
+                uiTheme={ui}
+                towerTheme={towerTheme}
                 onAskAboutTower={handleAskAboutTower}
               />
             </View>

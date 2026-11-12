@@ -74,8 +74,14 @@ function toKeySet(value) {
   return value instanceof Set ? value : new Set(value);
 }
 
-/** Per-day floor state for one habit, oldest first, due days only (section 4). */
-function classifyDays(habit, todayKey) {
+/**
+ * Per-day floor state for one habit, oldest first, due days only (section
+ * 4). Exported so TowerInsideView.js (Phase 3c's cross-section list) can
+ * reuse the exact same set/open/glass classification the tower itself
+ * draws from, instead of reimplementing it — the two must never disagree
+ * about what a given day's floor looks like.
+ */
+export function classifyDays(habit, todayKey) {
   const checkInDays = toKeySet(habit.checkInDays);
   const shieldDays = toKeySet(habit.shieldDays);
   // habit.startDate is already a 'YYYY-MM-DD' day string per the section 8

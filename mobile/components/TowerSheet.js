@@ -15,8 +15,9 @@ const DEFAULT_TOP_OUT_THRESHOLD_DAYS = 30;
 
 /**
  * Phase 3b's tower sheet (SKYLINE.md section 9/10): stats, Edit, Shield
- * Day, Top out (gated by the habit's own `topOutThresholdDays`), "Ask
- * about this tower", and Retire. Opened by a plain tap on a tower
+ * Day, Top out (gated by the habit's own `topOutThresholdDays`), "Look
+ * inside" (Phase 3c's cross-section list, TowerInsideView.js), "Ask about
+ * this tower", and Retire. Opened by a plain tap on a tower
  * (SkylineHoldLayer.js's composed gesture — a long press still builds,
  * a quick tap opens this sheet; the two roles swap under "Tap to build").
  *
@@ -44,7 +45,7 @@ const DEFAULT_TOP_OUT_THRESHOLD_DAYS = 30;
  * case is a Top out button that shows a little early or late, not an
  * action that incorrectly succeeds.
  */
-export default function TowerSheet({ visible, onClose, habit, theme, onAskAboutTower }) {
+export default function TowerSheet({ visible, onClose, habit, theme, onAskAboutTower, onOpenInsideView }) {
   const navigation = useNavigation();
   const { toggleShield, updateHabit, topOutHabit, shieldsAvailable } = useHabits();
   const { toast, showToast, hideToast } = useToast();
@@ -129,6 +130,11 @@ export default function TowerSheet({ visible, onClose, habit, theme, onAskAboutT
     onAskAboutTower?.(habit);
   };
 
+  const handleOpenInsideView = () => {
+    onClose();
+    onOpenInsideView?.(habit);
+  };
+
   const shieldSublabel = habit.shieldedToday
     ? null
     : habit.shieldEligible
@@ -182,6 +188,14 @@ export default function TowerSheet({ visible, onClose, habit, theme, onAskAboutT
               testID="tower-sheet-top-out"
             />
           )}
+          <ActionRow
+            icon="layers-outline"
+            label="Look inside"
+            sublabel={`${totalBuilt} floor${totalBuilt === 1 ? '' : 's'}`}
+            onPress={handleOpenInsideView}
+            theme={theme}
+            testID="tower-sheet-inside"
+          />
           <ActionRow
             icon="chat-processing-outline"
             label="Ask about this tower"

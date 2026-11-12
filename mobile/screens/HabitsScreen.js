@@ -63,6 +63,11 @@ const emptyForm = {
   scheduledTime: '',
   reminderEnabled: false,
   motivation: '',
+  // Carried through unseen (no UI control yet — Phase 4 adds one) purely so
+  // this form's own PUT doesn't silently wipe a value set elsewhere (e.g.
+  // TowerSheet.js's Edit deep-link): null here means "leave it alone",
+  // matching UpdateHabitRequest's own null-is-a-no-op semantics.
+  topOutThresholdDays: null,
 };
 
 const emptyGoalForm = {
@@ -103,6 +108,7 @@ function formFromHabit(habit) {
     scheduledTime: habit.scheduledTime || '',
     reminderEnabled: Boolean(habit.reminderEnabled),
     motivation: habit.motivation || '',
+    topOutThresholdDays: habit.topOutThresholdDays ?? null,
   };
 }
 
@@ -142,6 +148,11 @@ function formToPayload(formState) {
     scheduledTime,
     reminderEnabled: Boolean(scheduledTime) && formState.reminderEnabled,
     motivation: formState.motivation.trim(),
+    // null = "leave it alone" (UpdateHabitRequest only applies a non-null
+    // value) — formFromHabit already fills this with the real current value
+    // on edit, so this only stays null on a fresh create, where the field
+    // doesn't exist to preserve yet anyway.
+    topOutThresholdDays: formState.topOutThresholdDays ?? null,
   };
 }
 

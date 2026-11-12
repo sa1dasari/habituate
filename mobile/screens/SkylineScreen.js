@@ -30,6 +30,7 @@ import SkylineHabitSheet, { SHEET_PEEK_HEIGHT } from '../components/SkylineHabit
 import TowerSheet from '../components/TowerSheet';
 import TowerInsideView from '../components/TowerInsideView';
 import TowerForm from '../components/TowerForm';
+import ArchivedTowersSheet from '../components/ArchivedTowersSheet';
 import LotsView from '../components/LotsView';
 import LotSheet from '../components/LotSheet';
 
@@ -81,6 +82,7 @@ export default function SkylineScreen({ navigation }) {
   // null habitId + visible = create mode; a real id = edit mode.
   const [towerFormVisible, setTowerFormVisible] = useState(false);
   const [towerFormHabitId, setTowerFormHabitId] = useState(null);
+  const [archivedTowersVisible, setArchivedTowersVisible] = useState(false);
   const [addHabitVisible, setAddHabitVisible] = useState(false);
   const [stageHeight, setStageHeight] = useState(0);
   // Measured, not guessed — concept_screens/1-skyline-daily.png shows the
@@ -320,8 +322,8 @@ export default function SkylineScreen({ navigation }) {
         <View onLayout={(e) => setHeaderAreaHeight(e.nativeEvent.layout.height)}>
         <View style={[styles.header, { backgroundColor: hexToRgba(ui.background, 0.55) }]}>
           <View style={styles.headerText}>
-            <Text style={[styles.title, { color: ui.text }]}>Skyline</Text>
-            <Text style={[styles.subtitle, { color: ui.muted }]}>
+            <Text style={[styles.title, { color: ui.text }]} numberOfLines={1}>Skyline</Text>
+            <Text style={[styles.subtitle, { color: ui.muted }]} numberOfLines={1}>
               {formatHeaderDate(today)} · {dueTodayCount.done} of {dueTodayCount.total} built today
             </Text>
           </View>
@@ -339,6 +341,15 @@ export default function SkylineScreen({ navigation }) {
             }}
           >
             <MaterialCommunityIcons name="chat-processing-outline" size={20} color={ui.text} />
+          </Pressable>
+          <Pressable
+            style={styles.iconBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Retired towers"
+            onPress={() => setArchivedTowersVisible(true)}
+            testID="skyline-archived-towers-icon"
+          >
+            <MaterialCommunityIcons name="archive-outline" size={20} color={ui.text} />
           </Pressable>
           <Pressable
             style={styles.iconBtn}
@@ -496,6 +507,11 @@ export default function SkylineScreen({ navigation }) {
                 uiTheme={ui}
                 towerTheme={towerTheme}
                 onAskAboutTower={handleAskAboutTower}
+              />
+              <ArchivedTowersSheet
+                visible={archivedTowersVisible}
+                onClose={() => setArchivedTowersVisible(false)}
+                theme={ui}
               />
               <TowerForm
                 key={towerFormHabitId ?? 'new'}

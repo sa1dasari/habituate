@@ -56,6 +56,7 @@ export default function TowerSheet({ visible, onClose, habit, theme, onAskAboutT
   const totalBuilt = habit.checkIns?.length || 0;
   const currentRun = habit.streak || 0;
   const bestRun = habit.longestStreak || 0;
+  const closedSegmentCount = habit.closedSegmentCount || 0;
 
   const ageDays = habit.createdAt
     ? Math.floor((Date.now() - new Date(habit.createdAt).getTime()) / MS_PER_DAY)
@@ -161,6 +162,11 @@ export default function TowerSheet({ visible, onClose, habit, theme, onAskAboutT
             <StatBlock label="Best run" value={bestRun} theme={theme} />
             <StatBlock label="Total built" value={totalBuilt} theme={theme} />
           </View>
+          {closedSegmentCount > 0 && (
+            <Text style={[styles.earlierTowers, { color: theme.muted }]}>
+              {closedSegmentCount} earlier {closedSegmentCount === 1 ? 'tower' : 'towers'} behind this one
+            </Text>
+          )}
 
           <ActionRow
             icon="pencil-outline"
@@ -255,7 +261,8 @@ const styles = StyleSheet.create({
   closeBtn: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontFamily: fonts.bold, fontSize: 17, flex: 1, textAlign: 'center' },
   scroll: { paddingHorizontal: 20, paddingBottom: 32 },
-  statsRow: { flexDirection: 'row', borderRadius: 16, paddingVertical: 18, marginBottom: 20 },
+  statsRow: { flexDirection: 'row', borderRadius: 16, paddingVertical: 18, marginBottom: 4 },
+  earlierTowers: { fontFamily: fonts.regular, fontSize: 12, textAlign: 'center', marginBottom: 16 },
   statBlock: { flex: 1, alignItems: 'center' },
   statValue: { fontFamily: fonts.extraBold, fontSize: 24 },
   statLabel: { fontFamily: fonts.regular, fontSize: 12, marginTop: 4 },

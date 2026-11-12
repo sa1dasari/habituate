@@ -278,6 +278,61 @@ function towerBodyShapes(habit, x, days, theme, windowCount) {
   return { shapes, topY: yCursor, visible, hidden };
 }
 
+const CLOSED_SEGMENT_OPACITY = 0.4;
+const CLOSED_SEGMENT_MIN_H = FLOOR_H * 2;
+const CLOSED_SEGMENT_MAX_H = FLOOR_H * 10;
+// Towers sit STEP (52) apart and a tower's own footprint (TOWER_W + DX)
+// is 46 wide, leaving only ~6px of clear slot margin on each side before
+// touching a neighboring tower. 2px per depth level (max depth 2 -> 4px)
+// stays safely inside that margin on both the leftmost tower (extra room
+// before x=0) and every other one (the 6px gap to the previous tower).
+const CLOSED_SEGMENT_STEP_BACK = 2;
+
+/**
+ * Up to 2 faded closed segments stacked behind the active tower (SKYLINE.md
+ * section 6, Phase 3d). Purely additive: `habit.closedSegments` is
+ * absent/empty for every habit that's never topped out — the overwhelming
+ * common case today, since top-out didn't exist before this phase — so for
+ * them this returns `[]` and the scene is byte-identical to before this
+ * function existed. Never added to hitTargets by the caller: a hold must
+ * only ever land on the live segment.
+ *
+ * Collapsed hard on purpose (no individual floors, no windows) — closed
+ * segments are already desaturated and faded, so floor-level detail
+ * wouldn't read at that opacity anyway, and this keeps the ~600-shape
+ * budget far from being a concern even for a habit topped out many times.
+ */
+function closedSegmentShapes(habit, x, theme) {
+  const segments = habit.closedSegments || [];
+  const shapes = [];
+  segments.forEach((segment, i) => {
+    // The array is oldest-first; the furthest-back (oldest) segment gets
+    // the largest offset/most fade, so the most recently closed one sits
+    // closest to (and reads less faded than) the active tower in front.
+    const depth = segments.length - i;
+    const offsetX = x - depth * CLOSED_SEGMENT_STEP_BACK;
+    const opacity = Math.max(0.2, CLOSED_SEGMENT_OPACITY - (depth - 1) * 0.08);
+    const height = Math.max(
+      CLOSED_SEGMENT_MIN_H,
+      Math.min(CLOSED_SEGMENT_MAX_H, (segment.floorCount || 1) * 2),
+    );
+    const yTop = BASE_Y - height;
+    const faces = floorFaces(offsetX, yTop, TOWER_W);
+    const fill = theme.closedSegmentFill;
+    shapes.push(
+      { id: `${habit.id}-closed${i}-front`, kind: 'path', d: pointsToPath(faces.front), fill, opacity },
+      { id: `${habit.id}-closed${i}-right`, kind: 'path', d: pointsToPath(faces.right), fill: shade(fill, -30), opacity },
+      // The top face doubles as the "gold cap" SKYLINE.md's gate calls for
+      // — filled gold instead of the muted block color, rather than a
+      // second floating shape stacked a few px above its own top face.
+      // Neither the active tower's crane nor the monument's flag applies
+      // here (Part E's plan: faded segments get no crane/flag).
+      { id: `${habit.id}-closed${i}-top`, kind: 'path', d: pointsToPath(faces.top), fill: theme.flagColor, opacity },
+    );
+  });
+  return shapes;
+}
+
 function lifecycleShapes(habit, x, topY, theme) {
   const shapes = [];
   const cx = x + TOWER_W / 2;
@@ -391,6 +446,7 @@ export function buildScene(habits, options) {
     const { shapes: bodyShapes, topY, visible, hidden } = towerBodyShapes(habit, x, days, theme, windowCount);
 
     const towerShapes = [
+      ...closedSegmentShapes(habit, x, theme),
       ...bodyShapes,
       ...lifecycleShapes(habit, x, topY, theme),
       ...bestRunLedge(habit, x, days, visible, topY, theme),

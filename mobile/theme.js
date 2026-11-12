@@ -246,6 +246,11 @@ export const skylineTowerTheme = {
     craneColor: '#A3ADB8',
     flagColor: '#F2C14E',
     ledgeColor: '#F2F4F6',
+    // Phase 3d compositing (SKYLINE.md section 6): the faded closed
+    // segments stacked behind the active tower — a flat muted-brown block,
+    // never the category color, same "distinct from every live state"
+    // treatment shieldFill gets.
+    closedSegmentFill: '#6B5A4A',
   },
   light: {
     openStroke: '#9AA7B5',
@@ -257,6 +262,7 @@ export const skylineTowerTheme = {
     craneColor: '#5B6B7A',
     flagColor: '#B45309',
     ledgeColor: '#15202B',
+    closedSegmentFill: '#A0876E',
   },
 };
 

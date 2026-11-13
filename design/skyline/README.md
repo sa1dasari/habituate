@@ -14,13 +14,13 @@ This is the only folder of Skyline mockups. The old `concept _screens/` folder w
 | 03 | `03-towersheet.png` | Tower sheet | 3 | current for floor art (redrawn 2026-11-13). The 2x2 button grid and the "Ask about this tower" label are **proposals** waiting on the owner (SKYLINE §14 #5). |
 | 04 | `04-topout.png` | Top out confirm | 3 | interaction only (past floors drawn without windows) |
 | 05 | `05-skystates.png` | Sky and weather | 2 | interaction only (not re-checked tower by tower; assume old floor art) |
-| 06 | `06-insights.png` | Insights | 5 | **replace pending**: the owner's newer mockup (tabs "8 weeks / 6 months / Year", stacked Floors chart per habit, Runs card, Shield use card) supersedes this board's tabs, chart and Compare card. Owner decisions the developer recorded but that aren't in that image: the Daily tab is dropped, and the "Selected habits" breakdown stays alongside the new cards. |
+| 06 | `06-insights.png` | Insights | 5 | **replace pending**: the owner's newer mockup (tabs "8 weeks / 6 months / Year", stacked Floors chart per habit, Runs card, Shield use card) supersedes this board's tabs, chart and Compare card. Owner decisions the developer recorded but that aren't in that image: the Daily tab is dropped, and the "Selected habits" breakdown stays alongside the new cards, Compare is out of Phase 5, and freeform Goals was removed (SKYLINE §14 #3, resolved 2026-11-12), so it gets no slot on Insights. |
 | 07 | `07-crosssection.png` | Inside view | 3 | current for floor art (redrawn 2026-11-13). The 2x2 button grid and the "Ask about this tower" label are **proposals** waiting on the owner (SKYLINE §14 #5). |
 | 08 | `08-community.png` | Community, shared habits | 6 | interaction only (not re-checked tower by tower) |
 | 09 | `09-challenges.png` | Community, challenges | 6 | interaction only (not re-checked tower by tower) |
 | 10 | `10-sharedhabit.png` | Shared habit (skybridge) | 6 | interaction only (past floors drawn without windows) |
 | 11 | `11-challenge.png` | Challenge (landmark) | 6 | interaction only (not re-checked tower by tower) |
-| 12 | `12-newtower.png` | Lay a foundation form | 4 | interaction only. Missing the top-out threshold field (default 30 days, SKYLINE §10). Subtitle says "check in" where the copy should say "build a floor". The Lay foundation button overlaps the last field. |
+| 12 | `12-newtower.png` | Lay a foundation form | 4 | interaction only. No top-out threshold field, and that is correct for create: the field ("Top out after (days)", default 30) appears only when editing a tower, because the create API doesn't accept it. An edit-form board isn't drawn yet. Subtitle says "check in" where the copy should say "build a floor". The Lay foundation button overlaps the last field. |
 | 13 | `13-newshared.png` | Build together form | 4 | not re-checked |
 | 14 | `14-newchallenge.png` | Raise a landmark form | 4 | not re-checked |
 | 15 | `15-profile.png` | Profile | 7 | interaction only (the "Your skyline so far" towers use old floor art) |

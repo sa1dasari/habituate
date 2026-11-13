@@ -11,11 +11,11 @@ This is the only folder of Skyline mockups. The old `concept _screens/` folder w
 |---|---|---|---|---|
 | 01 | `01-skyline.png` | Skyline home, Daily view | 2 | current (was `concept _screens/1-skyline-daily.png`) |
 | 02 | `02-hold.png` | Hold to build | 2 | interaction only (glass Shield Day on Run, past floors drawn without windows) |
-| 03 | `03-towersheet.png` | Tower sheet | 3 | current floor art (see-through open floor). The owner chose a 2-column grid over stacked rows on 2026-11-13. This board's layout is **waiting for final approval**: a Top out card shown only when the tower is eligible, then 3 rows of 2 (Shield Day · count, Add another day, See inside, Ask about tower, Edit, Retire). |
+| 03 | `03-towersheet.png` | Tower sheet | 3 | current floor art (see-through open floor, glass + shield Shield Day). The title names the page ("TOWER DETAILS") above the habit name, per the owner. The owner chose a 2-column grid over stacked rows on 2026-11-13. This board's layout is **waiting for final approval**: a Top out card shown only when the tower is eligible, then 3 rows of 2 (Shield Day · count, Add another day, See inside, Ask about tower, Edit, Retire). |
 | 04 | `04-topout.png` | Top out confirm | 3 | interaction only (past floors drawn without windows) |
 | 05 | `05-skystates.png` | Sky and weather | 2 | interaction only (not re-checked tower by tower; assume old floor art) |
 | 06 | `06-insights.png` | Insights | 5 | **current on the developer's branch** (commit bf0e51c; the old board is in `superseded/06-insights-v1.png`). Until that's pushed, the file on this branch is still the old board. v2 has three cards. **Floors built** (daily towers only): "N so far this week/month" with "Last week/month at this point: N", a stacked bar chart per habit with a legend, and tabs 8 weeks / 6 months / Year (Year = 12 monthly bars). **Runs**: every habit, a "Best" badge on the longest current run, a bar filled to current/best with a white tick at best. **Shield use**: two tiles (Shield Days used, habits that used one) over 12 weeks, then a dot timeline per habit. Owner decisions: no Daily tab, the "Selected habits" breakdown stays, Compare is out of Phase 5, Goals was removed. |
-| 07 | `07-crosssection.png` | Inside view | 3 | current floor art (see-through open floor). The owner chose a 2-column grid over stacked rows on 2026-11-13. This board's layout is **waiting for final approval**: a Top out card shown only when the tower is eligible, then 3 rows of 2 (Shield Day · count, Add another day, See inside, Ask about tower, Edit, Retire). |
+| 07 | `07-crosssection.png` | Inside view | 3 | current (redrawn 2026-11-13: see-through open floor, glass + shield Shield Day). The title is "Inside view" with the habit name under it; back goes to Tower details. |
 | 08 | `08-community.png` | Community, shared habits | 6 | interaction only (not re-checked tower by tower) |
 | 09 | `09-challenges.png` | Community, challenges | 6 | interaction only (not re-checked tower by tower) |
 | 10 | `10-sharedhabit.png` | Shared habit (skybridge) | 6 | interaction only (past floors drawn without windows) |
@@ -30,7 +30,7 @@ This is the only folder of Skyline mockups. The old `concept _screens/` folder w
 | 19 | `19-lot-sheet-monthly.png` | Lot sheet, monthly | 2b | current (was `5-lot-sheet-monthly.png`) |
 | 20 | `20-top-out-result.png` | Top out result | 3 | current (was `6-top-out-result.png`) |
 | 21 | `21-topout-fade-reference.png` | Topped-out tower fades behind the new one (~40%) | 3 | reference (was `topped_out_tower_fades_behind_new_tower.png`) |
-| 22 | `22-floor-states-reference.png` | Floor states: lit, solid Shield block, open, dark | all | **reference: the source of truth for floor art.** Redrawn 2026-11-13 with a see-through open floor (owner decision); the old version is in `superseded/`. |
+| 22 | `22-floor-states-reference.png` | Floor states: lit, solid Shield block, open, dark | all | **reference: the source of truth for floor art.** Redrawn 2026-11-13 with a see-through open floor and a glass + shield Shield Day (owner decisions); the old version is in `superseded/`. |
 
 `superseded/` keeps the old versions of 01, 03, 07 and 22 for history. Don't build from them.
 
@@ -39,7 +39,7 @@ This is the only folder of Skyline mockups. The old `concept _screens/` folder w
 |---|---|
 | Built, inside current run | category color, **lit** windows (`windowLit`) |
 | Built, past run | category color, **dark** windows (`windowDark`) |
-| Shield Day | flat `shieldFill` block, **no windows**. It is never a glass or hatched floor. |
+| Shield Day | **glass floor with a small shield icon** (owner decision 2026-11-13, replacing the solid block): tinted fill `#8FB8D8` at 45% (side `#6F98B8`), bright `#DDF2FF` edge, white shield icon centered on the front face when the floor is ≥ 8 pt tall. No windows and **no hatch or diagonal line**. The tint and bright edge are what tell it apart from a see-through open floor at small sizes. |
 | Open day | see-through: an `openStroke` outline only, so the sky shows through (owner decision 2026-11-13, matching the build). Never filled dark, never a crack or "missed" label. |
 | Today, not yet built | dashed amber outline on top |
 | Best run | white ledge |

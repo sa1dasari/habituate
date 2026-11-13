@@ -142,8 +142,8 @@ export const TOUR_STEPS = [
     tab: 'Insights',
     targetKey: TOUR_TARGETS.INSIGHTS_CONSISTENCY_CARD,
     eyebrow: 'SEE THE PATTERN',
-    title: 'Your consistency, at a glance',
-    body: "Daily through yearly, with a real per-habit breakdown right below: history, bar graph, plain-language takeaway. Pinch the graph to zoom, swipe to move through time.",
+    title: 'Floors built, at a glance',
+    body: "How many floors you've built this week, month by month, or across the year — with a real per-habit breakdown right below. Pinch the graph to zoom, swipe to move through time.",
   },
   {
     id: 'insights-coach',

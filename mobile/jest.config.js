@@ -10,6 +10,7 @@ module.exports = {
     '<rootDir>/utils/skylineAdapter.test.js',
     '<rootDir>/utils/moonPhase.test.js',
     '<rootDir>/utils/lots.test.js',
+    '<rootDir>/utils/consistency.test.js',
   ],
   transform: {
     // <rootDir> isn't interpolated inside transform option objects (only in

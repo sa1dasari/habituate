@@ -6,6 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
+import api from '../api/client';
 import CalendarModal from '../components/CalendarModal';
 import TourHighlight from '../components/TourHighlight';
 import Toast from '../components/Toast';
@@ -25,6 +26,10 @@ import {
   shiftAnchor,
   totalFloorsHistory,
 } from '../utils/consistency';
+import { hasDailyTarget } from '../utils/cadence';
+import { startOfWeek, toDateKey } from '../utils/date';
+import { buildLots } from '../utils/lots';
+import { toLotHabit } from '../utils/skylineAdapter';
 import { buildCategoryTowerColors, fonts, gradients, radii, shadow, spacing } from '../theme';
 
 /**
@@ -154,6 +159,45 @@ export default function InsightsScreen({ navigation, route }) {
 
   const floors = useMemo(() => totalFloorsHistory(habits, period, anchor), [habits, period, anchor]);
   const maxFloorsBucketValue = Math.max(1, ...floors.buckets.map((b) => b.value));
+
+  // "Runs" card (Phase 5 follow-up mockup): every habit, current vs. best
+  // run. A daily-cadence habit's run is already in days (habit.streak/
+  // longestStreak from the backend's StreakCalculator); a weekly/monthly
+  // habit has no such field, so it's run through the same buildLots engine
+  // the Weekly & Monthly lots view uses, which carries both currentRun and
+  // (new this round) bestRun in that habit's own period unit.
+  const runsRows = useMemo(() => {
+    const dailyRows = habits
+      .filter((h) => hasDailyTarget(h))
+      .map((h) => ({
+        id: h.id,
+        name: h.name,
+        color: habitColor(h),
+        current: h.streak || 0,
+        best: h.longestStreak || 0,
+        currentLabel: `${h.streak || 0} day${(h.streak || 0) === 1 ? '' : 's'}`,
+        bestLabel: `best ${h.longestStreak || 0}`,
+      }));
+    const periodOnlyHabits = habits.filter((h) => !hasDailyTarget(h));
+    const lotRows =
+      periodOnlyHabits.length === 0
+        ? []
+        : buildLots(
+            periodOnlyHabits.map((h) => toLotHabit(h, habitCategoryColors)),
+            { today: anchor }
+          ).rows.map((r) => ({
+            id: r.habitId,
+            name: r.name,
+            color: r.color,
+            current: r.currentRun,
+            best: r.bestRun,
+            currentLabel: `${r.currentRun} ${r.periodWord}${r.currentRun === 1 ? '' : 's'}`,
+            bestLabel: `best ${r.bestRun}`,
+          }));
+    const all = [...dailyRows, ...lotRows];
+    const maxCurrent = Math.max(0, ...all.map((r) => r.current));
+    return all.map((r) => ({ ...r, isBest: maxCurrent > 0 && r.current === maxCurrent }));
+  }, [habits, anchor, habitColor, habitCategoryColors]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -407,6 +451,46 @@ export default function InsightsScreen({ navigation, route }) {
           ) : null}
         </View>
 
+        {runsRows.length > 0 ? (
+          <View style={styles.card}>
+            <View style={styles.cardHeaderRow}>
+              <Text style={styles.cardTitle}>Runs</Text>
+              <Text style={styles.floorsTag}>Current and best</Text>
+            </View>
+            {runsRows.map((row) => (
+              <View key={row.id} style={styles.runRow}>
+                <View style={styles.runRowHeader}>
+                  <View style={[styles.legendDot, { backgroundColor: row.color }]} />
+                  <Text style={styles.runName} numberOfLines={1}>
+                    {row.name}
+                  </Text>
+                  {row.isBest ? (
+                    <View style={styles.bestBadge}>
+                      <Text style={styles.bestBadgeText}>Best</Text>
+                    </View>
+                  ) : null}
+                  <Text style={styles.runCurrent}>{row.currentLabel}</Text>
+                </View>
+                <View style={styles.runBarRow}>
+                  <View style={styles.runBarTrack}>
+                    <View
+                      style={[
+                        styles.runBarFill,
+                        { width: `${row.best > 0 ? Math.min(100, (row.current / row.best) * 100) : 0}%`, backgroundColor: row.color },
+                      ]}
+                    />
+                    <View style={styles.runBarTick} />
+                  </View>
+                  <Text style={styles.runBestLabel}>{row.bestLabel}</Text>
+                </View>
+              </View>
+            ))}
+            <Text style={styles.runFootnote}>The white mark is your best run.</Text>
+          </View>
+        ) : null}
+
+        <ShieldUseCard habits={habits} habitColor={habitColor} colors={colors} styles={styles} />
+
         {habits.length > 0 ? (
           <>
             <View style={styles.card}>
@@ -562,6 +646,120 @@ export default function InsightsScreen({ navigation, route }) {
     <TourHighlight scope={TOUR_SCOPES.INSIGHTS} />
     <Toast toast={toast} onHide={hideToast} />
     </>
+  );
+}
+
+const SHIELD_WINDOW_WEEKS = 12;
+
+/**
+ * "Shield use" (Phase 5 follow-up mockup): total Shield Days used and how
+ * many habits used one, then a per-habit 12-week dot timeline with a
+ * filled square on each week a Shield Day actually landed. Fetches every
+ * visible habit's shielded dates on demand (api.getShieldedDates, same
+ * deliberate not-in-useHabits'-global-refresh decision Phase 3's
+ * TowerInsideView.js made — this card already does N requests at once,
+ * adding a global poll on top would make every Insights refresh N times
+ * more expensive for data that rarely changes).
+ */
+function ShieldUseCard({ habits, habitColor, colors, styles }) {
+  const [shieldedByHabit, setShieldedByHabit] = useState({});
+  const habitIds = habits.map((h) => h.id).join(',');
+
+  useEffect(() => {
+    if (habits.length === 0) {
+      setShieldedByHabit({});
+      return undefined;
+    }
+    let cancelled = false;
+    Promise.all(
+      habits.map((h) =>
+        api
+          .getShieldedDates(h.id)
+          .then((dates) => [h.id, dates || []])
+          .catch(() => [h.id, []])
+      )
+    ).then((pairs) => {
+      if (!cancelled) setShieldedByHabit(Object.fromEntries(pairs));
+    });
+    return () => {
+      cancelled = true;
+    };
+    // habits themselves change identity on every refresh; habitIds is the
+    // real dependency (only refetch when the actual set of habits changes).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [habitIds]);
+
+  const todayKey = toDateKey(new Date());
+  const windowStart = startOfWeek(new Date());
+  windowStart.setDate(windowStart.getDate() - (SHIELD_WINDOW_WEEKS - 1) * 7);
+  const windowStartKey = toDateKey(windowStart);
+
+  const rows = habits
+    .map((h) => {
+      const allDates = shieldedByHabit[h.id] || [];
+      const inWindow = allDates.filter((d) => d >= windowStartKey && d <= todayKey);
+      if (inWindow.length === 0) return null;
+      const weeks = Array.from({ length: SHIELD_WINDOW_WEEKS }, (_, i) => {
+        const weekStart = new Date(windowStart);
+        weekStart.setDate(weekStart.getDate() + i * 7);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekEnd.getDate() + 7);
+        const weekEndKey = toDateKey(weekEnd);
+        const weekStartKey = toDateKey(weekStart);
+        return { used: inWindow.some((d) => d >= weekStartKey && d < weekEndKey) };
+      });
+      return { id: h.id, name: h.name, color: habitColor(h), weeks, count: inWindow.length };
+    })
+    .filter(Boolean);
+
+  if (rows.length === 0) return null;
+
+  const totalUsed = rows.reduce((sum, r) => sum + r.count, 0);
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.cardHeaderRow}>
+        <Text style={styles.cardTitle}>Shield use</Text>
+        <Text style={styles.floorsTag}>Last {SHIELD_WINDOW_WEEKS} weeks</Text>
+      </View>
+
+      <View style={styles.shieldStatsRow}>
+        <View style={styles.shieldStatTile}>
+          <Text style={styles.shieldStatNumber}>{totalUsed}</Text>
+          <Text style={styles.shieldStatLabel}>Shield Days used</Text>
+        </View>
+        <View style={styles.shieldStatTile}>
+          <Text style={styles.shieldStatNumber}>{rows.length}</Text>
+          <Text style={styles.shieldStatLabel}>habit{rows.length === 1 ? '' : 's'} used one</Text>
+        </View>
+      </View>
+
+      {rows.map((row) => (
+        <View key={row.id} style={styles.shieldRow}>
+          <View style={[styles.legendDot, { backgroundColor: row.color }]} />
+          <Text style={styles.shieldRowName} numberOfLines={1}>
+            {row.name}
+          </Text>
+          <View style={styles.shieldDotsRow}>
+            {row.weeks.map((w, i) => (
+              <View
+                key={i}
+                style={[styles.shieldDot, w.used && { backgroundColor: colors.textMuted, borderRadius: 3 }]}
+              />
+            ))}
+          </View>
+        </View>
+      ))}
+
+      <View style={styles.shieldAxisRow}>
+        <Text style={styles.floorsBarAxisLabel}>
+          {windowStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+        </Text>
+        <Text style={styles.floorsBarAxisLabel}>Now</Text>
+      </View>
+
+      <Text style={styles.runFootnote}>A Shield Day is a solid block on the tower. It keeps the run going.</Text>
+    </View>
   );
 }
 
@@ -746,5 +944,50 @@ function makeStyles(colors, typography) {
     summaryBlock: { marginTop: spacing.md },
     summaryHabitName: { fontSize: 13, fontWeight: '700', color: colors.textPrimary, marginBottom: 2 },
     emptyText: { ...typography.body, color: colors.textSecondary, textAlign: 'center' },
+    runRow: { marginTop: spacing.md },
+    runRowHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    runName: { flex: 1, fontSize: 14, fontWeight: '700', color: colors.textPrimary },
+    bestBadge: {
+      backgroundColor: colors.accent,
+      borderRadius: radii.pill,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 2,
+    },
+    bestBadgeText: { fontSize: 10, fontWeight: '800', color: '#FFFFFF' },
+    runCurrent: { fontSize: 13, fontWeight: '700', color: colors.textPrimary },
+    runBarRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: 6 },
+    runBarTrack: {
+      flex: 1,
+      height: 6,
+      borderRadius: radii.pill,
+      backgroundColor: colors.ringTrack,
+      overflow: 'visible',
+      justifyContent: 'center',
+    },
+    runBarFill: { height: 6, borderRadius: radii.pill },
+    runBarTick: {
+      position: 'absolute',
+      right: -1,
+      width: 2,
+      height: 14,
+      backgroundColor: '#FFFFFF',
+      borderRadius: 1,
+    },
+    runBestLabel: { fontSize: 11, color: colors.textMuted, width: 48, textAlign: 'right' },
+    runFootnote: { ...typography.meta, marginTop: spacing.md },
+    shieldStatsRow: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.sm, marginBottom: spacing.md },
+    shieldStatTile: {
+      flex: 1,
+      backgroundColor: colors.background,
+      borderRadius: radii.md,
+      padding: spacing.md,
+    },
+    shieldStatNumber: { fontFamily: fonts.extraBold, fontSize: 24, color: colors.textPrimary },
+    shieldStatLabel: { ...typography.meta, marginTop: 2 },
+    shieldRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm },
+    shieldRowName: { width: 72, fontSize: 13, fontWeight: '600', color: colors.textSecondary },
+    shieldDotsRow: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    shieldDot: { width: 6, height: 6, borderRadius: radii.pill, backgroundColor: colors.border },
+    shieldAxisRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4, marginLeft: 72 + spacing.sm },
   });
 }

@@ -180,6 +180,27 @@ function markRunBand(periods) {
   return lit;
 }
 
+/** Longest-ever run of consecutive met periods anywhere in the history —
+ * for the Insights "Runs" card's "best" figure (Phase 5 follow-up mockup),
+ * a weekly/monthly habit's equivalent of HabitResponse.longestStreak.
+ * Unlike markRunBand, the in-progress current period gets no special
+ * treatment here — this is a historical best, not "is my streak alive
+ * right now," so it only counts if it's actually met (or shielded,
+ * already folded into .met above). */
+function bestRunBand(periods) {
+  let best = 0;
+  let current = 0;
+  periods.forEach((p) => {
+    if (p.met) {
+      current += 1;
+      best = Math.max(best, current);
+    } else {
+      current = 0;
+    }
+  });
+  return best;
+}
+
 function buildWeeklyPeriods(habit, today, countMode, target, shieldPeriods, historyWeeks) {
   const periods = [];
   const thisWeekStart = startOfWeek(today);
@@ -320,6 +341,7 @@ export function buildLots(habits, options) {
       p.inRunBand = litIndices.has(i);
     });
     const currentRun = litIndices.size;
+    const bestRun = Math.max(currentRun, bestRunBand(periods));
     const periodWord = periodKind === 'monthly' ? 'month' : 'week';
 
     const current = periods[periods.length - 1];
@@ -343,6 +365,8 @@ export function buildLots(habits, options) {
       target,
       countMode,
       currentRun,
+      bestRun,
+      periodWord,
       runLabel: currentRun > 0 ? `${currentRun} ${periodWord}${currentRun === 1 ? '' : 's'} run` : null,
       cadenceLabel: periodKind === 'monthly' ? `${target} a month` : `${target} a week`,
       periods,

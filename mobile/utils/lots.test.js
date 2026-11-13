@@ -82,6 +82,29 @@ describe('buildLots — weekly', () => {
     expect(rows[0].currentRun).toBe(1);
   });
 
+  test('bestRun reflects a longer run earlier in history than the current (possibly broken) one', () => {
+    const today = new Date('2026-02-11T12:00:00'); // Wednesday, week of 2026-02-09; 8-week window starts 2025-12-22
+    // Three consecutive met weeks right at the start of the window, nothing since — current run is 0.
+    const checkIns = [
+      ci('2025-12-22'), ci('2025-12-23'), ci('2025-12-24'),
+      ci('2025-12-29'), ci('2025-12-30'), ci('2025-12-31'),
+      ci('2026-01-05'), ci('2026-01-06'), ci('2026-01-07'),
+    ];
+    const habit = weeklyHabit({ checkIns });
+    const { rows } = buildLots([habit], { today });
+    expect(rows[0].currentRun).toBe(0);
+    expect(rows[0].bestRun).toBe(3);
+  });
+
+  test('bestRun is never less than currentRun even when the current run is the best one', () => {
+    const today = new Date('2026-02-11T12:00:00');
+    const checkIns = [ci('2026-02-02'), ci('2026-02-03'), ci('2026-02-04')]; // previous week met, current in-progress
+    const habit = weeklyHabit({ checkIns });
+    const { rows } = buildLots([habit], { today });
+    expect(rows[0].currentRun).toBe(1);
+    expect(rows[0].bestRun).toBe(1);
+  });
+
   test('a shielded week renders as a plain protected block, not open and not counted from check-ins', () => {
     const today = new Date('2026-02-11T12:00:00');
     const habit = weeklyHabit({ shieldPeriods: new Set(['2026-02-09']) });

@@ -11,7 +11,7 @@ body{width:390px;height:844px;background:var(--bg);color:var(--text);font-family
 .tab svg{width:22px;height:22px}
 h1{font-weight:800}
 .btn{background:var(--s2);border-radius:22px;height:44px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px}
-.legend{display:flex;gap:12px;align-items:flex-start;margin-top:8px}
+.legend{display:flex;gap:12px;align-items:flex-start;margin-top:6px}
 .legend b{display:block;font-size:14px;font-weight:700}
 .legend span{display:block;font-size:12.5px;color:var(--muted);line-height:1.35}
 .sw{flex:0 0 26px;height:26px;display:flex;align-items:center;justify-content:center}
@@ -75,15 +75,15 @@ if(screen==='towersheet'){
   document.getElementById('root').innerHTML=`
   <svg width="390" height="110" style="position:absolute;top:0;left:0"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0B1030"/><stop offset="1" stop-color="#1A2148"/></linearGradient></defs>
   <rect width="390" height="110" fill="url(#g)"/>${stars}<circle cx="322" cy="52" r="18" fill="#F4EFD8"/><circle cx="330" cy="47" r="16" fill="#121836"/></svg>
-  <div style="position:absolute;top:80px;left:0;right:0;bottom:76px;background:var(--s1);border-radius:24px 24px 0 0;padding:0 20px">
+  <div style="position:absolute;top:64px;left:0;right:0;bottom:76px;background:var(--s1);border-radius:24px 24px 0 0;padding:0 20px">
     <div style="width:40px;height:4px;border-radius:2px;background:#3A4552;margin:10px auto 12px"></div>
     <div style="display:flex;gap:14px;align-items:center">
       <div style="width:14px;height:34px;border-radius:5px;background:${C.front}"></div>
       <div><div style="color:var(--muted);font-size:12px;font-weight:800;letter-spacing:.8px">TOWER DETAILS</div><h1 style="font-size:24px;line-height:1.15">Write 300 words</h1>
-      <div style="color:var(--muted);font-size:13px;margin-top:1px">Daily · Floor 24 · Under construction</div></div>
+      <div style="color:var(--muted);font-size:13px;margin-top:1px">Daily · Floor 24 · Under construction</div><div style="color:#C9CED4;font-size:13px;font-style:italic;margin-top:3px">“So the book gets finished”</div></div>
     </div>
     <div style="display:flex;gap:16px;margin-top:8px">
-      <svg width="104" height="246" style="flex:0 0 104px">${tower({x:22,base:242,w:44,fh:7.6,dx:16,dy:9,floors,windows:2,ledgeAfter:17})}</svg>
+      <svg width="104" height="226" style="flex:0 0 104px">${tower({x:22,base:222,w:44,fh:7,dx:16,dy:9,floors,windows:2,ledgeAfter:17})}</svg>
       <div style="flex:1">
         <div style="font-size:30px;font-weight:800;color:var(--amber);line-height:1.1">9 day run</div>
         <div style="color:var(--muted);font-size:13px;margin-top:4px;line-height:1.35">The lit floors at the top. Today's floor will make it 10.</div>

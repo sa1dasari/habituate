@@ -11,19 +11,19 @@ This is the only folder of Skyline mockups. The old `concept _screens/` folder w
 |---|---|---|---|---|
 | 01 | `01-skyline.png` | Skyline home, Daily view | 2 | current (was `concept _screens/1-skyline-daily.png`) |
 | 02 | `02-hold.png` | Hold to build | 2 | interaction only (glass Shield Day on Run, past floors drawn without windows) |
-| 03 | `03-towersheet.png` | Tower sheet | 3 | current (redrawn 2026-11-13) |
-| 04 | `04-topout.png` | Top out confirm | 3 | current |
+| 03 | `03-towersheet.png` | Tower sheet | 3 | current for floor art (redrawn 2026-11-13). The 2x2 button grid and the "Ask about this tower" label are **proposals** waiting on the owner (SKYLINE §14 #5). |
+| 04 | `04-topout.png` | Top out confirm | 3 | interaction only (past floors drawn without windows) |
 | 05 | `05-skystates.png` | Sky and weather | 2 | interaction only (not re-checked tower by tower; assume old floor art) |
-| 06 | `06-insights.png` | Insights | 5 | **replace pending**: the owner's newer mockup (tabs "8 weeks / 6 months / Year", stacked Floors chart per habit, Runs card, Shield use card) supersedes this board's tabs, chart and Compare card |
-| 07 | `07-crosssection.png` | Inside view | 3 | current (redrawn 2026-11-13) |
+| 06 | `06-insights.png` | Insights | 5 | **replace pending**: the owner's newer mockup (tabs "8 weeks / 6 months / Year", stacked Floors chart per habit, Runs card, Shield use card) supersedes this board's tabs, chart and Compare card. Owner decisions the developer recorded but that aren't in that image: the Daily tab is dropped, and the "Selected habits" breakdown stays alongside the new cards. |
+| 07 | `07-crosssection.png` | Inside view | 3 | current for floor art (redrawn 2026-11-13). The 2x2 button grid and the "Ask about this tower" label are **proposals** waiting on the owner (SKYLINE §14 #5). |
 | 08 | `08-community.png` | Community, shared habits | 6 | interaction only (not re-checked tower by tower) |
 | 09 | `09-challenges.png` | Community, challenges | 6 | interaction only (not re-checked tower by tower) |
 | 10 | `10-sharedhabit.png` | Shared habit (skybridge) | 6 | interaction only (past floors drawn without windows) |
 | 11 | `11-challenge.png` | Challenge (landmark) | 6 | interaction only (not re-checked tower by tower) |
-| 12 | `12-newtower.png` | Lay a foundation form | 4 | current; add the top-out threshold field (default 30 days, SKYLINE §10) |
-| 13 | `13-newshared.png` | Build together form | 4 | current |
-| 14 | `14-newchallenge.png` | Raise a landmark form | 4 | current |
-| 15 | `15-profile.png` | Profile | 7 | current |
+| 12 | `12-newtower.png` | Lay a foundation form | 4 | interaction only. Missing the top-out threshold field (default 30 days, SKYLINE §10). Subtitle says "check in" where the copy should say "build a floor". The Lay foundation button overlaps the last field. |
+| 13 | `13-newshared.png` | Build together form | 4 | not re-checked |
+| 14 | `14-newchallenge.png` | Raise a landmark form | 4 | not re-checked |
+| 15 | `15-profile.png` | Profile | 7 | interaction only (the "Your skyline so far" towers use old floor art) |
 | 16 | `16-weekly-monthly.png` | Skyline, Weekly and monthly view (per-day heatmap lots) | 2b | current (was `concept _screens/2-weekly-monthly.png`) |
 | 17 | `17-lot-sheet-weekly.png` | Lot sheet, weekly | 2b | current (was `3-lot-sheet-weekly.png`) |
 | 18 | `18-add-for-another-day.png` | Add for another day | 2b / 3 | current (was `4-add-for-another-day.png`) |

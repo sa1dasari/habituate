@@ -1,16 +1,29 @@
-import React from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import Svg from 'react-native-svg';
 import ConfirmModal from './ConfirmModal';
 import Toast from './Toast';
+import HoldPillButton from './HoldPillButton';
+import { DayGrid } from './LotTile';
 import { useConfirm } from '../hooks/useConfirm';
 import { useToast } from '../hooks/useToast';
 import { useHabits } from '../hooks/useHabits';
+import { isCountMode } from '../utils/cadence';
+import { buildDays } from '../utils/lots';
+import { categoryColor } from '../constants/habitCategories';
+import { toDateKey } from '../utils/date';
 import { fonts } from '../theme';
 
 const MS_PER_DAY = 86400000;
 const DEFAULT_TOP_OUT_THRESHOLD_DAYS = 30;
+const BACKDATE_WINDOW_DAYS = 7; // matches weekly/monthly's own "Add for another day" reach (SKYLINE.md section 14 #14)
+const GRID_PAD = 16;
+const GRID_GAP = 6;
+const GRID_COLS = 7;
+const GRID_LABEL_H = 14; // room for the day-number text under the row (DayGrid's dayNumbers=true)
 
 /**
  * Phase 3b's tower sheet (SKYLINE.md section 9/10): stats, Edit, Shield
@@ -42,12 +55,63 @@ const DEFAULT_TOP_OUT_THRESHOLD_DAYS = 30;
  * case is a Top out button that shows a little early or late, not an
  * action that incorrectly succeeds.
  */
-export default function TowerSheet({ visible, onClose, habit, theme, onAskAboutTower, onOpenInsideView, onEdit }) {
-  const { toggleShield, updateHabit, topOutHabit, shieldsAvailable } = useHabits();
+export default function TowerSheet({
+  visible,
+  onClose,
+  habit,
+  theme,
+  tapToBuild,
+  categoryColors,
+  onAskAboutTower,
+  onOpenInsideView,
+  onEdit,
+}) {
+  const { toggleShield, updateHabit, topOutHabit, shieldsAvailable, toggleCheckIn, addCheckIn, removeCheckIn } =
+    useHabits();
   const { toast, showToast, hideToast } = useToast();
   const { request, confirm, respond } = useConfirm();
+  const { width: windowWidth } = useWindowDimensions();
+  const todayKey = toDateKey(new Date());
+
+  const [showBackdate, setShowBackdate] = useState(false);
+  const [selectedDateKey, setSelectedDateKey] = useState(todayKey);
+
+  // A rolling last-7-days window, not a period — same reach as weekly/
+  // monthly's own "Add for another day" (SKYLINE.md section 14 #14), just
+  // anchored to today instead of a period boundary, since a daily habit has
+  // no period to anchor to.
+  const backdateDays = useMemo(() => {
+    if (!habit) return [];
+    const start = new Date();
+    start.setDate(start.getDate() - (BACKDATE_WINDOW_DAYS - 1));
+    return buildDays(start, BACKDATE_WINDOW_DAYS, habit.checkIns || [], isCountMode(habit), new Date());
+  }, [habit]);
+
+  // A day before the habit even existed has nothing to backdate into — same
+  // guard LotSheet.js applies for weekly/monthly periods.
+  const minDateKey = habit?.createdAt ? toDateKey(new Date(habit.createdAt)) : null;
+  const isSelectableDay = (cell) => !cell.isFuture && (!minDateKey || cell.dateKey >= minDateKey);
+  const selectedCell = backdateDays.find((d) => d.dateKey === selectedDateKey);
+  const countMode = habit ? isCountMode(habit) : false;
+  // A BOOLEAN day already built would toggle off on another Hold (undo-free
+  // rule) — same guard as LotSheet.js's canBuildSelected, so a tap here
+  // can't accidentally erase an existing day via the Hold gesture; removing
+  // one is only ever explicit, via the Remove row below.
+  const canBuildSelected = selectedCell ? isSelectableDay(selectedCell) && (countMode || selectedCell.count === 0) : false;
+  const windowEntries = useMemo(() => {
+    if (!habit || backdateDays.length === 0) return [];
+    const windowStartKey = backdateDays[0].dateKey;
+    return (habit.checkIns || [])
+      .filter((ci) => toDateKey(ci.occurredAt) >= windowStartKey)
+      .slice()
+      .sort((a, b) => new Date(b.occurredAt) - new Date(a.occurredAt));
+  }, [habit, backdateDays]);
 
   if (!habit) return null;
+
+  // The raw habit record (unlike the scene/lot builders' transformed shape)
+  // has no .color of its own — derive it the same way TowerForm.js does.
+  const towerColor = (categoryColors && categoryColors[habit.category]) || categoryColor(habit.category);
 
   const totalBuilt = habit.checkIns?.length || 0;
   const currentRun = habit.streak || 0;
@@ -132,6 +196,38 @@ export default function TowerSheet({ visible, onClose, habit, theme, onAskAboutT
     onOpenInsideView?.(habit);
   };
 
+  const handleSelectBackdateDay = (cell) => {
+    if (!isSelectableDay(cell)) return;
+    setSelectedDateKey(cell.dateKey);
+  };
+
+  const handleBuildBackdate = async () => {
+    try {
+      if (countMode) {
+        await addCheckIn(habit.id, 1, selectedDateKey);
+      } else {
+        await toggleCheckIn(habit.id, selectedDateKey);
+      }
+    } catch (err) {
+      showToast(`Could not update check-in — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+    }
+  };
+
+  const handleRemoveBackdateEntry = async (checkInId) => {
+    try {
+      await removeCheckIn(habit.id, checkInId);
+    } catch (err) {
+      showToast(`Could not remove check-in — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+    }
+  };
+
+  const backdateGridWidth = Math.max(200, windowWidth - 40 - 28);
+  const backdateGridCellSize = (backdateGridWidth - GRID_PAD * 2 - GRID_GAP * (GRID_COLS - 1)) / GRID_COLS;
+  const backdateGridHeight = GRID_PAD * 2 + (backdateGridCellSize + GRID_LABEL_H);
+  const selectedDayLabel = selectedCell
+    ? new Date(`${selectedCell.dateKey}T00:00:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+    : selectedDateKey;
+
   const shieldSublabel = habit.shieldedToday
     ? null
     : habit.shieldEligible
@@ -141,6 +237,10 @@ export default function TowerSheet({ visible, onClose, habit, theme, onAskAboutT
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      {/* HoldPillButton's GestureDetector can't reach the GestureHandlerRootView
+          wrapping App.js from inside a Modal's own native surface — same gotcha
+          LotSheet.js/NotificationCenterModal.js already document and work around. */}
+      <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
         <View style={styles.header}>
           <Pressable onPress={onClose} hitSlop={12} style={styles.closeBtn} testID="tower-sheet-close">
@@ -199,6 +299,67 @@ export default function TowerSheet({ visible, onClose, habit, theme, onAskAboutT
             testID="tower-sheet-inside"
           />
           <ActionRow
+            icon="calendar-arrow-left"
+            label="Add for another day"
+            sublabel={`Last ${BACKDATE_WINDOW_DAYS} days`}
+            onPress={() => setShowBackdate((v) => !v)}
+            theme={theme}
+            testID="tower-sheet-backdate-toggle"
+          />
+          {showBackdate && (
+            <View style={[styles.backdateCard, { backgroundColor: theme.surfaceHigh }]}>
+              <Svg width={backdateGridWidth} height={backdateGridHeight} viewBox={`0 0 ${backdateGridWidth} ${backdateGridHeight}`}>
+                <DayGrid
+                  days={backdateDays}
+                  color={towerColor}
+                  width={backdateGridWidth}
+                  height={backdateGridHeight}
+                  pad={GRID_PAD}
+                  gap={GRID_GAP}
+                  dayNumbers
+                  textColor={theme.muted}
+                  onPressDay={handleSelectBackdateDay}
+                  selectedDateKey={selectedDateKey}
+                  minDateKey={minDateKey}
+                />
+              </Svg>
+
+              {windowEntries.length > 0 && (
+                <View style={styles.backdateEntries}>
+                  {windowEntries.map((entry) => (
+                    <View key={entry.id} style={styles.entryRow}>
+                      <Text style={[styles.entryText, { color: theme.muted }]}>
+                        {new Date(entry.occurredAt).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                        {'  '}
+                        {new Date(entry.occurredAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                      </Text>
+                      <Pressable
+                        onPress={() => handleRemoveBackdateEntry(entry.id)}
+                        hitSlop={8}
+                        testID={`tower-sheet-backdate-remove-${entry.id}`}
+                      >
+                        <Text style={[styles.removeText, { color: theme.amber }]}>Remove</Text>
+                      </Pressable>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              <View style={styles.backdateBuildRow}>
+                <Text style={[styles.buildForLabel, { color: theme.muted }]}>Building for {selectedDayLabel}</Text>
+                <HoldPillButton
+                  built={!canBuildSelected}
+                  canBuild={canBuildSelected}
+                  tapToBuild={tapToBuild}
+                  onBuild={handleBuildBackdate}
+                  color={towerColor}
+                  label={`${habit.name}, ${selectedDayLabel}`}
+                  theme={theme}
+                />
+              </View>
+            </View>
+          )}
+          <ActionRow
             icon="chat-processing-outline"
             label="Ask about this tower"
             onPress={handleAskAboutTower}
@@ -217,6 +378,7 @@ export default function TowerSheet({ visible, onClose, habit, theme, onAskAboutT
         <Toast toast={toast} onHide={hideToast} />
         <ConfirmModal request={request} onRespond={respond} />
       </SafeAreaView>
+      </GestureHandlerRootView>
     </Modal>
   );
 }
@@ -273,4 +435,18 @@ const styles = StyleSheet.create({
   actionLabelWrap: { flex: 1 },
   actionLabel: { fontFamily: fonts.semiBold, fontSize: 16 },
   actionSublabel: { fontFamily: fonts.regular, fontSize: 12, marginTop: 2 },
+  backdateCard: { alignSelf: 'stretch', borderRadius: 16, padding: 14, marginBottom: 4, alignItems: 'center' },
+  backdateEntries: { alignSelf: 'stretch', marginTop: 12 },
+  entryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(128,128,128,0.2)',
+  },
+  entryText: { fontFamily: fonts.regular, fontSize: 13 },
+  removeText: { fontFamily: fonts.semiBold, fontSize: 13 },
+  backdateBuildRow: { alignItems: 'center', marginTop: 16 },
+  buildForLabel: { fontFamily: fonts.semiBold, fontSize: 13, marginBottom: 10 },
 });

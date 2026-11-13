@@ -101,7 +101,7 @@ export default function SkylineHabitSheet({ habits, getCanBuild, onBuild, tapToB
               <View style={styles.labelWrap}>
                 <Text style={[styles.name, { color: theme.text }]}>{habit.name}</Text>
                 <Text style={[styles.meta, { color: theme.muted }]}>
-                  {habit.currentRun} day run
+                  {habit.currentRun > 0 ? `${habit.currentRun}-day run` : 'No run yet'}
                 </Text>
               </View>
               <HoldPillButton

@@ -105,10 +105,17 @@ function dayCellAccessibilityLabel(cell, selected, disabled) {
 // Exported for LotSheet.js, which draws the same per-day cells at a bigger
 // size with weekday/day-number labels around them — the cell geometry and
 // coloring stay identical, only the box size and what wraps it differ.
+// `width`/`height` (independent of the square `size` LotTile.js's compact
+// tile uses) let a caller with more horizontal room than vertical — a
+// weekly (1-row) period in LotSheet.js, say — size cells off the available
+// width instead of being squeezed down to fit a square no bigger than the
+// shortest side needs, which otherwise leaves most of a wide card empty.
 export function DayGrid({
   days,
   color,
   size = SIZE,
+  width,
+  height,
   pad = PAD,
   gap = GAP,
   onPressDay,
@@ -118,17 +125,20 @@ export function DayGrid({
   minDateKey,
 }) {
   if (days.length === 0) return null;
+  const w = width ?? size;
+  const h = height ?? size;
   const rows = Math.ceil(days.length / COLS);
   const labelHeight = dayNumbers ? 14 : 0; // room for the day-number text under each row
-  const available = size - pad * 2;
+  const availableW = w - pad * 2;
+  const availableH = h - pad * 2;
   const cellSize = Math.min(
-    (available - gap * (COLS - 1)) / COLS,
-    (available - gap * (rows - 1) - rows * labelHeight) / rows,
+    (availableW - gap * (COLS - 1)) / COLS,
+    (availableH - gap * (rows - 1) - rows * labelHeight) / rows,
   );
   const gridW = COLS * cellSize + (COLS - 1) * gap;
   const gridH = rows * (cellSize + labelHeight) + (rows - 1) * gap;
-  const originX = (size - gridW) / 2;
-  const originY = (size - gridH) / 2;
+  const originX = (w - gridW) / 2;
+  const originY = (h - gridH) / 2;
 
   return (
     <>

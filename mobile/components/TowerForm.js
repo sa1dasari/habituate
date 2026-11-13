@@ -347,7 +347,17 @@ export default function TowerForm({ visible, onClose, habit, theme, towerTheme, 
                 return (
                   <Pressable
                     key={opt.value}
-                    onPress={() => setField('trackingMode', opt.value)}
+                    onPress={() =>
+                      setForm((f) => ({
+                        ...f,
+                        trackingMode: opt.value,
+                        // A Check-off habit is always exactly 1/day server-side
+                        // (see the "Times per day" field below) — clear a
+                        // stale >1 value from a prior COUNT selection instead
+                        // of hiding the field while still submitting it.
+                        dailyTarget: opt.value === 'BOOLEAN' ? '' : f.dailyTarget,
+                      }))
+                    }
                     style={[
                       styles.pill,
                       { borderColor: selected ? theme.amber : theme.border || 'rgba(128,128,128,0.3)' },
@@ -362,20 +372,26 @@ export default function TowerForm({ visible, onClose, habit, theme, towerTheme, 
             </View>
           </Field>
 
-          <Field label="Times per day" theme={theme} sublabel="Leave at 1 for a simple check-off">
-            {/* min is always 1, never 0 — a habit always has to land in
-                some cadence (section 4a), so "no daily target" is expressed
-                by leaving this at the 1 floor and setting a period target
-                below instead, not by an ambiguous 0 that submit would have
-                had to silently round back up to 1 anyway. */}
-            <ScrubberInput
-              value={Number(form.dailyTarget) || 1}
-              onChange={(v) => setTarget('dailyTarget', v > 1 ? String(v) : '')}
-              min={1}
-              max={200}
-              label="times/day"
-            />
-          </Field>
+          {form.trackingMode === 'COUNT' && (
+            <Field label="Times per day" theme={theme} sublabel="Leave at 1 for a simple check-off">
+              {/* Check-off (BOOLEAN) habits are always exactly one check-in
+                  per day, enforced server-side (HabitService.java) no matter
+                  what cadenceTarget says — showing this scrubber for a
+                  Check-off habit let the user set a target the backend would
+                  never actually honor. Only an "amount" (COUNT) habit can
+                  mean more than one. min is always 1, never 0 — a habit
+                  always has to land in some cadence (section 4a), so "no
+                  daily target" is expressed by leaving this at the 1 floor
+                  and setting a period target below instead. */}
+              <ScrubberInput
+                value={Number(form.dailyTarget) || 1}
+                onChange={(v) => setTarget('dailyTarget', v > 1 ? String(v) : '')}
+                min={1}
+                max={200}
+                label="times/day"
+              />
+            </Field>
+          )}
 
           <Field label="Also track a weekly target (optional)" theme={theme}>
             <TextInput

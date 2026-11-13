@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import Svg, { Line, Path, Rect, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, Line, Path, Rect, Text as SvgText } from 'react-native-svg';
 import { DayGrid } from './LotTile';
 import HoldPillButton from './HoldPillButton';
 import Toast from './Toast';
@@ -13,8 +13,10 @@ import { checkInsInPeriod } from '../utils/lots';
 import { toDateKey } from '../utils/date';
 import { fonts } from '../theme';
 
-const GRID_WIDTH = 260;
-const CELL_PLUS_GAP = 36; // rough per-row height (cell + day-number label + gap) for sizing the card
+const GRID_PAD = 16;
+const GRID_GAP = 6;
+const GRID_COLS = 7;
+const GRID_LABEL_H = 14; // room for the day-number text under each row (dayNumbers=true)
 const CHART_HEIGHT = 160;
 const CHART_BAR_GAP = 3;
 const CHART_DATE_LABEL_H = 16; // bottom margin reserved for the date axis
@@ -118,8 +120,12 @@ function CumulativeProgressChart({ days, color, width, target, mutedColor }) {
   const toY = (v) => plotTop + plotHeight - (v / maxY) * plotHeight;
   const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x * stepX},${toY(p.cumulative)}`).join(' ');
   const targetY = target ? toY(target) : null;
-  const last = points[points.length - 1];
   const labelIdx = axisLabelIndices(days);
+  // A week (<=7 real days) has room to mark every point with its running
+  // count; a month's 28-31 would turn into an unreadable pile of
+  // overlapping numbers, so it falls back to just the final total, same as
+  // before this was added.
+  const labelEveryPoint = points.length <= 7;
   return (
     <Svg width={width} height={CHART_HEIGHT}>
       {targetY != null && (
@@ -131,15 +137,27 @@ function CumulativeProgressChart({ days, color, width, target, mutedColor }) {
         </>
       )}
       <Path d={pathD} stroke={color} strokeWidth={2.5} fill="none" />
-      <SvgText
-        x={Math.min(width - 2, last.x * stepX + 4)}
-        y={Math.max(10, toY(last.cumulative) - 6)}
-        fontSize={10}
-        fill={color}
-        textAnchor={last.x * stepX > width - 24 ? 'end' : 'start'}
-      >
-        {last.cumulative}
-      </SvgText>
+      {points.map((p, i) => {
+        const isLast = i === points.length - 1;
+        const cx = p.x * stepX;
+        const cy = toY(p.cumulative);
+        return (
+          <React.Fragment key={days[p.x].dateKey}>
+            <Circle cx={cx} cy={cy} r={2.5} fill={color} />
+            {(labelEveryPoint || isLast) && (
+              <SvgText
+                x={Math.min(width - 2, cx + 4)}
+                y={Math.max(10, cy - 6)}
+                fontSize={10}
+                fill={color}
+                textAnchor={cx > width - 24 ? 'end' : 'start'}
+              >
+                {p.cumulative}
+              </SvgText>
+            )}
+          </React.Fragment>
+        );
+      })}
       {days.map(
         (day, i) =>
           labelIdx.has(i) && (
@@ -271,13 +289,17 @@ export default function LotSheet({ visible, onClose, row, period, habit, tapToBu
 
   if (!viewedPeriod || !row) return null;
 
-  // DayGrid centers its rows inside a single square `size` — fine for the
-  // compact tile's fixed box, but a 1-row weekly grid in a full 260x260
-  // square left most of the card empty (the same "leaves a lot of empty
-  // space" complaint the owner raised about the tiles earlier). Size the
-  // square to the period's actual row count instead of always maxing it.
+  // Size cells off the card's actual width (same width the chart below
+  // uses), not a square capped to the shortest side — a 1-row weekly grid
+  // in a square no bigger than it needs vertically left most of the card's
+  // width empty (the "leaves a lot of empty space" complaint). Picking the
+  // cell size from `chartWidth` first, then deriving height from the real
+  // row count, makes the grid fill the card edge-to-edge for every period
+  // length instead of shrinking to whichever dimension is tightest.
   const gridRows = Math.max(1, Math.ceil((viewedPeriod.days?.length || 7) / 7));
-  const gridSize = Math.min(GRID_WIDTH, Math.max(100, gridRows * CELL_PLUS_GAP + 40));
+  const gridCellSize = (chartWidth - GRID_PAD * 2 - GRID_GAP * (GRID_COLS - 1)) / GRID_COLS;
+  const gridHeight =
+    GRID_PAD * 2 + gridRows * (gridCellSize + GRID_LABEL_H) + (gridRows - 1) * GRID_GAP;
 
   const lastPeriodIdx = (row.periods?.length || 1) - 1;
   const canGoPrev = periodIndex > 0;
@@ -376,13 +398,14 @@ export default function LotSheet({ visible, onClose, row, period, habit, tapToBu
                 </View>
 
                 <View style={[styles.gridCard, { backgroundColor: theme.surfaceHigh }]}>
-                  <Svg width={gridSize} height={gridSize} viewBox={`0 0 ${gridSize} ${gridSize}`}>
+                  <Svg width={chartWidth} height={gridHeight} viewBox={`0 0 ${chartWidth} ${gridHeight}`}>
                     <DayGrid
                       days={viewedPeriod.days}
                       color={row.color}
-                      size={gridSize}
-                      pad={16}
-                      gap={6}
+                      width={chartWidth}
+                      height={gridHeight}
+                      pad={GRID_PAD}
+                      gap={GRID_GAP}
                       dayNumbers
                       textColor={theme.muted}
                       onPressDay={handleSelectDay}

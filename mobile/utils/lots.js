@@ -113,7 +113,10 @@ function buildDayCell(date, checkIns, countMode, todayStart) {
   };
 }
 
-function buildDays(startDate, count, checkIns, countMode, today) {
+// Exported for TowerSheet.js's daily-habit backdate picker — a rolling
+// last-7-days window, not a period, so it reuses this cell builder directly
+// rather than the period machinery below.
+export function buildDays(startDate, count, checkIns, countMode, today) {
   const todayStart = startOfDay(today);
   const days = [];
   for (let i = 0; i < count; i += 1) {

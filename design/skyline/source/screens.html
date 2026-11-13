@@ -35,6 +35,12 @@ function tower({x,base,w,fh,dx,dy,floors,windows=2,today=true,ledgeAfter=null,se
       }
       return;
     }
+    if(st==='shield' && window.SHIELD_MODE!=='solid'){
+      s+=`<path d="${front}" fill="#8FB8D8" fill-opacity="0.45" stroke="#DDF2FF" stroke-opacity="0.9" stroke-width="1.2"/><path d="${side}" fill="#6F98B8" fill-opacity="0.45" stroke="#DDF2FF" stroke-opacity="0.7" stroke-width="1"/>`;
+      const cx=x+w/2,cy=y+fh/2,r=Math.min(fh*0.36,9);
+      if(fh>=8) s+=`<path d="M${cx},${cy-r}L${cx+r*0.85},${cy-r*0.6}V${cy+r*0.05}C${cx+r*0.85},${cy+r*0.6} ${cx+r*0.4},${cy+r*0.9} ${cx},${cy+r}C${cx-r*0.4},${cy+r*0.9} ${cx-r*0.85},${cy+r*0.6} ${cx-r*0.85},${cy+r*0.05}V${cy-r*0.6}Z" fill="#fff"/>`;
+      return;
+    }
     const f= st==='shield'?C.shield:C.front;
     s+=`<path d="${front}" fill="${f}"/><path d="${side}" fill="${shade(f,-22)}"/>`;
     s+=`<line x1="${x}" x2="${x+w}" y1="${y+fh}" y2="${y+fh}" stroke="${shade(f,-30)}" stroke-width="${gap}"/>`;
@@ -69,21 +75,21 @@ if(screen==='towersheet'){
   document.getElementById('root').innerHTML=`
   <svg width="390" height="110" style="position:absolute;top:0;left:0"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0B1030"/><stop offset="1" stop-color="#1A2148"/></linearGradient></defs>
   <rect width="390" height="110" fill="url(#g)"/>${stars}<circle cx="322" cy="52" r="18" fill="#F4EFD8"/><circle cx="330" cy="47" r="16" fill="#121836"/></svg>
-  <div style="position:absolute;top:96px;left:0;right:0;bottom:76px;background:var(--s1);border-radius:24px 24px 0 0;padding:0 20px">
+  <div style="position:absolute;top:80px;left:0;right:0;bottom:76px;background:var(--s1);border-radius:24px 24px 0 0;padding:0 20px">
     <div style="width:40px;height:4px;border-radius:2px;background:#3A4552;margin:10px auto 12px"></div>
     <div style="display:flex;gap:14px;align-items:center">
       <div style="width:14px;height:34px;border-radius:5px;background:${C.front}"></div>
-      <div><h1 style="font-size:26px;line-height:1.1">Write</h1>
-      <div style="color:var(--muted);font-size:13.5px;margin-top:2px">Daily · Floor 24 · Under construction</div></div>
+      <div><div style="color:var(--muted);font-size:12px;font-weight:800;letter-spacing:.8px">TOWER DETAILS</div><h1 style="font-size:24px;line-height:1.15">Write 300 words</h1>
+      <div style="color:var(--muted);font-size:13px;margin-top:1px">Daily · Floor 24 · Under construction</div></div>
     </div>
-    <div style="display:flex;gap:16px;margin-top:14px">
-      <svg width="104" height="262" style="flex:0 0 104px">${tower({x:22,base:258,w:44,fh:8.2,dx:16,dy:9,floors,windows:2,ledgeAfter:17})}</svg>
+    <div style="display:flex;gap:16px;margin-top:8px">
+      <svg width="104" height="246" style="flex:0 0 104px">${tower({x:22,base:242,w:44,fh:7.6,dx:16,dy:9,floors,windows:2,ledgeAfter:17})}</svg>
       <div style="flex:1">
         <div style="font-size:30px;font-weight:800;color:var(--amber);line-height:1.1">9 day run</div>
         <div style="color:var(--muted);font-size:13px;margin-top:4px;line-height:1.35">The lit floors at the top. Today's floor will make it 10.</div>
         <div class="legend"><div class="sw"><div style="width:22px;height:3px;background:#fff"></div></div><div><b>Best run: 12 days</b><span>The white ledge. It stays even if the run restarts.</span></div></div>
         <div class="legend"><div class="sw"><svg width="24" height="16"><rect width="24" height="16" fill="${C.front}"/><rect x="5" y="5" width="4" height="6" fill="${C.dark}"/><rect x="15" y="5" width="4" height="6" fill="${C.dark}"/></svg></div><div><b>Dark windows</b><span>Earlier floors. Past check-ins stay.</span></div></div>
-        <div class="legend"><div class="sw"><svg width="24" height="16"><rect width="24" height="16" fill="${C.shield}"/></svg></div><div><b>Solid block: Shield Day</b><span>No windows. The run kept going.</span></div></div>
+        <div class="legend"><div class="sw"><svg width="24" height="16"><rect x=".5" y=".5" width="23" height="15" fill="#8FB8D8" fill-opacity="0.45" stroke="#DDF2FF"/><path d="M12,3.5L15.5,5V8.5C15.5,10.5 14,12 12,12.8C10,12 8.5,10.5 8.5,8.5V5Z" fill="#fff"/></svg></div><div><b>Glass floor: Shield Day</b><span>Marked with a shield. The run kept going.</span></div></div>
         <div class="legend"><div class="sw"><svg width="24" height="16"><rect x=".5" y=".5" width="23" height="15" fill="none" stroke="${C.open}" stroke-dasharray="0"/></svg></div><div><b>Open floor</b><span>An outline you can see through. Floors never come down.</span></div></div>
       </div>
     </div>
@@ -111,9 +117,10 @@ if(screen==='crosssection'){
   const months=[{i:1,l:'Oct'},{i:15,l:'Oct 15'},{i:32,l:'Nov'}];
   document.getElementById('root').innerHTML=`
   <div style="padding:26px 20px 0">
-    <div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:17px;font-weight:700">‹&nbsp; Write</div><div style="color:var(--muted);font-size:14px;font-weight:700">Inside view</div></div>
-    <h1 style="font-size:30px;margin-top:16px">Write</h1>
-    <div style="color:var(--muted);font-size:14px;margin-top:2px">Each floor is one day. Drag the handle to move through time.</div>
+    <div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:17px;font-weight:700">‹&nbsp; Tower details</div><div></div></div>
+    <h1 style="font-size:30px;margin-top:16px">Inside view</h1>
+    <div style="font-size:15px;font-weight:700;margin-top:2px">Write 300 words</div>
+    <div style="color:var(--muted);font-size:13.5px;margin-top:2px">Each floor is one day. Drag the handle to move through time.</div>
   </div>
   <svg width="390" height="800" style="position:absolute;top:0;left:0">
     ${months.map(m=>`<text x="8" y="${yOf(m.i)+4}" fill="${'#A3ADB8'}" font-size="11" font-weight="700" font-family="Nunito">${m.l}</text>`).join('')}
@@ -132,7 +139,7 @@ if(screen==='crosssection'){
   <div style="position:absolute;left:16px;right:16px;top:${base+12}px;display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);font-weight:600">
     <span style="display:flex;gap:5px;align-items:center"><svg width="16" height="10"><rect width="16" height="10" fill="${C.front}"/><rect x="3" y="3" width="3" height="4" fill="${C.lit}"/><rect x="10" y="3" width="3" height="4" fill="${C.lit}"/></svg>This run</span>
     <span style="display:flex;gap:5px;align-items:center"><svg width="16" height="10"><rect width="16" height="10" fill="${C.front}"/><rect x="3" y="3" width="3" height="4" fill="${C.dark}"/><rect x="10" y="3" width="3" height="4" fill="${C.dark}"/></svg>Earlier</span>
-    <span style="display:flex;gap:5px;align-items:center"><svg width="16" height="10"><rect width="16" height="10" fill="${C.shield}"/></svg>Shield Day</span>
+    <span style="display:flex;gap:5px;align-items:center"><svg width="16" height="10"><rect x=".5" y=".5" width="15" height="9" fill="#8FB8D8" fill-opacity="0.45" stroke="#DDF2FF"/><path d="M8,2L10.5,3V5.3C10.5,6.7 9.4,7.6 8,8.2C6.6,7.6 5.5,6.7 5.5,5.3V3Z" fill="#fff"/></svg>Shield Day</span>
     <span style="display:flex;gap:5px;align-items:center"><svg width="16" height="10"><rect x=".5" y=".5" width="15" height="9" fill="none" stroke="${C.open}"/></svg>Open</span>
   </div>
   ${tabs}`;
@@ -181,7 +188,20 @@ if(screen==='floorstates'){
   const lab=(i,t,sub)=>`<line x1="196" x2="222" y1="${fy(i)}" y2="${fy(i)}" stroke="#5B6472" stroke-dasharray="3 3"/><text x="230" y="${fy(i)-2}" fill="#F2F4F6" font-size="16" font-weight="800" font-family="Nunito">${t}</text><text x="230" y="${fy(i)+17}" fill="#A3ADB8" font-size="12.5" font-family="Nunito">${sub}</text>`;
   document.getElementById('root').innerHTML=`<svg width="390" height="844" style="position:absolute;top:0;left:0"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0B1030"/><stop offset="1" stop-color="#232a5a"/></linearGradient></defs>
   <rect width="390" height="844" fill="url(#g)"/>${stars}<rect y="700" width="390" height="144" fill="#0F1216"/>${T}
-  ${lab(7,'Lit windows','Current run, lights on')}${lab(6,'Solid block','Shield Day, no windows')}${lab(3,'See-through outline','Open day, no check-in')}${lab(1,'Dark windows','Past check-ins stay')}</svg>
-  <div style="position:absolute;top:20px;left:20px;right:20px"><h1 style="font-size:22px">Floor states</h1><div style="color:var(--muted);font-size:13px;margin-top:4px">Reference for every tower. Revised 2026-11-13: open floor is see-through.</div></div>`;
+  ${lab(7,'Lit windows','Current run, lights on')}${lab(6,'Glass + shield','Shield Day, no windows')}${lab(3,'See-through outline','Open day, no check-in')}${lab(1,'Dark windows','Past check-ins stay')}</svg>
+  <div style="position:absolute;top:20px;left:20px;right:20px"><h1 style="font-size:22px">Floor states</h1><div style="color:var(--muted);font-size:13px;margin-top:4px">Reference for every tower. Revised 2026-11-13: open floor see-through; Shield Day is glass with a shield.</div></div>`;
+}
+
+if(screen==='shieldcompare'){
+  let stars='';for(let i=0;i<120;i++){stars+=`<circle cx="${(i*97)%390}" cy="${(i*53)%520+40}" r="${i%3?0.9:1.5}" fill="#dfe6ff" opacity="${0.4+(i%4)*0.15}"/>`}
+  const fl=[...rep('dark',5),'open',...rep('dark',2),...rep('lit',3),'shield',...rep('lit',3)];
+  const draw=(mode,x)=>{window.SHIELD_MODE=mode;return tower({x,base:560,w:90,fh:22,dx:22,dy:12,floors:fl,windows:3,today:true});};
+  const a=draw('solid',36), b=draw('glass',238);
+  document.getElementById('root').innerHTML=`
+  <svg width="390" height="844" style="position:absolute;top:0;left:0"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0B1030"/><stop offset="1" stop-color="#232a5a"/></linearGradient></defs>
+  <rect width="390" height="600" fill="url(#g)"/>${stars}<rect y="560" width="390" height="284" fill="#0F1216"/>${a}${b}</svg>
+  <div style="position:absolute;top:24px;left:20px;right:20px"><h1 style="font-size:22px">Shield Day: two options</h1><div style="color:var(--muted);font-size:13px;margin-top:4px">Same tower, one Shield Day inside the lit run.</div></div>
+  <div style="position:absolute;top:580px;left:16px;width:170px"><b style="font-size:16px">A · Solid block</b><div style="color:var(--muted);font-size:13px;margin-top:6px;line-height:1.4">Current spec (CLAUDE.md, revised 2026-11-10), board 22 and the build. Flat slate block, no windows.</div></div>
+  <div style="position:absolute;top:580px;left:206px;width:170px"><b style="font-size:16px">B · Glass + shield icon</b><div style="color:var(--muted);font-size:13px;margin-top:6px;line-height:1.4">Translucent glass floor with a small shield icon. The icon is a clear non-color signal.</div></div>`;
 }
 </script></body></html>

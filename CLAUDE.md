@@ -245,6 +245,14 @@ Before any edit to a file, post a short plan and wait for the user to say go. Th
 
 A plan covers: the goal in one sentence, the files you expect to touch, the approach, risks or product rules involved, what you will verify, and any question you need answered. Use plan mode if it is available. Read-only work (answering questions, reading code, searching) needs no confirmation. If the work changes direction midway, stop and confirm the new plan.
 
+### UI design changes go through the front-end design-review agent first
+Before any code change that affects visual design (a new screen, a restyle, a new visual state, a layout change — anything a user would see differently), do this in order, every time, with no exceptions for "small" visual changes:
+1. Ask the front-end design-review agent (the cross-session peer that maintains `design/skyline/` — see `ListAgents`, it's the session named for frontend design review) whether a design/mockup already covers this change. Do not guess at a visual spec from a product description alone.
+2. If a design exists, get it, and get the owner's explicit confirmation on it before writing any code.
+3. If no design exists yet, ask the design-review agent to create one first. Do not build the UI and request a design afterward to match it.
+4. Only after the owner has confirmed the design does implementation start.
+This applies even when the owner states a visual preference directly in conversation (e.g. "make the Shield Day a glass floor with an icon") — relay it to the design-review agent, get a design or confirmation back, and confirm with the owner before coding. A verbal description is not a confirmed design.
+
 ### The Skyline rebuild
 - The rebuild replaces the UI. It is not a toggle and not a second app. There is no Classic mode for users.
 - Keep `hooks/use*.js`, `api/client.js`, `utils/` and all backend services unless `SKYLINE.md` says a phase changes them. New screens call the same hooks.

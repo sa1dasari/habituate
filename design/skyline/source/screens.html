@@ -11,7 +11,7 @@ body{width:390px;height:844px;background:var(--bg);color:var(--text);font-family
 .tab svg{width:22px;height:22px}
 h1{font-weight:800}
 .btn{background:var(--s2);border-radius:22px;height:44px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px}
-.legend{display:flex;gap:12px;align-items:flex-start;margin-top:12px}
+.legend{display:flex;gap:12px;align-items:flex-start;margin-top:8px}
 .legend b{display:block;font-size:14px;font-weight:700}
 .legend span{display:block;font-size:12.5px;color:var(--muted);line-height:1.35}
 .sw{flex:0 0 26px;height:26px;display:flex;align-items:center;justify-content:center}
@@ -28,7 +28,11 @@ function tower({x,base,w,fh,dx,dy,floors,windows=2,today=true,ledgeAfter=null,se
     const front=`M${x},${y}h${w}v${fh}h${-w}Z`;
     const side=`M${x+w},${y}l${dx},${-dy}v${fh}l${-dx},${dy}Z`;
     if(st==='open'){
-      s+=`<path d="${front}" fill="#0F1216" stroke="${C.open}" stroke-width="1"/><path d="${side}" fill="#0F1216" stroke="${C.open}" stroke-width="1"/>`;
+      if(window.OPEN_MODE!=='block'){
+        s+=`<path d="${front}" fill="none" stroke="${C.open}" stroke-width="1"/><path d="${side}" fill="none" stroke="${C.open}" stroke-width="1"/>`;
+      } else {
+        s+=`<path d="${front}" fill="#141920" stroke="${shade(C.front,-45)}" stroke-width="1.2"/><path d="${side}" fill="#10141a" stroke="${shade(C.front,-45)}" stroke-width="1.2"/>`;
+      }
       return;
     }
     const f= st==='shield'?C.shield:C.front;
@@ -61,11 +65,11 @@ const screen=new URLSearchParams(location.search).get('s');
 if(screen==='towersheet'){
   // 4 past, open, 12-day past run (best), open, current run 9 = 4 lit + shield + 4 lit
   const floors=[...rep('dark',4),'open',...rep('dark',12),'open',...rep('lit',4),'shield',...rep('lit',4)];
-  let stars='';for(let i=0;i<40;i++){stars+=`<circle cx="${(i*97)%390}" cy="${(i*53)%130+8}" r="${i%3?0.9:1.4}" fill="#c9d3ff" opacity="${0.35+(i%4)*0.15}"/>`}
+  let stars='';for(let i=0;i<40;i++){stars+=`<circle cx="${(i*97)%390}" cy="${(i*53)%95+8}" r="${i%3?0.9:1.4}" fill="#c9d3ff" opacity="${0.35+(i%4)*0.15}"/>`}
   document.getElementById('root').innerHTML=`
-  <svg width="390" height="150" style="position:absolute;top:0;left:0"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0B1030"/><stop offset="1" stop-color="#1A2148"/></linearGradient></defs>
-  <rect width="390" height="150" fill="url(#g)"/>${stars}<circle cx="322" cy="70" r="20" fill="#F4EFD8"/><circle cx="331" cy="64" r="18" fill="#121836"/></svg>
-  <div style="position:absolute;top:136px;left:0;right:0;bottom:76px;background:var(--s1);border-radius:24px 24px 0 0;padding:0 20px">
+  <svg width="390" height="110" style="position:absolute;top:0;left:0"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0B1030"/><stop offset="1" stop-color="#1A2148"/></linearGradient></defs>
+  <rect width="390" height="110" fill="url(#g)"/>${stars}<circle cx="322" cy="52" r="18" fill="#F4EFD8"/><circle cx="330" cy="47" r="16" fill="#121836"/></svg>
+  <div style="position:absolute;top:96px;left:0;right:0;bottom:76px;background:var(--s1);border-radius:24px 24px 0 0;padding:0 20px">
     <div style="width:40px;height:4px;border-radius:2px;background:#3A4552;margin:10px auto 12px"></div>
     <div style="display:flex;gap:14px;align-items:center">
       <div style="width:14px;height:34px;border-radius:5px;background:${C.front}"></div>
@@ -73,14 +77,14 @@ if(screen==='towersheet'){
       <div style="color:var(--muted);font-size:13.5px;margin-top:2px">Daily · Floor 24 · Under construction</div></div>
     </div>
     <div style="display:flex;gap:16px;margin-top:14px">
-      <svg width="104" height="290" style="flex:0 0 104px">${tower({x:22,base:286,w:44,fh:9.2,dx:16,dy:9,floors,windows:2,ledgeAfter:17})}</svg>
+      <svg width="104" height="262" style="flex:0 0 104px">${tower({x:22,base:258,w:44,fh:8.2,dx:16,dy:9,floors,windows:2,ledgeAfter:17})}</svg>
       <div style="flex:1">
         <div style="font-size:30px;font-weight:800;color:var(--amber);line-height:1.1">9 day run</div>
         <div style="color:var(--muted);font-size:13px;margin-top:4px;line-height:1.35">The lit floors at the top. Today's floor will make it 10.</div>
         <div class="legend"><div class="sw"><div style="width:22px;height:3px;background:#fff"></div></div><div><b>Best run: 12 days</b><span>The white ledge. It stays even if the run restarts.</span></div></div>
         <div class="legend"><div class="sw"><svg width="24" height="16"><rect width="24" height="16" fill="${C.front}"/><rect x="5" y="5" width="4" height="6" fill="${C.dark}"/><rect x="15" y="5" width="4" height="6" fill="${C.dark}"/></svg></div><div><b>Dark windows</b><span>Earlier floors. Past check-ins stay.</span></div></div>
         <div class="legend"><div class="sw"><svg width="24" height="16"><rect width="24" height="16" fill="${C.shield}"/></svg></div><div><b>Solid block: Shield Day</b><span>No windows. The run kept going.</span></div></div>
-        <div class="legend"><div class="sw"><svg width="24" height="16"><rect x=".5" y=".5" width="23" height="15" fill="#0F1216" stroke="${C.open}"/></svg></div><div><b>Open floor</b><span>A soft outline. Floors never come down.</span></div></div>
+        <div class="legend"><div class="sw"><svg width="24" height="16"><rect x=".5" y=".5" width="23" height="15" fill="none" stroke="${C.open}" stroke-dasharray="0"/></svg></div><div><b>Open floor</b><span>An outline you can see through. Floors never come down.</span></div></div>
       </div>
     </div>
     <div style="margin-top:10px;border:1.5px solid var(--amber);background:#2B2717;border-radius:18px;padding:14px 16px;display:flex;gap:12px;align-items:center">
@@ -88,8 +92,8 @@ if(screen==='towersheet'){
       <div style="color:var(--muted);font-size:13px;line-height:1.35;margin-top:3px">You've built this tower for over 30 days. Finish it and start a new one whenever you like.</div></div>
       <div style="background:var(--amber);color:#1b1608;font-weight:800;border-radius:22px;height:44px;padding:0 18px;display:flex;align-items:center">Top out</div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px">
-      <div class="btn">See inside</div><div class="btn">Ask about this tower</div><div class="btn">Edit</div><div class="btn">Retire</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
+      <div class="btn">Shield Day · 2</div><div class="btn">Add another day</div><div class="btn">See inside</div><div class="btn">Ask about tower</div><div class="btn">Edit</div><div class="btn" style="color:#C9CED4">Retire</div>
     </div>
   </div>${tabs}`;
 }
@@ -129,8 +133,55 @@ if(screen==='crosssection'){
     <span style="display:flex;gap:5px;align-items:center"><svg width="16" height="10"><rect width="16" height="10" fill="${C.front}"/><rect x="3" y="3" width="3" height="4" fill="${C.lit}"/><rect x="10" y="3" width="3" height="4" fill="${C.lit}"/></svg>This run</span>
     <span style="display:flex;gap:5px;align-items:center"><svg width="16" height="10"><rect width="16" height="10" fill="${C.front}"/><rect x="3" y="3" width="3" height="4" fill="${C.dark}"/><rect x="10" y="3" width="3" height="4" fill="${C.dark}"/></svg>Earlier</span>
     <span style="display:flex;gap:5px;align-items:center"><svg width="16" height="10"><rect width="16" height="10" fill="${C.shield}"/></svg>Shield Day</span>
-    <span style="display:flex;gap:5px;align-items:center"><svg width="16" height="10"><rect x=".5" y=".5" width="15" height="9" fill="#0F1216" stroke="${C.open}"/></svg>Open</span>
+    <span style="display:flex;gap:5px;align-items:center"><svg width="16" height="10"><rect x=".5" y=".5" width="15" height="9" fill="none" stroke="${C.open}"/></svg>Open</span>
   </div>
   ${tabs}`;
+}
+
+if(screen==='openfloor'){
+  let stars='';for(let i=0;i<120;i++){stars+=`<circle cx="${(i*97)%390}" cy="${(i*53)%520+40}" r="${i%3?0.9:1.5}" fill="#dfe6ff" opacity="${0.4+(i%4)*0.15}"/>`}
+  const fl=[...rep('dark',5),'open',...rep('dark',3),'open',...rep('lit',3),'shield',...rep('lit',3)];
+  const draw=(mode,x)=>{window.OPEN_MODE=mode;return tower({x,base:560,w:90,fh:20,dx:22,dy:12,floors:fl,windows:3,today:true});};
+  document.getElementById('root').innerHTML=`
+  <svg width="390" height="844" style="position:absolute;top:0;left:0"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0B1030"/><stop offset="1" stop-color="#232a5a"/></linearGradient></defs>
+  <rect width="390" height="600" fill="url(#g)"/>${stars}
+  <rect y="560" width="390" height="284" fill="#0F1216"/>
+  ${draw('cutout',36)}${draw('block',238)}</svg>
+  <div style="position:absolute;top:24px;left:20px;right:20px"><h1 style="font-size:22px">Open floor: two options</h1><div style="color:var(--muted);font-size:13px;margin-top:4px">Same tower, night sky. Two open days in each.</div></div>
+  <div style="position:absolute;top:580px;left:16px;width:170px"><b style="font-size:16px">A · See-through</b><div style="color:var(--muted);font-size:13px;margin-top:6px;line-height:1.4">Current build. Outline only, the sky and stars show through the open floor.</div></div>
+  <div style="position:absolute;top:580px;left:206px;width:170px"><b style="font-size:16px">B · Framed block</b><div style="color:var(--muted);font-size:13px;margin-top:6px;line-height:1.4">Board 22 / SKYLINE §4. Filled with a dark surface tone and outlined in the tower's own color.</div></div>`;
+}
+if(screen==='towersheet-rows'){
+  const floors=[...rep('dark',4),'open',...rep('dark',12),'open',...rep('lit',4),'shield',...rep('lit',4)];
+  const row=(icon,label,sub,extra='')=>`<div style="display:flex;align-items:center;gap:12px;height:48px;border-bottom:1px solid #232b34;${extra}"><div style="width:28px;height:28px;border-radius:8px;background:var(--s2);display:flex;align-items:center;justify-content:center;font-size:14px">${icon}</div><div style="flex:1;font-weight:700;font-size:15px">${label}${sub?`<span style="display:block;font-weight:600;font-size:12px;color:var(--muted)">${sub}</span>`:''}</div><div style="color:var(--muted);font-size:18px">›</div></div>`;
+  document.getElementById('root').innerHTML=`
+  <div style="position:absolute;top:0;left:0;right:0;height:90px;background:linear-gradient(#0B1030,#1A2148)"></div>
+  <div style="position:absolute;top:70px;left:0;right:0;bottom:76px;background:var(--s1);border-radius:24px 24px 0 0;padding:0 20px">
+    <div style="width:40px;height:4px;border-radius:2px;background:#3A4552;margin:10px auto 10px"></div>
+    <div style="display:flex;gap:16px;align-items:center">
+      <svg width="64" height="150" style="flex:0 0 64px">${tower({x:8,base:146,w:30,fh:4.6,dx:10,dy:6,floors,windows:2,ledgeAfter:17})}</svg>
+      <div style="flex:1"><h1 style="font-size:24px">Write</h1><div style="color:var(--muted);font-size:13px">Daily · Floor 24 · Under construction</div>
+      <div style="font-size:26px;font-weight:800;color:var(--amber);margin-top:6px">9 day run</div><div style="color:var(--muted);font-size:12.5px">Best run 12 days · today makes it 10</div></div>
+    </div>
+    <div style="margin-top:10px;border:1.5px solid var(--amber);background:#2B2717;border-radius:16px;padding:10px 14px;display:flex;gap:10px;align-items:center">
+      <div style="flex:1"><div style="font-weight:800;font-size:15px">Ready to top out</div><div style="color:var(--muted);font-size:12.5px">Over 30 days old. Only shown when eligible.</div></div>
+      <div style="background:var(--amber);color:#1b1608;font-weight:800;border-radius:22px;height:44px;padding:0 16px;display:flex;align-items:center">Top out</div></div>
+    <div style="margin-top:6px">
+      ${row('✎','Edit','')}${row('▣','Shield Day','2 banked')}${row('▤','Look inside','Every floor, day by day')}${row('＋','Add for another day','Last 7 days')}${row('?','Ask about this tower','')}
+      ${row('◌','Retire','Becomes a grey monument','border-bottom:none;margin-top:10px;color:#C9CED4')}
+    </div>
+  </div>${tabs}`;
+}
+
+if(screen==='floorstates'){
+  let stars='';for(let i=0;i<90;i++){stars+=`<circle cx="${(i*97)%390}" cy="${(i*53)%700+20}" r="${i%3?0.9:1.4}" fill="#dfe6ff" opacity="${0.35+(i%4)*0.15}"/>`}
+  const fl=[...rep('dark',3),'open',...rep('lit',2),'shield',...rep('lit',3)];
+  const T=tower({x:40,base:700,w:120,fh:52,dx:26,dy:15,floors:fl,windows:3,today:false,gap:2});
+  const fy=i=>700-(i+0.5)*52;
+  const lab=(i,t,sub)=>`<line x1="196" x2="222" y1="${fy(i)}" y2="${fy(i)}" stroke="#5B6472" stroke-dasharray="3 3"/><text x="230" y="${fy(i)-2}" fill="#F2F4F6" font-size="16" font-weight="800" font-family="Nunito">${t}</text><text x="230" y="${fy(i)+17}" fill="#A3ADB8" font-size="12.5" font-family="Nunito">${sub}</text>`;
+  document.getElementById('root').innerHTML=`<svg width="390" height="844" style="position:absolute;top:0;left:0"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0B1030"/><stop offset="1" stop-color="#232a5a"/></linearGradient></defs>
+  <rect width="390" height="844" fill="url(#g)"/>${stars}<rect y="700" width="390" height="144" fill="#0F1216"/>${T}
+  ${lab(7,'Lit windows','Current run, lights on')}${lab(6,'Solid block','Shield Day, no windows')}${lab(3,'See-through outline','Open day, no check-in')}${lab(1,'Dark windows','Past check-ins stay')}</svg>
+  <div style="position:absolute;top:20px;left:20px;right:20px"><h1 style="font-size:22px">Floor states</h1><div style="color:var(--muted);font-size:13px;margin-top:4px">Reference for every tower. Revised 2026-11-13: open floor is see-through.</div></div>`;
 }
 </script></body></html>

@@ -219,7 +219,7 @@ export default function MyStatsModal({ visible, onClose }) {
                   icon={<MaterialCommunityIcons name="target" size={20} color={colors.accent} />}
                   label="Active habits"
                   value={String(stats.activeHabitCount)}
-                  onPress={() => goTo('Habits')}
+                  onPress={() => goTo('Today')}
                   actionHint="View all habits"
                 />
                 {shieldDays !== null ? (
@@ -269,7 +269,7 @@ export default function MyStatsModal({ visible, onClose }) {
   );
 }
 
-/** Tiles with an onPress become real buttons (e.g. "Active habits" jumps to the Habits
+/** Tiles with an onPress become real buttons (e.g. "Active habits" jumps to the Today
  * tab) — "Member since" has nothing reasonable to act on, so it stays a static fact. */
 function StatTile({ icon, label, value, styles, colors, onPress, actionHint }) {
   const content = (

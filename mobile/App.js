@@ -35,7 +35,6 @@ import { navigateToTab, navigationRef } from './utils/navigationRef';
 import {
   ChooseUsernameScreen,
   CommunityScreen,
-  HabitsScreen,
   InsightsScreen,
   LoginScreen,
   SignupScreen,
@@ -57,7 +56,6 @@ const Tab = createBottomTabNavigator();
 
 const TAB_ICONS = {
   Today: 'check-circle-outline',
-  Habits: 'format-list-checks',
   Insights: 'chart-line',
   Community: 'account-group-outline',
   Profile: 'account-circle-outline',
@@ -98,11 +96,6 @@ function Tabs() {
         name="Today"
         component={TodayScreen}
         listeners={{ tabPress: () => scrollToTop('Today') }}
-      />
-      <Tab.Screen
-        name="Habits"
-        component={HabitsScreen}
-        listeners={{ tabPress: () => scrollToTop('Habits') }}
       />
       <Tab.Screen
         name="Insights"

@@ -140,7 +140,7 @@ export function HabitsProvider({ children }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   // How many Shield Days the user has banked right now — fetched alongside
-  // habits so both TodayScreen's shield icon and HabitsScreen's info modal
+  // habits so TodayScreen's shield icon and its Shield Days info modal
   // can read it from one place instead of each fetching it separately.
   const [shieldsAvailable, setShieldsAvailable] = useState(0);
 

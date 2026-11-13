@@ -9,9 +9,11 @@ import { runOnJS } from 'react-native-reanimated';
 import CalendarModal from '../components/CalendarModal';
 import TreeRingChart from '../components/TreeRingChart';
 import TourHighlight from '../components/TourHighlight';
+import Toast from '../components/Toast';
 import { categoryIcon } from '../constants/habitCategories';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useHabits } from '../hooks/useHabits';
+import { useToast } from '../hooks/useToast';
 import { useRegisterScrollToTop } from '../hooks/useRegisterScrollToTop';
 import { useTourTarget } from '../hooks/useTourTarget';
 import { TOUR_SCOPES, TOUR_TARGETS } from '../constants/onboardingTour';
@@ -75,7 +77,8 @@ export default function InsightsScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const scrollRef = useRegisterScrollToTop('Insights');
 
-  const { habits, refresh } = useHabits();
+  const { habits, refresh, toggleCheckIn, busy } = useHabits();
+  const { toast, showToast, hideToast } = useToast();
   const [period, setPeriod] = useState('weekly');
   // The date each period's trailing window ends at — "now" shows the live
   // period; prev/next slide it back/forward a whole window-length at a time
@@ -93,6 +96,21 @@ export default function InsightsScreen({ navigation, route }) {
   const [calendarVisible, setCalendarVisible] = useState(false);
   const [calendarAnchorDateKey, setCalendarAnchorDateKey] = useState(null);
   const [calendarSelectedDayKey, setCalendarSelectedDayKey] = useState(null);
+
+  // Was HabitsScreen.js's handleToggleCalendarDay — backdates/undoes a BOOLEAN
+  // habit's check-in for the tapped day. HabitsScreen was the only screen
+  // wiring this into CalendarModal's onToggleHabitDay; restoring it here so
+  // removing that screen doesn't silently drop the capability.
+  const handleToggleCalendarDay = useCallback(
+    async (habit, dayKey) => {
+      try {
+        await toggleCheckIn(habit.id, dayKey);
+      } catch (err) {
+        showToast(`Could not update check-in — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+      }
+    },
+    [toggleCheckIn, showToast]
+  );
 
   useEffect(() => {
     setSelectedHabitIds((current) => {
@@ -335,7 +353,7 @@ export default function InsightsScreen({ navigation, route }) {
               style={styles.emptyCta}
               accessibilityRole="button"
               accessibilityLabel="Add your first habit"
-              onPress={() => navigation.navigate('Habits', { openCreateHabit: true })}
+              onPress={() => navigation.navigate('Today')}
             >
               <Text style={styles.emptyCtaText}>Add your first habit</Text>
               <MaterialCommunityIcons name="arrow-right" size={16} color={colors.accent} />
@@ -519,9 +537,12 @@ export default function InsightsScreen({ navigation, route }) {
         initialAnchorDateKey={calendarAnchorDateKey}
         initialSelectedDayKey={calendarSelectedDayKey}
         onClose={() => setCalendarVisible(false)}
+        onToggleHabitDay={handleToggleCalendarDay}
+        busy={busy}
       />
     </SafeAreaView>
     <TourHighlight scope={TOUR_SCOPES.INSIGHTS} />
+    <Toast toast={toast} onHide={hideToast} />
     </>
   );
 }

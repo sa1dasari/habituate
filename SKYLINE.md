@@ -251,8 +251,14 @@ Revised 2026-11-10 (`SKYLINE-ADDENDUM.md` section 8) — not yet applied to the 
 - **Build together / Raise a landmark forms deferred to Phase 6, decided 2026-11-12.** `CreateGroupModal.js` (the shared-habit form Part G would replace) is referenced from three places — `CommunityScreen.js`, `GroupsManageModal.js`, `SharedHabitDetailModal.js` — and `CreateChallengeModal.js` (Part H) is in the same position; all four owning screens are Phase 6 scope, not rebuilt yet. A new Skyline-styled form built now would have no real entry point to wire into (the same reachability problem `TowerForm.js`/Part F avoided by repointing an already-new-this-session deep-link, not three old, not-yet-rebuilt screens) — it would sit unreachable until Phase 6 anyway, so building it now is premature. Revisit as part of Phase 6's own screen work. This doesn't block Phase 4's own gate: the old Habits tab never hosted group or challenge creation, so deferring G/H doesn't cost Phase 4 any capability.
 - [x] Part I (archived/monument towers — restore, delete), 2026-11-12: new `components/ArchivedTowersSheet.js`, opened from a new header icon on `SkylineScreen.js` (between the chat and profile icons). Mirrors `HabitsScreen.js`'s `restore()`/`confirmDelete()` logic — restore sends the full optional-field set (including `topOutThresholdDays`, round-tripped from the raw archived record this time, not a reconstructed form draft) to avoid the same silent-PUT-wipe bug already fixed twice elsewhere this phase. Checked specifically (not just pattern-matched) whether `featuredGoal`/`reminderEnabled` could suffer the same issue despite being primitive on `HabitResponse`: they can't here, because this component reads them straight off the archived record and sends them back unchanged (no form-reconstruction step to introduce drift), and the backend itself already enforces `reminderEnabled=false` whenever `scheduledTime` is null (`HabitService.updateHabit`), so the stored value can never violate that invariant in the first place. `TowerSheet.js`'s own Retire payload was double-checked too — it reads from `habitsById`, which is hydrated, so it's unaffected. Also added `numberOfLines={1}` to the header's title/subtitle, since a third header icon narrows the available width at 360dp and the subtitle previously had no wrap guard. Verification: jest 62/62, `tsc --noEmit` clean, `expo export --platform web` clean. Not verified on-device.
 - [x] Every Habits screen action reachable from the Skyline (parity checklist all ticked for `HabitsScreen`). Updated 2026-11-12: the goal-form gap closed itself — decision 3 resolved to removing the freeform Goals feature outright, so `openCreateGoal`/`submitGoal` no longer exist anywhere, including in `HabitsScreen.js`. Every remaining `HabitsScreen.js` action from section 12's checklist is reachable (habit create/edit/archive/restore/delete via `TowerForm.js`/`TowerSheet.js`/`ArchivedTowersSheet.js`; Shield info/calendar already reachable from Skyline since Phase 2).
-- [ ] Habits tab removed from `App.js`. Four tabs live. **Blocker resolved 2026-11-12 but removal not yet done** — the tab was kept alive only because it was the sole path to creating/editing a goal; that feature is now gone entirely, so the original reason to defer no longer applies. Flagging rather than silently removing the tab in the same pass as the Goals-UI deletion: confirm with the owner before this checkbox is ticked and `App.js`'s tab list is cut to three screens (Skyline, Insights, Community, Profile minus Habits).
-- Gate: no capability lost versus the old Habits tab. Met — nothing `HabitsScreen.js` still offers is missing from the Skyline tab. Tab removal itself is the one remaining action in this phase.
+- [x] Habits tab removed from `App.js`, 2026-11-12. Four tabs live (Today, Insights, Community, Profile — "Today" is still the old `TodayScreen.js`, not yet promoted to `SkylineScreen.js`, see section 14 #10's history/the module doc comment in `SkylineScreen.js`). This turned out to be a bigger change than just deleting a `Tab.Screen`:
+  - The first-run onboarding tour had 4 steps (`habits-intro`, `habits-create-form`, `habits-shield`, `shield-days-info`) hard-wired to the Habits tab and to `useTourTarget` registrations living inside `HabitsScreen.js` itself. Rewrote `constants/onboardingTour.js` to retarget all 4 at `TodayScreen.js`/`TowerForm.js` equivalents: a new `TOWER_FORM_MODAL` tour scope (mirroring `CreateGroupModal.js`'s pattern, since `TowerForm.js` is a real `<Modal>` — a `TourHighlight` mounted on `TodayScreen.js` can't reach inside it) plus `TOWER_FORM_CARD`/`TODAY_ADD_HABIT_BUTTON`/`TODAY_SHIELD_ICON` targets replacing `HABITS_FORM_CARD`/`HABITS_ADD_BUTTON`/`HABITS_SHIELD_ICON`. `TodayScreen.js` gained the same tour-driven open/close effect `HabitsScreen.js` used to run, plus a tour-aware render condition on the empty-state CTA so "Replay tour" (Account Settings) still has a real target to spotlight for a user who already has habits.
+  - `TodayScreen.js` now opens `TowerForm.js` and `ProtectionInfoModal` directly (new local state) instead of navigating to Habits; its shield badge became a `Pressable`. The "scroll to goals" link on `FeaturedTargetsSummaryCard` was dropped — every featured habit already renders in Today's own list, so there was never a separate section to jump to; the card lost its `onPress`/button role when none is passed (`Container = onPress ? Pressable : View`, same split `ChallengeCard.js`/`SharedHabitCard.js` use). The redundant "See all" link was removed (Today already renders every habit, due and not-due).
+  - `InsightsScreen.js`, `ProfileScreen.js`, `MyStatsModal.js` redirect their remaining "Habits" nav calls to Today. Found and fixed a real, pre-existing-shaped gap while auditing: `CalendarModal.js`'s day-tap-to-backdate/undo action (`onToggleHabitDay`) was only ever wired up by `HabitsScreen.js` — `InsightsScreen.js`'s own `CalendarModal` usage never passed it. Wired it there now (new `handleToggleCalendarDay`), so deleting `HabitsScreen.js` didn't silently drop that capability.
+  - `screens/HabitsScreen.js` deleted; `screens/index.js` export removed.
+  - **Not done in this pass, logged as section 14 #17**: the 4 `maestro/03_habits/*.yaml` flows, built entirely around `HabitsScreen.js`'s UI, were not rewritten — flagged rather than guessed at blind, since Maestro can't be run here to verify new field labels/testIDs.
+  - Verification: jest 62/62, `tsc --noEmit` clean, `expo export --platform web` clean (run after every stage: tour constants, `TowerForm.js`, `TodayScreen.js`, then again after the screen deletion/tab cut). **Not verified on-device** — the tour rewrite in particular (modal-scoped spotlight timing, the replay-tour-with-existing-habits path) needs a real run-through.
+- Gate: no capability lost versus the old Habits tab. Met, with one exception logged rather than silently accepted: the Maestro E2E flows (section 14 #17) are real test debt, not a product capability loss — nothing a user can do was dropped.
 
 ### Phase 5: Insights
 - [ ] Rings removed. Skyline-based summaries replace them (weekly floors, runs, shield use).
@@ -296,33 +302,34 @@ Before deleting any old screen, write a checklist here for each of: `TodayScreen
 
 Checklist: (written Phase 0, from grepping each file's interactive elements — `onPress`/`onValueChange`/navigation calls — not yet ticked against any new screen)
 
-`TodayScreen.js`:
-- [ ] Check in / log a check-in
-- [ ] Undo a check-in
-- [ ] Toggle a Shield Day, open Shield info
-- [ ] Repair a broken streak
-- [ ] Log progress on a quantitative habit
-- [ ] Expand/collapse a habit row
-- [ ] Quick-add a habit
-- [ ] Navigate to Profile
-- [ ] Navigate to Habits (scroll to goals / open create habit)
+`TodayScreen.js` (this screen stays the live "Today"/Skyline tab per CLAUDE.md's naming, still the old list UI — not yet promoted to the real SkylineScreen):
+- [x] Check in / log a check-in — unaffected by this pass, `handleToggle`/`handleLogAmount`.
+- [x] Undo a check-in — unaffected, `removeLastCheckIn`/`handleRemoveLast`.
+- [x] Toggle a Shield Day, open Shield info — 2026-11-12: Shield info now opens `ProtectionInfoModal` directly in `TodayScreen.js` instead of navigating to the (now-deleted) Habits tab.
+- [x] Repair a broken streak — unaffected.
+- [x] Log progress on a quantitative habit — unaffected.
+- [x] Expand/collapse a habit row — unaffected.
+- [x] Quick-add a habit — unaffected (`TemplateHabitsPicker` already called `createHabit` directly).
+- [x] Navigate to Profile — unaffected.
+- [x] Navigate to Habits (scroll to goals / open create habit) — 2026-11-12: Habits tab removed. "scroll to goals" link dropped (`FeaturedTargetsSummaryCard` is display-only now — every featured habit already renders in Today's own list, there's no separate section to jump to). "Open create habit" now opens `TowerForm` directly in `TodayScreen.js` (new `towerFormVisible` state), reusing the same component Skyline's "Create your own tower" link opens.
 
-`HabitsScreen.js`:
-- [ ] Open Shield info, open the calendar
-- [ ] Open/close the create-habit form
-- [ ] Choose tracking mode (Check-off / Quantitative)
-- [ ] Toggle "featured goal", toggle reminder enabled
-- [ ] Submit create/edit habit
-- [ ] Archive a habit, delete a habit
-- [ ] Open/close the goal form, choose goal period (Weekly / Monthly), submit a goal
-- [ ] Toggle "show archived"
-- [ ] Restore an archived habit, delete an archived habit
+`HabitsScreen.js` — **deleted 2026-11-12** (Phase 4 Part J). Every action below is ticked against where it actually lives now; nothing was dropped except the freeform-goal rows, which no longer exist as a feature (section 14 decision 3):
+- [x] Open Shield info, open the calendar — Shield info: `TodayScreen.js`'s own shield badge, now a `Pressable` opening `ProtectionInfoModal`. Calendar: unaffected, `InsightsScreen.js`'s own "open calendar" action was always separate.
+- [x] Open/close the create-habit form — `TowerForm.js`, opened from `TodayScreen.js`'s empty-state CTA (zero habits) or Skyline's "Create your own tower" link.
+- [x] Choose tracking mode (Check-off / Quantitative) — `TowerForm.js`.
+- [x] Toggle "featured goal", toggle reminder enabled — `TowerForm.js`.
+- [x] Submit create/edit habit — `TowerForm.js`.
+- [x] Archive a habit, delete a habit — Archive (Retire): `TowerSheet.js`. Delete (permanent): `TowerForm.js`'s edit mode — split across the two new surfaces per Phase 4 Part F's decision, documented there.
+- [x] ~~Open/close the goal form, choose goal period, submit a goal~~ — N/A, freeform Goals feature removed entirely (section 14 decision 3), not relocated.
+- [x] Toggle "show archived" — `ArchivedTowersSheet.js`, opened from a new header icon on `SkylineScreen.js`.
+- [x] Restore an archived habit, delete an archived habit — `ArchivedTowersSheet.js`.
+- [x] Onboarding tour steps `habits-intro`/`habits-create-form`/`habits-shield`/`shield-days-info` — rewritten 2026-11-12 to spotlight `TodayScreen.js`'s own CTA/shield badge and a new `TOWER_FORM_MODAL` tour scope inside `TowerForm.js`, instead of `HabitsScreen.js`'s own targets. See `constants/onboardingTour.js`.
 
 `InsightsScreen.js`:
 - [ ] Select a period tab, step to previous/next period, jump to "now"
-- [ ] Navigate to Habits (open create habit)
+- [x] Navigate to Habits (open create habit) — 2026-11-12: redirects to the Today tab instead (Habits tab removed; Today's own empty state covers creating a first habit).
 - [ ] Toggle a habit filter, select a single habit
-- [ ] Tap a day cell to open it in the calendar
+- [x] Tap a day cell to open it in the calendar — unaffected; also restored 2026-11-12 the day-tap-to-backdate/undo action (`onToggleHabitDay`) that `CalendarModal.js` supports but only `HabitsScreen.js` used to wire up — `InsightsScreen.js` now wires it too, so deleting `HabitsScreen.js` didn't silently drop it.
 
 `CommunityScreen.js`:
 - [ ] Open friends list, open notifications
@@ -335,7 +342,7 @@ Checklist: (written Phase 0, from grepping each file's interactive elements — 
 
 `ProfileScreen.js`:
 - [ ] Edit profile, view my stats
-- [ ] Navigate to Habits / Insights(habit) / Community(challenge) from empty states and lists
+- [x] Navigate to Habits / Insights(habit) / Community(challenge) from empty states and lists — 2026-11-12: the Habits-tab legs ("View all" on the habit summary card, `MyStatsModal.js`'s "Active habits" tile) now redirect to Today instead (Habits tab removed). Insights/Community legs unaffected.
 - [ ] Navigate to AccountSettings, sign out
 
 `CreateGroupModal.js`:
@@ -394,6 +401,7 @@ Ask the owner before the phase that depends on each. Proposed defaults are shown
 14. ~~"Add for another day" window~~ RESOLVED 2026-11-10 (decision 4): last 7 days, including across a period boundary.
 15. Confirmed gap, not resolved, logged 2026-11-10: `GroupStreakEngine.java` cannot express a weekly/monthly period (see Phase 6 and section 4a). Needs real backend work before shared habits/challenges with non-daily cadence can be promised.
 16. Not resolved, logged 2026-11-12 (Phase 4 Part F): `design/skyline/12-newtower.png`'s "Amount per floor" field shows a unit-bearing value ("300 words"), but there's no `unit` column anywhere in the data model — today's COUNT targets are unitless numbers. Part F's form does not add one (new backend scope, not guessed). Ask before any phase that wants to actually show units in the UI.
+17. Confirmed gap, not resolved, logged 2026-11-12 (Phase 4 Part J): `maestro/03_habits/create_habit_full_form.yaml`, `edit_habit.yaml`, `delete_habit.yaml`, `archive_and_restore_habit.yaml` are all built around the now-deleted `HabitsScreen.js` (tap a "Habits" tab bar item, "+ New", "Add habit"/"Edit habit" screen titles, a combined Archive+Delete flow that Part F had already split across `TowerSheet.js`/`TowerForm.js` before this phase even started). None of the four were rewritten in this pass — doing so blind, without being able to run Maestro here to verify the new field labels/testIDs on `TowerForm.js`/`TowerSheet.js`/`ArchivedTowersSheet.js` actually match, risked producing flows that are wrong in a new way instead of just stale. Needs a dedicated pass, ideally with on-device Maestro runs to verify each rewritten step.
 
 ## 15. Progress log
 

@@ -8,9 +8,13 @@ import TimePicker from './TimePicker';
 import SkylineTower from './SkylineTower';
 import Toast from './Toast';
 import ConfirmModal from './ConfirmModal';
+import TourHighlight from './TourHighlight';
 import { useToast } from '../hooks/useToast';
 import { useConfirm } from '../hooks/useConfirm';
 import { useHabits } from '../hooks/useHabits';
+import { useOnboardingTour } from '../hooks/useOnboardingTour';
+import { useTourTarget } from '../hooks/useTourTarget';
+import { TOUR_SCOPES, TOUR_TARGETS } from '../constants/onboardingTour';
 import { HABIT_CATEGORIES, HABIT_CATEGORY_OPTIONS, DEFAULT_HABIT_CATEGORY, categoryColor } from '../constants/habitCategories';
 import { effectiveWeeklyTarget, effectiveMonthlyTarget } from '../utils/cadence';
 import { buildScene, X0, TOWER_W, DX, CRANE_HEIGHT, FLOOR_H, BASE_Y } from '../utils/skylineScene';
@@ -115,6 +119,11 @@ export default function TowerForm({ visible, onClose, habit, theme, towerTheme, 
   const [form, setForm] = useState(() => (habit ? formFromHabit(habit) : emptyForm()));
   const [busy, setBusy] = useState(false);
   const isEditing = form.id != null;
+
+  const { active: tourActive, currentStep: tourStep } = useOnboardingTour();
+  const tourFormCardRef = useTourTarget(
+    tourActive && tourStep?.id === 'habits-create-form' ? TOUR_TARGETS.TOWER_FORM_CARD : null
+  );
 
   const setField = (key, value) => setForm((f) => ({ ...f, [key]: value }));
 
@@ -235,7 +244,7 @@ export default function TowerForm({ visible, onClose, habit, theme, towerTheme, 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
-        <View style={styles.header}>
+        <View style={styles.header} ref={tourFormCardRef}>
           <Pressable
             onPress={() => {
               // Same reasoning as the post-submit reset — create mode is
@@ -471,6 +480,7 @@ export default function TowerForm({ visible, onClose, habit, theme, towerTheme, 
         <Toast toast={toast} onHide={hideToast} />
         <ConfirmModal request={request} onRespond={respond} />
       </SafeAreaView>
+      <TourHighlight scope={TOUR_SCOPES.TOWER_FORM_MODAL} />
     </Modal>
   );
 }

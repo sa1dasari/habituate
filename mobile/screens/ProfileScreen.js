@@ -115,11 +115,11 @@ export default function ProfileScreen() {
         <Card
           title="Personal habit summary"
           actionLabel="View all"
-          onAction={() => navigation.navigate('Habits')}
+          onAction={() => navigation.navigate('Today')}
           styles={styles}
         >
           {habits.length === 0 ? (
-            <Text style={styles.emptyNote}>Add a habit on the Habits tab to see it here.</Text>
+            <Text style={styles.emptyNote}>Add a habit on the Today tab to see it here.</Text>
           ) : (
             habits.slice(0, HABIT_SUMMARY_LIMIT).map((habit) => {
               const target = habit.periodTarget || 0;

@@ -11,8 +11,9 @@ import { gradients, radii, shadow, spacing } from '../theme';
  * visible without duplicating each habit's full card there. Was
  * GoalsSummaryCard.js, which also folded in the separate freeform Goals
  * feature; that feature was removed (owner decision, 2026-11-13), so this
- * is per-habit featured targets only now. Tapping it jumps to the featured
- * targets area on the Habits page.
+ * is per-habit featured targets only now. Every featured habit already
+ * appears in Today's own list below, so this is display-only unless a
+ * caller passes onPress for some other destination.
  */
 export default function FeaturedTargetsSummaryCard({ items = [], onPress }) {
   const { colors, typography } = useAppTheme();
@@ -28,12 +29,16 @@ export default function FeaturedTargetsSummaryCard({ items = [], onPress }) {
     items.reduce((sum, item) => sum + (item.percent || 0), 0) / items.length
   );
 
+  // No onPress, no button role — ChallengeCard.js/SharedHabitCard.js use the
+  // same Pressable-or-View split for a card that's sometimes just a display.
+  const Container = onPress ? Pressable : View;
+
   return (
-    <Pressable
-      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+    <Container
+      style={onPress ? ({ pressed }) => [styles.card, pressed && styles.cardPressed] : styles.card}
       onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel="Open featured targets"
+      accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityLabel={onPress ? 'Open featured targets' : undefined}
     >
       <View style={styles.row}>
         <View style={styles.iconTile}>
@@ -59,7 +64,7 @@ export default function FeaturedTargetsSummaryCard({ items = [], onPress }) {
           style={[styles.barFill, { width: `${percent}%` }]}
         />
       </View>
-    </Pressable>
+    </Container>
   );
 }
 

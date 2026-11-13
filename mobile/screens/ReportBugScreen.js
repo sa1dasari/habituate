@@ -29,7 +29,7 @@ const TYPES = [
 
 // Free text sent to the backend, not a fixed enum — these just cover the
 // app's actual screens so reporters don't have to type it out.
-const PAGES = ['Today', 'Habits', 'Insights', 'Community', 'Profile', 'Account Settings', 'Login / Sign up', 'Other'];
+const PAGES = ['Today', 'Insights', 'Community', 'Profile', 'Account Settings', 'Login / Sign up', 'Other'];
 
 const MAX_ATTACHMENTS = 5;
 
@@ -212,7 +212,7 @@ export default function ReportBugScreen({ navigation }) {
               onChangeText={setStepsToReproduce}
               multiline
               numberOfLines={4}
-              placeholder={'1. Open the Habits tab\n2. Tap...\n3. See...'}
+              placeholder={'1. Open the Today tab\n2. Tap...\n3. See...'}
               placeholderTextColor={colors.textMuted}
             />
           </>

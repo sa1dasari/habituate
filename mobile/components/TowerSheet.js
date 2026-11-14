@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
@@ -101,6 +101,18 @@ export default function TowerSheet({
   const [showBackdate, setShowBackdate] = useState(false);
   const [selectedDateKey, setSelectedDateKey] = useState(todayKey);
   const [shieldDates, setShieldDates] = useState([]);
+  const scrollRef = useRef(null);
+  // The backdate card renders below the pill grid, which is already close
+  // to the bottom of a tall tower's content — without this, opening it just
+  // appends more content below the user's current scroll position with no
+  // visible change, reading as "the button does nothing" even though the
+  // state did flip. A tick's delay lets the new card actually lay out
+  // before we measure where "end" is.
+  useEffect(() => {
+    if (!showBackdate) return;
+    const id = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
+    return () => clearTimeout(id);
+  }, [showBackdate]);
   // Kept around through the close animation — `habit` goes null the instant
   // the caller clears towerSheetHabitId, but returning null immediately
   // would unmount this whole Animated.View and skip the slide-down, since
@@ -376,7 +388,7 @@ export default function TowerSheet({
         </View>
       </GestureDetector>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.titleRow}>
           <View style={[styles.colorChip, { backgroundColor: towerColor }]} />
           <View style={styles.titleTextWrap} accessible accessibilityLabel={`Tower details, ${displayHabit.name}`}>

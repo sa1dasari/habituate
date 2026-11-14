@@ -428,6 +428,7 @@ export default function SkylineScreen({ navigation }) {
                 onOpenSheet={handleOpenLotSheet}
                 tapToBuild={tapToBuild}
                 theme={ui}
+                towerTheme={towerTheme}
               />
               <LotSheet
                 // Keyed by the period being shown — see LotSheet.js's doc

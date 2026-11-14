@@ -192,7 +192,15 @@ function DayRow({ item, uiTheme, towerTheme }) {
         : base;
   const swatchStyle =
     state === 'glass'
-      ? { backgroundColor: towerTheme.shieldFill }
+      // Glass-tinted, translucent, with a bright edge — board 22's
+      // treatment, same tokens the daily Shield Day floor uses
+      // (skylineScene.js). Never an opaque solid block, never a hatch.
+      ? {
+          backgroundColor: towerTheme.shieldFill,
+          opacity: 0.45,
+          borderWidth: 1.2,
+          borderColor: towerTheme.shieldEdge,
+        }
       : state === 'open'
         ? { backgroundColor: 'transparent', borderWidth: 1.5, borderStyle: 'dashed', borderColor: towerTheme.openStroke }
         : { backgroundColor: item.color || towerTheme.windowLit };
@@ -209,6 +217,7 @@ function DayRow({ item, uiTheme, towerTheme }) {
           // (windowDark) once the run has passed it.
           <View style={[styles.swatchPip, { backgroundColor: lit ? towerTheme.windowLit : towerTheme.windowDark }]} />
         )}
+        {state === 'glass' && <MaterialCommunityIcons name="shield" size={10} color={towerTheme.shieldIcon} />}
       </View>
       <Text style={[styles.dayDate, { color: uiTheme.text }]}>
         {formatDayLabel(item.day)}

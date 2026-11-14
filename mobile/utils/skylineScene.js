@@ -173,14 +173,16 @@ function faceShapes({
   const shapes = [];
 
   if (state === 'glass') {
-    // Shield Day: a flat, distinct-colored block — no windows at all. The
-    // absence of windows (not a hatch texture) is the signal: a real
-    // check-in always draws windows (lit or dark), a shielded day never
-    // does. Matches concept_screens/tower_floor_states_windows_and_shield.png.
+    // Shield Day (design-review board 22, owner-approved): a glass-tinted,
+    // translucent block (~45% opacity) with a bright edge stroke, no
+    // windows, no hatch. No icon here — a main-tower floor (FLOOR_H) isn't
+    // tall enough to fit one legibly; the icon only appears in the bigger
+    // renderings (LotTile.js's period block, TowerInsideView.js's swatch).
+    const glassOpacity = opacity * 0.45;
     shapes.push(
-      { id: `${id}-front`, kind: 'path', d: pointsToPath(faces.front), fill: theme.shieldFill, opacity },
-      { id: `${id}-right`, kind: 'path', d: pointsToPath(faces.right), fill: shade(theme.shieldFill, -20), opacity },
-      { id: `${id}-top`, kind: 'path', d: pointsToPath(faces.top), fill: shade(theme.shieldFill, 20), opacity },
+      { id: `${id}-front`, kind: 'path', d: pointsToPath(faces.front), fill: theme.shieldFill, opacity: glassOpacity, stroke: theme.shieldEdge, strokeWidth: 1.2 },
+      { id: `${id}-right`, kind: 'path', d: pointsToPath(faces.right), fill: theme.shieldFillSide, opacity: glassOpacity, stroke: theme.shieldEdge, strokeWidth: 1 },
+      { id: `${id}-top`, kind: 'path', d: pointsToPath(faces.top), fill: shade(theme.shieldFill, 20), opacity: glassOpacity },
     );
     return shapes;
   }

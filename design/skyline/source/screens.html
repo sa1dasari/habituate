@@ -113,7 +113,7 @@ if(screen==='crosssection'){
   // best run: days 23..32 (10 days) -> ledge after index 32
   const base=716,fh=10.2,x=58,w=128;
   const yOf=i=>base-(i+0.5)*fh;
-  const sel=25; // Oct 25
+  const V=new URLSearchParams(location.search).get('v'); const sel=V==='open'?22:25; // Oct 25 / Oct 22 (open)
   const months=[{i:1,l:'Oct'},{i:15,l:'Oct 15'},{i:32,l:'Nov'}];
   document.getElementById('root').innerHTML=`
   <div style="padding:26px 20px 0">
@@ -131,11 +131,16 @@ if(screen==='crosssection'){
     <line x1="${x+w+6}" x2="336" y1="${yOf(sel)}" y2="${yOf(sel)}" stroke="#5B6472" stroke-dasharray="3 3"/>
     <circle cx="352" cy="${yOf(sel)}" r="15" fill="#fff"/><circle cx="352" cy="${yOf(sel)}" r="4" fill="#0F1216"/>
   </svg>
-  <div style="position:absolute;left:206px;top:${yOf(sel)-96}px;width:128px;background:var(--s2);border-radius:14px;padding:10px 12px">
+  ${V==='open'?`<div style="position:absolute;left:206px;top:${yOf(sel)-132}px;width:128px;background:var(--s2);border-radius:14px;padding:10px 12px">
+    <div style="font-weight:800;font-size:15px">Thu, Oct 22</div>
+    <div style="color:var(--muted);font-size:12.5px;margin-top:2px">Open · no check-in</div>
+    <div style="margin-top:8px;height:44px;border-radius:22px;border:1.5px solid var(--amber);background:#2B2717;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#F2F4F6">Hold to build</div>
+    <div style="color:var(--amber);font-size:12.5px;font-weight:800;margin-top:8px">Ask about this day</div>
+  </div>`:`<div style="position:absolute;left:206px;top:${yOf(sel)-96}px;width:128px;background:var(--s2);border-radius:14px;padding:10px 12px">
     <div style="font-weight:800;font-size:15px">Sun, Oct 25</div>
     <div style="color:var(--muted);font-size:12.5px;margin-top:2px">Built · 350 words</div>
     <div style="color:var(--amber);font-size:12.5px;font-weight:800;margin-top:6px">Ask about this day</div>
-  </div>
+  </div>`}
   <div style="position:absolute;left:16px;right:16px;top:${base+12}px;display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);font-weight:600">
     <span style="display:flex;gap:5px;align-items:center"><svg width="16" height="10"><rect width="16" height="10" fill="${C.front}"/><rect x="3" y="3" width="3" height="4" fill="${C.lit}"/><rect x="10" y="3" width="3" height="4" fill="${C.lit}"/></svg>This run</span>
     <span style="display:flex;gap:5px;align-items:center"><svg width="16" height="10"><rect width="16" height="10" fill="${C.front}"/><rect x="3" y="3" width="3" height="4" fill="${C.dark}"/><rect x="10" y="3" width="3" height="4" fill="${C.dark}"/></svg>Earlier</span>
@@ -203,5 +208,69 @@ if(screen==='shieldcompare'){
   <div style="position:absolute;top:24px;left:20px;right:20px"><h1 style="font-size:22px">Shield Day: two options</h1><div style="color:var(--muted);font-size:13px;margin-top:4px">Same tower, one Shield Day inside the lit run.</div></div>
   <div style="position:absolute;top:580px;left:16px;width:170px"><b style="font-size:16px">A · Solid block</b><div style="color:var(--muted);font-size:13px;margin-top:6px;line-height:1.4">Current spec (CLAUDE.md, revised 2026-11-10), board 22 and the build. Flat slate block, no windows.</div></div>
   <div style="position:absolute;top:580px;left:206px;width:170px"><b style="font-size:16px">B · Glass + shield icon</b><div style="color:var(--muted);font-size:13px;margin-top:6px;line-height:1.4">Translucent glass floor with a small shield icon. The icon is a clear non-color signal.</div></div>`;
+}
+
+const TALL=[...rep('dark',20),'open',...rep('dark',10),'open',...rep('lit',4),'shield',...rep('lit',3)];
+const gridBtn=(t,c='')=>`<div class="btn" style="height:44px;font-size:14px;${c}">${t}</div>`;
+const topCard=(compact)=>`<div style="border:1.5px solid var(--amber);background:#2B2717;border-radius:16px;padding:${compact?'10px 12px':'12px 14px'};display:flex;gap:10px;align-items:center"><div style="flex:1"><div style="font-weight:800;font-size:15px">Ready to top out?</div><div style="color:var(--muted);font-size:12px;line-height:1.3;margin-top:2px">Over 30 days. Finish this tower and start a new one.</div></div><div style="background:var(--amber);color:#1b1608;font-weight:800;border-radius:22px;height:44px;padding:0 14px;display:flex;align-items:center;font-size:14px">Top out</div></div>`;
+const skyTop=`<div style="position:absolute;top:0;left:0;right:0;height:64px;background:linear-gradient(#0B1030,#1A2148)"></div>`;
+const head=`<div style="color:var(--muted);font-size:11px;font-weight:800;letter-spacing:.8px">TOWER DETAILS</div><div style="font-size:22px;font-weight:800;line-height:1.15">Write 300 words</div><div style="color:var(--muted);font-size:12.5px">Daily · Floor 41 · Under construction</div><div style="color:#C9CED4;font-size:12.5px;font-style:italic;margin-top:2px">“So the book gets finished”</div>`;
+const legendBlock=`<div class="legend"><div class="sw"><div style="width:22px;height:3px;background:#fff"></div></div><div><b>Best run: 12 days</b><span>The white ledge.</span></div></div><div class="legend"><div class="sw"><svg width="24" height="16"><rect width="24" height="16" fill="${C.front}"/><rect x="5" y="5" width="4" height="6" fill="${C.dark}"/><rect x="15" y="5" width="4" height="6" fill="${C.dark}"/></svg></div><div><b>Dark windows</b><span>Earlier floors stay.</span></div></div><div class="legend"><div class="sw"><svg width="24" height="16"><rect x=".5" y=".5" width="23" height="15" fill="#8FB8D8" fill-opacity=".45" stroke="#DDF2FF"/><path d="M12,3.5L15.5,5V8.5C15.5,10.5 14,12 12,12.8C10,12 8.5,10.5 8.5,8.5V5Z" fill="#fff"/></svg></div><div><b>Glass floor: Shield Day</b><span>The run kept going.</span></div></div><div class="legend"><div class="sw"><svg width="24" height="16"><rect x=".5" y=".5" width="23" height="15" fill="none" stroke="${C.open}"/></svg></div><div><b>Open floor</b><span>See-through. Floors never come down.</span></div></div>`;
+
+if(screen==='sheet-sticky'){
+  document.getElementById('root').innerHTML=skyTop+`
+  <div style="position:absolute;top:50px;left:0;right:0;bottom:76px;background:var(--s1);border-radius:24px 24px 0 0;overflow:hidden">
+    <div style="width:40px;height:4px;border-radius:2px;background:#3A4552;margin:10px auto 8px"></div>
+    <div style="padding:0 20px;overflow:hidden;height:calc(100% - 12px - 262px)">
+      <div style="display:flex;gap:10px;align-items:center"><div style="width:12px;height:30px;border-radius:5px;background:${C.front}"></div><div>${head}</div></div>
+      <div style="display:flex;gap:16px;margin-top:10px">
+        <svg width="104" height="250" style="flex:0 0 104px">${tower({x:22,base:246,w:44,fh:5.6,dx:16,dy:9,floors:TALL,windows:2,ledgeAfter:34})}</svg>
+        <div style="flex:1"><div style="font-size:28px;font-weight:800;color:var(--amber);line-height:1.1">9 day run</div><div style="color:var(--muted);font-size:13px;margin-top:4px">Today's floor will make it 10.</div>${legendBlock}</div>
+      </div>
+    </div>
+    <div style="position:absolute;left:0;right:0;bottom:0;height:262px;background:var(--s1);border-top:1px solid #2A333D;box-shadow:0 -14px 18px -6px rgba(0,0,0,.45);padding:12px 20px 0">
+      ${topCard(true)}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">${gridBtn('Shield Day · 2')}${gridBtn('Add another day')}${gridBtn('See inside')}${gridBtn('Ask about tower')}${gridBtn('Edit')}${gridBtn('Retire','color:#C9CED4')}</div>
+    </div>
+    <div style="position:absolute;left:0;right:0;bottom:262px;height:26px;background:linear-gradient(transparent,var(--s1))"></div>
+  </div>${tabs}
+  <div style="position:absolute;top:14px;left:20px;right:20px;font-size:11px;font-weight:800;color:#8fa0c8;letter-spacing:.6px">B · ACTIONS PINNED AT THE BOTTOM, CONTENT SCROLLS</div>`;
+}
+if(screen==='sheet-side'){
+  const act=(t,sub='',c='')=>`<div style="display:flex;align-items:center;min-height:44px;padding:6px 12px;border-radius:12px;background:var(--s2);font-weight:700;font-size:14px;${c}"><div style="flex:1">${t}${sub?`<span style="display:block;font-weight:600;font-size:11px;color:var(--muted)">${sub}</span>`:''}</div><span style="color:var(--muted)">›</span></div>`;
+  document.getElementById('root').innerHTML=skyTop+`
+  <div style="position:absolute;top:50px;left:0;right:0;bottom:76px;background:var(--s1);border-radius:24px 24px 0 0;padding:0 20px;overflow:hidden">
+    <div style="width:40px;height:4px;border-radius:2px;background:#3A4552;margin:10px auto 8px"></div>
+    <div style="display:flex;gap:10px;align-items:center"><div style="width:12px;height:30px;border-radius:5px;background:${C.front}"></div><div>${head}</div></div>
+    <div style="display:flex;gap:14px;margin-top:10px">
+      <svg width="104" height="540" style="flex:0 0 104px">${tower({x:22,base:536,w:44,fh:9.6,dx:16,dy:9,floors:TALL,windows:2,ledgeAfter:34})}</svg>
+      <div style="flex:1;display:flex;flex-direction:column;gap:8px">
+        <div><div style="font-size:28px;font-weight:800;color:var(--amber);line-height:1.1">9 day run</div><div style="color:var(--muted);font-size:13px;margin-top:2px">Today's floor will make it 10.</div></div>
+        <div style="border:1.5px solid var(--amber);background:#2B2717;border-radius:14px;padding:10px 12px"><div style="font-weight:800;font-size:14px">Ready to top out?</div><div style="color:var(--muted);font-size:11.5px;margin:2px 0 8px">Over 30 days old.</div><div style="background:var(--amber);color:#1b1608;font-weight:800;border-radius:22px;height:44px;display:flex;align-items:center;justify-content:center;font-size:14px">Top out</div></div>
+        ${act('Shield Day','2 banked')}${act('Add another day')}${act('See inside')}${act('Ask about tower')}${act('Edit')}${act('Retire','','color:#C9CED4')}
+        <div style="color:var(--amber);font-size:12.5px;font-weight:800;padding:2px 4px">What the floors mean ›</div>
+      </div>
+    </div>
+  </div>${tabs}
+  <div style="position:absolute;top:14px;left:20px;right:20px;font-size:11px;font-weight:800;color:#8fa0c8;letter-spacing:.6px">A · ACTIONS BESIDE A TALL TOWER</div>`;
+}
+if(screen==='lotcallout'){
+  const days=30,vals=[0,1,0,0,1,0,0, 0,0,1,0,0,0,0, 0,0,0,0,0,0,0, 0,0,0,0,0,0,0, 0,0];
+  const cell=(d)=>{const v=vals[d-1];const sel=d===10;const f=d<=11?(v?`background:#FFD9C6;color:#3a1f12`:`background:#232b34`):`border:1.5px dashed #3A4552`;return `<div style="width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;${f};${sel?'outline:2px solid #fff;outline-offset:1px':''}">${d<=11&&v?v:''}</div>`};
+  const row=(a,b)=>`<div style="display:flex;align-items:center;gap:7px;margin-bottom:7px"><div style="width:58px;font-size:12px;color:var(--muted)">${a} to ${b}</div>${[...Array(b-a+1)].map((_,i)=>cell(a+i)).join('')}</div>`;
+  const bars=[...Array(days)].map((_,i)=>{const d=i+1,v=vals[i];const h=d>11?0:6+v*26;const sel=d===10;return `<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center"><div style="width:100%;height:${h}px;border-radius:2px;background:${sel?'#FF8A5C':'#7A4A38'}"></div></div>`}).join('');
+  document.getElementById('root').innerHTML=skyTop+`
+  <div style="position:absolute;top:50px;left:0;right:0;bottom:76px;background:var(--s1);border-radius:24px 24px 0 0;padding:0 20px;overflow:hidden">
+    <div style="width:40px;height:4px;border-radius:2px;background:#3A4552;margin:10px auto 12px"></div>
+    <div style="font-size:24px;font-weight:800">Run 5 km</div><div style="color:var(--muted);font-size:13.5px;margin-top:2px">November · 3 of 8, 5 to go</div>
+    <div style="border:1.5px solid #FF8A5C;border-radius:18px;padding:12px;margin-top:12px">${row(1,7)}${row(8,14)}<div style="font-size:12px;color:var(--muted);margin-top:6px">Rows 15 to 30 not built yet.</div></div>
+    <div style="margin-top:16px;font-weight:800;font-size:15px">Check-ins per day</div>
+    <div style="position:relative;margin-top:44px;height:92px;display:flex;gap:3px;align-items:flex-end;border-bottom:1px solid #2A333D">${bars}
+      <div style="position:absolute;left:${(9.5/30)*100}%;top:-46px;transform:translateX(-50%);background:var(--s2);border-radius:12px;padding:7px 11px;white-space:nowrap;text-align:center"><div style="font-weight:800;font-size:13.5px">Tue, Nov 10</div><div style="color:var(--muted);font-size:12px">1 check-in · 3 so far</div></div>
+      <div style="position:absolute;left:${(9.5/30)*100}%;top:-4px;height:4px;width:2px;background:#fff;transform:translateX(-50%)"></div></div>
+    <div style="display:flex;justify-content:space-between;color:var(--muted);font-size:11.5px;margin-top:6px"><span>1</span><span>8</span><span>15</span><span>22</span><span>30</span></div>
+    <div style="color:var(--muted);font-size:12.5px;margin-top:10px;line-height:1.4">Tap a day above to see its count. Counts show inside the squares and in the callout, not on every bar.</div>
+    <div style="margin-top:14px;height:52px;border-radius:26px;background:#FF8A5C;color:#1b1608;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:16px">Hold to build</div>
+  </div>${tabs}`;
 }
 </script></body></html>

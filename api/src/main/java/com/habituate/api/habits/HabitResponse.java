@@ -33,7 +33,14 @@ public record HabitResponse(
         // second request per habit. Empty/zero for the overwhelming common
         // case — a habit that has never topped out.
         int closedSegmentCount,
-        List<HabitTowerResponse> recentClosedSegments
+        List<HabitTowerResponse> recentClosedSegments,
+        // Build together (Shared Habit): true when an ACTIVE GroupMember row
+        // links this habit to a group. The client needs this to gate any
+        // control the server doesn't enforce the same way for shared
+        // habits — e.g. board 26's any-past-day backdate stays 7-day-limited
+        // for shared habits since StreakFreeze/check-in rules for a shared
+        // tower aren't the personal-habit ones.
+        boolean shared
 ) {
     public static HabitResponse from(
             Habit habit,
@@ -42,7 +49,8 @@ public record HabitResponse(
             boolean shieldedToday,
             boolean shieldEligible,
             int closedSegmentCount,
-            List<HabitTowerResponse> recentClosedSegments) {
+            List<HabitTowerResponse> recentClosedSegments,
+            boolean shared) {
         return new HabitResponse(
                 habit.getId(),
                 habit.getUserId(),
@@ -68,7 +76,8 @@ public record HabitResponse(
                 habit.getMotivation(),
                 habit.getTopOutThresholdDays(),
                 closedSegmentCount,
-                recentClosedSegments
+                recentClosedSegments,
+                shared
         );
     }
 }

@@ -127,9 +127,11 @@ public class HabitService {
                 .map(s -> HabitTowerResponse.from(s, countCheckInsInWindow(checkIns, s.getStartedAt(), s.getToppedOutAt())))
                 .toList();
 
+        boolean shared = groupMemberRepository.findByHabitIdAndStatus(habit.getId(), GroupMember.ACTIVE).isPresent();
+
         return HabitResponse.from(
                 habit, streaks.current(), streaks.longest(), shieldedToday, shieldEligible,
-                closedSegments.size(), recentClosedSegments);
+                closedSegments.size(), recentClosedSegments, shared);
     }
 
     private int countCheckInsInWindow(List<CheckIn> checkIns, Instant start, Instant end) {

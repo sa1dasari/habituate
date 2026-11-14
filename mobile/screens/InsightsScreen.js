@@ -18,7 +18,7 @@ import { hasDailyTarget } from '../utils/cadence';
 import { startOfWeek, toDateKey } from '../utils/date';
 import { buildLots } from '../utils/lots';
 import { toLotHabit } from '../utils/skylineAdapter';
-import { buildCategoryTowerColors, fonts, radii, shadow, skylineTowerTheme, spacing } from '../theme';
+import { buildCategoryTowerColors, fonts, radii, shadow, skylineTowerTheme, skylineUI, spacing } from '../theme';
 
 // Per-habit color for the new Floors/Runs/Shield-use cards — the raw habit
 // record (unlike the Skyline scene/lot builders' transformed shape) has no
@@ -59,7 +59,8 @@ const LIVE_PERIOD_LABELS = { weekly: 'This week', monthly: 'This month', yearly:
  */
 export default function InsightsScreen({ navigation, route }) {
   const { colors, typography, effectiveMode } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
+  const amber = skylineUI[effectiveMode].amber;
+  const styles = useMemo(() => makeStyles(colors, typography, amber), [colors, typography, amber]);
   const insets = useSafeAreaInsets();
   const scrollRef = useRegisterScrollToTop('Insights');
   const habitCategoryColors = towerColorsByMode[effectiveMode];
@@ -563,7 +564,7 @@ function ShieldUseCard({ habits, habitColor, colors, towerTheme, styles }) {
   );
 }
 
-function makeStyles(colors, typography) {
+function makeStyles(colors, typography, amber) {
   return StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: colors.background },
     container: { padding: spacing.xl },
@@ -693,8 +694,8 @@ function makeStyles(colors, typography) {
       paddingVertical: 6,
     },
     habitChipSelected: {
-      backgroundColor: `${colors.amber}2E`,
-      borderColor: colors.amber,
+      backgroundColor: `${amber}2E`,
+      borderColor: amber,
     },
     habitChipDot: { width: 8, height: 8, borderRadius: radii.pill },
     habitChipText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },

@@ -10,7 +10,7 @@ const EXPANDED_RATIO = 0.6; // how much of the stage the sheet covers when pulle
 
 /**
  * The persistent bottom sheet list below the skyline scene
- * (concept_screens/1-skyline-daily.png). A draggable card, not a sheet
+ * (design/skyline/01-skyline.png). A draggable card, not a sheet
  * locked to the bottom of the screen: collapsed it peeks a couple of rows
  * above the screen edge; dragging the handle up to roughly the middle of
  * the stage lets it scroll the full habit list on top of the skyline, same

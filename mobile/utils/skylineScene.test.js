@@ -3,6 +3,9 @@ const { buildScene, X0, STEP, BASE_Y } = require('./skylineScene');
 const theme = {
   openStroke: '#999',
   shieldFill: '#abc',
+  shieldFillSide: '#9ab',
+  shieldEdge: '#def',
+  shieldIcon: '#fff',
   windowLit: '#ffe',
   windowDark: '#642',
   tierLine: '#333',
@@ -64,11 +67,19 @@ describe('buildScene', () => {
     expect(openWindows).toHaveLength(0);
   });
 
-  test('a shielded day renders as a flat shield block with no windows, not open or set', () => {
+  test('a shielded day renders as a glass-tinted translucent block with a bright edge, no windows, not open or set', () => {
     const habit = dailyHabit({ shieldDays: ['2026-11-04'], checkInDays: ['2026-11-01'] });
     const scene = buildScene([habit], { today: TODAY, theme });
     const front = scene.shapes.find((s) => s.id === 'h1-f3-front');
     expect(front.fill).toBe(theme.shieldFill);
+    expect(front.opacity).toBeLessThan(1); // glass, not an opaque solid block
+    expect(front.stroke).toBe(theme.shieldEdge);
+    const side = scene.shapes.find((s) => s.id === 'h1-f3-right');
+    expect(side.fill).toBe(theme.shieldFillSide);
+    // No icon here — the main tower's floors aren't tall enough to fit one
+    // legibly (design-review board 22); only LotTile.js/TowerInsideView.js
+    // (much bigger renderings) show it.
+    expect(scene.shapes.find((s) => s.id === 'h1-f3-shield-icon')).toBeUndefined();
     const windows = scene.shapes.filter((s) => s.id.startsWith('h1-f3-window'));
     expect(windows).toHaveLength(0);
   });

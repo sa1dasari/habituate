@@ -1,6 +1,19 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import Svg, { Rect, Text as SvgText } from 'react-native-svg';
+import Svg, { Path, Rect, Text as SvgText } from 'react-native-svg';
+
+// Same small shield silhouette utils/skylineScene.js draws on a daily
+// tower's shield floor — kept in sync by hand since the lot tile's shield
+// block isn't a per-floor shape built by that engine.
+function shieldIconPath(cx, cy, w = 11, h = 12) {
+  return (
+    `M${cx - w / 2},${cy - h / 2}` +
+    `L${cx + w / 2},${cy - h / 2}` +
+    `L${cx + w / 2},${cy - h * 0.1}` +
+    `L${cx},${cy + h / 2}` +
+    `L${cx - w / 2},${cy - h * 0.1}Z`
+  );
+}
 
 /**
  * One period's lot (SKYLINE.md section 4a): a rounded square, drawn as a
@@ -8,13 +21,14 @@ import Svg, { Rect, Text as SvgText } from 'react-native-svg';
  * is a single row of 7 weekdays; a monthly lot chunks `period.days` into
  * rows of 7, which lines up with the day-block rule — 1-7/8-14/.../29-end —
  * for free). Each cell's fill tracks that day's own log count (0/1/2/3+,
- * matching concept _screens/2-weekly-monthly.png's legend), a dashed
+ * matching design/skyline/16-weekly-monthly.png's legend), a dashed
  * outline marks a day still to come, and a plain white outline marks
  * today — distinct from the tile's own amber border, which means the whole
  * period's target was met.
- * A shielded period draws one plain solid block instead, no cells at all —
- * the same "no texture at all is the signal" rule as a daily Shield Day
- * floor, not a color alone.
+ * A shielded period draws one glass-tinted, translucent block with a
+ * shield icon instead, no cells at all — same board-22 treatment a daily
+ * Shield Day floor gets (skylineScene.js), via the shared `towerTheme`
+ * tokens (never the category color, never a hatch).
  * Below the art: which week/month this lot is (`period.shortLabel`, e.g.
  * "Nov 3" or "Nov"), then the done/target caption.
  */
@@ -175,7 +189,7 @@ export function DayGrid({
 // actually change. Requires the caller to pass a referentially stable
 // `onPress` (LotsView.js memoizes one per tile) — a fresh arrow function
 // every render would defeat this by always comparing unequal.
-const LotTile = React.memo(function LotTile({ period, color, theme, onPress }) {
+const LotTile = React.memo(function LotTile({ period, color, theme, towerTheme, onPress }) {
   const bg = theme.surfaceHigh;
   return (
     <Pressable
@@ -198,9 +212,23 @@ const LotTile = React.memo(function LotTile({ period, color, theme, onPress }) {
           strokeWidth={period.met && !period.shielded ? 2.5 : 0}
         />
         {period.shielded ? (
-          // A plain solid block reads as the Shield signal — no inner
-          // texture at all, same rule as a daily Shield Day floor.
-          <Rect x={10} y={10} width={SIZE - 20} height={SIZE - 20} rx={8} fill={color} opacity={0.35} />
+          // Glass-tinted, translucent block with a shield icon — board 22's
+          // treatment, same tokens the daily Shield Day floor uses
+          // (skylineScene.js). Never the category `color`, never a hatch.
+          <>
+            <Rect
+              x={10}
+              y={10}
+              width={SIZE - 20}
+              height={SIZE - 20}
+              rx={8}
+              fill={towerTheme.shieldFill}
+              opacity={0.45}
+              stroke={towerTheme.shieldEdge}
+              strokeWidth={1.2}
+            />
+            <Path d={shieldIconPath(SIZE / 2, SIZE / 2)} fill={towerTheme.shieldIcon} />
+          </>
         ) : (
           <DayGrid days={period.days} color={color} />
         )}
@@ -217,8 +245,8 @@ const LotTile = React.memo(function LotTile({ period, color, theme, onPress }) {
 
 export default LotTile;
 
-/** The static legend card under the tile list (concept _screens/
- * 2-weekly-monthly.png's bottom card) — explains the day-cell color tiers
+/** The static legend card under the tile list (design/skyline/
+ * 16-weekly-monthly.png's bottom card) — explains the day-cell color tiers
  * and the three border states, so a reader isn't left guessing what a
  * dashed or white-outlined cell means. */
 export function LotLegend({ theme }) {

@@ -442,10 +442,10 @@ export default function InsightsScreen({ navigation, route }) {
             <Pressable
               style={styles.emptyCta}
               accessibilityRole="button"
-              accessibilityLabel="Add your first habit"
+              accessibilityLabel="Lay a foundation"
               onPress={() => navigation.navigate('Today')}
             >
-              <Text style={styles.emptyCtaText}>Add your first habit</Text>
+              <Text style={styles.emptyCtaText}>Lay a foundation</Text>
               <MaterialCommunityIcons name="arrow-right" size={16} color={colors.accent} />
             </Pressable>
           ) : null}

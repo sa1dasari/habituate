@@ -128,10 +128,22 @@ export default function TowerInsideView({ visible, onClose, habit, sceneHabit, t
           <Pressable onPress={onClose} hitSlop={12} style={styles.backBtn} testID="tower-inside-back">
             <MaterialCommunityIcons name="chevron-left" size={24} color={uiTheme.text} />
             <Text style={[styles.backLabel, { color: uiTheme.text }]} numberOfLines={1}>
-              {habit.name}
+              Tower details
             </Text>
           </Pressable>
-          <Text style={[styles.headerRight, { color: uiTheme.muted }]}>Inside view</Text>
+          <View style={{ width: 34 }} />
+        </View>
+
+        <View style={styles.titleBlock} accessible accessibilityLabel={`Inside view, ${habit.name}`}>
+          <Text style={[styles.title, { color: uiTheme.text }]}>Inside view</Text>
+          <Text
+            style={[styles.habitName, { color: uiTheme.muted }]}
+            numberOfLines={2}
+            ellipsizeMode="tail"
+            importantForAccessibility="no"
+          >
+            {habit.name}
+          </Text>
         </View>
 
         <Text style={[styles.subtitle, { color: uiTheme.muted }]}>Each floor is one day.</Text>
@@ -192,7 +204,15 @@ function DayRow({ item, uiTheme, towerTheme }) {
         : base;
   const swatchStyle =
     state === 'glass'
-      ? { backgroundColor: towerTheme.shieldFill }
+      // Glass-tinted, translucent, with a bright edge — board 22's
+      // treatment, same tokens the daily Shield Day floor uses
+      // (skylineScene.js). Never an opaque solid block, never a hatch.
+      ? {
+          backgroundColor: towerTheme.shieldFill,
+          opacity: 0.45,
+          borderWidth: 1.2,
+          borderColor: towerTheme.shieldEdge,
+        }
       : state === 'open'
         ? { backgroundColor: 'transparent', borderWidth: 1.5, borderStyle: 'dashed', borderColor: towerTheme.openStroke }
         : { backgroundColor: item.color || towerTheme.windowLit };
@@ -209,6 +229,7 @@ function DayRow({ item, uiTheme, towerTheme }) {
           // (windowDark) once the run has passed it.
           <View style={[styles.swatchPip, { backgroundColor: lit ? towerTheme.windowLit : towerTheme.windowDark }]} />
         )}
+        {state === 'glass' && <MaterialCommunityIcons name="shield" size={10} color={towerTheme.shieldIcon} />}
       </View>
       <Text style={[styles.dayDate, { color: uiTheme.text }]}>
         {formatDayLabel(item.day)}
@@ -222,10 +243,12 @@ function DayRow({ item, uiTheme, towerTheme }) {
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 12 },
-  backBtn: { flexDirection: 'row', alignItems: 'center', flexShrink: 1, gap: 2 },
-  backLabel: { fontFamily: fonts.bold, fontSize: 17, marginLeft: 2 },
-  headerRight: { fontFamily: fonts.semiBold, fontSize: 13 },
-  subtitle: { fontFamily: fonts.regular, fontSize: 13, paddingHorizontal: 16, paddingTop: 4, paddingBottom: 8 },
+  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  backLabel: { fontFamily: fonts.semiBold, fontSize: 15, marginLeft: 2 },
+  titleBlock: { alignItems: 'center', paddingHorizontal: 20, paddingTop: 4 },
+  title: { fontFamily: fonts.bold, fontSize: 18 },
+  habitName: { fontFamily: fonts.semiBold, fontSize: 14, textAlign: 'center', marginTop: 2 },
+  subtitle: { fontFamily: fonts.regular, fontSize: 13, textAlign: 'center', paddingHorizontal: 16, paddingTop: 6, paddingBottom: 8 },
   listContent: { paddingHorizontal: 20, paddingBottom: 12 },
   monthHeader: { fontFamily: fonts.semiBold, fontSize: 13, paddingTop: 16, paddingBottom: 6 },
   dayRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, gap: 12 },

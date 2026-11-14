@@ -16,7 +16,7 @@ import { fonts } from '../theme';
  * section 4a), so a BOOLEAN weekly/monthly habit is correctly blocked from
  * a second same-day hold and a COUNT one isn't, with no extra plumbing.
  */
-export default function LotsView({ rows, habitsById, getCanBuild, onBuild, onOpenSheet, tapToBuild, theme }) {
+export default function LotsView({ rows, habitsById, getCanBuild, onBuild, onOpenSheet, tapToBuild, theme, towerTheme }) {
   return (
     <ScrollView contentContainerStyle={styles.list}>
       {rows.map((row) => (
@@ -29,6 +29,7 @@ export default function LotsView({ rows, habitsById, getCanBuild, onBuild, onOpe
           onOpenSheet={onOpenSheet}
           tapToBuild={tapToBuild}
           theme={theme}
+          towerTheme={towerTheme}
         />
       ))}
       {rows.length === 0 && (
@@ -41,7 +42,7 @@ export default function LotsView({ rows, habitsById, getCanBuild, onBuild, onOpe
   );
 }
 
-const LotRow = React.memo(function LotRow({ row, habit, getCanBuild, onBuild, onOpenSheet, tapToBuild, theme }) {
+const LotRow = React.memo(function LotRow({ row, habit, getCanBuild, onBuild, onOpenSheet, tapToBuild, theme, towerTheme }) {
   const stripRef = useRef(null);
   const canBuild = habit ? getCanBuild(habit.id) : false;
   // `row.periods` can reach back years (the lot sheet's own backdating
@@ -87,6 +88,7 @@ const LotRow = React.memo(function LotRow({ row, habit, getCanBuild, onBuild, on
             period={period}
             color={row.color}
             theme={theme}
+            towerTheme={towerTheme}
             onPress={pressHandlers[i]}
           />
         ))}

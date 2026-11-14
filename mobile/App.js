@@ -95,6 +95,12 @@ function Tabs() {
       <Tab.Screen
         name="Today"
         component={TodayScreen}
+        // Route name stays 'Today' (code name, same as habit/check-in/
+        // streak elsewhere — every navigation.navigate('Today', ...) call
+        // site keeps working unchanged). Only the visible label changes,
+        // per CLAUDE.md's UI-wording table and the design-review-approved
+        // small fixes (2026-11-13).
+        options={{ tabBarLabel: 'Skyline' }}
         listeners={{ tabPress: () => scrollToTop('Today') }}
       />
       <Tab.Screen

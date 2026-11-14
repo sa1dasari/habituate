@@ -56,6 +56,18 @@ describe('totalFloorsHistory', () => {
     expect(result.habitLegend.map((h) => h.id).sort()).toEqual(['read', 'run']);
   });
 
+  test('habitLegend matches real numeric habit ids (Postgres Long, not the test fixtures\' string ids)', () => {
+    // Regression: Object.keys() on the byHabit accumulator always returns
+    // string keys even when populated from a numeric id, so comparing
+    // against the habit's own (numeric) id via a bare Set.has() silently
+    // missed every habit — hidden by every other test here using string
+    // ids, which don't expose the type mismatch.
+    const anchor = new Date('2026-11-12T12:00:00');
+    const read = habit(101, ['2026-11-10T08:00:00']);
+    const result = totalFloorsHistory([read], 'weekly', anchor);
+    expect(result.habitLegend.map((h) => h.id)).toEqual([101]);
+  });
+
   test('monthly tab: 6 calendar-month buckets', () => {
     const anchor = new Date('2026-11-12T12:00:00');
     const result = totalFloorsHistory([], 'monthly', anchor);

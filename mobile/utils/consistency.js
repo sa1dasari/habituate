@@ -454,7 +454,11 @@ export function totalFloorsHistory(habits, period, anchor = new Date()) {
     previousAtThisPointTotal,
     trendDelta: previousAtThisPointTotal == null ? null : currentBucket.value - previousAtThisPointTotal,
     buckets,
-    habitLegend: dailyHabits.filter((h) => habitLegendIds.has(h.id)),
+    // habitLegendIds holds string keys (Object.keys always returns strings,
+    // even for a numeric id used as a property key) — h.id is the API's
+    // original numeric id, so comparing them directly via Set.has would
+    // always miss under strict equality. Coerce to match.
+    habitLegend: dailyHabits.filter((h) => habitLegendIds.has(String(h.id))),
     // The bucket's own unit, not the tab name — the Year tab's buckets are
     // still months (12 of them), so its headline/subtitle read "this
     // month"/"N months before it" too, same as the Month tab just with

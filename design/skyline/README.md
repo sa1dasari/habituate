@@ -31,6 +31,7 @@ This is the only folder of Skyline mockups. The old `concept _screens/` folder w
 | 20 | `20-top-out-result.png` | Top out result | 3 | current (was `6-top-out-result.png`) |
 | 21 | `21-topout-fade-reference.png` | Topped-out tower fades behind the new one (~40%) | 3 | reference (was `topped_out_tower_fades_behind_new_tower.png`) |
 | 22 | `22-floor-states-reference.png` | Floor states: lit, solid Shield block, open, dark | all | **reference: the source of truth for floor art.** Approved and redrawn 2026-11-13 with a see-through open floor and a glass + shield Shield Day (owner decisions); the old version is in `superseded/`. |
+| 23 | `23-insights-filter-proposal.png` | Insights with a habit filter row | 5 | **PROPOSAL, awaiting owner approval (2026-11-14).** Board 06 plus one row of habit chips under the tabs: "All" (default) and one chip per habit, multi-select, the row scrolls sideways when there are many habits. Selected habits filter all three cards (Floors built, Runs, Shield use). Replaces the old "Selected habits" card, the "This week, day by day" chart and the "Selected-period details" block, which are removed. Weekly/monthly habits only affect Runs, since Floors built is daily towers only. Not drawn: the selected state with 1–3 chips on. |
 
 `superseded/` keeps the old versions of 01, 03, 07 and 22 for history. Don't build from them.
 

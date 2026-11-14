@@ -246,9 +246,17 @@ export default function TowerSheet({
           <Pressable onPress={onClose} hitSlop={12} style={styles.closeBtn} testID="tower-sheet-close">
             <MaterialCommunityIcons name="close" size={22} color={theme.muted} />
           </Pressable>
-          <Text style={[styles.headerTitle, { color: theme.text }]} numberOfLines={1}>
-            {habit.name}
-          </Text>
+          <View style={styles.headerTitleWrap} accessible accessibilityLabel={`Tower details, ${habit.name}`}>
+            <Text style={[styles.headerEyebrow, { color: theme.muted }]}>TOWER DETAILS</Text>
+            <Text
+              style={[styles.headerTitle, { color: theme.text }]}
+              numberOfLines={2}
+              ellipsizeMode="tail"
+              importantForAccessibility="no"
+            >
+              {habit.name}
+            </Text>
+          </View>
           <View style={{ width: 34 }} />
         </View>
 
@@ -263,49 +271,74 @@ export default function TowerSheet({
               {closedSegmentCount} earlier {closedSegmentCount === 1 ? 'tower' : 'towers'} behind this one
             </Text>
           )}
+          {habit.motivation ? (
+            <Text style={[styles.motivation, { color: theme.muted }]}>{habit.motivation}</Text>
+          ) : null}
 
-          <ActionRow
-            icon="pencil-outline"
-            label="Edit"
-            onPress={handleEdit}
-            theme={theme}
-            testID="tower-sheet-edit"
-          />
-          <ActionRow
-            icon={habit.shieldedToday ? 'shield-off-outline' : 'shield-check-outline'}
-            label={habit.shieldedToday ? 'Remove Shield Day' : 'Shield Day'}
-            sublabel={shieldSublabel}
-            onPress={handleShieldToggle}
-            disabled={shieldDisabled}
-            theme={theme}
-            testID="tower-sheet-shield"
-          />
           {canTopOut && (
-            <ActionRow
-              icon="flag-checkered"
-              label="Top out"
-              sublabel={`${ageDays} days old`}
+            <Pressable
               onPress={handleTopOut}
-              theme={theme}
+              style={[styles.topOutCard, { backgroundColor: theme.surfaceHigh, borderColor: theme.amber }]}
               testID="tower-sheet-top-out"
-            />
+              accessibilityRole="button"
+              accessibilityLabel={`Top out, ${ageDays} days old`}
+            >
+              <MaterialCommunityIcons name="flag-checkered" size={24} color={theme.amber} />
+              <View style={styles.topOutTextWrap}>
+                <Text style={[styles.topOutLabel, { color: theme.text }]}>Top out this tower</Text>
+                <Text style={[styles.topOutSublabel, { color: theme.muted }]}>{ageDays} days old</Text>
+              </View>
+              <MaterialCommunityIcons name="chevron-right" size={20} color={theme.muted} />
+            </Pressable>
           )}
-          <ActionRow
-            icon="layers-outline"
-            label="Look inside"
-            sublabel={`${totalBuilt} floor${totalBuilt === 1 ? '' : 's'}`}
-            onPress={handleOpenInsideView}
-            theme={theme}
-            testID="tower-sheet-inside"
-          />
-          <ActionRow
-            icon="calendar-arrow-left"
-            label="Add for another day"
-            sublabel={`Last ${BACKDATE_WINDOW_DAYS} days`}
-            onPress={() => setShowBackdate((v) => !v)}
-            theme={theme}
-            testID="tower-sheet-backdate-toggle"
-          />
+
+          <View style={styles.grid}>
+            <GridButton
+              icon={habit.shieldedToday ? 'shield-off-outline' : 'shield-check-outline'}
+              label={habit.shieldedToday ? 'Remove Shield' : 'Shield Day'}
+              sublabel={shieldSublabel}
+              onPress={handleShieldToggle}
+              disabled={shieldDisabled}
+              theme={theme}
+              testID="tower-sheet-shield"
+            />
+            <GridButton
+              icon="calendar-arrow-left"
+              label="Add another day"
+              onPress={() => setShowBackdate((v) => !v)}
+              theme={theme}
+              testID="tower-sheet-backdate-toggle"
+            />
+            <GridButton
+              icon="layers-outline"
+              label="See inside"
+              onPress={handleOpenInsideView}
+              theme={theme}
+              testID="tower-sheet-inside"
+            />
+            <GridButton
+              icon="chat-processing-outline"
+              label="Ask about tower"
+              onPress={handleAskAboutTower}
+              theme={theme}
+              testID="tower-sheet-ask"
+            />
+            <GridButton
+              icon="pencil-outline"
+              label="Edit"
+              onPress={handleEdit}
+              theme={theme}
+              testID="tower-sheet-edit"
+            />
+            <GridButton
+              icon="archive-outline"
+              label="Retire"
+              onPress={handleRetire}
+              theme={theme}
+              testID="tower-sheet-retire"
+            />
+          </View>
+
           {showBackdate && (
             <View style={[styles.backdateCard, { backgroundColor: theme.surfaceHigh }]}>
               <Svg width={backdateGridWidth} height={backdateGridHeight} viewBox={`0 0 ${backdateGridWidth} ${backdateGridHeight}`}>
@@ -359,20 +392,6 @@ export default function TowerSheet({
               </View>
             </View>
           )}
-          <ActionRow
-            icon="chat-processing-outline"
-            label="Ask about this tower"
-            onPress={handleAskAboutTower}
-            theme={theme}
-            testID="tower-sheet-ask"
-          />
-          <ActionRow
-            icon="archive-outline"
-            label="Retire"
-            onPress={handleRetire}
-            theme={theme}
-            testID="tower-sheet-retire"
-          />
         </ScrollView>
 
         <Toast toast={toast} onHide={hideToast} />
@@ -392,23 +411,29 @@ function StatBlock({ label, value, theme }) {
   );
 }
 
-function ActionRow({ icon, label, sublabel, onPress, disabled, theme, testID }) {
+// 2-column grid button (design-review board 03, owner-approved
+// 2026-11-13): icon + label + optional sublabel (e.g. the Shield Day
+// count), stacked vertically, min 44dp tall for a real touch target.
+function GridButton({ icon, label, sublabel, onPress, disabled, theme, testID }) {
   return (
     <Pressable
       onPress={disabled ? undefined : onPress}
       disabled={disabled}
-      style={styles.actionRow}
+      style={[styles.gridButton, { backgroundColor: theme.surfaceHigh }]}
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={sublabel ? `${label}, ${sublabel}` : label}
       accessibilityState={{ disabled: !!disabled }}
     >
-      <MaterialCommunityIcons name={icon} size={22} color={disabled ? theme.muted : theme.text} style={styles.actionIcon} />
-      <View style={styles.actionLabelWrap}>
-        <Text style={[styles.actionLabel, { color: disabled ? theme.muted : theme.text }]}>{label}</Text>
-        {sublabel && <Text style={[styles.actionSublabel, { color: theme.muted }]}>{sublabel}</Text>}
-      </View>
-      <MaterialCommunityIcons name="chevron-right" size={20} color={theme.muted} />
+      <MaterialCommunityIcons name={icon} size={20} color={disabled ? theme.muted : theme.text} />
+      <Text style={[styles.gridButtonLabel, { color: disabled ? theme.muted : theme.text }]} numberOfLines={1}>
+        {label}
+      </Text>
+      {sublabel ? (
+        <Text style={[styles.gridButtonSublabel, { color: theme.muted }]} numberOfLines={1}>
+          {sublabel}
+        </Text>
+      ) : null}
     </Pressable>
   );
 }
@@ -417,25 +442,39 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
   closeBtn: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontFamily: fonts.bold, fontSize: 17, flex: 1, textAlign: 'center' },
+  headerTitleWrap: { flex: 1, alignItems: 'center', paddingHorizontal: 8 },
+  headerEyebrow: { fontFamily: fonts.bold, fontSize: 10, letterSpacing: 0.6, marginBottom: 2 },
+  headerTitle: { fontFamily: fonts.bold, fontSize: 17, textAlign: 'center' },
   scroll: { paddingHorizontal: 20, paddingBottom: 32 },
   statsRow: { flexDirection: 'row', borderRadius: 16, paddingVertical: 18, marginBottom: 4 },
   earlierTowers: { fontFamily: fonts.regular, fontSize: 12, textAlign: 'center', marginBottom: 16 },
+  motivation: { fontFamily: fonts.regular, fontStyle: 'italic', fontSize: 13, textAlign: 'center', marginBottom: 16 },
   statBlock: { flex: 1, alignItems: 'center' },
   statValue: { fontFamily: fonts.extraBold, fontSize: 24 },
   statLabel: { fontFamily: fonts.regular, fontSize: 12, marginTop: 4 },
-  actionRow: {
+  topOutCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(128,128,128,0.2)',
+    gap: 12,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    padding: 14,
+    marginBottom: 16,
   },
-  actionIcon: { marginRight: 14 },
-  actionLabelWrap: { flex: 1 },
-  actionLabel: { fontFamily: fonts.semiBold, fontSize: 16 },
-  actionSublabel: { fontFamily: fonts.regular, fontSize: 12, marginTop: 2 },
-  backdateCard: { alignSelf: 'stretch', borderRadius: 16, padding: 14, marginBottom: 4, alignItems: 'center' },
+  topOutTextWrap: { flex: 1 },
+  topOutLabel: { fontFamily: fonts.semiBold, fontSize: 15 },
+  topOutSublabel: { fontFamily: fonts.regular, fontSize: 12, marginTop: 2 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 4 },
+  gridButton: {
+    width: '47%',
+    minHeight: 64,
+    borderRadius: 14,
+    padding: 12,
+    gap: 4,
+  },
+  gridButtonLabel: { fontFamily: fonts.semiBold, fontSize: 14 },
+  gridButtonSublabel: { fontFamily: fonts.regular, fontSize: 11 },
+  backdateCard: { alignSelf: 'stretch', borderRadius: 16, padding: 14, marginTop: 16, alignItems: 'center' },
   backdateEntries: { alignSelf: 'stretch', marginTop: 12 },
   entryRow: {
     flexDirection: 'row',

@@ -242,6 +242,11 @@ export default function SkylineScreen({ navigation }) {
     setChatInitialQuestion(`Tell me about my progress on "${habit.name}"`);
     setChatVisible(true);
   }, []);
+  const handleAskAboutDay = useCallback((habit, dayKey) => {
+    const label = new Date(`${dayKey}T00:00:00`).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+    setChatInitialQuestion(`Tell me about my "${habit.name}" check-in on ${label}`);
+    setChatVisible(true);
+  }, []);
   const closeChat = useCallback(() => {
     setChatVisible(false);
     setChatInitialQuestion(null);
@@ -518,7 +523,9 @@ export default function SkylineScreen({ navigation }) {
                 today={today}
                 uiTheme={ui}
                 towerTheme={towerTheme}
+                tapToBuild={tapToBuild}
                 onAskAboutTower={handleAskAboutTower}
+                onAskAboutDay={handleAskAboutDay}
               />
               <ArchivedTowersSheet
                 visible={archivedTowersVisible}

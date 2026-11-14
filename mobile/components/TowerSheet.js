@@ -99,6 +99,7 @@ export default function TowerSheet({
   const todayKey = toDateKey(new Date());
 
   const [showBackdate, setShowBackdate] = useState(false);
+  const [showLegend, setShowLegend] = useState(false);
   const [selectedDateKey, setSelectedDateKey] = useState(todayKey);
   const [shieldDates, setShieldDates] = useState([]);
   const scrollRef = useRef(null);
@@ -131,6 +132,7 @@ export default function TowerSheet({
   useEffect(() => {
     if (!habit) return;
     setShowBackdate(false);
+    setShowLegend(false);
     setSelectedDateKey(toDateKey(new Date()));
   }, [habit?.id]);
 
@@ -236,9 +238,39 @@ export default function TowerSheet({
     return buildScene([sceneHabit], { today: new Date(), theme: towerTheme });
   }, [sceneHabit, towerTheme]);
   const miniHit = miniScene?.hitTargets?.[0];
-  const miniBox = miniHit
+  const miniBoxFull = miniHit
     ? { x: miniHit.x - 6, y: miniHit.y - 6, width: miniHit.width + 12, height: miniHit.height + 12 }
     : { x: X0 - 6, y: BASE_Y - FLOOR_H - CRANE_HEIGHT - 12, width: TOWER_W + DX + 12, height: FLOOR_H + CRANE_HEIGHT + 24 };
+  // Caps the compact mini-tower icon's own aspect ratio — a tower with many
+  // floors has a bounding box several times taller than wide, which (found
+  // on-device) was rendering a ~500px-tall SVG that pushed the legend and
+  // action rows off screen. Crops from the bottom (older floors) rather
+  // than squashing the whole thing, keeping the crane and newest floors —
+  // the part the run headline is actually about — intact at the top. Full
+  // history is what "See inside" is for.
+  const MINI_MAX_ASPECT = 1.4;
+  const miniBox = {
+    ...miniBoxFull,
+    height: Math.min(miniBoxFull.height, miniBoxFull.width * MINI_MAX_ASPECT),
+  };
+  // The tall layout's illustration is capped by the sheet's own available
+  // height, not a fixed aspect multiplier — a multiplier can't know the
+  // screen size, so on a short phone (the 360x640 design-review asked for
+  // screenshots on) it would render past the fold and recreate the exact
+  // scrolling problem this layout exists to fix. TALL_HEADER_RESERVE is a
+  // rough, fixed estimate of the handle + title row + its own padding
+  // above the tower row — deliberately not measured via onLayout, since a
+  // measurement-driven cap recomputing after first paint is exactly the
+  // kind of thing that flips layout mid-render (design-review's jitter
+  // warning).
+  const sheetContentHeight = effectiveStageHeight - SHEET_TOP_PEEK;
+  const TALL_HEADER_RESERVE = 180;
+  const tallMaxSvgHeight = Math.max(220, sheetContentHeight - TALL_HEADER_RESERVE);
+  const TALL_SVG_WIDTH = 110;
+  const tallBox = {
+    ...miniBoxFull,
+    height: Math.min(miniBoxFull.height, (tallMaxSvgHeight / TALL_SVG_WIDTH) * miniBoxFull.width),
+  };
 
   if (!displayHabit) return null;
 
@@ -256,6 +288,19 @@ export default function TowerSheet({
     : 0;
   const threshold = displayHabit.topOutThresholdDays || DEFAULT_TOP_OUT_THRESHOLD_DAYS;
   const canTopOut = ageDays >= threshold;
+
+  // Tall-tower side layout (design-review board 24, owner-approved
+  // 2026-11-13): switches once the compact (board 03) layout would need
+  // scrolling to reach the action rows. ageDays, not floorCount — floorCount
+  // is computed two different ways a few lines up depending on whether
+  // sceneHabit has resolved yet (classifyDays' per-calendar-day count vs. a
+  // COUNT habit's raw checkIns.length, which can run well ahead of it), so
+  // using it here could flip the layout mid-render — exactly the jitter
+  // design-review warned against. ageDays has no such dependency. 14 is a
+  // first-pass estimate; design-review asked for on-device screenshots of
+  // the switch point to tune it from there.
+  const TALL_TOWER_AGE_DAYS = 14;
+  const isTallTower = ageDays >= TALL_TOWER_AGE_DAYS;
 
   const handleEdit = () => {
     onClose();
@@ -378,7 +423,13 @@ export default function TowerSheet({
       pointerEvents={visible ? 'auto' : 'none'}
       style={[
         styles.sheet,
-        { backgroundColor: theme.background, height: measured ? effectiveStageHeight : '100%' },
+        // The sheet is translated down by SHEET_TOP_PEEK when open (see
+        // openY below) — without subtracting that back out of its own
+        // height, its bottom edge overhangs the stage by that same amount
+        // and lands behind the tab bar, clipping whatever's at the bottom
+        // of the scroll content (caught on-device: Edit/Retire, the Hold
+        // pill).
+        { backgroundColor: theme.background, height: measured ? effectiveStageHeight - SHEET_TOP_PEEK : '100%' },
         animatedStyle,
       ]}
     >
@@ -410,67 +461,133 @@ export default function TowerSheet({
           </View>
         </View>
 
-        <View style={styles.runRow}>
-          <Svg width={100} height={100 * (miniBox.height / miniBox.width)} viewBox={`${miniBox.x} ${miniBox.y} ${miniBox.width} ${miniBox.height}`}>
-            {miniScene ? <SkylineTower shapes={miniScene.shapes} /> : null}
-          </Svg>
+        {(() => {
+          const legendItems = (
+            <>
+              <LegendRow swatch={<View style={[styles.ledgeSwatch, { backgroundColor: towerTheme?.ledgeColor || '#FFFFFF' }]} />} title={`Best run: ${bestRun} days`} body="The white ledge. It stays even if the run restarts." theme={theme} />
+              <LegendRow swatch={<View style={[styles.windowSwatch, { backgroundColor: towerColor }]}><View style={[styles.windowPip, { backgroundColor: towerTheme?.windowDark }]} /></View>} title="Dark windows" body="Earlier floors. Past check-ins stay." theme={theme} />
+              <LegendRow
+                swatch={
+                  <View style={[styles.glassSwatch, { backgroundColor: towerTheme?.shieldFill, borderColor: towerTheme?.shieldEdge }]}>
+                    <MaterialCommunityIcons name="shield" size={9} color={towerTheme?.shieldIcon} />
+                  </View>
+                }
+                title="Glass floor: Shield Day"
+                body="Marked with a shield. The run kept going."
+                theme={theme}
+              />
+              <LegendRow swatch={<View style={[styles.openSwatch, { borderColor: towerTheme?.openStroke }]} />} title="Open floor" body="An outline you can see through. Floors never come down." theme={theme} />
+            </>
+          );
 
-          <View style={styles.runTextWrap}>
-            <Text style={[styles.runHeadline, { color: theme.amber }]}>{currentRun} day run</Text>
-            <Text style={[styles.runSubtext, { color: theme.muted }]}>
-              The lit floors at the top. Today's floor will make it {currentRun + 1}.
-            </Text>
-
-            <LegendRow swatch={<View style={[styles.ledgeSwatch, { backgroundColor: towerTheme?.ledgeColor || '#FFFFFF' }]} />} title={`Best run: ${bestRun} days`} body="The white ledge. It stays even if the run restarts." theme={theme} />
-            <LegendRow swatch={<View style={[styles.windowSwatch, { backgroundColor: towerColor }]}><View style={[styles.windowPip, { backgroundColor: towerTheme?.windowDark }]} /></View>} title="Dark windows" body="Earlier floors. Past check-ins stay." theme={theme} />
-            <LegendRow
-              swatch={
-                <View style={[styles.glassSwatch, { backgroundColor: towerTheme?.shieldFill, borderColor: towerTheme?.shieldEdge }]}>
-                  <MaterialCommunityIcons name="shield" size={9} color={towerTheme?.shieldIcon} />
-                </View>
-              }
-              title="Glass floor: Shield Day"
-              body="Marked with a shield. The run kept going."
-              theme={theme}
-            />
-            <LegendRow swatch={<View style={[styles.openSwatch, { borderColor: towerTheme?.openStroke }]} />} title="Open floor" body="An outline you can see through. Floors never come down." theme={theme} />
-          </View>
-        </View>
-
-        {closedSegmentCount > 0 && (
-          <Text style={[styles.earlierTowers, { color: theme.muted }]}>
-            {closedSegmentCount} earlier {closedSegmentCount === 1 ? 'tower' : 'towers'} behind this one
-          </Text>
-        )}
-
-        {canTopOut && (
-          <View style={[styles.topOutCard, { backgroundColor: theme.surfaceHigh, borderColor: theme.amber }]}>
-            <View style={styles.topOutTextWrap}>
-              <Text style={[styles.topOutLabel, { color: theme.text }]}>Ready to top out?</Text>
-              <Text style={[styles.topOutBody, { color: theme.muted }]}>
-                You've built this tower for over {threshold} days. Finish it and start a new one whenever you like.
-              </Text>
+          const topOutCard = canTopOut && (
+            <View style={[styles.topOutCard, { backgroundColor: theme.surfaceHigh, borderColor: theme.amber }]}>
+              <View style={styles.topOutTextWrap}>
+                <Text style={[styles.topOutLabel, { color: theme.text }]}>Ready to top out?</Text>
+                <Text style={[styles.topOutBody, { color: theme.muted }]}>
+                  You've built this tower for over {threshold} days. Finish it and start a new one whenever you like.
+                </Text>
+              </View>
+              <Pressable
+                onPress={handleTopOut}
+                style={[styles.topOutButton, { backgroundColor: theme.amber }]}
+                testID="tower-sheet-top-out"
+                accessibilityRole="button"
+                accessibilityLabel={`Top out, ${ageDays} days old`}
+              >
+                <Text style={styles.topOutButtonText}>Top out</Text>
+              </Pressable>
             </View>
-            <Pressable
-              onPress={handleTopOut}
-              style={[styles.topOutButton, { backgroundColor: theme.amber }]}
-              testID="tower-sheet-top-out"
-              accessibilityRole="button"
-              accessibilityLabel={`Top out, ${ageDays} days old`}
-            >
-              <Text style={styles.topOutButtonText}>Top out</Text>
-            </Pressable>
-          </View>
-        )}
+          );
 
-        <View style={styles.grid}>
-          <PillButton label={shieldLabel} a11yLabel={shieldA11yLabel} onPress={handleShieldToggle} disabled={shieldDisabled} theme={theme} testID="tower-sheet-shield" />
-          <PillButton label="Add another day" onPress={() => setShowBackdate((v) => !v)} theme={theme} testID="tower-sheet-backdate-toggle" />
-          <PillButton label="See inside" onPress={handleOpenInsideView} theme={theme} testID="tower-sheet-inside" />
-          <PillButton label="Ask about tower" onPress={handleAskAboutTower} theme={theme} testID="tower-sheet-ask" />
-          <PillButton label="Edit" onPress={handleEdit} theme={theme} testID="tower-sheet-edit" />
-          <PillButton label="Retire" onPress={handleRetire} theme={theme} testID="tower-sheet-retire" />
-        </View>
+          const actions = [
+            { key: 'shield', label: shieldLabel, a11yLabel: shieldA11yLabel, onPress: handleShieldToggle, disabled: shieldDisabled, testID: 'tower-sheet-shield' },
+            { key: 'backdate', label: 'Add another day', onPress: () => setShowBackdate((v) => !v), testID: 'tower-sheet-backdate-toggle' },
+            { key: 'inside', label: 'See inside', onPress: handleOpenInsideView, testID: 'tower-sheet-inside' },
+            { key: 'ask', label: 'Ask about tower', onPress: handleAskAboutTower, testID: 'tower-sheet-ask' },
+            { key: 'edit', label: 'Edit', onPress: handleEdit, testID: 'tower-sheet-edit' },
+            { key: 'retire', label: 'Retire', onPress: handleRetire, testID: 'tower-sheet-retire' },
+          ];
+
+          if (!isTallTower) {
+            return (
+              <>
+                <View style={styles.runRow}>
+                  <Svg width={100} height={100 * (miniBox.height / miniBox.width)} viewBox={`${miniBox.x} ${miniBox.y} ${miniBox.width} ${miniBox.height}`}>
+                    {miniScene ? <SkylineTower shapes={miniScene.shapes} /> : null}
+                  </Svg>
+
+                  <View style={styles.runTextWrap}>
+                    <Text style={[styles.runHeadline, { color: theme.amber }]}>{currentRun} day run</Text>
+                    <Text style={[styles.runSubtext, { color: theme.muted }]}>
+                      The lit floors at the top. Today's floor will make it {currentRun + 1}.
+                    </Text>
+                    {legendItems}
+                  </View>
+                </View>
+
+                {closedSegmentCount > 0 && (
+                  <Text style={[styles.earlierTowers, { color: theme.muted }]}>
+                    {closedSegmentCount} earlier {closedSegmentCount === 1 ? 'tower' : 'towers'} behind this one
+                  </Text>
+                )}
+
+                {topOutCard}
+
+                <View style={styles.grid}>
+                  {actions.map((a) => (
+                    <PillButton key={a.key} label={a.label} a11yLabel={a.a11yLabel} onPress={a.onPress} disabled={a.disabled} theme={theme} testID={a.testID} />
+                  ))}
+                </View>
+              </>
+            );
+          }
+
+          // Tall layout (design-review board 24): the tower goes full-height
+          // on the left so it never has to compete with the legend/actions
+          // for vertical space; actions become full-width rows on the
+          // right instead of a 2-col grid so they stay reachable without
+          // scrolling past a tall tower's taller headline column. Legend
+          // moves behind a toggle — always-on inline text here would just
+          // recreate the scroll problem this layout exists to fix.
+          return (
+            <>
+              <View style={styles.tallRow}>
+                <Svg width={110} height={110 * (tallBox.height / tallBox.width)} viewBox={`${tallBox.x} ${tallBox.y} ${tallBox.width} ${tallBox.height}`}>
+                  {miniScene ? <SkylineTower shapes={miniScene.shapes} /> : null}
+                </Svg>
+
+                <View style={styles.tallTextWrap}>
+                  <Text style={[styles.runHeadline, { color: theme.amber }]}>{currentRun} day run</Text>
+                  <Text style={[styles.runSubtext, { color: theme.muted }]}>
+                    Today's floor will make it {currentRun + 1}.
+                  </Text>
+
+                  {closedSegmentCount > 0 && (
+                    <Text style={[styles.earlierTowers, { color: theme.muted }]}>
+                      {closedSegmentCount} earlier {closedSegmentCount === 1 ? 'tower' : 'towers'} behind this one
+                    </Text>
+                  )}
+
+                  {topOutCard}
+
+                  <View style={styles.actionList}>
+                    {actions.map((a) => (
+                      <ActionRow key={a.key} label={a.label} a11yLabel={a.a11yLabel} onPress={a.onPress} disabled={a.disabled} theme={theme} testID={a.testID} />
+                    ))}
+                  </View>
+
+                  <Pressable onPress={() => setShowLegend((v) => !v)} hitSlop={8} testID="tower-sheet-legend-toggle">
+                    <Text style={[styles.legendToggle, { color: theme.amber }]}>
+                      {showLegend ? 'Hide what the floors mean' : 'What the floors mean ›'}
+                    </Text>
+                  </Pressable>
+                  {showLegend && <View style={styles.legendExpanded}>{legendItems}</View>}
+                </View>
+              </View>
+            </>
+          );
+        })()}
 
         {showBackdate && (
           <View style={[styles.backdateCard, { backgroundColor: theme.surfaceHigh }]}>
@@ -565,6 +682,28 @@ function PillButton({ label, a11yLabel, onPress, disabled, theme, testID }) {
   );
 }
 
+// Full-width row with a trailing chevron (board 24's tall-tower side
+// layout) — same actions as PillButton's grid, just stacked instead of
+// 2-column, since the right column here is narrower than the sheet itself.
+function ActionRow({ label, a11yLabel, onPress, disabled, theme, testID }) {
+  return (
+    <Pressable
+      onPress={disabled ? undefined : onPress}
+      disabled={disabled}
+      style={[styles.actionRow, { backgroundColor: theme.surfaceHigh }]}
+      testID={testID}
+      accessibilityRole="button"
+      accessibilityLabel={a11yLabel || label}
+      accessibilityState={{ disabled: !!disabled }}
+    >
+      <Text style={[styles.actionRowText, { color: disabled ? theme.muted : theme.text }]} numberOfLines={1}>
+        {label}
+      </Text>
+      <MaterialCommunityIcons name="chevron-right" size={18} color={disabled ? theme.muted : theme.muted} />
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   sheet: {
     position: 'absolute',
@@ -585,6 +724,8 @@ const styles = StyleSheet.create({
   meta: { fontFamily: fonts.regular, fontSize: 13, marginTop: 4 },
   motivation: { fontFamily: fonts.regular, fontStyle: 'italic', fontSize: 13, marginTop: 8 },
   runRow: { flexDirection: 'row', gap: 16, marginBottom: 20 },
+  tallRow: { flexDirection: 'row', gap: 16, marginBottom: 20, alignItems: 'flex-start' },
+  tallTextWrap: { flex: 1 },
   runTextWrap: { flex: 1 },
   runHeadline: { fontFamily: fonts.extraBold, fontSize: 26 },
   runSubtext: { fontFamily: fonts.regular, fontSize: 13, marginTop: 4, marginBottom: 14 },
@@ -623,6 +764,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   pillButtonText: { fontFamily: fonts.semiBold, fontSize: 14 },
+  actionList: { gap: 10, marginBottom: 4 },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 48,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+  },
+  actionRowText: { fontFamily: fonts.semiBold, fontSize: 14 },
+  legendToggle: { fontFamily: fonts.semiBold, fontSize: 13, marginTop: 14 },
+  legendExpanded: { marginTop: 12 },
   backdateCard: { alignSelf: 'stretch', borderRadius: 16, padding: 14, marginTop: 16, alignItems: 'center' },
   backdateEntries: { alignSelf: 'stretch', marginTop: 12 },
   entryRow: {

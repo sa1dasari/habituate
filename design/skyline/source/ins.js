@@ -37,7 +37,7 @@ if(S==='main'){
              {lab:'Jun to Nov 2026',nav:'This month',cols:MONTHS,l:ML,head:['58','so far this month','47 floors · 11 lot check-ins','Last month at this point: 64'],bw:38,gap:14},
              {lab:'2025 to 2026',nav:'This year',cols:YEARS,l:YL,head:['1,284','so far this year','1,052 floors · 232 lot check-ins','Last year to this date: 996'],bw:80,gap:60}][tab];
   el.innerHTML=`${gearBtn}
-  <div style="padding:34px 20px 0"><h1 style="font-size:30px">Insights</h1><div style="color:#A3ADB8;font-size:14px;margin:2px 0 14px">${cfg.lab}</div>
+  <div style="padding:34px 20px 0"><h1 style="font-size:30px;margin-bottom:16px">Insights</h1>
   ${seg(['Weeks','Months','Years'],tab)}<div style="margin-top:12px">${chips()}</div>
   <div style="margin-top:12px;display:flex;align-items:center;justify-content:center;gap:28px"><div style="width:44px;height:44px;border-radius:22px;background:#1E252D;display:flex;align-items:center;justify-content:center;font-size:20px">‹</div><b style="font-size:16px;min-width:96px;text-align:center">${cfg.nav}</b><div style="width:44px;height:44px;border-radius:22px;background:#1E252D;display:flex;align-items:center;justify-content:center;font-size:20px;color:#5B6472">›</div></div>
   <div style="margin-top:10px;background:#161B21;border-radius:22px;padding:18px 18px 16px">

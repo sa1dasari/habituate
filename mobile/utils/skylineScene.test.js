@@ -3,6 +3,9 @@ const { buildScene, X0, STEP, BASE_Y } = require('./skylineScene');
 const theme = {
   openStroke: '#999',
   shieldFill: '#abc',
+  shieldFillSide: '#9ab',
+  shieldEdge: '#def',
+  shieldIcon: '#fff',
   windowLit: '#ffe',
   windowDark: '#642',
   tierLine: '#333',
@@ -10,6 +13,7 @@ const theme = {
   craneColor: '#444',
   flagColor: '#f00',
   ledgeColor: '#fff',
+  closedSegmentFill: '#765',
 };
 
 const TODAY = new Date('2026-11-07T12:00:00');
@@ -63,11 +67,19 @@ describe('buildScene', () => {
     expect(openWindows).toHaveLength(0);
   });
 
-  test('a shielded day renders as a flat shield block with no windows, not open or set', () => {
+  test('a shielded day renders as a glass-tinted translucent block with a bright edge, no windows, not open or set', () => {
     const habit = dailyHabit({ shieldDays: ['2026-11-04'], checkInDays: ['2026-11-01'] });
     const scene = buildScene([habit], { today: TODAY, theme });
     const front = scene.shapes.find((s) => s.id === 'h1-f3-front');
     expect(front.fill).toBe(theme.shieldFill);
+    expect(front.opacity).toBeLessThan(1); // glass, not an opaque solid block
+    expect(front.stroke).toBe(theme.shieldEdge);
+    const side = scene.shapes.find((s) => s.id === 'h1-f3-right');
+    expect(side.fill).toBe(theme.shieldFillSide);
+    // No icon here — the main tower's floors aren't tall enough to fit one
+    // legibly (design-review board 22); only LotTile.js/TowerInsideView.js
+    // (much bigger renderings) show it.
+    expect(scene.shapes.find((s) => s.id === 'h1-f3-shield-icon')).toBeUndefined();
     const windows = scene.shapes.filter((s) => s.id.startsWith('h1-f3-window'));
     expect(windows).toHaveLength(0);
   });
@@ -164,5 +176,73 @@ describe('buildScene', () => {
 
   test('handles an empty habit list without throwing', () => {
     expect(() => buildScene([], { today: TODAY, theme })).not.toThrow();
+  });
+});
+
+describe('buildScene — Phase 3d closed-segment compositing', () => {
+  test('a habit with no closedSegments renders exactly as before this phase', () => {
+    const withField = buildScene([dailyHabit({ closedSegments: [] })], { today: TODAY, theme });
+    const withoutField = buildScene([dailyHabit()], { today: TODAY, theme });
+    expect(withField.shapes).toEqual(withoutField.shapes);
+    expect(withField.hitTargets).toEqual(withoutField.hitTargets);
+  });
+
+  test('a closed segment adds faded shapes but never a second hit target', () => {
+    const habit = dailyHabit({ closedSegments: [{ floorCount: 12, bestRun: 9 }] });
+    const scene = buildScene([habit], { today: TODAY, theme });
+
+    expect(scene.hitTargets).toHaveLength(1);
+    expect(scene.hitTargets[0].towerId).toBe('h1');
+    const closedShapes = scene.shapes.filter((s) => s.id.startsWith('h1-closed0-'));
+    expect(closedShapes.length).toBeGreaterThan(0);
+    closedShapes.forEach((s) => expect(s.opacity).toBeLessThan(1));
+  });
+
+  test('up to two closed segments render, oldest furthest back', () => {
+    const habit = dailyHabit({
+      closedSegments: [
+        { floorCount: 30, bestRun: 20 },
+        { floorCount: 5, bestRun: 5 },
+      ],
+    });
+    const scene = buildScene([habit], { today: TODAY, theme });
+
+    const olderFront = scene.shapes.find((s) => s.id === 'h1-closed0-front');
+    const recentFront = scene.shapes.find((s) => s.id === 'h1-closed1-front');
+    expect(olderFront).toBeTruthy();
+    expect(recentFront).toBeTruthy();
+    // Both faces come from the same `floorFaces` shape, so their first
+    // coordinate pair is the shape's own x — the older segment's x is
+    // further left (smaller) than the more recently closed one's.
+    const xOf = (d) => Number(d.slice(1).split(',')[0]);
+    expect(xOf(olderFront.d)).toBeLessThan(xOf(recentFront.d));
+    expect(scene.hitTargets).toHaveLength(1);
+  });
+
+  test('closed segments on one tower never spill into a neighboring tower\'s slot', () => {
+    const scene = buildScene(
+      [
+        dailyHabit({
+          id: 'a',
+          closedSegments: [
+            { floorCount: 30, bestRun: 20 },
+            { floorCount: 5, bestRun: 5 },
+          ],
+        }),
+        dailyHabit({ id: 'b' }),
+      ],
+      { today: TODAY, theme },
+    );
+
+    const aShapes = scene.shapes.filter((s) => s.towerId === 'a' && s.kind === 'path' && s.d);
+    aShapes.forEach((s) => {
+      const xs = [...s.d.matchAll(/(-?\d+(?:\.\d+)?),-?\d+(?:\.\d+)?/g)].map((m) => Number(m[1]));
+      xs.forEach((xVal) => {
+        expect(xVal).toBeGreaterThanOrEqual(0);
+        // STEP is habit b's own x — habit a's shapes (including its faded
+        // closed segments) must never reach into that slot.
+        expect(xVal).toBeLessThan(X0 + STEP);
+      });
+    });
   });
 });

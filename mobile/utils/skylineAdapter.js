@@ -103,6 +103,10 @@ export function toLotHabit(habit, categoryColors) {
     monthlyTarget: habit.monthlyTarget,
     checkIns: habit.checkIns || [],
     shieldPeriods: new Set(),
+    // Lets buildLots size a habit's history back to when it was actually
+    // created (LotSheet's backdating reach), instead of always stopping at
+    // the fixed default lookback.
+    startDate: habit.createdAt ? toDateKey(habit.createdAt) : null,
   };
 }
 
@@ -130,5 +134,15 @@ export function toSceneHabit(habit, categoryColors) {
     // Archived/topped-out towers are Phase 3 (tower sheet, monument state) —
     // every habit reaching this adapter is rendered as 'active' for now.
     state: 'active',
+    // Phase 3d compositing (SKYLINE.md section 6): up to the 2 most
+    // recently closed segments, oldest first — buildScene renders each as
+    // a faded block behind the active tower, closest (most recent) last.
+    // Absent/empty for the overwhelming common case (a habit that's never
+    // topped out), which keeps buildScene's additive-only guard exact: no
+    // closedSegments means byte-identical output to before this phase.
+    closedSegments: (habit.recentClosedSegments || []).map((s) => ({
+      floorCount: s.floorCount || 0,
+      bestRun: s.bestRunInSegment || 0,
+    })),
   };
 }

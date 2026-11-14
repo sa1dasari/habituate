@@ -165,7 +165,7 @@ function makeStyles(colors, typography) {
     name: { ...typography.cardTitle, flexShrink: 1 },
     // A small "this involves other people" marker shared with SharedHabitCard
     // — the one consistent visual cue that tells a social card apart from a
-    // solo HabitCard/GoalCard by silhouette alone, not just by its copy.
+    // solo HabitCard by silhouette alone, not just by its copy.
     socialBadge: {
       width: 18,
       height: 18,

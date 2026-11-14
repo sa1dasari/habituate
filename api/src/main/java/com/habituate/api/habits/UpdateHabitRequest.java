@@ -18,6 +18,7 @@ public record UpdateHabitRequest(
         @Size(max = 10) String scheduledTime,
         Boolean reminderEnabled,
         Boolean archived,
-        @Size(max = 500) String motivation
+        @Size(max = 500) String motivation,
+        @Min(1) @Max(3650) Integer topOutThresholdDays
 ) {
 }

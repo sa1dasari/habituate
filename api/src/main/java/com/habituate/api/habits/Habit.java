@@ -76,6 +76,18 @@ public class Habit {
     @Column(nullable = false, columnDefinition = "boolean not null default false")
     private boolean archived = false;
 
+    /**
+     * How many days a tower (daily-cadence only — see SKYLINE.md section 6)
+     * must stand before "Top out" becomes available. Per-habit so a user can
+     * tune it at creation or edit; defaults to 30 (revised 2026-11-10 — was a
+     * fixed ~60 days for every habit). Measured from the current open
+     * segment's own start, not the habit's overall createdAt — topping out
+     * starts a fresh segment that has to earn its own age before it can be
+     * topped out again. Weekly/monthly habits never read this field at all.
+     */
+    @Column(nullable = false, columnDefinition = "integer not null default 30")
+    private int topOutThresholdDays = 30;
+
     /** Optional, user-written "why this matters" statement — never required, never
      * auto-generated. Surfaced to Ask Habituate as grounding context (CoachContextBuilder)
      * so the coach can reference the user's own stated motivation instead of guessing one. */
@@ -209,6 +221,14 @@ public class Habit {
 
     public void setArchived(boolean archived) {
         this.archived = archived;
+    }
+
+    public int getTopOutThresholdDays() {
+        return topOutThresholdDays;
+    }
+
+    public void setTopOutThresholdDays(int topOutThresholdDays) {
+        this.topOutThresholdDays = topOutThresholdDays;
     }
 
     public String getMotivation() {

@@ -6,7 +6,7 @@ import { useHoldGesture } from '../hooks/useHoldGesture';
 import { fonts } from '../theme';
 
 /**
- * The bottom sheet's per-habit row button (concept_screens/1-skyline-daily.png):
+ * The bottom sheet's per-habit row button (design/skyline/01-skyline.png):
  * an outlined "Hold" pill that fills left-to-right with the category color as
  * the hold progresses, or a plain filled "✓ Built" pill once the day's
  * already done. Same gesture (timing, haptics, the undo-free `canBuild`

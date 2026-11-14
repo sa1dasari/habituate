@@ -16,7 +16,6 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AvatarImage from './components/AvatarImage';
 import { HabitsProvider, useHabits } from './hooks/useHabits';
-import { GoalsProvider } from './hooks/useGoals';
 import { FriendsProvider } from './hooks/useFriends';
 import { GroupsProvider } from './hooks/useGroups';
 import { ChallengesProvider } from './hooks/useChallenges';
@@ -36,7 +35,6 @@ import { navigateToTab, navigationRef } from './utils/navigationRef';
 import {
   ChooseUsernameScreen,
   CommunityScreen,
-  HabitsScreen,
   InsightsScreen,
   LoginScreen,
   SignupScreen,
@@ -58,7 +56,6 @@ const Tab = createBottomTabNavigator();
 
 const TAB_ICONS = {
   Today: 'check-circle-outline',
-  Habits: 'format-list-checks',
   Insights: 'chart-line',
   Community: 'account-group-outline',
   Profile: 'account-circle-outline',
@@ -98,12 +95,13 @@ function Tabs() {
       <Tab.Screen
         name="Today"
         component={TodayScreen}
+        // Route name stays 'Today' (code name, same as habit/check-in/
+        // streak elsewhere — every navigation.navigate('Today', ...) call
+        // site keeps working unchanged). Only the visible label changes,
+        // per CLAUDE.md's UI-wording table and the design-review-approved
+        // small fixes (2026-11-13).
+        options={{ tabBarLabel: 'Skyline' }}
         listeners={{ tabPress: () => scrollToTop('Today') }}
-      />
-      <Tab.Screen
-        name="Habits"
-        component={HabitsScreen}
-        listeners={{ tabPress: () => scrollToTop('Habits') }}
       />
       <Tab.Screen
         name="Insights"
@@ -343,37 +341,35 @@ function AppGate() {
 
   return (
     <HabitsProvider>
-      <GoalsProvider>
-        <FriendsProvider>
-          <GroupsProvider>
-            <ChallengesProvider>
-              <GroupActivityProvider>
-                <NotificationsProvider>
-                  <CelebrationProvider>
-                    <TapToBuildProvider>
-                      <WindowCountProvider>
-                        <TourProvider>
-                          <WidgetDeepLinkBridge />
-                          <PushNotificationTapBridge />
-                          <PushPermissionModal
-                            visible={pushPrompt.visible}
-                            onAllow={pushPrompt.onAllow}
-                            onDismiss={pushPrompt.onDismiss}
-                          />
-                          <NavigationContainer ref={navigationRef} theme={navigationTheme}>
-                            <Tabs />
-                          </NavigationContainer>
-                          <TourAutoStart />
-                        </TourProvider>
-                      </WindowCountProvider>
-                    </TapToBuildProvider>
-                  </CelebrationProvider>
-                </NotificationsProvider>
-              </GroupActivityProvider>
-            </ChallengesProvider>
-          </GroupsProvider>
-        </FriendsProvider>
-      </GoalsProvider>
+      <FriendsProvider>
+        <GroupsProvider>
+          <ChallengesProvider>
+            <GroupActivityProvider>
+              <NotificationsProvider>
+                <CelebrationProvider>
+                  <TapToBuildProvider>
+                    <WindowCountProvider>
+                      <TourProvider>
+                        <WidgetDeepLinkBridge />
+                        <PushNotificationTapBridge />
+                        <PushPermissionModal
+                          visible={pushPrompt.visible}
+                          onAllow={pushPrompt.onAllow}
+                          onDismiss={pushPrompt.onDismiss}
+                        />
+                        <NavigationContainer ref={navigationRef} theme={navigationTheme}>
+                          <Tabs />
+                        </NavigationContainer>
+                        <TourAutoStart />
+                      </TourProvider>
+                    </WindowCountProvider>
+                  </TapToBuildProvider>
+                </CelebrationProvider>
+              </NotificationsProvider>
+            </GroupActivityProvider>
+          </ChallengesProvider>
+        </GroupsProvider>
+      </FriendsProvider>
     </HabitsProvider>
   );
 }

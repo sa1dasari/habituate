@@ -27,7 +27,12 @@ import SkylineView from '../components/SkylineView';
 import SkyBackdrop from '../components/SkyBackdrop';
 import SkylineHoldLayer from '../components/SkylineHoldLayer';
 import SkylineHabitSheet, { SHEET_PEEK_HEIGHT } from '../components/SkylineHabitSheet';
+import TowerSheet from '../components/TowerSheet';
+import TowerInsideView from '../components/TowerInsideView';
+import TowerForm from '../components/TowerForm';
+import ArchivedTowersSheet from '../components/ArchivedTowersSheet';
 import LotsView from '../components/LotsView';
+import LotSheet from '../components/LotSheet';
 
 function hexToRgba(hex, alpha) {
   const n = parseInt(hex.replace('#', ''), 16);
@@ -42,7 +47,7 @@ function hexToRgba(hex, alpha) {
  * is Phase 3, so renaming the tab now would lose capability versus the old
  * TodayScreen. Reachable for now via the __DEV__ tab in App.js.
  *
- * Layout matches concept_screens/1-skyline-daily.png: header (title, date +
+ * Layout matches design/skyline/01-skyline.png: header (title, date +
  * built count, chat/profile icons), the sky+towers scene, then a persistent
  * bottom sheet listing every habit as a row — the full non-visual
  * equivalent of the skyline (section 13).
@@ -58,7 +63,7 @@ function formatHeaderDate(date) {
 export default function SkylineScreen({ navigation }) {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const { habits, loading, toggleCheckIn, addCheckIn, createHabit } = useHabits();
+  const { habits, loading, toggleCheckIn, addCheckIn, removeCheckIn, createHabit } = useHabits();
   const { user } = useAuth();
   const { effectiveMode } = useAppTheme();
   const { tapToBuild } = useTapToBuild();
@@ -68,9 +73,19 @@ export default function SkylineScreen({ navigation }) {
     useWeatherSky();
   const [today, setToday] = useState(() => new Date());
   const [chatVisible, setChatVisible] = useState(false);
+  // Pre-fills Ask Habituate's prompt when opened from a tower sheet's "Ask
+  // about this tower" (SKYLINE.md section 14 #5) — full `habits` context
+  // still goes to the coach either way, this just seeds the question.
+  const [chatInitialQuestion, setChatInitialQuestion] = useState(null);
+  const [towerSheetHabitId, setTowerSheetHabitId] = useState(null);
+  const [insideViewHabitId, setInsideViewHabitId] = useState(null);
+  // null habitId + visible = create mode; a real id = edit mode.
+  const [towerFormVisible, setTowerFormVisible] = useState(false);
+  const [towerFormHabitId, setTowerFormHabitId] = useState(null);
+  const [archivedTowersVisible, setArchivedTowersVisible] = useState(false);
   const [addHabitVisible, setAddHabitVisible] = useState(false);
   const [stageHeight, setStageHeight] = useState(0);
-  // Measured, not guessed — concept_screens/1-skyline-daily.png shows the
+  // Measured, not guessed — design/skyline/01-skyline.png shows the
   // sun/moon clearly below the header, not behind or crowding it. A flat
   // fraction of the full window height would sit right under the header on
   // some devices and well below it on others.
@@ -143,6 +158,18 @@ export default function SkylineScreen({ navigation }) {
     return map;
   }, [habits]);
 
+  // TowerInsideView.js needs the already-classified scene shape (color,
+  // checkInDays, currentRun, startDate) rather than the raw hydrated habit —
+  // this keeps its set/open/glass classification identical to what the
+  // tower itself draws, via the shared classifyDays helper.
+  const sceneHabitsById = useMemo(() => {
+    const map = {};
+    sceneHabits.forEach((h) => {
+      map[h.id] = h;
+    });
+    return map;
+  }, [sceneHabits]);
+
   // Header's "X of Y built today" — daily-target habits only (matches
   // TodayScreen's own "Due Today" convention); a weekly/monthly-target habit
   // isn't "due" on any single day, so it would skew this count.
@@ -189,19 +216,69 @@ export default function SkylineScreen({ navigation }) {
     [habitsById, addCheckIn, toggleCheckIn, showToast],
   );
 
-  // The lot-sheet mockups (concept _screens/3-lot-sheet-weekly.png and
-  // 5-lot-sheet-monthly.png) show "Add for another day" opening a sheet to
-  // backdate or remove a check-in for a specific day in the period — that
-  // sheet is a separate, not-yet-built screen (tracked in SKYLINE.md), so
-  // this stands the entry point up now without building the sheet behind
-  // it yet.
-  const handleAddForAnotherDay = useCallback(
-    (habitId) => {
+  // Opened by SkylineHoldLayer's composed gesture (a tap, or a long press
+  // under "Tap to build") — Phase 3b's tower sheet.
+  const handleOpenTowerSheet = useCallback((habitId) => setTowerSheetHabitId(habitId), []);
+  const closeTowerSheet = useCallback(() => setTowerSheetHabitId(null), []);
+  const towerSheetHabit = towerSheetHabitId ? habitsById[towerSheetHabitId] : null;
+
+  // Phase 3c's inside view, opened from the tower sheet's "Look inside" row.
+  const handleOpenInsideView = useCallback((habit) => setInsideViewHabitId(habit.id), []);
+  const closeInsideView = useCallback(() => setInsideViewHabitId(null), []);
+  const insideViewHabit = insideViewHabitId ? habitsById[insideViewHabitId] : null;
+  const insideViewSceneHabit = insideViewHabitId ? sceneHabitsById[insideViewHabitId] : null;
+
+  // Phase 4's "Lay a foundation" form — opened either from the empty lot's
+  // "Create your own" link (create mode) or from the tower sheet's Edit row
+  // (edit mode, repointed off the old HabitsScreen deep-link).
+  const handleOpenTowerForm = useCallback((habit) => {
+    setTowerFormHabitId(habit ? habit.id : null);
+    setTowerFormVisible(true);
+  }, []);
+  const closeTowerForm = useCallback(() => setTowerFormVisible(false), []);
+  const towerFormHabit = towerFormHabitId ? habitsById[towerFormHabitId] : null;
+
+  const handleAskAboutTower = useCallback((habit) => {
+    setChatInitialQuestion(`Tell me about my progress on "${habit.name}"`);
+    setChatVisible(true);
+  }, []);
+  const closeChat = useCallback(() => {
+    setChatVisible(false);
+    setChatInitialQuestion(null);
+  }, []);
+
+  // The lot sheet (design/skyline/17-lot-sheet-weekly.png,
+  // 19-lot-sheet-monthly.png — SKYLINE.md section 4a's Phase 2b gate):
+  // backdates or deletes a check-in for any day in a period, from a
+  // LotTile tap or a row's "Add for another day" link. Errors are caught
+  // and toasted inside LotSheet.js itself (same as InviteFriendsSheet's
+  // pattern), not here — these two just do the real work and let a
+  // rejection propagate.
+  const handleBuildForDay = useCallback(
+    async (habitId, dayKey) => {
       const habit = habitsById[habitId];
-      showToast(`Pick a day to add a ${habit ? habit.name : 'habit'} check-in — coming soon`, 'info');
+      if (!habit) return;
+      if (isCountMode(habit)) {
+        await addCheckIn(habitId, 1, dayKey);
+      } else {
+        await toggleCheckIn(habitId, dayKey);
+      }
     },
-    [habitsById, showToast],
+    [habitsById, addCheckIn, toggleCheckIn],
   );
+
+  // Keyed by id, not the row/period objects themselves — those get rebuilt
+  // fresh on every `lots` recompute (e.g. right after a hold inside the
+  // sheet), so holding onto the old objects would freeze the sheet's grid
+  // and caption at whatever they looked like the moment it opened.
+  const [lotSheetKey, setLotSheetKey] = useState(null); // { habitId, periodKey } | null
+  const handleOpenLotSheet = useCallback(
+    (row, period) => setLotSheetKey({ habitId: row.habitId, periodKey: period.key }),
+    [],
+  );
+  const closeLotSheet = useCallback(() => setLotSheetKey(null), []);
+  const lotSheetRow = lotSheetKey ? lots.rows.find((r) => r.habitId === lotSheetKey.habitId) : null;
+  const lotSheetPeriod = lotSheetRow ? lotSheetRow.periods.find((p) => p.key === lotSheetKey.periodKey) : null;
 
   // Same sensible-defaults template flow as TodayScreen's own empty state —
   // the Skyline's empty-lot tap doesn't need the full "Lay a foundation"
@@ -245,8 +322,8 @@ export default function SkylineScreen({ navigation }) {
         <View onLayout={(e) => setHeaderAreaHeight(e.nativeEvent.layout.height)}>
         <View style={[styles.header, { backgroundColor: hexToRgba(ui.background, 0.55) }]}>
           <View style={styles.headerText}>
-            <Text style={[styles.title, { color: ui.text }]}>Skyline</Text>
-            <Text style={[styles.subtitle, { color: ui.muted }]}>
+            <Text style={[styles.title, { color: ui.text }]} numberOfLines={1}>Skyline</Text>
+            <Text style={[styles.subtitle, { color: ui.muted }]} numberOfLines={1}>
               {formatHeaderDate(today)} · {dueTodayCount.done} of {dueTodayCount.total} built today
             </Text>
           </View>
@@ -254,9 +331,25 @@ export default function SkylineScreen({ navigation }) {
             style={styles.iconBtn}
             accessibilityRole="button"
             accessibilityLabel="Open Ask Habituate"
-            onPress={() => setChatVisible(true)}
+            onPress={() => {
+              // Always clear any stale tower-scoped question before opening
+              // from this plain icon — AskHabituateModal auto-sends
+              // initialQuestion on becoming visible, so a leftover value
+              // from a prior "Ask about this tower" would re-send it here.
+              setChatInitialQuestion(null);
+              setChatVisible(true);
+            }}
           >
             <MaterialCommunityIcons name="chat-processing-outline" size={20} color={ui.text} />
+          </Pressable>
+          <Pressable
+            style={styles.iconBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Retired towers"
+            onPress={() => setArchivedTowersVisible(true)}
+            testID="skyline-archived-towers-icon"
+          >
+            <MaterialCommunityIcons name="archive-outline" size={20} color={ui.text} />
           </Pressable>
           <Pressable
             style={styles.iconBtn}
@@ -309,66 +402,139 @@ export default function SkylineScreen({ navigation }) {
         </View>
 
         {loading && habits.length === 0 ? (
-        // Only the true cold-start case blanks the screen — `loading` also
-        // flips true→false on every refresh after a check-in (useHabits.js's
-        // `run()` wraps every mutation in a refresh), and gating the whole
-        // tree on that alone unmounted/remounted the entire skyline on every
-        // single floor build, flashing blank each time.
-        <Text style={[styles.loading, { color: ui.muted }]}>Loading your skyline…</Text>
-      ) : view === 'lots' ? (
-        <View style={styles.stage}>
-          <LotsView
-            rows={lots.rows}
-            habitsById={habitsById}
-            getCanBuild={getCanBuild}
-            onBuild={handleBuild}
-            onAddForAnotherDay={handleAddForAnotherDay}
-            tapToBuild={tapToBuild}
-            theme={ui}
-          />
-        </View>
-      ) : (
-        <View style={styles.stage} onLayout={(e) => setStageHeight(e.nativeEvent.layout.height)}>
-          {/* Cropped from the top (sky), never the bottom — a short screen
-              shows less sky above the towers, not a tower's base/labels
-              clipped off behind the collapsed sheet (see SHEET_PEEK_HEIGHT). */}
-          <View
-            style={[
-              styles.sceneWrap,
-              stageHeight > 0 && { height: Math.min(560, stageHeight - SHEET_PEEK_HEIGHT) },
-            ]}
-          >
-            <View style={styles.sceneAnchorBottom}>
-              <SkylineView
-                habits={sceneHabits}
-                scene={scene}
-                containerWidth={windowWidth}
-                showTouchables={false}
+          // Only the true cold-start case blanks the screen — `loading` also
+          // flips true→false on every refresh after a check-in
+          // (useHabits.js's `run()` wraps every mutation in a refresh), and
+          // gating the whole tree on that alone unmounted/remounted the
+          // entire skyline on every single floor build, flashing blank each
+          // time.
+          <Text style={[styles.loading, { color: ui.muted }]}>Loading your skyline…</Text>
+        ) : (
+          // Both tabs stay mounted at once, toggled with `display` instead
+          // of a `view === 'lots' ? A : B` ternary — the ternary used to
+          // fully unmount/remount whichever tab wasn't active, which is what
+          // made switching tabs laggy (rebuilding the SVG tower scene or the
+          // lot strip from scratch every time), not anything React.memo
+          // could fix. `display: 'none'` removes a view from layout *and*
+          // touch routing in RN, so the hidden tab can't receive taps or let
+          // its hold gesture fire — verified on-device, not just assumed.
+          <>
+            <View style={[styles.stage, view !== 'lots' && styles.hidden]}>
+              <LotsView
+                rows={lots.rows}
+                habitsById={habitsById}
+                getCanBuild={getCanBuild}
+                onBuild={handleBuild}
+                onOpenSheet={handleOpenLotSheet}
+                tapToBuild={tapToBuild}
                 theme={ui}
-                onAddHabit={() => setAddHabitVisible(true)}
-                interactiveOverlay={
-                  <SkylineHoldLayer
-                    hitTargets={scene.hitTargets}
-                    labels={scene.accessibilityLabels}
-                    getCanBuild={getCanBuild}
-                    onBuild={handleBuild}
-                    tapToBuild={tapToBuild}
-                    theme={ui}
-                  />
-                }
+                towerTheme={towerTheme}
+              />
+              <LotSheet
+                // Keyed by the period being shown — see LotSheet.js's doc
+                // comment on why this must force a fresh mount per period
+                // rather than letting stale local state (the selected day)
+                // survive from whichever period was open before.
+                key={lotSheetKey ? `${lotSheetKey.habitId}-${lotSheetKey.periodKey}` : 'none'}
+                visible={!!lotSheetKey}
+                onClose={closeLotSheet}
+                row={lotSheetRow}
+                period={lotSheetPeriod}
+                habit={lotSheetKey ? habitsById[lotSheetKey.habitId] : null}
+                tapToBuild={tapToBuild}
+                theme={ui}
+                onBuildDay={handleBuildForDay}
+                onRemoveCheckIn={removeCheckIn}
               />
             </View>
-          </View>
-          <SkylineHabitSheet
-            habits={sceneHabits}
-            getCanBuild={getCanBuild}
-            onBuild={handleBuild}
-            tapToBuild={tapToBuild}
-            theme={ui}
-            stageHeight={stageHeight}
-          />
-        </View>
-      )}
+            <View
+              style={[styles.stage, view !== 'daily' && styles.hidden]}
+              onLayout={(e) => setStageHeight(e.nativeEvent.layout.height)}
+            >
+              {/* Cropped from the top (sky), never the bottom — a short screen
+                  shows less sky above the towers, not a tower's base/labels
+                  clipped off behind the collapsed sheet (see SHEET_PEEK_HEIGHT). */}
+              <View
+                style={[
+                  styles.sceneWrap,
+                  stageHeight > 0 && { height: Math.min(560, stageHeight - SHEET_PEEK_HEIGHT) },
+                ]}
+              >
+                <View style={styles.sceneAnchorBottom}>
+                  <SkylineView
+                    habits={sceneHabits}
+                    scene={scene}
+                    containerWidth={windowWidth}
+                    showTouchables={false}
+                    theme={ui}
+                    onAddHabit={() => setAddHabitVisible(true)}
+                    interactiveOverlay={
+                      <SkylineHoldLayer
+                        hitTargets={scene.hitTargets}
+                        labels={scene.accessibilityLabels}
+                        getCanBuild={getCanBuild}
+                        onBuild={handleBuild}
+                        onOpenSheet={handleOpenTowerSheet}
+                        tapToBuild={tapToBuild}
+                        theme={ui}
+                      />
+                    }
+                  />
+                </View>
+              </View>
+              <SkylineHabitSheet
+                habits={sceneHabits}
+                getCanBuild={getCanBuild}
+                onBuild={handleBuild}
+                tapToBuild={tapToBuild}
+                theme={ui}
+                stageHeight={stageHeight}
+              />
+              <TowerSheet
+                // Forces a fresh mount per habit — same reasoning as
+                // LotSheet.js's own key: without it, TowerSheet's local
+                // backdate-picker state (selectedDateKey, showBackdate)
+                // would carry over from whichever tower was open last,
+                // and a Hold could silently build into the wrong habit's
+                // selected day.
+                key={towerSheetHabitId ?? 'none'}
+                visible={!!towerSheetHabitId}
+                onClose={closeTowerSheet}
+                habit={towerSheetHabit}
+                theme={ui}
+                tapToBuild={tapToBuild}
+                categoryColors={categoryColors}
+                onAskAboutTower={handleAskAboutTower}
+                onOpenInsideView={handleOpenInsideView}
+                onEdit={handleOpenTowerForm}
+              />
+              <TowerInsideView
+                visible={!!insideViewHabitId}
+                onClose={closeInsideView}
+                habit={insideViewHabit}
+                sceneHabit={insideViewSceneHabit}
+                today={today}
+                uiTheme={ui}
+                towerTheme={towerTheme}
+                onAskAboutTower={handleAskAboutTower}
+              />
+              <ArchivedTowersSheet
+                visible={archivedTowersVisible}
+                onClose={() => setArchivedTowersVisible(false)}
+                theme={ui}
+              />
+              <TowerForm
+                key={towerFormHabitId ?? 'new'}
+                visible={towerFormVisible}
+                onClose={closeTowerForm}
+                habit={towerFormHabit}
+                theme={ui}
+                towerTheme={towerTheme}
+                categoryColors={categoryColors}
+              />
+            </View>
+          </>
+        )}
 
       <Toast toast={toast} onHide={hideToast} />
       <LocationPermissionModal
@@ -376,12 +542,27 @@ export default function SkylineScreen({ navigation }) {
         onAllow={requestLocation}
         onDismiss={skipLocationPrompt}
       />
-      <AskHabituateModal visible={chatVisible} onClose={() => setChatVisible(false)} habits={habits} />
+      <AskHabituateModal
+        visible={chatVisible}
+        onClose={closeChat}
+        habits={habits}
+        initialQuestion={chatInitialQuestion}
+      />
       <Modal visible={addHabitVisible} transparent animationType="fade" onRequestClose={() => setAddHabitVisible(false)}>
         <Pressable style={styles.backdrop} onPress={() => setAddHabitVisible(false)}>
           <Pressable style={[styles.addHabitCard, { backgroundColor: ui.surfaceLow }]} onPress={() => {}}>
             <Text style={[styles.title, { color: ui.text, marginBottom: 12 }]}>Lay a foundation</Text>
             <TemplateHabitsPicker onSelect={handleAddTemplateHabit} />
+            <Pressable
+              onPress={() => {
+                setAddHabitVisible(false);
+                handleOpenTowerForm(null);
+              }}
+              style={styles.customTowerLink}
+              testID="skyline-custom-tower-link"
+            >
+              <Text style={[styles.customTowerLinkText, { color: ui.amber }]}>Create your own tower ›</Text>
+            </Pressable>
           </Pressable>
         </Pressable>
       </Modal>
@@ -406,7 +587,7 @@ const styles = StyleSheet.create({
   title: { fontFamily: fonts.extraBold, fontSize: 28 },
   subtitle: { fontFamily: fonts.regular, fontSize: 14, marginTop: 2 },
   iconBtn: { marginLeft: 10 },
-  viewSwitch: { flexDirection: 'row', paddingHorizontal: 12, marginBottom: 8, gap: 8 },
+  viewSwitch: { flexDirection: 'row', paddingHorizontal: 12, marginTop: 14, marginBottom: 8, gap: 8 },
   viewSwitchSeg: {
     flex: 1,
     flexDirection: 'row',
@@ -430,8 +611,11 @@ const styles = StyleSheet.create({
   badgeText: { fontFamily: fonts.bold, fontSize: 11, color: '#1A1300' },
   loading: { padding: 24, fontSize: 14 },
   stage: { flex: 1, overflow: 'hidden' },
+  hidden: { display: 'none' },
   sceneWrap: { height: 560, overflow: 'hidden' },
   sceneAnchorBottom: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 560 },
   backdrop: { flex: 1, backgroundColor: 'rgba(8,10,16,0.5)', alignItems: 'center', justifyContent: 'center', padding: 20 },
   addHabitCard: { width: '100%', maxWidth: 420, borderRadius: 20, padding: 20 },
+  customTowerLink: { alignItems: 'center', paddingTop: 16 },
+  customTowerLinkText: { fontFamily: fonts.semiBold, fontSize: 14 },
 });

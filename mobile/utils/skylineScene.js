@@ -37,13 +37,13 @@ export const FLOOR_H = 10;
 // floor comfortably fits within BASE_Y with headroom for the sky above.
 const MAX_INDIVIDUAL_FLOORS = 35;
 const TIER_HEIGHT = FLOOR_H * 3;
-const CRANE_HEIGHT = 38;
+export const CRANE_HEIGHT = 38;
 const DEFAULT_WINDOW_COUNT = 3;
 
 /** Evenly spaced window x-fractions (0-1 across the floor width) for a given
  * count — an Accessibility setting (useWindowCount.js). n=3 reproduces the
  * [0.18, 0.5, 0.82] layout from
- * concept_screens/tower_floor_states_windows_and_shield.png exactly. */
+ * design/skyline/22-floor-states-reference.png exactly. */
 function windowFractions(n) {
   if (n <= 1) return [0.5];
   const margin = 0.18;
@@ -74,8 +74,14 @@ function toKeySet(value) {
   return value instanceof Set ? value : new Set(value);
 }
 
-/** Per-day floor state for one habit, oldest first, due days only (section 4). */
-function classifyDays(habit, todayKey) {
+/**
+ * Per-day floor state for one habit, oldest first, due days only (section
+ * 4). Exported so TowerInsideView.js (Phase 3c's cross-section list) can
+ * reuse the exact same set/open/glass classification the tower itself
+ * draws from, instead of reimplementing it — the two must never disagree
+ * about what a given day's floor looks like.
+ */
+export function classifyDays(habit, todayKey) {
   const checkInDays = toKeySet(habit.checkInDays);
   const shieldDays = toKeySet(habit.shieldDays);
   // habit.startDate is already a 'YYYY-MM-DD' day string per the section 8
@@ -167,14 +173,16 @@ function faceShapes({
   const shapes = [];
 
   if (state === 'glass') {
-    // Shield Day: a flat, distinct-colored block — no windows at all. The
-    // absence of windows (not a hatch texture) is the signal: a real
-    // check-in always draws windows (lit or dark), a shielded day never
-    // does. Matches concept_screens/tower_floor_states_windows_and_shield.png.
+    // Shield Day (design-review board 22, owner-approved): a glass-tinted,
+    // translucent block (~45% opacity) with a bright edge stroke, no
+    // windows, no hatch. No icon here — a main-tower floor (FLOOR_H) isn't
+    // tall enough to fit one legibly; the icon only appears in the bigger
+    // renderings (LotTile.js's period block, TowerInsideView.js's swatch).
+    const glassOpacity = opacity * 0.45;
     shapes.push(
-      { id: `${id}-front`, kind: 'path', d: pointsToPath(faces.front), fill: theme.shieldFill, opacity },
-      { id: `${id}-right`, kind: 'path', d: pointsToPath(faces.right), fill: shade(theme.shieldFill, -20), opacity },
-      { id: `${id}-top`, kind: 'path', d: pointsToPath(faces.top), fill: shade(theme.shieldFill, 20), opacity },
+      { id: `${id}-front`, kind: 'path', d: pointsToPath(faces.front), fill: theme.shieldFill, opacity: glassOpacity, stroke: theme.shieldEdge, strokeWidth: 1.2 },
+      { id: `${id}-right`, kind: 'path', d: pointsToPath(faces.right), fill: theme.shieldFillSide, opacity: glassOpacity, stroke: theme.shieldEdge, strokeWidth: 1 },
+      { id: `${id}-top`, kind: 'path', d: pointsToPath(faces.top), fill: shade(theme.shieldFill, 20), opacity: glassOpacity },
     );
     return shapes;
   }
@@ -194,7 +202,7 @@ function faceShapes({
   }
 
   // 'set' — wall color is the same whether this floor is in the current run
-  // or not (concept_screens/tower_floor_states_windows_and_shield.png shows
+  // or not (design/skyline/22-floor-states-reference.png shows
   // identical block color for both); only the windows differ. Every real
   // check-in gets windows — lit (bright) inside the current run, dark
   // (muted) once the run has moved past it. That's the non-color signal:
@@ -270,6 +278,61 @@ function towerBodyShapes(habit, x, days, theme, windowCount) {
   });
 
   return { shapes, topY: yCursor, visible, hidden };
+}
+
+const CLOSED_SEGMENT_OPACITY = 0.4;
+const CLOSED_SEGMENT_MIN_H = FLOOR_H * 2;
+const CLOSED_SEGMENT_MAX_H = FLOOR_H * 10;
+// Towers sit STEP (52) apart and a tower's own footprint (TOWER_W + DX)
+// is 46 wide, leaving only ~6px of clear slot margin on each side before
+// touching a neighboring tower. 2px per depth level (max depth 2 -> 4px)
+// stays safely inside that margin on both the leftmost tower (extra room
+// before x=0) and every other one (the 6px gap to the previous tower).
+const CLOSED_SEGMENT_STEP_BACK = 2;
+
+/**
+ * Up to 2 faded closed segments stacked behind the active tower (SKYLINE.md
+ * section 6, Phase 3d). Purely additive: `habit.closedSegments` is
+ * absent/empty for every habit that's never topped out — the overwhelming
+ * common case today, since top-out didn't exist before this phase — so for
+ * them this returns `[]` and the scene is byte-identical to before this
+ * function existed. Never added to hitTargets by the caller: a hold must
+ * only ever land on the live segment.
+ *
+ * Collapsed hard on purpose (no individual floors, no windows) — closed
+ * segments are already desaturated and faded, so floor-level detail
+ * wouldn't read at that opacity anyway, and this keeps the ~600-shape
+ * budget far from being a concern even for a habit topped out many times.
+ */
+function closedSegmentShapes(habit, x, theme) {
+  const segments = habit.closedSegments || [];
+  const shapes = [];
+  segments.forEach((segment, i) => {
+    // The array is oldest-first; the furthest-back (oldest) segment gets
+    // the largest offset/most fade, so the most recently closed one sits
+    // closest to (and reads less faded than) the active tower in front.
+    const depth = segments.length - i;
+    const offsetX = x - depth * CLOSED_SEGMENT_STEP_BACK;
+    const opacity = Math.max(0.2, CLOSED_SEGMENT_OPACITY - (depth - 1) * 0.08);
+    const height = Math.max(
+      CLOSED_SEGMENT_MIN_H,
+      Math.min(CLOSED_SEGMENT_MAX_H, (segment.floorCount || 1) * 2),
+    );
+    const yTop = BASE_Y - height;
+    const faces = floorFaces(offsetX, yTop, TOWER_W);
+    const fill = theme.closedSegmentFill;
+    shapes.push(
+      { id: `${habit.id}-closed${i}-front`, kind: 'path', d: pointsToPath(faces.front), fill, opacity },
+      { id: `${habit.id}-closed${i}-right`, kind: 'path', d: pointsToPath(faces.right), fill: shade(fill, -30), opacity },
+      // The top face doubles as the "gold cap" SKYLINE.md's gate calls for
+      // — filled gold instead of the muted block color, rather than a
+      // second floating shape stacked a few px above its own top face.
+      // Neither the active tower's crane nor the monument's flag applies
+      // here (Part E's plan: faded segments get no crane/flag).
+      { id: `${habit.id}-closed${i}-top`, kind: 'path', d: pointsToPath(faces.top), fill: theme.flagColor, opacity },
+    );
+  });
+  return shapes;
 }
 
 function lifecycleShapes(habit, x, topY, theme) {
@@ -385,6 +448,7 @@ export function buildScene(habits, options) {
     const { shapes: bodyShapes, topY, visible, hidden } = towerBodyShapes(habit, x, days, theme, windowCount);
 
     const towerShapes = [
+      ...closedSegmentShapes(habit, x, theme),
       ...bodyShapes,
       ...lifecycleShapes(habit, x, topY, theme),
       ...bestRunLedge(habit, x, days, visible, topY, theme),

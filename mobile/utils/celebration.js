@@ -186,22 +186,3 @@ export function buildAllDoneCelebration(previousDone, todayDone, todayTotal) {
     shareText: `Finished all ${todayTotal} habits today!`,
   };
 }
-
-/** Null unless this exact progress update is what completes the goal's target. */
-export function buildGoalMilestone(goal, delta) {
-  if (goal.complete) return null;
-  const newCount = (goal.currentCount || 0) + delta;
-  if (newCount < goal.targetCount) return null;
-
-  const progressLine = `${goal.description}: ${newCount} of ${goal.targetCount} — done.`;
-
-  return {
-    key: `milestone-goal-${goal.id}-${Date.now()}`,
-    variant: 'milestone',
-    headline: 'Goal complete! 🎉',
-    subhead: goal.description,
-    progressLine,
-    streakLine: null,
-    shareText: progressLine,
-  };
-}

@@ -19,6 +19,43 @@ function instantForDayKey(dayKey) {
   return new Date(y, m - 1, d, 12, 0, 0, 0).toISOString();
 }
 
+/** A short-lived stand-in for a check-in that hasn't round-tripped to the
+ * server yet — see `patchHabitCheckIns` below. Its id is never a real
+ * server id; `refresh()` (which every mutator still runs right after)
+ * replaces it with the authoritative row within one refresh cycle. */
+function optimisticCheckIn(dayKey, value) {
+  return { id: `optimistic-${dayKey}-${Date.now()}`, occurredAt: instantForDayKey(dayKey), value, source: 'manual' };
+}
+
+/** Applies a partial field patch to one habit immediately — the same
+ * "flip the UI before the network call lands" idea as patchHabitCheckIns,
+ * for a scalar field rather than the check-ins array. */
+function patchHabitFields(setHabits, habitId, fields) {
+  setHabits((prev) => prev.map((h) => (h.id === habitId ? { ...h, ...fields } : h)));
+}
+
+/** Applies `updater` to one habit's `checkIns` immediately, recomputing
+ * `checkedInToday` from the result — the two fields `getCanBuild` and
+ * `HoldPillButton`'s `built` state actually key off. Every check-in mutator
+ * below calls this right before its network request, so the Hold pill
+ * flips to "Built" (and a lot tile's day cell lights up) the instant a hold
+ * completes, instead of waiting on `refresh()`'s full
+ * listHabits+every-habit's-listCheckIns round trip to the API. `refresh()`
+ * still runs afterward (success or failure — see `run`'s comment) and
+ * overwrites this with the server's real state, so a transient wrong guess
+ * here (e.g. a 409/404 race) self-heals within one cycle. */
+function patchHabitCheckIns(setHabits, habitId, updater) {
+  setHabits((prev) =>
+    prev.map((h) => {
+      if (h.id !== habitId) return h;
+      const checkIns = updater(h.checkIns);
+      const today = toDateKey(new Date());
+      const checkedInToday = checkIns.some((ci) => toDateKey(ci.occurredAt) === today);
+      return { ...h, checkIns, checkedInToday };
+    }),
+  );
+}
+
 /**
  * Kept for local fallback only — the authoritative values come from the API
  * (currentStreak / longestStreak on each HabitResponse).
@@ -103,11 +140,22 @@ export function HabitsProvider({ children }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   // How many Shield Days the user has banked right now — fetched alongside
-  // habits so both TodayScreen's shield icon and HabitsScreen's info modal
+  // habits so TodayScreen's shield icon and its Shield Days info modal
   // can read it from one place instead of each fetching it separately.
   const [shieldsAvailable, setShieldsAvailable] = useState(0);
 
+  // Concurrent same-habit mutations (addCheckIn deliberately allows these —
+  // see its comment) each trigger their own refresh(), and those network
+  // round trips can resolve out of order: an earlier refresh started before
+  // a later tap's write even landed, so if it applied its (now-stale)
+  // result after a newer refresh already did, it would stomp the newer,
+  // more current state back to an older one. Stamping each call and only
+  // applying the result if it's still the most recently started one fixes
+  // that without needing to serialize refreshes.
+  const refreshSeq = useRef(0);
+
   const refresh = useCallback(async () => {
+    const seq = ++refreshSeq.current;
     try {
       setLoading(true);
       const [active, archived, shields] = await Promise.all([
@@ -116,6 +164,7 @@ export function HabitsProvider({ children }) {
         api.getShields().catch(() => ({ available: 0 })),
       ]);
       const enrichedHabits = await Promise.all((active || []).map(hydrate));
+      if (seq !== refreshSeq.current) return; // a newer refresh already landed — don't overwrite it with this stale one
       setHabits(enrichedHabits);
       setArchivedHabits(archived || []);
       setShieldsAvailable(shields?.available || 0);
@@ -124,9 +173,10 @@ export function HabitsProvider({ children }) {
       // live API call — keep it current every time the real list refreshes.
       syncHabitSnapshot(enrichedHabits).catch(() => {});
     } catch (err) {
+      if (seq !== refreshSeq.current) return;
       setError(err instanceof Error ? err.message : 'Could not load habits');
     } finally {
-      setLoading(false);
+      if (seq === refreshSeq.current) setLoading(false);
     }
   }, []);
 
@@ -140,6 +190,19 @@ export function HabitsProvider({ children }) {
       try {
         await action();
         await refresh();
+      } catch (err) {
+        // Reconciles with the server in the background rather than
+        // awaiting it here — necessary now that some actions (the check-in
+        // mutators below) apply an optimistic local patch before the
+        // network call, so a thrown error must not leave that patch stuck
+        // un-reconciled. But awaiting it would delay this rethrow until
+        // after a full refresh round trip, which means the UI would
+        // silently snap back to the pre-optimistic state first and only
+        // show the error toast a beat later — confusing on its own.
+        // Firing it without awaiting keeps the error (and the caller's
+        // toast) immediate while refresh() still catches up right after.
+        refresh();
+        throw err;
       } finally {
         setBusy(false);
       }
@@ -191,6 +254,12 @@ export function HabitsProvider({ children }) {
 
         const existing = habit.checkIns.find((checkIn) => toDateKey(checkIn.occurredAt) === dayKey);
 
+        patchHabitCheckIns(setHabits, habitId, (checkIns) =>
+          existing
+            ? checkIns.filter((ci) => ci.id !== existing.id)
+            : [...checkIns, optimisticCheckIn(dayKey, 1)],
+        );
+
         try {
           if (existing) {
             await api.deleteCheckIn(existing.id);
@@ -230,6 +299,7 @@ export function HabitsProvider({ children }) {
     (habitId, value = 1, dayKey = toDateKey(new Date())) =>
       run(() => {
         const isToday = dayKey === toDateKey(new Date());
+        patchHabitCheckIns(setHabits, habitId, (checkIns) => [...checkIns, optimisticCheckIn(dayKey, value)]);
         return api.createCheckIn(habitId, {
           value,
           source: 'manual',
@@ -252,6 +322,12 @@ export function HabitsProvider({ children }) {
           .sort((a, b) => new Date(b.occurredAt) - new Date(a.occurredAt));
 
         if (todays[0]) {
+          patchHabitCheckIns(setHabits, habitId, (checkIns) => checkIns.filter((ci) => ci.id !== todays[0].id));
+          // A fake optimistic row (see optimisticCheckIn above) never reached
+          // the server, so there's nothing to delete there — the local
+          // filter above already removed it, and refresh() will replace it
+          // with whatever the server actually holds within one cycle.
+          if (String(todays[0].id).startsWith('optimistic-')) return;
           try {
             await api.deleteCheckIn(todays[0].id);
           } catch (err) {
@@ -264,6 +340,30 @@ export function HabitsProvider({ children }) {
     [habits, runExclusive]
   );
 
+  // Deletes one specific check-in by id — the lot sheet's per-entry Remove
+  // (SKYLINE.md section 4a). Unlike removeLastCheckIn (today's most recent
+  // one only), this targets an exact row from a period's check-ins list,
+  // since a COUNT habit's period can hold several and a BOOLEAN period can
+  // span any of several past days, not just today.
+  const removeCheckIn = useCallback(
+    (habitId, checkInId) =>
+      runExclusive(habitId, async () => {
+        patchHabitCheckIns(setHabits, habitId, (checkIns) => checkIns.filter((ci) => ci.id !== checkInId));
+        // Same optimistic-row guard as removeLastCheckIn: a row the user
+        // tapped Remove on before its own add had round-tripped was never a
+        // real server row, so deleting it would 400 (the backend expects a
+        // numeric id), not the 404 the catch below expects.
+        if (String(checkInId).startsWith('optimistic-')) return;
+        try {
+          await api.deleteCheckIn(checkInId);
+        } catch (err) {
+          // Already gone — same desired-state-already-holds case as above.
+          if (err?.status !== 404) throw err;
+        }
+      }),
+    [runExclusive]
+  );
+
   // Toggles today's manual shield for a habit — activate requires a 7+ day
   // streak and a banked shield (enforced server-side); deactivate just
   // refunds whichever shield (manual or automatic) is currently protecting
@@ -274,7 +374,13 @@ export function HabitsProvider({ children }) {
       runExclusive(habitId, async () => {
         const habit = habits.find((item) => item.id === habitId);
         if (!habit) return;
-        if (habit.shieldedToday) {
+        const wasShielded = habit.shieldedToday;
+        // Optimistic flip, same reasoning as the check-in mutators — the
+        // server can still reject this (streak too short, no shield
+        // banked, already shielded), in which case refresh() flips it back
+        // within one cycle, same as a check-in race self-healing.
+        patchHabitFields(setHabits, habitId, { shieldedToday: !wasShielded });
+        if (wasShielded) {
           await api.deactivateShield(habitId);
         } else {
           await api.activateShield(habitId);
@@ -292,6 +398,15 @@ export function HabitsProvider({ children }) {
 
   const deleteHabit = useCallback((habitId) => run(() => api.deleteHabit(habitId)), [run]);
 
+  // Closes the habit's current tower segment and opens a new one (SKYLINE.md
+  // section 6, daily-cadence only) — server-validated (ownership, cadence,
+  // age threshold), so this can still reject with a specific message even
+  // if a caller's own eligibility check was stale.
+  const topOutHabit = useCallback(
+    (habitId) => runExclusive(habitId, () => api.topOutHabit(habitId)),
+    [runExclusive]
+  );
+
   const summary = useMemo(() => summarizeHabits(habits), [habits]);
 
   const value = useMemo(
@@ -308,10 +423,12 @@ export function HabitsProvider({ children }) {
       toggleCheckIn,
       addCheckIn,
       removeLastCheckIn,
+      removeCheckIn,
       toggleShield,
       repairStreak,
       shieldsAvailable,
       deleteHabit,
+      topOutHabit,
     }),
     [
       habits,
@@ -326,10 +443,12 @@ export function HabitsProvider({ children }) {
       toggleCheckIn,
       addCheckIn,
       removeLastCheckIn,
+      removeCheckIn,
       toggleShield,
       repairStreak,
       shieldsAvailable,
       deleteHabit,
+      topOutHabit,
     ]
   );
 

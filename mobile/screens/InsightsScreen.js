@@ -6,26 +6,31 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
+import api from '../api/client';
 import CalendarModal from '../components/CalendarModal';
-import TreeRingChart from '../components/TreeRingChart';
 import TourHighlight from '../components/TourHighlight';
-import { categoryIcon } from '../constants/habitCategories';
+import Toast from '../components/Toast';
+import { categoryColor, categoryIcon, HABIT_CATEGORY_COLORS } from '../constants/habitCategories';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useHabits } from '../hooks/useHabits';
+import { useToast } from '../hooks/useToast';
 import { useRegisterScrollToTop } from '../hooks/useRegisterScrollToTop';
 import { useTourTarget } from '../hooks/useTourTarget';
 import { TOUR_SCOPES, TOUR_TARGETS } from '../constants/onboardingTour';
 import {
   CONSISTENCY_PERIODS,
-  computeConsistency,
-  consistencyMessage,
   habitHistorySummary,
   habitPeriodHistory,
   isCurrentPeriod,
   periodRangeLabel,
   shiftAnchor,
+  totalFloorsHistory,
 } from '../utils/consistency';
-import { fonts, gradients, radii, shadow, spacing } from '../theme';
+import { hasDailyTarget } from '../utils/cadence';
+import { startOfWeek, toDateKey } from '../utils/date';
+import { buildLots } from '../utils/lots';
+import { toLotHabit } from '../utils/skylineAdapter';
+import { buildCategoryTowerColors, fonts, gradients, radii, shadow, spacing } from '../theme';
 
 /**
  * Cycled per selected habit so a multi-select chart can tell bars apart —
@@ -40,42 +45,62 @@ const BAR_COLOR_SETS = [
   ['#818CF8', '#4338CA'], // indigo
 ];
 
+// Per-habit color for the new Floors/Runs/Shield-use cards — the raw habit
+// record (unlike the Skyline scene/lot builders' transformed shape) has no
+// .color of its own; same derivation TodayScreen.js/TowerSheet.js use.
+const towerColorsByMode = buildCategoryTowerColors(HABIT_CATEGORY_COLORS);
+
 const BAR_MAX_HEIGHT = 120;
 const HISTORY_TITLES = {
-  daily: 'Today, hour by hour',
   weekly: 'This week, day by day',
   monthly: 'This month, week by week',
   yearly: 'This year, month by month',
 };
-const HISTORY_SUBTITLES = { daily: 'By hour', weekly: 'By day', monthly: 'By week', yearly: 'By month' };
-const PERIOD_ORDER = CONSISTENCY_PERIODS;
+const HISTORY_SUBTITLES = { weekly: 'By day', monthly: 'By week', yearly: 'By month' };
+// Phase 5 (design/skyline/06-insights.png): Week/Month/Year only — the old
+// Daily tab (24-hourly-bar view) is dropped, owner decision 2026-11-13.
+// CONSISTENCY_PERIODS itself still includes 'daily' (computeConsistency/
+// habitPeriodHistory's hourly branch stays correct and is still used by
+// ProfileScreen.js's weekly-consistency stat), just not offered as a tab
+// here anymore.
+const PERIOD_ORDER = CONSISTENCY_PERIODS.filter((p) => p !== 'daily');
 
-const PERIOD_LABELS = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', yearly: 'Yearly' };
-const LIVE_PERIOD_LABELS = { daily: 'Today', weekly: 'This week', monthly: 'This month', yearly: 'This year' };
-const PERIOD_TITLES = {
-  daily: 'DAILY CONSISTENCY',
-  weekly: 'WEEKLY CONSISTENCY',
-  monthly: 'MONTHLY CONSISTENCY',
-  yearly: 'YEARLY CONSISTENCY',
-};
+// Tab labels match the Runs/Shield-use follow-up mockup exactly ("8 weeks" /
+// "6 months" / "Year") — a rolling bucket-count framing, not calendar-period
+// names, superseding 06-insights.png's plain "Week/Month/Year" labels.
+const PERIOD_LABELS = { weekly: '8 weeks', monthly: '6 months', yearly: 'Year' };
+const LIVE_PERIOD_LABELS = { weekly: 'This week', monthly: 'This month', yearly: 'This year' };
 
 /**
  * Pattern/correlation detection (Phase 5/6) was removed 2026-10-04 — real
- * usage showed it wasn't useful. This screen is now just the consistency
- * summary plus its per-habit bar-graph breakdown (formerly a separate
- * drill-down modal, ConsistencyDetailModal, inlined directly into this page
- * so the detail is visible without an extra tap). Ask Habituate's entry
+ * usage showed it wasn't useful. This screen is now the "Floors laid"
+ * summary (Phase 5 rebuild, design/skyline/06-insights.png — replaces the
+ * old consistency-ring card, TreeRingChart.js no longer used here) plus the
+ * per-habit bar-graph breakdown (formerly a separate drill-down modal,
+ * ConsistencyDetailModal, inlined directly into this page so the detail is
+ * visible without an extra tap). computeConsistency/consistencyMessage
+ * stay in utils/consistency.js (ProfileScreen.js's weekly-consistency stat
+ * still uses them) but this screen no longer does. Ask Habituate's entry
  * point lives on TodayScreen now (chat icon, top-right header) rather than
  * here — SKILLS.md Phase 10's original placement for its full replacement
- * of pattern detection.
+ * of pattern detection. The mockup's "Compare" card (pick two habits, see
+ * a non-causal co-occurrence stat) is a separate, not-yet-built addition —
+ * genuinely new capability, not a rewire of anything removed, so it's
+ * deliberately out of this pass (see SKYLINE.md section 14).
  */
 export default function InsightsScreen({ navigation, route }) {
-  const { colors, typography } = useAppTheme();
+  const { colors, typography, effectiveMode } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const insets = useSafeAreaInsets();
   const scrollRef = useRegisterScrollToTop('Insights');
+  const habitCategoryColors = towerColorsByMode[effectiveMode];
+  const habitColor = useCallback(
+    (habit) => (habitCategoryColors && habitCategoryColors[habit.category]) || categoryColor(habit.category),
+    [habitCategoryColors]
+  );
 
-  const { habits, refresh } = useHabits();
+  const { habits, refresh, toggleCheckIn, busy } = useHabits();
+  const { toast, showToast, hideToast } = useToast();
   const [period, setPeriod] = useState('weekly');
   // The date each period's trailing window ends at — "now" shows the live
   // period; prev/next slide it back/forward a whole window-length at a time
@@ -93,6 +118,21 @@ export default function InsightsScreen({ navigation, route }) {
   const [calendarVisible, setCalendarVisible] = useState(false);
   const [calendarAnchorDateKey, setCalendarAnchorDateKey] = useState(null);
   const [calendarSelectedDayKey, setCalendarSelectedDayKey] = useState(null);
+
+  // Was HabitsScreen.js's handleToggleCalendarDay — backdates/undoes a BOOLEAN
+  // habit's check-in for the tapped day. HabitsScreen was the only screen
+  // wiring this into CalendarModal's onToggleHabitDay; restoring it here so
+  // removing that screen doesn't silently drop the capability.
+  const handleToggleCalendarDay = useCallback(
+    async (habit, dayKey) => {
+      try {
+        await toggleCheckIn(habit.id, dayKey);
+      } catch (err) {
+        showToast(`Could not update check-in — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+      }
+    },
+    [toggleCheckIn, showToast]
+  );
 
   useEffect(() => {
     setSelectedHabitIds((current) => {
@@ -115,13 +155,49 @@ export default function InsightsScreen({ navigation, route }) {
     setCalendarVisible(true);
   };
 
-  const tourConsistencyCardRef = useTourTarget(TOUR_TARGETS.INSIGHTS_CONSISTENCY_CARD);
+  const tourFloorsCardRef = useTourTarget(TOUR_TARGETS.INSIGHTS_CONSISTENCY_CARD);
 
-  const consistency = useMemo(() => computeConsistency(habits, period, anchor), [habits, period, anchor]);
-  const message = useMemo(
-    () => consistencyMessage(consistency.percent, consistency.hasData),
-    [consistency]
-  );
+  const floors = useMemo(() => totalFloorsHistory(habits, period, anchor), [habits, period, anchor]);
+  const maxFloorsBucketValue = Math.max(1, ...floors.buckets.map((b) => b.value));
+
+  // "Runs" card (Phase 5 follow-up mockup): every habit, current vs. best
+  // run. A daily-cadence habit's run is already in days (habit.streak/
+  // longestStreak from the backend's StreakCalculator); a weekly/monthly
+  // habit has no such field, so it's run through the same buildLots engine
+  // the Weekly & Monthly lots view uses, which carries both currentRun and
+  // (new this round) bestRun in that habit's own period unit.
+  const runsRows = useMemo(() => {
+    const dailyRows = habits
+      .filter((h) => hasDailyTarget(h))
+      .map((h) => ({
+        id: h.id,
+        name: h.name,
+        color: habitColor(h),
+        current: h.streak || 0,
+        best: h.longestStreak || 0,
+        currentLabel: `${h.streak || 0} day${(h.streak || 0) === 1 ? '' : 's'}`,
+        bestLabel: `best ${h.longestStreak || 0}`,
+      }));
+    const periodOnlyHabits = habits.filter((h) => !hasDailyTarget(h));
+    const lotRows =
+      periodOnlyHabits.length === 0
+        ? []
+        : buildLots(
+            periodOnlyHabits.map((h) => toLotHabit(h, habitCategoryColors)),
+            { today: anchor }
+          ).rows.map((r) => ({
+            id: r.habitId,
+            name: r.name,
+            color: r.color,
+            current: r.currentRun,
+            best: r.bestRun,
+            currentLabel: `${r.currentRun} ${r.periodWord}${r.currentRun === 1 ? '' : 's'}`,
+            bestLabel: `best ${r.bestRun}`,
+          }));
+    const all = [...dailyRows, ...lotRows];
+    const maxCurrent = Math.max(0, ...all.map((r) => r.current));
+    return all.map((r) => ({ ...r, isBest: maxCurrent > 0 && r.current === maxCurrent }));
+  }, [habits, anchor, habitColor, habitCategoryColors]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -129,14 +205,13 @@ export default function InsightsScreen({ navigation, route }) {
     setRefreshing(false);
   }, [refresh]);
 
-  const trend = consistency.trendDelta;
   const isLivePeriod = isCurrentPeriod(period, anchor);
   const rangeLabel = periodRangeLabel(period, anchor);
-  // Daily (24 hourly bars) and yearly (12 monthly bars) get their own
-  // horizontal ScrollView below (see isDense usage further down) — the
-  // swipe-to-navigate-period pan gesture is disabled on those so a finger
-  // drag over the bars scrolls them instead of fighting the period swipe.
-  const isDense = period === 'daily' || period === 'yearly';
+  // Yearly (12 monthly bars) gets its own horizontal ScrollView below (see
+  // isDense usage further down) — the swipe-to-navigate-period pan gesture
+  // is disabled there so a finger drag over the bars scrolls them instead
+  // of fighting the period swipe.
+  const isDense = period === 'yearly';
 
   const selectPeriod = (p) => {
     setPeriod(p);
@@ -198,12 +273,9 @@ export default function InsightsScreen({ navigation, route }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [selectedHabitIds, period, habits, anchor]
   );
-  const bucketLabels = selectedHistories[0]?.history.buckets.map((b) => b.label) || [];
   const maxBucketValue =
     selectedHistories.length > 0
-      ? period === 'daily'
-        ? Math.max(1, ...selectedHistories.flatMap(({ history }) => history.buckets.map((b) => b.value)))
-        : Math.max(1, ...selectedHistories.flatMap(({ history }) => history.buckets.map((b) => b.windowLen)))
+      ? Math.max(1, ...selectedHistories.flatMap(({ history }) => history.buckets.map((b) => b.windowLen)))
       : 1;
   const hasAnyWindow = selectedHistories.some(({ history }) => history.buckets.some((b) => b.windowLen > 0));
   const latestSingleBucket =
@@ -258,10 +330,13 @@ export default function InsightsScreen({ navigation, route }) {
         }
       >
         <Text style={styles.title}>Insights</Text>
-        <Text style={styles.subtitle}>Understand your progress. Find your rhythm.</Text>
+        <Text style={styles.subtitle}>
+          {floors.currentBucketLabel} {floors.periodNoun}, with {floors.buckets.length - 1} {floors.periodNoun}
+          {floors.buckets.length - 1 === 1 ? '' : 's'} before it
+        </Text>
 
         <View style={styles.tabRow}>
-          {CONSISTENCY_PERIODS.map((p) => (
+          {PERIOD_ORDER.map((p) => (
             <Pressable
               key={p}
               style={[styles.tabPill, period === p && styles.tabPillActive]}
@@ -306,42 +381,115 @@ export default function InsightsScreen({ navigation, route }) {
           </Pressable>
         </View>
 
-        <View ref={tourConsistencyCardRef} style={styles.consistencyCard}>
-          <View style={styles.consistencyHeaderRow}>
-            <View>
-              <Text style={styles.consistencyLabel}>{PERIOD_TITLES[period]}</Text>
-              <Text style={styles.consistencyPercent}>{consistency.percent}%</Text>
-            </View>
-            {trend != null ? (
-              <View style={[styles.trendBadge, trend < 0 && styles.trendBadgeDown]}>
-                <MaterialCommunityIcons
-                  name={trend >= 0 ? 'arrow-up' : 'arrow-down'}
-                  size={12}
-                  color={trend >= 0 ? colors.safe : colors.textSecondary}
-                />
-                <Text style={[styles.trendText, trend < 0 && styles.trendTextDown]}>
-                  {trend >= 0 ? '+' : ''}
-                  {trend}%
-                </Text>
-              </View>
-            ) : null}
+        <View ref={tourFloorsCardRef} style={styles.floorsCard}>
+          <View style={styles.cardHeaderRow}>
+            <Text style={styles.cardTitle}>Floors built</Text>
+            <Text style={styles.floorsTag}>Daily towers</Text>
           </View>
 
-          <Text style={styles.messageTitle}>{message.title}</Text>
-          <Text style={styles.messageSubtitle}>{message.subtitle}</Text>
+          <Text style={styles.floorsHeadlineNumber}>{floors.currentTotal}</Text>
+          <Text style={styles.floorsHeadlineLabel}>so far this {floors.periodNoun}</Text>
+          {floors.previousAtThisPointTotal != null ? (
+            <Text style={styles.floorsComparison}>
+              Last {floors.periodNoun} at this point: {floors.previousAtThisPointTotal}
+            </Text>
+          ) : null}
+
+          <View style={styles.floorsBarRow}>
+            {floors.buckets.map((bucket, i) => {
+              const segments = floors.habitLegend
+                .map((h) => ({ habit: h, value: bucket.byHabit[h.id] || 0 }))
+                .filter((s) => s.value > 0);
+              return (
+                <View key={i} style={styles.floorsBarColumn}>
+                  <View style={styles.floorsBarTrack}>
+                    {/* column-reverse so the first-rendered (first-legend-order)
+                        habit's segment sits at the bottom of the stack, like a
+                        floor actually built first — each segment's height is a
+                        % of the bar's own max, so they sum to the bar's total. */}
+                    {segments.map(({ habit, value }) => {
+                      const pct = maxFloorsBucketValue > 0 ? (value / maxFloorsBucketValue) * 100 : 0;
+                      return (
+                        <View
+                          key={habit.id}
+                          style={[styles.floorsBarSegment, { height: `${pct}%`, backgroundColor: habitColor(habit) }]}
+                        />
+                      );
+                    })}
+                  </View>
+                  <Text style={[styles.floorsBarAxisLabel, bucket.isCurrent && styles.floorsBarAxisLabelCurrent]}>
+                    {bucket.label}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+
+          {floors.habitLegend.length > 0 ? (
+            <View style={styles.legendRow}>
+              {floors.habitLegend.map((h) => (
+                <View key={h.id} style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: habitColor(h) }]} />
+                  <Text style={styles.legendText} numberOfLines={1}>
+                    {h.name}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
 
           {habits.length === 0 ? (
             <Pressable
               style={styles.emptyCta}
               accessibilityRole="button"
-              accessibilityLabel="Add your first habit"
-              onPress={() => navigation.navigate('Habits', { openCreateHabit: true })}
+              accessibilityLabel="Lay a foundation"
+              onPress={() => navigation.navigate('Today')}
             >
-              <Text style={styles.emptyCtaText}>Add your first habit</Text>
+              <Text style={styles.emptyCtaText}>Lay a foundation</Text>
               <MaterialCommunityIcons name="arrow-right" size={16} color={colors.accent} />
             </Pressable>
           ) : null}
         </View>
+
+        {runsRows.length > 0 ? (
+          <View style={styles.card}>
+            <View style={styles.cardHeaderRow}>
+              <Text style={styles.cardTitle}>Runs</Text>
+              <Text style={styles.floorsTag}>Current and best</Text>
+            </View>
+            {runsRows.map((row) => (
+              <View key={row.id} style={styles.runRow}>
+                <View style={styles.runRowHeader}>
+                  <View style={[styles.legendDot, { backgroundColor: row.color }]} />
+                  <Text style={styles.runName} numberOfLines={1}>
+                    {row.name}
+                  </Text>
+                  {row.isBest ? (
+                    <View style={styles.bestBadge}>
+                      <Text style={styles.bestBadgeText}>Best</Text>
+                    </View>
+                  ) : null}
+                  <Text style={styles.runCurrent}>{row.currentLabel}</Text>
+                </View>
+                <View style={styles.runBarRow}>
+                  <View style={styles.runBarTrack}>
+                    <View
+                      style={[
+                        styles.runBarFill,
+                        { width: `${row.best > 0 ? Math.min(100, (row.current / row.best) * 100) : 0}%`, backgroundColor: row.color },
+                      ]}
+                    />
+                    <View style={styles.runBarTick} />
+                  </View>
+                  <Text style={styles.runBestLabel}>{row.bestLabel}</Text>
+                </View>
+              </View>
+            ))}
+            <Text style={styles.runFootnote}>The white mark is your best run.</Text>
+          </View>
+        ) : null}
+
+        <ShieldUseCard habits={habits} habitColor={habitColor} colors={colors} styles={styles} />
 
         {habits.length > 0 ? (
           <>
@@ -413,14 +561,13 @@ export default function InsightsScreen({ navigation, route }) {
                     </View>
 
                     {hasAnyWindow ? (
-                      selectedHistories.length === 1 ? (() => {
+                      selectedHistories.map(({ habit, history }, historyIndex) => {
+                        const colorSet = BAR_COLOR_SETS[historyIndex % BAR_COLOR_SETS.length];
                         const bars = (
                           <View style={[styles.chartRow, isDense && styles.chartRowDense]}>
-                            {bucketLabels.map((label, bucketIndex) => {
-                              const bucket = selectedHistories[0].history.buckets[bucketIndex];
+                            {history.buckets.map((bucket, bucketIndex) => {
                               const pct = maxBucketValue > 0 ? Math.round((bucket.value / maxBucketValue) * 100) : 0;
-                              const colorSet = BAR_COLOR_SETS[0];
-                              const tappable = period !== 'daily' && bucket.dateKey;
+                              const tappable = Boolean(bucket.dateKey);
                               return (
                                 <Pressable
                                   key={bucketIndex}
@@ -428,7 +575,7 @@ export default function InsightsScreen({ navigation, route }) {
                                   disabled={!tappable}
                                   onPress={tappable ? () => openBucketInCalendar(period, bucket) : undefined}
                                   accessibilityRole={tappable ? 'button' : undefined}
-                                  accessibilityLabel={`${label || bucketIndex}: ${bucket.value} day${bucket.value === 1 ? '' : 's'}${tappable ? ' — view check-ins' : ''}`}
+                                  accessibilityLabel={`${bucket.label || bucketIndex}: ${bucket.value} day${bucket.value === 1 ? '' : 's'}${tappable ? ' — view check-ins' : ''}`}
                                 >
                                   <View style={styles.barGroup}>
                                     <View style={[styles.barTrack, isDense && styles.barTrackDense]}>
@@ -442,54 +589,27 @@ export default function InsightsScreen({ navigation, route }) {
                                       ) : null}
                                     </View>
                                   </View>
-                                  <Text style={styles.barAxisLabel}>{label}</Text>
+                                  <Text style={styles.barAxisLabel}>{bucket.label}</Text>
                                 </Pressable>
                               );
                             })}
                           </View>
                         );
-                        return isDense ? (
-                          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                            {bars}
-                          </ScrollView>
-                        ) : (
-                          bars
-                        );
-                      })() : (
-                        <>
-                          <TreeRingChart
-                            selectedHistories={selectedHistories}
-                            colorSets={BAR_COLOR_SETS}
-                            trackColor={colors.ringTrack}
-                            labelColor={colors.textMuted}
-                            size={272}
-                          />
-
-                          <Text style={styles.ringHint}>Tap a habit below to see its own history</Text>
-
-                          <View style={styles.legendRow}>
-                            {selectedHistories.map(({ habit }, i) => (
-                              <Pressable
-                                key={habit.id}
-                                style={styles.legendItem}
-                                accessibilityRole="button"
-                                accessibilityLabel={`View ${habit.name} alone`}
-                                onPress={() => setSelectedHabitIds([habit.id])}
-                              >
-                                <View
-                                  style={[
-                                    styles.legendDot,
-                                    { backgroundColor: BAR_COLOR_SETS[i % BAR_COLOR_SETS.length][1] },
-                                  ]}
-                                />
-                                <Text style={styles.legendText} numberOfLines={1}>
-                                  {habit.name}
-                                </Text>
-                              </Pressable>
-                            ))}
+                        return (
+                          <View key={habit.id} style={historyIndex > 0 ? styles.summaryBlock : null}>
+                            {selectedHistories.length > 1 ? (
+                              <Text style={styles.summaryHabitName}>{habit.name}</Text>
+                            ) : null}
+                            {isDense ? (
+                              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                                {bars}
+                              </ScrollView>
+                            ) : (
+                              bars
+                            )}
                           </View>
-                        </>
-                      )
+                        );
+                      })
                     ) : (
                       <Text style={styles.emptyText}>No history yet in this window.</Text>
                     )}
@@ -519,10 +639,127 @@ export default function InsightsScreen({ navigation, route }) {
         initialAnchorDateKey={calendarAnchorDateKey}
         initialSelectedDayKey={calendarSelectedDayKey}
         onClose={() => setCalendarVisible(false)}
+        onToggleHabitDay={handleToggleCalendarDay}
+        busy={busy}
       />
     </SafeAreaView>
     <TourHighlight scope={TOUR_SCOPES.INSIGHTS} />
+    <Toast toast={toast} onHide={hideToast} />
     </>
+  );
+}
+
+const SHIELD_WINDOW_WEEKS = 12;
+
+/**
+ * "Shield use" (Phase 5 follow-up mockup): total Shield Days used and how
+ * many habits used one, then a per-habit 12-week dot timeline with a
+ * filled square on each week a Shield Day actually landed. Fetches every
+ * visible habit's shielded dates on demand (api.getShieldedDates, same
+ * deliberate not-in-useHabits'-global-refresh decision Phase 3's
+ * TowerInsideView.js made — this card already does N requests at once,
+ * adding a global poll on top would make every Insights refresh N times
+ * more expensive for data that rarely changes).
+ */
+function ShieldUseCard({ habits, habitColor, colors, styles }) {
+  const [shieldedByHabit, setShieldedByHabit] = useState({});
+  const habitIds = habits.map((h) => h.id).join(',');
+
+  useEffect(() => {
+    if (habits.length === 0) {
+      setShieldedByHabit({});
+      return undefined;
+    }
+    let cancelled = false;
+    Promise.all(
+      habits.map((h) =>
+        api
+          .getShieldedDates(h.id)
+          .then((dates) => [h.id, dates || []])
+          .catch(() => [h.id, []])
+      )
+    ).then((pairs) => {
+      if (!cancelled) setShieldedByHabit(Object.fromEntries(pairs));
+    });
+    return () => {
+      cancelled = true;
+    };
+    // habits themselves change identity on every refresh; habitIds is the
+    // real dependency (only refetch when the actual set of habits changes).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [habitIds]);
+
+  const todayKey = toDateKey(new Date());
+  const windowStart = startOfWeek(new Date());
+  windowStart.setDate(windowStart.getDate() - (SHIELD_WINDOW_WEEKS - 1) * 7);
+  const windowStartKey = toDateKey(windowStart);
+
+  const rows = habits
+    .map((h) => {
+      const allDates = shieldedByHabit[h.id] || [];
+      const inWindow = allDates.filter((d) => d >= windowStartKey && d <= todayKey);
+      if (inWindow.length === 0) return null;
+      const weeks = Array.from({ length: SHIELD_WINDOW_WEEKS }, (_, i) => {
+        const weekStart = new Date(windowStart);
+        weekStart.setDate(weekStart.getDate() + i * 7);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekEnd.getDate() + 7);
+        const weekEndKey = toDateKey(weekEnd);
+        const weekStartKey = toDateKey(weekStart);
+        return { used: inWindow.some((d) => d >= weekStartKey && d < weekEndKey) };
+      });
+      return { id: h.id, name: h.name, color: habitColor(h), weeks, count: inWindow.length };
+    })
+    .filter(Boolean);
+
+  if (rows.length === 0) return null;
+
+  const totalUsed = rows.reduce((sum, r) => sum + r.count, 0);
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.cardHeaderRow}>
+        <Text style={styles.cardTitle}>Shield use</Text>
+        <Text style={styles.floorsTag}>Last {SHIELD_WINDOW_WEEKS} weeks</Text>
+      </View>
+
+      <View style={styles.shieldStatsRow}>
+        <View style={styles.shieldStatTile}>
+          <Text style={styles.shieldStatNumber}>{totalUsed}</Text>
+          <Text style={styles.shieldStatLabel}>Shield Days used</Text>
+        </View>
+        <View style={styles.shieldStatTile}>
+          <Text style={styles.shieldStatNumber}>{rows.length}</Text>
+          <Text style={styles.shieldStatLabel}>habit{rows.length === 1 ? '' : 's'} used one</Text>
+        </View>
+      </View>
+
+      {rows.map((row) => (
+        <View key={row.id} style={styles.shieldRow}>
+          <View style={[styles.legendDot, { backgroundColor: row.color }]} />
+          <Text style={styles.shieldRowName} numberOfLines={1}>
+            {row.name}
+          </Text>
+          <View style={styles.shieldDotsRow}>
+            {row.weeks.map((w, i) => (
+              <View
+                key={i}
+                style={[styles.shieldDot, w.used && { backgroundColor: colors.textMuted, borderRadius: 3 }]}
+              />
+            ))}
+          </View>
+        </View>
+      ))}
+
+      <View style={styles.shieldAxisRow}>
+        <Text style={styles.floorsBarAxisLabel}>
+          {windowStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+        </Text>
+        <Text style={styles.floorsBarAxisLabel}>Now</Text>
+      </View>
+
+      <Text style={styles.runFootnote}>A Shield Day is a solid block on the tower. It keeps the run going.</Text>
+    </View>
   );
 }
 
@@ -576,58 +813,40 @@ function makeStyles(colors, typography) {
     periodRangeLabelWrap: { alignItems: 'center', minWidth: 140 },
     periodRangeLabel: { fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary },
     periodRangeSubLabel: { ...typography.meta, marginTop: 1 },
-    consistencyCard: {
+    floorsCard: {
       backgroundColor: colors.surface,
       borderRadius: radii.lg,
       padding: spacing.lg,
       marginBottom: spacing.xl,
       ...shadow,
     },
-    consistencyHeaderRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'flex-start',
-    },
-    consistencyLabel: {
-      fontFamily: fonts.bold,
-      fontSize: 11,
-      color: colors.textMuted,
-      letterSpacing: 0.5,
-    },
-    consistencyPercent: {
+    floorsTag: { ...typography.meta },
+    floorsHeadlineNumber: {
       fontFamily: fonts.extraBold,
       fontSize: 32,
       color: colors.textPrimary,
-      marginTop: 2,
+      marginTop: spacing.sm,
     },
-    trendBadge: {
+    floorsHeadlineLabel: { ...typography.body, color: colors.textSecondary, marginTop: -2 },
+    floorsComparison: { ...typography.meta, marginTop: 4 },
+    floorsBarRow: {
       flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-      backgroundColor: colors.safeSoft,
-      borderRadius: radii.pill,
-      paddingHorizontal: spacing.sm + 2,
-      paddingVertical: 4,
+      alignItems: 'flex-end',
+      justifyContent: 'space-around',
+      marginTop: spacing.lg,
     },
-    trendBadgeDown: {
-      backgroundColor: colors.neutralSoft,
+    floorsBarColumn: { alignItems: 'center', flex: 1 },
+    floorsBarTrack: {
+      width: 20,
+      height: BAR_MAX_HEIGHT,
+      flexDirection: 'column-reverse',
+      backgroundColor: colors.ringTrack,
+      borderRadius: radii.sm,
+      overflow: 'hidden',
     },
-    trendText: {
-      fontFamily: fonts.bold,
-      fontSize: 12,
-      color: colors.safe,
-    },
-    trendTextDown: {
-      color: colors.textSecondary,
-    },
-    messageTitle: {
-      ...typography.cardTitle,
-      marginBottom: 4,
-    },
-    messageSubtitle: {
-      ...typography.body,
-      color: colors.textSecondary,
-    },
+    floorsBarSegment: { width: '100%' },
+    floorsBarAxisLabel: { fontSize: 10, fontWeight: '600', color: colors.textMuted, marginTop: spacing.sm },
+    floorsBarAxisLabelCurrent: { color: colors.textPrimary },
     emptyCta: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -725,5 +944,50 @@ function makeStyles(colors, typography) {
     summaryBlock: { marginTop: spacing.md },
     summaryHabitName: { fontSize: 13, fontWeight: '700', color: colors.textPrimary, marginBottom: 2 },
     emptyText: { ...typography.body, color: colors.textSecondary, textAlign: 'center' },
+    runRow: { marginTop: spacing.md },
+    runRowHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    runName: { flex: 1, fontSize: 14, fontWeight: '700', color: colors.textPrimary },
+    bestBadge: {
+      backgroundColor: colors.accent,
+      borderRadius: radii.pill,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 2,
+    },
+    bestBadgeText: { fontSize: 10, fontWeight: '800', color: '#FFFFFF' },
+    runCurrent: { fontSize: 13, fontWeight: '700', color: colors.textPrimary },
+    runBarRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: 6 },
+    runBarTrack: {
+      flex: 1,
+      height: 6,
+      borderRadius: radii.pill,
+      backgroundColor: colors.ringTrack,
+      overflow: 'visible',
+      justifyContent: 'center',
+    },
+    runBarFill: { height: 6, borderRadius: radii.pill },
+    runBarTick: {
+      position: 'absolute',
+      right: -1,
+      width: 2,
+      height: 14,
+      backgroundColor: '#FFFFFF',
+      borderRadius: 1,
+    },
+    runBestLabel: { fontSize: 11, color: colors.textMuted, width: 48, textAlign: 'right' },
+    runFootnote: { ...typography.meta, marginTop: spacing.md },
+    shieldStatsRow: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.sm, marginBottom: spacing.md },
+    shieldStatTile: {
+      flex: 1,
+      backgroundColor: colors.background,
+      borderRadius: radii.md,
+      padding: spacing.md,
+    },
+    shieldStatNumber: { fontFamily: fonts.extraBold, fontSize: 24, color: colors.textPrimary },
+    shieldStatLabel: { ...typography.meta, marginTop: 2 },
+    shieldRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm },
+    shieldRowName: { width: 72, fontSize: 13, fontWeight: '600', color: colors.textSecondary },
+    shieldDotsRow: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    shieldDot: { width: 6, height: 6, borderRadius: radii.pill, backgroundColor: colors.border },
+    shieldAxisRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4, marginLeft: 72 + spacing.sm },
   });
 }

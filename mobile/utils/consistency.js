@@ -364,6 +364,109 @@ export function habitHistorySummary(history) {
   return `${currentLabel}: ${totalValue} of ${totalPossible} days across ${buckets.length} ${periodWord}s (${totalPct}%), averaging ${avgPerBucket} days per ${periodWord}.`;
 }
 
+// How many calendar buckets the floors chart shows — the tab names say so
+// directly ("8 weeks" / "6 months" / "Year"), so unlike habitPeriodHistory
+// these ARE the real buckets, not one level finer. "Year" has no number in
+// its own label; 12 months is the reasonable reading.
+const FLOORS_BUCKET_COUNT = { weekly: 8, monthly: 6, yearly: 12 };
+
+function countByHabit(habits, start, endExclusive) {
+  const byHabit = {};
+  let total = 0;
+  habits.forEach((h) => {
+    const n = (h.checkIns || []).filter((ci) => {
+      const t = new Date(ci.occurredAt);
+      return t >= start && t < endExclusive;
+    }).length;
+    if (n > 0) byHabit[h.id] = n;
+    total += n;
+  });
+  return { total, byHabit };
+}
+
+function addWeeks(date, n) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + n * 7);
+  return d;
+}
+
+function addMonths(date, n) {
+  const d = new Date(date);
+  d.setMonth(d.getMonth() + n);
+  return d;
+}
+
+/**
+ * "Floors built" (Phase 5, design/skyline/06-insights.png plus the
+ * follow-up Runs/Shield-use mockup): a stacked-by-habit bar chart of real
+ * calendar buckets — 8 weeks, 6 months, or 12 months (the "Year" tab) —
+ * ending at the one `anchor` currently falls in, which is always the LAST
+ * bucket and is necessarily partial (the calendar unit isn't over). The
+ * headline is that last bucket's own total ("8 so far this week"); "Last
+ * week at this point: 7" is a same-elapsed-time comparison against the
+ * previous bucket (Monday through today, not the full previous week) —
+ * comparing full-bucket totals would overstate how far behind/ahead the
+ * still-in-progress current bucket looks.
+ *
+ * "Daily towers" only — a weekly/monthly habit's check-in builds a house
+ * in a lot, not a floor on a tower (CLAUDE.md's UI vocabulary), so it's
+ * excluded here rather than silently counted as a "floor."
+ */
+export function totalFloorsHistory(habits, period, anchor = new Date()) {
+  const dailyHabits = habits.filter((h) => hasDailyTarget(h));
+  const bucketCount = FLOORS_BUCKET_COUNT[period] || FLOORS_BUCKET_COUNT.weekly;
+  const isWeekly = period === 'weekly';
+
+  const currentBucketStart = isWeekly ? startOfWeek(anchor) : startOfMonth(anchor);
+  const step = (start, n) => (isWeekly ? addWeeks(start, n) : addMonths(start, n));
+
+  const buckets = [];
+  const habitLegendIds = new Set();
+
+  for (let i = bucketCount - 1; i >= 0; i -= 1) {
+    const start = step(currentBucketStart, -i);
+    const end = step(currentBucketStart, -i + 1);
+    const isCurrent = i === 0;
+    const { total, byHabit } = countByHabit(dailyHabits, start, end);
+    Object.keys(byHabit).forEach((id) => habitLegendIds.add(id));
+    buckets.push({
+      label: isCurrent
+        ? 'Now'
+        : isWeekly
+          ? start.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })
+          : start.toLocaleDateString('en-US', { month: 'short' }),
+      value: total,
+      byHabit,
+      isCurrent,
+      start,
+    });
+  }
+
+  const currentBucket = buckets[buckets.length - 1];
+  const previousBucket = buckets.length > 1 ? buckets[buckets.length - 2] : null;
+  const elapsedMs = anchor.getTime() - currentBucket.start.getTime();
+  const previousAtThisPointTotal = previousBucket
+    ? countByHabit(dailyHabits, previousBucket.start, new Date(previousBucket.start.getTime() + elapsedMs)).total
+    : null;
+
+  return {
+    currentTotal: currentBucket.value,
+    previousAtThisPointTotal,
+    trendDelta: previousAtThisPointTotal == null ? null : currentBucket.value - previousAtThisPointTotal,
+    buckets,
+    habitLegend: dailyHabits.filter((h) => habitLegendIds.has(h.id)),
+    // The bucket's own unit, not the tab name — the Year tab's buckets are
+    // still months (12 of them), so its headline/subtitle read "this
+    // month"/"N months before it" too, same as the Month tab just with
+    // more bars for context.
+    periodNoun: isWeekly ? 'week' : 'month',
+    currentBucketLabel: currentBucketStart.toLocaleDateString(
+      'en-US',
+      isWeekly ? { month: 'short', day: 'numeric' } : { month: 'long', year: 'numeric' }
+    ),
+  };
+}
+
 const GENERIC_STARTER_QUESTIONS = [
   'How am I doing this week?',
   'Help me make my routine easier.',

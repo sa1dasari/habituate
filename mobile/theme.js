@@ -223,22 +223,31 @@ export const skylineUI = {
 
 /**
  * Tower rendering tokens that aren't per-category (open-floor void, shield
- * block, crane, monument, best-run ledge, windows). Per
- * concept_screens/tower_floor_states_windows_and_shield.png: a real
- * check-in always draws windows (windowLit inside the current run,
- * windowDark once the run has passed it) — that presence/absence is the
- * primary non-color signal (section 13), color is secondary. Shield Days
- * are a flat shieldFill block with no windows at all, never the category
- * color. An open floor is a transparent cutout — its outline (openStroke) is
- * drawn but its fill is 'none', so the sky shows through, not a solid void.
- * That keeps CLAUDE.md's "no hole, no dark gap" rule: the floor's full
- * outline and height are always present, just see-through, so it reads as
- * "not built yet" rather than damage or a missing floor.
+ * block, crane, monument, best-run ledge, windows). A real check-in always
+ * draws windows (windowLit inside the current run, windowDark once the run
+ * has passed it) — that presence/absence is the primary non-color signal
+ * (section 13), color is secondary. Shield Days are a glass-tinted,
+ * translucent block (shieldFill front / shieldFillSide side, ~45% opacity
+ * — see skylineScene.js) with a bright edge stroke (shieldEdge) and a
+ * small shield-icon silhouette (shieldIcon, only on a floor tall enough to
+ * fit one legibly), never the category color and never windows or a hatch
+ * — design-review board 22, owner-approved 2026-11-13. Deliberately
+ * lighter/brighter than a plain dim tint: a murky color read too close to
+ * the see-through open-floor state on a night sky; the lighter tint plus
+ * bright edge keeps the two visually distinct. An open floor is a
+ * transparent cutout — its outline (openStroke) is drawn but its fill is
+ * 'none', so the sky shows through, not a solid void. That keeps
+ * CLAUDE.md's "no hole, no dark gap" rule: the floor's full outline and
+ * height are always present, just see-through, so it reads as "not built
+ * yet" rather than damage or a missing floor.
  */
 export const skylineTowerTheme = {
   dark: {
     openStroke: '#5B6472',
-    shieldFill: '#5B7083',
+    shieldFill: '#8FB8D8',
+    shieldFillSide: '#6F98B8',
+    shieldEdge: '#DDF2FF',
+    shieldIcon: '#FFFFFF',
     windowLit: '#FFE9B0',
     windowDark: '#6B4A38',
     tierLine: '#3A4552',
@@ -246,10 +255,22 @@ export const skylineTowerTheme = {
     craneColor: '#A3ADB8',
     flagColor: '#F2C14E',
     ledgeColor: '#F2F4F6',
+    // Phase 3d compositing (SKYLINE.md section 6): the faded closed
+    // segments stacked behind the active tower — a flat muted-brown block,
+    // never the category color, same "distinct from every live state"
+    // treatment shieldFill gets.
+    closedSegmentFill: '#6B5A4A',
   },
   light: {
     openStroke: '#9AA7B5',
-    shieldFill: '#8FA3B8',
+    // Light mode wasn't drawn by design review — chosen for >=3:1 contrast
+    // against the light sky/surface backgrounds (lightColors.background
+    // #F5F6F8), deeper and more saturated than the dark-mode tints since a
+    // pale blue at 45% opacity would nearly vanish on a light background.
+    shieldFill: '#3E7AA8',
+    shieldFillSide: '#2F5F85',
+    shieldEdge: '#0B3A57',
+    shieldIcon: '#FFFFFF',
     windowLit: '#FFE9B0',
     windowDark: '#8A6652',
     tierLine: '#C7D1DB',
@@ -257,6 +278,7 @@ export const skylineTowerTheme = {
     craneColor: '#5B6B7A',
     flagColor: '#B45309',
     ledgeColor: '#15202B',
+    closedSegmentFill: '#A0876E',
   },
 };
 

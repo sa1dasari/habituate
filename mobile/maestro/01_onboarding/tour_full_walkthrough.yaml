@@ -20,17 +20,17 @@ appId: com.habituate.mobile
 # 1. welcome (Today)
 - assertVisible: "Welcome to Habituate"
 - tapOn: "Next"
-# 2. habits-intro (Habits tab, HABITS_ADD_BUTTON spotlighted)
+# 2. habits-intro (Today tab, TODAY_ADD_HABIT_BUTTON spotlighted)
 - assertVisible: "Habits start right here"
 - tapOn: "Next"
-# 3. habits-create-form (real create-habit form opens)
+# 3. habits-create-form (real TowerForm modal opens, over Today)
 - assertVisible: "You're looking at the real form"
-- assertVisible: "New habit"
+- assertVisible: "Lay a foundation"
 - tapOn: "Next"
-# 4. habits-shield (shield icon spotlighted)
+# 4. habits-shield (Today tab's shield icon spotlighted)
 - assertVisible: "Shield Days have your back"
 - tapOn: "Next"
-# 5. shield-days-info (real Shield Days info modal)
+# 5. shield-days-info (real Shield Days info modal, opened from Today)
 - assertVisible: "Here's exactly how it works"
 - tapOn: "Next"
 # 6. community-intro (Community tab)

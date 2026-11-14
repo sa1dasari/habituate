@@ -10,7 +10,7 @@ const EXPANDED_RATIO = 0.6; // how much of the stage the sheet covers when pulle
 
 /**
  * The persistent bottom sheet list below the skyline scene
- * (concept_screens/1-skyline-daily.png). A draggable card, not a sheet
+ * (design/skyline/01-skyline.png). A draggable card, not a sheet
  * locked to the bottom of the screen: collapsed it peeks a couple of rows
  * above the screen edge; dragging the handle up to roughly the middle of
  * the stage lets it scroll the full habit list on top of the skyline, same
@@ -101,7 +101,7 @@ export default function SkylineHabitSheet({ habits, getCanBuild, onBuild, tapToB
               <View style={styles.labelWrap}>
                 <Text style={[styles.name, { color: theme.text }]}>{habit.name}</Text>
                 <Text style={[styles.meta, { color: theme.muted }]}>
-                  {habit.currentRun} day run
+                  {habit.currentRun > 0 ? `${habit.currentRun}-day run` : 'No run yet'}
                 </Text>
               </View>
               <HoldPillButton

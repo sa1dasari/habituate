@@ -15,12 +15,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import HabitCard from '../components/HabitCard';
-import GoalsSummaryCard from '../components/GoalsSummaryCard';
+import FeaturedTargetsSummaryCard from '../components/FeaturedTargetsSummaryCard';
 import AvatarImage from '../components/AvatarImage';
 import TemplateHabitsPicker from '../components/TemplateHabitsPicker';
 import AskHabituateModal from '../components/AskHabituateModal';
 import TourHighlight from '../components/TourHighlight';
 import Toast from '../components/Toast';
+import TowerForm from '../components/TowerForm';
+import ProtectionInfoModal from '../components/ProtectionInfoModal';
 import { useToast } from '../hooks/useToast';
 import { TOUR_SCOPES, TOUR_TARGETS } from '../constants/onboardingTour';
 import { useAuth } from '../hooks/useAuth';
@@ -29,7 +31,6 @@ import { useOnboardingTour } from '../hooks/useOnboardingTour';
 import { useTourTarget } from '../hooks/useTourTarget';
 import { useRegisterScrollToTop } from '../hooks/useRegisterScrollToTop';
 import { useFeaturedGoalReviews } from '../hooks/useFeaturedGoalReviews';
-import { useGoals } from '../hooks/useGoals';
 import { summarizeHabits, useHabits } from '../hooks/useHabits';
 import {
   buildAllDoneCelebration,
@@ -41,7 +42,22 @@ import { effectiveMonthlyTarget, effectiveWeeklyTarget } from '../utils/cadence'
 import { daysLeftInMonth, daysLeftInWeek } from '../utils/date';
 import { byScheduledTime } from '../utils/time';
 import { useAppTheme } from '../hooks/useAppTheme';
-import { fonts, gradients, radii, shadow, shadowLg, spacing } from '../theme';
+import {
+  buildCategoryTowerColors,
+  fonts,
+  gradients,
+  radii,
+  shadow,
+  shadowLg,
+  skylineTowerTheme,
+  skylineUI,
+  spacing,
+} from '../theme';
+import { HABIT_CATEGORY_COLORS } from '../constants/habitCategories';
+
+// Same derivation SkylineScreen.js uses, so TowerForm's live preview renders
+// identically whether opened from here or from the Skyline tab.
+const towerColorsByMode = buildCategoryTowerColors(HABIT_CATEGORY_COLORS);
 
 // Shown below the daily list so a weekly habit can still be logged from Today
 // without being counted against today's progress.
@@ -61,7 +77,7 @@ function encouragement({ total, done }, hasOtherHabits = false) {
   if (total === 0) {
     return hasOtherHabits
       ? 'Nothing due today — your weekly and monthly habits are below.'
-      : 'Add a habit on the Habits tab to get started.';
+      : 'Lay a foundation below to get started.';
   }
   if (done === 0) return 'Nothing logged yet — any one of these is a fine place to start.';
   if (done === total) return 'Everything for today is logged. Nice.';
@@ -76,7 +92,10 @@ export default function TodayScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const route = useRoute();
-  const { colors, typography } = useAppTheme();
+  const { colors, typography, effectiveMode } = useAppTheme();
+  const towerFormTheme = skylineUI[effectiveMode];
+  const towerFormTowerTheme = skylineTowerTheme[effectiveMode];
+  const towerFormCategoryColors = towerColorsByMode[effectiveMode];
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const scrollRef = useRegisterScrollToTop('Today');
   const cardRefsRef = useRef({});
@@ -95,7 +114,6 @@ export default function TodayScreen() {
     repairStreak,
     shieldsAvailable,
   } = useHabits();
-  const { goals } = useGoals();
   const { user } = useAuth();
   const displayName = user?.displayName || 'there';
   const { celebrate: showCelebration } = useCelebration();
@@ -106,6 +124,10 @@ export default function TodayScreen() {
 
   const { active: tourActive, currentStep: tourStep } = useOnboardingTour();
   const tourCoachButtonRef = useTourTarget(TOUR_TARGETS.TODAY_COACH_BUTTON);
+  const tourAddHabitButtonRef = useTourTarget(TOUR_TARGETS.TODAY_ADD_HABIT_BUTTON);
+  const tourShieldIconRef = useTourTarget(TOUR_TARGETS.TODAY_SHIELD_ICON);
+  const [towerFormVisible, setTowerFormVisible] = useState(false);
+  const [showShieldInfo, setShowShieldInfo] = useState(false);
 
   // Real-screen tour step: opens the actual Ask Habituate chat in step with
   // the walkthrough, and closes it the moment the tour ends.
@@ -122,29 +144,36 @@ export default function TodayScreen() {
     }
   }, [tourActive, tourStep]);
 
+  // Same real-screen pattern, formerly on HabitsScreen.js: opens the actual
+  // create-tower form / Shield Days info modal in step with the walkthrough.
+  useEffect(() => {
+    if (!tourActive) {
+      setTowerFormVisible(false);
+      setShowShieldInfo(false);
+      return;
+    }
+    setTowerFormVisible(tourStep?.id === 'habits-create-form');
+    setShowShieldInfo(tourStep?.id === 'shield-days-info');
+  }, [tourActive, tourStep]);
+
   const featuredHabits = useMemo(() => habits.filter((h) => h.featuredGoal), [habits]);
   const { reviews: habitGoalReviews } = useFeaturedGoalReviews(featuredHabits);
 
-  // One combined list so the summary card can report across both habit-linked
-  // and freeform goals without caring which is which. `percent` carries actual
-  // partial progress (not just done/not-done) so the summary bar reflects
-  // trend rather than looking empty until something hits 100%.
+  // Featured-habit targets only — the freeform Goals feature was removed
+  // (owner decision, 2026-11-13); this used to also fold in goals.map(...)
+  // here, reported through the same summary card regardless of which kind
+  // it was. `percent` carries actual partial progress (not just done/not-done)
+  // so the summary bar reflects trend rather than looking empty until
+  // something hits 100%.
   const goalItems = useMemo(
-    () => [
-      ...featuredHabits.map((h) => ({
+    () =>
+      featuredHabits.map((h) => ({
         id: `habit-${h.id}`,
         complete: h.periodComplete,
         percent: h.periodTarget > 0 ? Math.min(100, Math.round((h.periodDone / h.periodTarget) * 100)) : 0,
         needsReview: habitGoalReviews.some((r) => r.habit.id === h.id),
       })),
-      ...goals.map((g) => ({
-        id: `goal-${g.id}`,
-        complete: g.complete,
-        percent: g.percent,
-        needsReview: g.needsReview,
-      })),
-    ],
-    [featuredHabits, habitGoalReviews, goals]
+    [featuredHabits, habitGoalReviews]
   );
 
   // "Due Today" is only genuinely daily habits (habit.dueToday, from
@@ -351,11 +380,11 @@ export default function TodayScreen() {
 
   // Deactivating is always just an API call (frees a shield back up). Activating
   // needs a shield actually banked first — if none are, don't fail the request,
-  // send the user to the Shield Days info page (Habits tab) to see how to earn one.
+  // open the Shield Days info modal directly to see how to earn one.
   const handleToggleShield = useCallback(
     async (habit) => {
       if (!habit.shieldedToday && shieldsAvailable <= 0) {
-        navigation.navigate('Habits', { openShieldInfo: true });
+        setShowShieldInfo(true);
         return;
       }
       try {
@@ -366,7 +395,7 @@ export default function TodayScreen() {
       }
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     },
-    [toggleShield, shieldsAvailable, navigation]
+    [toggleShield, shieldsAvailable]
   );
 
   // Server validates the real eligibility (48h window, once/habit/month) --
@@ -548,11 +577,17 @@ export default function TodayScreen() {
             <Text style={styles.name}>{displayName}</Text>
           </View>
 
-          {shieldsAvailable > 0 ? (
-            <View style={styles.shieldBadge} accessibilityLabel={`${shieldsAvailable} Shield Days banked`}>
+          {shieldsAvailable > 0 || (tourActive && tourStep?.id === 'habits-shield') ? (
+            <Pressable
+              ref={tourShieldIconRef}
+              style={styles.shieldBadge}
+              accessibilityRole="button"
+              accessibilityLabel={`${shieldsAvailable} Shield Days banked`}
+              onPress={() => setShowShieldInfo(true)}
+            >
               <MaterialCommunityIcons name="shield-check" size={14} color={colors.safe} />
               <Text style={styles.shieldBadgeText}>{shieldsAvailable}</Text>
-            </View>
+            </Pressable>
           ) : null}
 
           <Pressable
@@ -612,10 +647,7 @@ export default function TodayScreen() {
           </Text>
         </View>
 
-        <GoalsSummaryCard
-          items={goalItems}
-          onPress={() => navigation.navigate('Habits', { scrollToGoals: true })}
-        />
+        <FeaturedTargetsSummaryCard items={goalItems} />
 
         <Pressable
           style={({ pressed }) => [styles.coachTeaser, pressed ? styles.coachTeaserPressed : null]}
@@ -635,14 +667,24 @@ export default function TodayScreen() {
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Due Today</Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="See all habits"
-            onPress={() => navigation.navigate('Habits')}
-          >
-            <Text style={styles.seeAll}>See all</Text>
-          </Pressable>
         </View>
+
+        {/* Replaying the tour (Account Settings → "Replay tour") can land here
+            with habits already on the account — 'habits-intro' still needs a
+            real button to spotlight, so render just the CTA standalone rather
+            than the whole empty-state illustration below. */}
+        {tourActive && tourStep?.id === 'habits-intro' && habits.length > 0 ? (
+          <Pressable
+            ref={tourAddHabitButtonRef}
+            style={styles.emptyCta}
+            accessibilityRole="button"
+            accessibilityLabel="Lay a foundation"
+            onPress={() => setTowerFormVisible(true)}
+          >
+            <Text style={styles.emptyCtaText}>Lay a foundation</Text>
+            <MaterialCommunityIcons name="arrow-right" size={16} color={colors.accent} />
+          </Pressable>
+        ) : null}
 
         {loading && habits.length === 0 ? (
           <View style={styles.loaderRow}>
@@ -653,16 +695,17 @@ export default function TodayScreen() {
           <View style={styles.emptyCard}>
             <Text style={styles.emptyTitle}>Nothing to track yet</Text>
             <Text style={styles.emptyBody}>
-              Tap one below to start, or build your own on the Habits tab.
+              Tap one below to start, or build your own.
             </Text>
             <TemplateHabitsPicker onSelect={handleAddTemplateHabit} disabled={busy} />
             <Pressable
+              ref={tourAddHabitButtonRef}
               style={styles.emptyCta}
               accessibilityRole="button"
-              accessibilityLabel="Add your first habit"
-              onPress={() => navigation.navigate('Habits', { openCreateHabit: true })}
+              accessibilityLabel="Lay a foundation"
+              onPress={() => setTowerFormVisible(true)}
             >
-              <Text style={styles.emptyCtaText}>Add your first habit</Text>
+              <Text style={styles.emptyCtaText}>Lay a foundation</Text>
               <MaterialCommunityIcons name="arrow-right" size={16} color={colors.accent} />
             </Pressable>
           </View>
@@ -691,6 +734,22 @@ export default function TodayScreen() {
       habits={habits}
       initialQuestion={coachInitialQuestion}
       onClose={() => setCoachVisible(false)}
+    />
+
+    <TowerForm
+      key="new"
+      visible={towerFormVisible}
+      onClose={() => setTowerFormVisible(false)}
+      habit={null}
+      theme={towerFormTheme}
+      towerTheme={towerFormTowerTheme}
+      categoryColors={towerFormCategoryColors}
+    />
+
+    <ProtectionInfoModal
+      visible={showShieldInfo}
+      initialTab="shield"
+      onClose={() => setShowShieldInfo(false)}
     />
 
     <TourHighlight scope={TOUR_SCOPES.TODAY} />

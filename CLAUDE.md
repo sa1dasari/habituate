@@ -21,7 +21,7 @@ Core goals, in priority order:
 ### Product rules (non-negotiable)
 - No red X for missed days anywhere. No shaming copy. Use trend framing, not perfection framing.
 - A missed day is a soft outline on the tower, labeled "open". Never draw a hole, crack, dark gap, broken tower or "missed" label. Floors are never removed or taken down.
-- A streak freeze (Shield Day) has its own visual state: a plain solid block with no windows (revised 2026-11-10 — was a glass floor with a diagonal hatch). Every real check-in draws windows (lit inside the current run, dark once past it); a Shield Day floor never has any, which is the signal — not the color alone.
+- A streak freeze (Shield Day) has its own visual state: a glass floor (tinted, translucent) with a small shield icon; never windows, never a hatch line (design-review board 22, owner-approved 2026-11-13 — supersedes the 2026-11-10 solid-block revision). Every real check-in draws windows (lit inside the current run, dark once past it); a Shield Day floor never has any, which is part of the signal along with the translucency and icon — not the color alone.
 - Coach and any insight copy stays non-causal and tied to real data: "you complete Y on X% of the days you complete X", never "X causes Y". `CoachPrompts` enforces this in the system prompt.
 - The coach never changes data on its own. A proposal only takes effect when the user confirms (`CoachService.confirmProposal`).
 - Shared Habits and Challenges are separate in the data model and the UI. Do not merge them.
@@ -43,7 +43,7 @@ User-facing text uses the skyline vocabulary. Code, API paths, database tables a
 | check-in | build a floor |
 | streak | run ("9 day run") |
 | best streak | best run (a white ledge on the tower) |
-| Shield Day | Shield Day, shown as a glass floor |
+| Shield Day | Shield Day, shown as a glass floor with a small shield icon |
 | missed day | open floor |
 | archive | Retire (becomes a grey monument) |
 | complete a habit | Top out |
@@ -244,6 +244,14 @@ Also:
 Before any edit to a file, post a short plan and wait for the user to say go. This applies to small changes too. For a tiny change the plan can be two lines.
 
 A plan covers: the goal in one sentence, the files you expect to touch, the approach, risks or product rules involved, what you will verify, and any question you need answered. Use plan mode if it is available. Read-only work (answering questions, reading code, searching) needs no confirmation. If the work changes direction midway, stop and confirm the new plan.
+
+### UI design changes go through the front-end design-review agent first
+Before any code change that affects visual design (a new screen, a restyle, a new visual state, a layout change — anything a user would see differently), do this in order, every time, with no exceptions for "small" visual changes:
+1. Ask the front-end design-review agent (the cross-session peer that maintains `design/skyline/` — see `ListAgents`, it's the session named for frontend design review) whether a design/mockup already covers this change. Do not guess at a visual spec from a product description alone.
+2. If a design exists, get it, and get the owner's explicit confirmation on it before writing any code.
+3. If no design exists yet, ask the design-review agent to create one first. Do not build the UI and request a design afterward to match it.
+4. Only after the owner has confirmed the design does implementation start.
+This applies even when the owner states a visual preference directly in conversation (e.g. "make the Shield Day a glass floor with an icon") — relay it to the design-review agent, get a design or confirmation back, and confirm with the owner before coding. A verbal description is not a confirmed design.
 
 ### The Skyline rebuild
 - The rebuild replaces the UI. It is not a toggle and not a second app. There is no Classic mode for users.

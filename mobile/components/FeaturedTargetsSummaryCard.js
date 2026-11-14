@@ -6,11 +6,16 @@ import { useAppTheme } from '../hooks/useAppTheme';
 import { gradients, radii, shadow, spacing } from '../theme';
 
 /**
- * A compact, tap-through summary of every goal (habit-linked and freeform) —
- * shown on Today so goal progress is visible without duplicating the full
- * cards there. Tapping it jumps to the Goals section on the Habits page.
+ * A compact, tap-through summary of every habit's own pinned ("Feature on
+ * Goals") weekly/monthly target — shown on Today so that progress is
+ * visible without duplicating each habit's full card there. Was
+ * GoalsSummaryCard.js, which also folded in the separate freeform Goals
+ * feature; that feature was removed (owner decision, 2026-11-13), so this
+ * is per-habit featured targets only now. Every featured habit already
+ * appears in Today's own list below, so this is display-only unless a
+ * caller passes onPress for some other destination.
  */
-export default function GoalsSummaryCard({ items = [], onPress }) {
+export default function FeaturedTargetsSummaryCard({ items = [], onPress }) {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
 
@@ -18,18 +23,22 @@ export default function GoalsSummaryCard({ items = [], onPress }) {
 
   const completed = items.filter((item) => item.complete).length;
   const needsReview = items.filter((item) => item.needsReview).length;
-  // Average of each goal's own progress, not just how many are fully done —
-  // otherwise the bar reads as empty even after real progress is logged.
+  // Average of each target's own progress, not just how many are fully
+  // done — otherwise the bar reads as empty even after real progress is logged.
   const percent = Math.round(
     items.reduce((sum, item) => sum + (item.percent || 0), 0) / items.length
   );
 
+  // No onPress, no button role — ChallengeCard.js/SharedHabitCard.js use the
+  // same Pressable-or-View split for a card that's sometimes just a display.
+  const Container = onPress ? Pressable : View;
+
   return (
-    <Pressable
-      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+    <Container
+      style={onPress ? ({ pressed }) => [styles.card, pressed && styles.cardPressed] : styles.card}
       onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel="Open Goals"
+      accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityLabel={onPress ? 'Open featured targets' : undefined}
     >
       <View style={styles.row}>
         <View style={styles.iconTile}>
@@ -37,7 +46,7 @@ export default function GoalsSummaryCard({ items = [], onPress }) {
         </View>
 
         <View style={styles.text}>
-          <Text style={styles.title}>Goals</Text>
+          <Text style={styles.title}>Featured targets</Text>
           <Text style={styles.subtitle}>
             {completed} of {items.length} completed · {percent}% avg. progress
             {needsReview > 0 ? ` · ${needsReview} to review` : ''}
@@ -55,7 +64,7 @@ export default function GoalsSummaryCard({ items = [], onPress }) {
           style={[styles.barFill, { width: `${percent}%` }]}
         />
       </View>
-    </Pressable>
+    </Container>
   );
 }
 

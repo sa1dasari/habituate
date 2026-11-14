@@ -50,7 +50,7 @@ export function TourProvider({ children }) {
   // What TourHighlight actually RENDERS, kept one step behind `currentStep`
   // until that step's target is ready. `currentStep` itself still updates
   // the instant stepIndex changes — screens key their own side effects off
-  // it directly (HabitsScreen opening the real create form/Shield info modal
+  // it directly (TodayScreen opening the real TowerForm/Shield info modal
   // in step with the walkthrough, for one) and that has to fire immediately
   // so the target exists to measure at all. But if TourHighlight rendered
   // straight off `currentStep` too, its title/body would flip to the new

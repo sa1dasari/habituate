@@ -2,6 +2,7 @@ package com.habituate.api.habits;
 
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 public record HabitResponse(
         Long id,
@@ -23,10 +24,25 @@ public record HabitResponse(
         int longestStreak,
         boolean shieldedToday,
         boolean shieldEligible,
-        String motivation
+        String motivation,
+        int topOutThresholdDays,
+        // Phase 3d's faded-tower compositing (SKYLINE.md section 6): how
+        // many segments this habit has topped out of in total, and the most
+        // recent one or two of them (with their own floor counts) so the
+        // client can draw them faded behind the active tower without a
+        // second request per habit. Empty/zero for the overwhelming common
+        // case — a habit that has never topped out.
+        int closedSegmentCount,
+        List<HabitTowerResponse> recentClosedSegments
 ) {
     public static HabitResponse from(
-            Habit habit, int currentStreak, int longestStreak, boolean shieldedToday, boolean shieldEligible) {
+            Habit habit,
+            int currentStreak,
+            int longestStreak,
+            boolean shieldedToday,
+            boolean shieldEligible,
+            int closedSegmentCount,
+            List<HabitTowerResponse> recentClosedSegments) {
         return new HabitResponse(
                 habit.getId(),
                 habit.getUserId(),
@@ -49,7 +65,10 @@ public record HabitResponse(
                 longestStreak,
                 shieldedToday,
                 shieldEligible,
-                habit.getMotivation()
+                habit.getMotivation(),
+                habit.getTopOutThresholdDays(),
+                closedSegmentCount,
+                recentClosedSegments
         );
     }
 }

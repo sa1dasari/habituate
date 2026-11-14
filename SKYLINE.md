@@ -58,7 +58,7 @@ One floor per calendar day in the user's timezone (use the existing `X-Timezone`
 | set, in run band | check-in done that day, inside the current streak | solid face in the category color, lit windows |
 | set, past run | check-in done that day, streak has since moved past it | solid face in the category color, dark/unlit windows |
 | open | no check-in, no penalty | a see-through floor: outline only, the sky shows through. Never filled dark, never a hole or crack label. |
-| glass | Shield Day used | a flat, distinct-colored block, no windows at all — never the category color. Storage resolved 2026-11-10 (`SKYLINE-ADDENDUM.md` decision 5): a new table/column records the specific shielded date (daily view) or period (weekly/monthly view) directly; `shield_awards` stays as award-history only. Not yet built. |
+| glass | Shield Day used | a glass-tinted, translucent block with a bright edge and a small shield icon (on renderings tall enough to fit one legibly), no windows, no hatch — never the category color. Design-review board 22, owner-approved 2026-11-13; built 2026-11-13. Storage resolved 2026-11-10 (`SKYLINE-ADDENDUM.md` decision 5): a new table/column records the specific shielded date (daily view) or period (weekly/monthly view) directly; `shield_awards` stays as award-history only. |
 | not due | habit not scheduled that day | no floor drawn, tower does not grow |
 | ledge | best run | a thin white ledge at the top of that run |
 

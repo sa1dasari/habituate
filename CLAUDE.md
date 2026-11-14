@@ -21,7 +21,7 @@ Core goals, in priority order:
 ### Product rules (non-negotiable)
 - No red X for missed days anywhere. No shaming copy. Use trend framing, not perfection framing.
 - A missed day is a soft outline on the tower, labeled "open". Never draw a hole, crack, dark gap, broken tower or "missed" label. Floors are never removed or taken down.
-- A streak freeze (Shield Day) has its own visual state: a plain solid block with no windows (revised 2026-11-10 — was a glass floor with a diagonal hatch). Every real check-in draws windows (lit inside the current run, dark once past it); a Shield Day floor never has any, which is the signal — not the color alone.
+- A streak freeze (Shield Day) has its own visual state: a glass floor (tinted, translucent) with a small shield icon; never windows, never a hatch line (design-review board 22, owner-approved 2026-11-13 — supersedes the 2026-11-10 solid-block revision). Every real check-in draws windows (lit inside the current run, dark once past it); a Shield Day floor never has any, which is part of the signal along with the translucency and icon — not the color alone.
 - Coach and any insight copy stays non-causal and tied to real data: "you complete Y on X% of the days you complete X", never "X causes Y". `CoachPrompts` enforces this in the system prompt.
 - The coach never changes data on its own. A proposal only takes effect when the user confirms (`CoachService.confirmProposal`).
 - Shared Habits and Challenges are separate in the data model and the UI. Do not merge them.
@@ -43,7 +43,7 @@ User-facing text uses the skyline vocabulary. Code, API paths, database tables a
 | check-in | build a floor |
 | streak | run ("9 day run") |
 | best streak | best run (a white ledge on the tower) |
-| Shield Day | Shield Day, shown as a glass floor |
+| Shield Day | Shield Day, shown as a glass floor with a small shield icon |
 | missed day | open floor |
 | archive | Retire (becomes a grey monument) |
 | complete a habit | Top out |

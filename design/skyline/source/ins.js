@@ -33,13 +33,14 @@ const YL=['2025','2026'];
 
 if(S==='main'){
   const tab=+(q.get('v')||0);
-  const cfg=[{lab:'Last 8 weeks',cols:WEEKS,l:WL,head:['18','so far this week','14 floors · 4 lot check-ins','Last week at this point: 20'],bw:28,gap:10},
-             {lab:'Last 6 months',cols:MONTHS,l:ML,head:['58','so far this month','47 floors · 11 lot check-ins','Last month at this point: 64'],bw:38,gap:14},
-             {lab:'2025 and 2026',cols:YEARS,l:YL,head:['1,284','so far this year','1,052 floors · 232 lot check-ins','Last year to this date: 996'],bw:80,gap:60}][tab];
+  const cfg=[{lab:'Sep 21 to Nov 15',nav:'This week',cols:WEEKS,l:WL,head:['18','so far this week','14 floors · 4 lot check-ins','Last week at this point: 20'],bw:28,gap:10},
+             {lab:'Jun to Nov 2026',nav:'This month',cols:MONTHS,l:ML,head:['58','so far this month','47 floors · 11 lot check-ins','Last month at this point: 64'],bw:38,gap:14},
+             {lab:'2025 to 2026',nav:'This year',cols:YEARS,l:YL,head:['1,284','so far this year','1,052 floors · 232 lot check-ins','Last year to this date: 996'],bw:80,gap:60}][tab];
   el.innerHTML=`${gearBtn}
   <div style="padding:34px 20px 0"><h1 style="font-size:30px">Insights</h1><div style="color:#A3ADB8;font-size:14px;margin:2px 0 14px">${cfg.lab}</div>
   ${seg(['Weeks','Months','Years'],tab)}<div style="margin-top:12px">${chips()}</div>
-  <div style="margin-top:14px;background:#161B21;border-radius:22px;padding:18px 18px 16px">
+  <div style="margin-top:12px;display:flex;align-items:center;justify-content:center;gap:28px"><div style="width:44px;height:44px;border-radius:22px;background:#1E252D;display:flex;align-items:center;justify-content:center;font-size:20px">‹</div><b style="font-size:16px;min-width:96px;text-align:center">${cfg.nav}</b><div style="width:44px;height:44px;border-radius:22px;background:#1E252D;display:flex;align-items:center;justify-content:center;font-size:20px;color:#5B6472">›</div></div>
+  <div style="margin-top:10px;background:#161B21;border-radius:22px;padding:18px 18px 16px">
     <div style="display:flex;justify-content:space-between;align-items:baseline"><b style="font-size:18px">Floors built</b><span style="font-size:13px;color:#A3ADB8">Towers and lots</span></div>
     <div style="margin-top:8px;display:flex;align-items:baseline;gap:8px"><span style="font-size:38px;font-weight:800">${cfg.head[0]}</span><span style="color:#A3ADB8;font-size:15px">${cfg.head[1]}</span></div>
     <div style="color:#C9CED4;font-size:13px;margin-top:2px">${cfg.head[2]}</div><div style="color:#A3ADB8;font-size:13px;margin-top:1px">${cfg.head[3]}</div>

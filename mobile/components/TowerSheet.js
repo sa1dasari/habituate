@@ -241,36 +241,31 @@ export default function TowerSheet({
   const miniBoxFull = miniHit
     ? { x: miniHit.x - 6, y: miniHit.y - 6, width: miniHit.width + 12, height: miniHit.height + 12 }
     : { x: X0 - 6, y: BASE_Y - FLOOR_H - CRANE_HEIGHT - 12, width: TOWER_W + DX + 12, height: FLOOR_H + CRANE_HEIGHT + 24 };
-  // Caps the compact mini-tower icon's own aspect ratio — a tower with many
-  // floors has a bounding box several times taller than wide, which (found
-  // on-device) was rendering a ~500px-tall SVG that pushed the legend and
-  // action rows off screen. Crops from the bottom (older floors) rather
-  // than squashing the whole thing, keeping the crane and newest floors —
-  // the part the run headline is actually about — intact at the top. Full
-  // history is what "See inside" is for.
-  const MINI_MAX_ASPECT = 1.4;
-  const miniBox = {
-    ...miniBoxFull,
-    height: Math.min(miniBoxFull.height, miniBoxFull.width * MINI_MAX_ASPECT),
+  // Scales the full tower down to fit a max display size — never crops it.
+  // Cropping (the first thing tried here) cut the bottom off a tall tower
+  // to cap its height, which meant no ground/base ever showed: the
+  // illustration just stopped mid-floor, looking broken rather than small
+  // (confirmed on-device). Scaling keeps the crane and the base both
+  // visible at every tower age; floors just get thinner on a long-running
+  // habit, same as board 24's own mockup does for a 41-floor example.
+  const fitTowerSize = (box, maxWidth, maxHeight) => {
+    const naturalHeight = maxWidth * (box.height / box.width);
+    if (naturalHeight <= maxHeight) return { width: maxWidth, height: naturalHeight };
+    return { width: maxHeight * (box.width / box.height), height: maxHeight };
   };
+  const miniSize = fitTowerSize(miniBoxFull, 100, 130);
   // The tall layout's illustration is capped by the sheet's own available
-  // height, not a fixed aspect multiplier — a multiplier can't know the
-  // screen size, so on a short phone (the 360x640 design-review asked for
-  // screenshots on) it would render past the fold and recreate the exact
-  // scrolling problem this layout exists to fix. TALL_HEADER_RESERVE is a
-  // rough, fixed estimate of the handle + title row + its own padding
-  // above the tower row — deliberately not measured via onLayout, since a
-  // measurement-driven cap recomputing after first paint is exactly the
-  // kind of thing that flips layout mid-render (design-review's jitter
-  // warning).
+  // height, not a fixed value — on a short phone (the 360x640 design-review
+  // asked for screenshots on) a fixed cap could still run past the fold.
+  // TALL_HEADER_RESERVE is a rough, fixed estimate of the handle + title
+  // row + its own padding above the tower row — deliberately not measured
+  // via onLayout, since a measurement-driven cap recomputing after first
+  // paint is exactly the kind of thing that flips layout mid-render
+  // (design-review's jitter warning).
   const sheetContentHeight = effectiveStageHeight - SHEET_TOP_PEEK;
   const TALL_HEADER_RESERVE = 180;
   const tallMaxSvgHeight = Math.max(220, sheetContentHeight - TALL_HEADER_RESERVE);
-  const TALL_SVG_WIDTH = 110;
-  const tallBox = {
-    ...miniBoxFull,
-    height: Math.min(miniBoxFull.height, (tallMaxSvgHeight / TALL_SVG_WIDTH) * miniBoxFull.width),
-  };
+  const tallSize = fitTowerSize(miniBoxFull, 130, tallMaxSvgHeight);
 
   if (!displayHabit) return null;
 
@@ -513,7 +508,7 @@ export default function TowerSheet({
             return (
               <>
                 <View style={styles.runRow}>
-                  <Svg width={100} height={100 * (miniBox.height / miniBox.width)} viewBox={`${miniBox.x} ${miniBox.y} ${miniBox.width} ${miniBox.height}`}>
+                  <Svg width={miniSize.width} height={miniSize.height} viewBox={`${miniBoxFull.x} ${miniBoxFull.y} ${miniBoxFull.width} ${miniBoxFull.height}`}>
                     {miniScene ? <SkylineTower shapes={miniScene.shapes} /> : null}
                   </Svg>
 
@@ -553,7 +548,7 @@ export default function TowerSheet({
           return (
             <>
               <View style={styles.tallRow}>
-                <Svg width={110} height={110 * (tallBox.height / tallBox.width)} viewBox={`${tallBox.x} ${tallBox.y} ${tallBox.width} ${tallBox.height}`}>
+                <Svg width={tallSize.width} height={tallSize.height} viewBox={`${miniBoxFull.x} ${miniBoxFull.y} ${miniBoxFull.width} ${miniBoxFull.height}`}>
                   {miniScene ? <SkylineTower shapes={miniScene.shapes} /> : null}
                 </Svg>
 

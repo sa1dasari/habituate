@@ -30,7 +30,7 @@ import { hasDailyTarget } from '../utils/cadence';
 import { startOfWeek, toDateKey } from '../utils/date';
 import { buildLots } from '../utils/lots';
 import { toLotHabit } from '../utils/skylineAdapter';
-import { buildCategoryTowerColors, fonts, gradients, radii, shadow, spacing } from '../theme';
+import { buildCategoryTowerColors, fonts, gradients, radii, shadow, skylineTowerTheme, spacing } from '../theme';
 
 /**
  * Cycled per selected habit so a multi-select chart can tell bars apart —
@@ -489,7 +489,13 @@ export default function InsightsScreen({ navigation, route }) {
           </View>
         ) : null}
 
-        <ShieldUseCard habits={habits} habitColor={habitColor} colors={colors} styles={styles} />
+        <ShieldUseCard
+          habits={habits}
+          habitColor={habitColor}
+          colors={colors}
+          towerTheme={skylineTowerTheme[effectiveMode]}
+          styles={styles}
+        />
 
         {habits.length > 0 ? (
           <>
@@ -661,7 +667,7 @@ const SHIELD_WINDOW_WEEKS = 12;
  * adding a global poll on top would make every Insights refresh N times
  * more expensive for data that rarely changes).
  */
-function ShieldUseCard({ habits, habitColor, colors, styles }) {
+function ShieldUseCard({ habits, habitColor, colors, towerTheme, styles }) {
   const [shieldedByHabit, setShieldedByHabit] = useState({});
   const habitIds = habits.map((h) => h.id).join(',');
 
@@ -741,12 +747,21 @@ function ShieldUseCard({ habits, habitColor, colors, styles }) {
             {row.name}
           </Text>
           <View style={styles.shieldDotsRow}>
-            {row.weeks.map((w, i) => (
-              <View
-                key={i}
-                style={[styles.shieldDot, w.used && { backgroundColor: colors.textMuted, borderRadius: 3 }]}
-              />
-            ))}
+            {row.weeks.map((w, i) =>
+              w.used ? (
+                <View
+                  key={i}
+                  style={[
+                    styles.shieldDotGlass,
+                    { backgroundColor: towerTheme.shieldFill, borderColor: towerTheme.shieldEdge },
+                  ]}
+                >
+                  <MaterialCommunityIcons name="shield" size={7} color={towerTheme.shieldIcon} />
+                </View>
+              ) : (
+                <View key={i} style={styles.shieldDot} />
+              )
+            )}
           </View>
         </View>
       ))}
@@ -758,7 +773,7 @@ function ShieldUseCard({ habits, habitColor, colors, styles }) {
         <Text style={styles.floorsBarAxisLabel}>Now</Text>
       </View>
 
-      <Text style={styles.runFootnote}>A Shield Day is a solid block on the tower. It keeps the run going.</Text>
+      <Text style={styles.runFootnote}>A Shield Day is a glass floor with a shield on the tower. It keeps the run going.</Text>
     </View>
   );
 }
@@ -988,6 +1003,15 @@ function makeStyles(colors, typography) {
     shieldRowName: { width: 72, fontSize: 13, fontWeight: '600', color: colors.textSecondary },
     shieldDotsRow: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     shieldDot: { width: 6, height: 6, borderRadius: radii.pill, backgroundColor: colors.border },
+    shieldDotGlass: {
+      width: 11,
+      height: 11,
+      borderRadius: 2,
+      borderWidth: 1,
+      opacity: 0.85,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     shieldAxisRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4, marginLeft: 72 + spacing.sm },
   });
 }

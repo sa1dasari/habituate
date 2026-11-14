@@ -491,19 +491,21 @@ export default function SkylineScreen({ navigation }) {
                 stageHeight={stageHeight}
               />
               <TowerSheet
-                // Forces a fresh mount per habit — same reasoning as
-                // LotSheet.js's own key: without it, TowerSheet's local
-                // backdate-picker state (selectedDateKey, showBackdate)
-                // would carry over from whichever tower was open last,
-                // and a Hold could silently build into the wrong habit's
-                // selected day.
-                key={towerSheetHabitId ?? 'none'}
+                // No key here on purpose, unlike LotSheet.js — this is now a
+                // permanent bottom sheet (design-review board 03), not a
+                // Modal that can remount for free; forcing a remount per
+                // habit would skip the slide-down close animation entirely.
+                // TowerSheet.js resets its own local backdate-picker state
+                // (selectedDateKey, showBackdate) via an effect keyed off
+                // habit.id instead.
                 visible={!!towerSheetHabitId}
                 onClose={closeTowerSheet}
                 habit={towerSheetHabit}
                 theme={ui}
+                towerTheme={towerTheme}
                 tapToBuild={tapToBuild}
                 categoryColors={categoryColors}
+                stageHeight={stageHeight}
                 onAskAboutTower={handleAskAboutTower}
                 onOpenInsideView={handleOpenInsideView}
                 onEdit={handleOpenTowerForm}

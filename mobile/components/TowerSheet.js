@@ -1,12 +1,13 @@
-import React, { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg from 'react-native-svg';
 import ConfirmModal from './ConfirmModal';
 import Toast from './Toast';
 import HoldPillButton from './HoldPillButton';
+import SkylineTower from './SkylineTower';
 import { DayGrid } from './LotTile';
 import { useConfirm } from '../hooks/useConfirm';
 import { useToast } from '../hooks/useToast';
@@ -15,6 +16,9 @@ import { isCountMode } from '../utils/cadence';
 import { buildDays } from '../utils/lots';
 import { categoryColor } from '../constants/habitCategories';
 import { toDateKey } from '../utils/date';
+import { buildScene, classifyDays, X0, TOWER_W, DX, CRANE_HEIGHT, FLOOR_H, BASE_Y } from '../utils/skylineScene';
+import { toSceneHabit } from '../utils/skylineAdapter';
+import api from '../api/client';
 import { fonts } from '../theme';
 
 const MS_PER_DAY = 86400000;
@@ -24,20 +28,32 @@ const GRID_PAD = 16;
 const GRID_GAP = 6;
 const GRID_COLS = 7;
 const GRID_LABEL_H = 14; // room for the day-number text under the row (DayGrid's dayNumbers=true)
+const SHEET_TOP_PEEK = 90; // sky left visible above the sheet when open (design-review board 03)
+const DISMISS_DISTANCE = 120; // drag-down distance that counts as "let go of the sheet"
 
 /**
- * Phase 3b's tower sheet (SKYLINE.md section 9/10): stats, Edit, Shield
- * Day, Top out (gated by the habit's own `topOutThresholdDays`), "Look
- * inside" (Phase 3c's cross-section list, TowerInsideView.js), "Ask about
- * this tower", and Retire. Opened by a plain tap on a tower
- * (SkylineHoldLayer.js's composed gesture — a long press still builds,
- * a quick tap opens this sheet; the two roles swap under "Tap to build").
+ * Tower details (SKYLINE.md section 9/10, design-review board 03 —
+ * rebuilt 2026-11-13 to a bottom sheet over the live sky, replacing the
+ * original full-screen Modal). Rendered as a permanent sibling in
+ * SkylineScreen.js's own tree (like SkylineHabitSheet.js), animated by
+ * `visible` rather than mounted/unmounted, so the sky stays visible above
+ * it and the open/close transition can slide rather than hard-cut.
  *
- * Edit opens Phase 4's TowerForm.js (passed in as `onEdit`) — it used to
- * deep-link to the old HabitsScreen form via an `editHabitId` route param;
- * repointed once TowerForm existed, 2026-11-12. HabitsScreen.js itself is
- * untouched and still reachable by other paths until Phase 4's cleanup
- * commit removes it.
+ * Stats: Edit, Shield Day, Top out (gated by the habit's own
+ * `topOutThresholdDays`), "Add another day" (backdate), "See inside"
+ * (Phase 3c's cross-section list, TowerInsideView.js), "Ask about tower",
+ * and Retire. Opened by a plain tap on a tower (SkylineHoldLayer.js's
+ * composed gesture — a long press still builds, a quick tap opens this
+ * sheet; the two roles swap under "Tap to build").
+ *
+ * The mini tower illustration is a real `buildScene` render of this one
+ * habit (same engine the main skyline uses), cropped to its own hit-target
+ * bounding box — not a hand-drawn approximation. Needs this habit's real
+ * shielded dates fetched on demand (api.getShieldedDates) since
+ * toSceneHabit's shieldDays stays a deliberate stub otherwise — same
+ * decision TowerInsideView.js made for the same endpoint, not wired into
+ * useHabits' global refresh cycle to avoid an extra request per habit on
+ * every poll.
  *
  * "Best run" here is the habit's all-time longest streak
  * (HabitResponse.longestStreak), not scoped to this specific tower
@@ -60,8 +76,10 @@ export default function TowerSheet({
   onClose,
   habit,
   theme,
+  towerTheme,
   tapToBuild,
   categoryColors,
+  stageHeight,
   onAskAboutTower,
   onOpenInsideView,
   onEdit,
@@ -70,11 +88,97 @@ export default function TowerSheet({
     useHabits();
   const { toast, showToast, hideToast } = useToast();
   const { request, confirm, respond } = useConfirm();
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  // stageHeight is only measured while the daily view is mounted
+  // (SkylineScreen.js's onLayout lives on that branch) — a user whose last
+  // view was Weekly & Monthly (useSkylineView restores it from storage) can
+  // open a tower sheet before that measurement ever happens. Fall back to
+  // the window height so the sheet still slides instead of covering the
+  // whole stage with no sky visible.
+  const effectiveStageHeight = stageHeight > 0 ? stageHeight : windowHeight;
   const todayKey = toDateKey(new Date());
 
   const [showBackdate, setShowBackdate] = useState(false);
   const [selectedDateKey, setSelectedDateKey] = useState(todayKey);
+  const [shieldDates, setShieldDates] = useState([]);
+  // Kept around through the close animation — `habit` goes null the instant
+  // the caller clears towerSheetHabitId, but returning null immediately
+  // would unmount this whole Animated.View and skip the slide-down, since
+  // this is a permanent sibling now (not a Modal that unmounts for free).
+  const [lastHabit, setLastHabit] = useState(null);
+  useEffect(() => {
+    if (habit) setLastHabit(habit);
+  }, [habit]);
+  const displayHabit = habit || lastHabit;
+
+  // Replaces the old per-habit `key` remount (no longer possible — see
+  // SkylineScreen.js's comment on why): reset the backdate picker
+  // explicitly whenever a genuinely different habit opens, so a stale
+  // selectedDateKey/showBackdate from the previous tower can't carry over
+  // and let a Hold land on the wrong habit's day.
+  useEffect(() => {
+    if (!habit) return;
+    setShowBackdate(false);
+    setSelectedDateKey(toDateKey(new Date()));
+  }, [habit?.id]);
+
+  const measured = effectiveStageHeight > 0;
+  const openY = measured ? SHEET_TOP_PEEK : 0;
+  const closedY = measured ? effectiveStageHeight : 0;
+  const translateY = useSharedValue(closedY);
+  const dragStartY = useSharedValue(closedY);
+
+  useEffect(() => {
+    if (!measured) return;
+    translateY.value = withSpring(visible ? openY : closedY, { damping: 50, stiffness: 400 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, measured, openY, closedY]);
+
+  const dismiss = () => onClose();
+
+  const dragGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .onStart(() => {
+          dragStartY.value = translateY.value;
+        })
+        .onUpdate((event) => {
+          translateY.value = Math.max(openY, dragStartY.value + event.translationY);
+        })
+        .onEnd((event) => {
+          if (event.translationY > DISMISS_DISTANCE || event.velocityY > 800) {
+            // Let `dismiss` flip `visible` and the effect above own the
+            // close animation (withSpring to closedY) — animating here too
+            // would start a second, competing animation to the same target
+            // the instant `dismiss` lands.
+            runOnJS(dismiss)();
+          } else {
+            translateY.value = withSpring(openY, { damping: 50, stiffness: 400 });
+          }
+        }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [openY, closedY],
+  );
+
+  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ translateY: translateY.value }] }));
+
+  // Reset before fetching so switching towers (close -> open a different
+  // one, both visible transitions) never shows the previous habit's
+  // shielded dates while the new fetch is still in flight.
+  useEffect(() => {
+    if (!visible || !habit) return undefined;
+    let cancelled = false;
+    setShieldDates([]);
+    api
+      .getShieldedDates(habit.id)
+      .then((dates) => {
+        if (!cancelled) setShieldDates(dates || []);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [visible, habit]);
 
   // A rolling last-7-days window, not a period — same reach as weekly/
   // monthly's own "Add for another day" (SKYLINE.md section 14 #14), just
@@ -107,21 +211,38 @@ export default function TowerSheet({
       .sort((a, b) => new Date(b.occurredAt) - new Date(a.occurredAt));
   }, [habit, backdateDays]);
 
-  if (!habit) return null;
+  // The mini tower illustration: a real buildScene render of this one
+  // habit, cropped to its own bounding box (scene.hitTargets[0]) — the
+  // same box/floor-top math the main skyline/hold-gesture preview already
+  // use, not a hand-measured guess.
+  const sceneHabit = useMemo(() => {
+    if (!displayHabit || !categoryColors) return null;
+    return { ...toSceneHabit(displayHabit, categoryColors), shieldDays: shieldDates };
+  }, [displayHabit, categoryColors, shieldDates]);
+  const miniScene = useMemo(() => {
+    if (!sceneHabit || !towerTheme) return null;
+    return buildScene([sceneHabit], { today: new Date(), theme: towerTheme });
+  }, [sceneHabit, towerTheme]);
+  const miniHit = miniScene?.hitTargets?.[0];
+  const miniBox = miniHit
+    ? { x: miniHit.x - 6, y: miniHit.y - 6, width: miniHit.width + 12, height: miniHit.height + 12 }
+    : { x: X0 - 6, y: BASE_Y - FLOOR_H - CRANE_HEIGHT - 12, width: TOWER_W + DX + 12, height: FLOOR_H + CRANE_HEIGHT + 24 };
+
+  if (!displayHabit) return null;
 
   // The raw habit record (unlike the scene/lot builders' transformed shape)
   // has no .color of its own — derive it the same way TowerForm.js does.
-  const towerColor = (categoryColors && categoryColors[habit.category]) || categoryColor(habit.category);
+  const towerColor = (categoryColors && categoryColors[displayHabit.category]) || categoryColor(displayHabit.category);
 
-  const totalBuilt = habit.checkIns?.length || 0;
-  const currentRun = habit.streak || 0;
-  const bestRun = habit.longestStreak || 0;
-  const closedSegmentCount = habit.closedSegmentCount || 0;
+  const currentRun = displayHabit.streak || 0;
+  const bestRun = displayHabit.longestStreak || 0;
+  const closedSegmentCount = displayHabit.closedSegmentCount || 0;
+  const floorCount = sceneHabit ? classifyDays(sceneHabit, todayKey).length : displayHabit.checkIns?.length || 0;
 
-  const ageDays = habit.createdAt
-    ? Math.floor((Date.now() - new Date(habit.createdAt).getTime()) / MS_PER_DAY)
+  const ageDays = displayHabit.createdAt
+    ? Math.floor((Date.now() - new Date(displayHabit.createdAt).getTime()) / MS_PER_DAY)
     : 0;
-  const threshold = habit.topOutThresholdDays || DEFAULT_TOP_OUT_THRESHOLD_DAYS;
+  const threshold = displayHabit.topOutThresholdDays || DEFAULT_TOP_OUT_THRESHOLD_DAYS;
   const canTopOut = ageDays >= threshold;
 
   const handleEdit = () => {
@@ -228,252 +349,268 @@ export default function TowerSheet({
     ? new Date(`${selectedCell.dateKey}T00:00:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
     : selectedDateKey;
 
-  const shieldSublabel = habit.shieldedToday
-    ? null
-    : habit.shieldEligible
-      ? `${shieldsAvailable} available`
-      : 'Needs a 7+ day run';
-  const shieldDisabled = !habit.shieldedToday && (!habit.shieldEligible || shieldsAvailable <= 0);
+  const shieldLabel = displayHabit.shieldedToday
+    ? 'Remove Shield'
+    : shieldsAvailable > 0
+      ? `Shield Day · ${shieldsAvailable}`
+      : 'Shield Day';
+  const shieldA11yLabel = displayHabit.shieldedToday
+    ? 'Remove Shield Day'
+    : displayHabit.shieldEligible
+      ? `Shield Day, ${shieldsAvailable} available`
+      : 'Shield Day, needs a 7+ day run';
+  const shieldDisabled = !displayHabit.shieldedToday && (!displayHabit.shieldEligible || shieldsAvailable <= 0);
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      {/* HoldPillButton's GestureDetector can't reach the GestureHandlerRootView
-          wrapping App.js from inside a Modal's own native surface — same gotcha
-          LotSheet.js/NotificationCenterModal.js already document and work around. */}
-      <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
-        <View style={styles.header}>
-          <Pressable onPress={onClose} hitSlop={12} style={styles.closeBtn} testID="tower-sheet-close">
-            <MaterialCommunityIcons name="close" size={22} color={theme.muted} />
-          </Pressable>
-          <View style={styles.headerTitleWrap} accessible accessibilityLabel={`Tower details, ${habit.name}`}>
-            <Text style={[styles.headerEyebrow, { color: theme.muted }]}>TOWER DETAILS</Text>
+    <Animated.View
+      pointerEvents={visible ? 'auto' : 'none'}
+      style={[
+        styles.sheet,
+        { backgroundColor: theme.background, height: measured ? effectiveStageHeight : '100%' },
+        animatedStyle,
+      ]}
+    >
+      <GestureDetector gesture={dragGesture}>
+        <View style={styles.handleZone} testID="tower-sheet-handle">
+          <View style={[styles.handle, { backgroundColor: theme.muted }]} />
+        </View>
+      </GestureDetector>
+
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <View style={styles.titleRow}>
+          <View style={[styles.colorChip, { backgroundColor: towerColor }]} />
+          <View style={styles.titleTextWrap} accessible accessibilityLabel={`Tower details, ${displayHabit.name}`}>
+            <Text style={[styles.eyebrow, { color: theme.muted }]}>TOWER DETAILS</Text>
             <Text
-              style={[styles.headerTitle, { color: theme.text }]}
+              style={[styles.title, { color: theme.text }]}
               numberOfLines={2}
               ellipsizeMode="tail"
               importantForAccessibility="no"
             >
-              {habit.name}
+              {displayHabit.name}
             </Text>
+            <Text style={[styles.meta, { color: theme.muted }]}>
+              Daily · Floor {floorCount} · Under construction
+            </Text>
+            {displayHabit.motivation ? (
+              <Text style={[styles.motivation, { color: theme.muted }]}>“{displayHabit.motivation}”</Text>
+            ) : null}
           </View>
-          <View style={{ width: 34 }} />
         </View>
 
-        <ScrollView contentContainerStyle={styles.scroll}>
-          <View style={[styles.statsRow, { backgroundColor: theme.surfaceHigh }]}>
-            <StatBlock label="Current run" value={currentRun} theme={theme} />
-            <StatBlock label="Best run" value={bestRun} theme={theme} />
-            <StatBlock label="Total built" value={totalBuilt} theme={theme} />
-          </View>
-          {closedSegmentCount > 0 && (
-            <Text style={[styles.earlierTowers, { color: theme.muted }]}>
-              {closedSegmentCount} earlier {closedSegmentCount === 1 ? 'tower' : 'towers'} behind this one
-            </Text>
-          )}
-          {habit.motivation ? (
-            <Text style={[styles.motivation, { color: theme.muted }]}>{habit.motivation}</Text>
-          ) : null}
+        <View style={styles.runRow}>
+          <Svg width={100} height={100 * (miniBox.height / miniBox.width)} viewBox={`${miniBox.x} ${miniBox.y} ${miniBox.width} ${miniBox.height}`}>
+            {miniScene ? <SkylineTower shapes={miniScene.shapes} /> : null}
+          </Svg>
 
-          {canTopOut && (
+          <View style={styles.runTextWrap}>
+            <Text style={[styles.runHeadline, { color: theme.amber }]}>{currentRun} day run</Text>
+            <Text style={[styles.runSubtext, { color: theme.muted }]}>
+              The lit floors at the top. Today's floor will make it {currentRun + 1}.
+            </Text>
+
+            <LegendRow swatch={<View style={[styles.ledgeSwatch, { backgroundColor: towerTheme?.ledgeColor || '#FFFFFF' }]} />} title={`Best run: ${bestRun} days`} body="The white ledge. It stays even if the run restarts." theme={theme} />
+            <LegendRow swatch={<View style={[styles.windowSwatch, { backgroundColor: towerColor }]}><View style={[styles.windowPip, { backgroundColor: towerTheme?.windowDark }]} /></View>} title="Dark windows" body="Earlier floors. Past check-ins stay." theme={theme} />
+            <LegendRow
+              swatch={
+                <View style={[styles.glassSwatch, { backgroundColor: towerTheme?.shieldFill, borderColor: towerTheme?.shieldEdge }]}>
+                  <MaterialCommunityIcons name="shield" size={9} color={towerTheme?.shieldIcon} />
+                </View>
+              }
+              title="Glass floor: Shield Day"
+              body="Marked with a shield. The run kept going."
+              theme={theme}
+            />
+            <LegendRow swatch={<View style={[styles.openSwatch, { borderColor: towerTheme?.openStroke }]} />} title="Open floor" body="An outline you can see through. Floors never come down." theme={theme} />
+          </View>
+        </View>
+
+        {closedSegmentCount > 0 && (
+          <Text style={[styles.earlierTowers, { color: theme.muted }]}>
+            {closedSegmentCount} earlier {closedSegmentCount === 1 ? 'tower' : 'towers'} behind this one
+          </Text>
+        )}
+
+        {canTopOut && (
+          <View style={[styles.topOutCard, { backgroundColor: theme.surfaceHigh, borderColor: theme.amber }]}>
+            <View style={styles.topOutTextWrap}>
+              <Text style={[styles.topOutLabel, { color: theme.text }]}>Ready to top out?</Text>
+              <Text style={[styles.topOutBody, { color: theme.muted }]}>
+                You've built this tower for over {threshold} days. Finish it and start a new one whenever you like.
+              </Text>
+            </View>
             <Pressable
               onPress={handleTopOut}
-              style={[styles.topOutCard, { backgroundColor: theme.surfaceHigh, borderColor: theme.amber }]}
+              style={[styles.topOutButton, { backgroundColor: theme.amber }]}
               testID="tower-sheet-top-out"
               accessibilityRole="button"
               accessibilityLabel={`Top out, ${ageDays} days old`}
             >
-              <MaterialCommunityIcons name="flag-checkered" size={24} color={theme.amber} />
-              <View style={styles.topOutTextWrap}>
-                <Text style={[styles.topOutLabel, { color: theme.text }]}>Top out this tower</Text>
-                <Text style={[styles.topOutSublabel, { color: theme.muted }]}>{ageDays} days old</Text>
-              </View>
-              <MaterialCommunityIcons name="chevron-right" size={20} color={theme.muted} />
+              <Text style={styles.topOutButtonText}>Top out</Text>
             </Pressable>
-          )}
-
-          <View style={styles.grid}>
-            <GridButton
-              icon={habit.shieldedToday ? 'shield-off-outline' : 'shield-check-outline'}
-              label={habit.shieldedToday ? 'Remove Shield' : 'Shield Day'}
-              sublabel={shieldSublabel}
-              onPress={handleShieldToggle}
-              disabled={shieldDisabled}
-              theme={theme}
-              testID="tower-sheet-shield"
-            />
-            <GridButton
-              icon="calendar-arrow-left"
-              label="Add another day"
-              onPress={() => setShowBackdate((v) => !v)}
-              theme={theme}
-              testID="tower-sheet-backdate-toggle"
-            />
-            <GridButton
-              icon="layers-outline"
-              label="See inside"
-              onPress={handleOpenInsideView}
-              theme={theme}
-              testID="tower-sheet-inside"
-            />
-            <GridButton
-              icon="chat-processing-outline"
-              label="Ask about tower"
-              onPress={handleAskAboutTower}
-              theme={theme}
-              testID="tower-sheet-ask"
-            />
-            <GridButton
-              icon="pencil-outline"
-              label="Edit"
-              onPress={handleEdit}
-              theme={theme}
-              testID="tower-sheet-edit"
-            />
-            <GridButton
-              icon="archive-outline"
-              label="Retire"
-              onPress={handleRetire}
-              theme={theme}
-              testID="tower-sheet-retire"
-            />
           </View>
+        )}
 
-          {showBackdate && (
-            <View style={[styles.backdateCard, { backgroundColor: theme.surfaceHigh }]}>
-              <Svg width={backdateGridWidth} height={backdateGridHeight} viewBox={`0 0 ${backdateGridWidth} ${backdateGridHeight}`}>
-                <DayGrid
-                  days={backdateDays}
-                  color={towerColor}
-                  width={backdateGridWidth}
-                  height={backdateGridHeight}
-                  pad={GRID_PAD}
-                  gap={GRID_GAP}
-                  dayNumbers
-                  textColor={theme.muted}
-                  onPressDay={handleSelectBackdateDay}
-                  selectedDateKey={selectedDateKey}
-                  minDateKey={minDateKey}
-                />
-              </Svg>
+        <View style={styles.grid}>
+          <PillButton label={shieldLabel} a11yLabel={shieldA11yLabel} onPress={handleShieldToggle} disabled={shieldDisabled} theme={theme} testID="tower-sheet-shield" />
+          <PillButton label="Add another day" onPress={() => setShowBackdate((v) => !v)} theme={theme} testID="tower-sheet-backdate-toggle" />
+          <PillButton label="See inside" onPress={handleOpenInsideView} theme={theme} testID="tower-sheet-inside" />
+          <PillButton label="Ask about tower" onPress={handleAskAboutTower} theme={theme} testID="tower-sheet-ask" />
+          <PillButton label="Edit" onPress={handleEdit} theme={theme} testID="tower-sheet-edit" />
+          <PillButton label="Retire" onPress={handleRetire} theme={theme} testID="tower-sheet-retire" />
+        </View>
 
-              {windowEntries.length > 0 && (
-                <View style={styles.backdateEntries}>
-                  {windowEntries.map((entry) => (
-                    <View key={entry.id} style={styles.entryRow}>
-                      <Text style={[styles.entryText, { color: theme.muted }]}>
-                        {new Date(entry.occurredAt).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                        {'  '}
-                        {new Date(entry.occurredAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                      </Text>
-                      <Pressable
-                        onPress={() => handleRemoveBackdateEntry(entry.id)}
-                        hitSlop={8}
-                        testID={`tower-sheet-backdate-remove-${entry.id}`}
-                      >
-                        <Text style={[styles.removeText, { color: theme.amber }]}>Remove</Text>
-                      </Pressable>
-                    </View>
-                  ))}
-                </View>
-              )}
+        {showBackdate && (
+          <View style={[styles.backdateCard, { backgroundColor: theme.surfaceHigh }]}>
+            <Svg width={backdateGridWidth} height={backdateGridHeight} viewBox={`0 0 ${backdateGridWidth} ${backdateGridHeight}`}>
+              <DayGrid
+                days={backdateDays}
+                color={towerColor}
+                width={backdateGridWidth}
+                height={backdateGridHeight}
+                pad={GRID_PAD}
+                gap={GRID_GAP}
+                dayNumbers
+                textColor={theme.muted}
+                onPressDay={handleSelectBackdateDay}
+                selectedDateKey={selectedDateKey}
+                minDateKey={minDateKey}
+              />
+            </Svg>
 
-              <View style={styles.backdateBuildRow}>
-                <Text style={[styles.buildForLabel, { color: theme.muted }]}>Building for {selectedDayLabel}</Text>
-                <HoldPillButton
-                  built={!canBuildSelected}
-                  canBuild={canBuildSelected}
-                  tapToBuild={tapToBuild}
-                  onBuild={handleBuildBackdate}
-                  color={towerColor}
-                  label={`${habit.name}, ${selectedDayLabel}`}
-                  theme={theme}
-                />
+            {windowEntries.length > 0 && (
+              <View style={styles.backdateEntries}>
+                {windowEntries.map((entry) => (
+                  <View key={entry.id} style={styles.entryRow}>
+                    <Text style={[styles.entryText, { color: theme.muted }]}>
+                      {new Date(entry.occurredAt).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                      {'  '}
+                      {new Date(entry.occurredAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                    </Text>
+                    <Pressable
+                      onPress={() => handleRemoveBackdateEntry(entry.id)}
+                      hitSlop={8}
+                      testID={`tower-sheet-backdate-remove-${entry.id}`}
+                    >
+                      <Text style={[styles.removeText, { color: theme.amber }]}>Remove</Text>
+                    </Pressable>
+                  </View>
+                ))}
               </View>
-            </View>
-          )}
-        </ScrollView>
+            )}
 
-        <Toast toast={toast} onHide={hideToast} />
-        <ConfirmModal request={request} onRespond={respond} />
-      </SafeAreaView>
-      </GestureHandlerRootView>
-    </Modal>
+            <View style={styles.backdateBuildRow}>
+              <Text style={[styles.buildForLabel, { color: theme.muted }]}>Building for {selectedDayLabel}</Text>
+              <HoldPillButton
+                built={!canBuildSelected}
+                canBuild={canBuildSelected}
+                tapToBuild={tapToBuild}
+                onBuild={handleBuildBackdate}
+                color={towerColor}
+                label={`${displayHabit.name}, ${selectedDayLabel}`}
+                theme={theme}
+              />
+            </View>
+          </View>
+        )}
+      </ScrollView>
+
+      <Toast toast={toast} onHide={hideToast} />
+      <ConfirmModal request={request} onRespond={respond} />
+    </Animated.View>
   );
 }
 
-function StatBlock({ label, value, theme }) {
+function LegendRow({ swatch, title, body, theme }) {
   return (
-    <View style={styles.statBlock}>
-      <Text style={[styles.statValue, { color: theme.text }]}>{value}</Text>
-      <Text style={[styles.statLabel, { color: theme.muted }]}>{label}</Text>
+    <View style={styles.legendRow}>
+      <View style={styles.legendSwatchWrap}>{swatch}</View>
+      <View style={styles.legendTextWrap}>
+        <Text style={[styles.legendTitle, { color: theme.text }]}>{title}</Text>
+        <Text style={[styles.legendBody, { color: theme.muted }]}>{body}</Text>
+      </View>
     </View>
   );
 }
 
-// 2-column grid button (design-review board 03, owner-approved
-// 2026-11-13): icon + label + optional sublabel (e.g. the Shield Day
-// count), stacked vertically, min 44dp tall for a real touch target.
-function GridButton({ icon, label, sublabel, onPress, disabled, theme, testID }) {
+// 2-column pill-shaped grid button (design-review board 03, owner-approved
+// 2026-11-13): text only, centered, min 44dp tall for a real touch target.
+function PillButton({ label, a11yLabel, onPress, disabled, theme, testID }) {
   return (
     <Pressable
       onPress={disabled ? undefined : onPress}
       disabled={disabled}
-      style={[styles.gridButton, { backgroundColor: theme.surfaceHigh }]}
+      style={[styles.pillButton, { backgroundColor: theme.surfaceHigh }]}
       testID={testID}
       accessibilityRole="button"
-      accessibilityLabel={sublabel ? `${label}, ${sublabel}` : label}
+      accessibilityLabel={a11yLabel || label}
       accessibilityState={{ disabled: !!disabled }}
     >
-      <MaterialCommunityIcons name={icon} size={20} color={disabled ? theme.muted : theme.text} />
-      <Text style={[styles.gridButtonLabel, { color: disabled ? theme.muted : theme.text }]} numberOfLines={1}>
+      <Text style={[styles.pillButtonText, { color: disabled ? theme.muted : theme.text }]} numberOfLines={1}>
         {label}
       </Text>
-      {sublabel ? (
-        <Text style={[styles.gridButtonSublabel, { color: theme.muted }]} numberOfLines={1}>
-          {sublabel}
-        </Text>
-      ) : null}
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
-  closeBtn: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
-  headerTitleWrap: { flex: 1, alignItems: 'center', paddingHorizontal: 8 },
-  headerEyebrow: { fontFamily: fonts.bold, fontSize: 10, letterSpacing: 0.6, marginBottom: 2 },
-  headerTitle: { fontFamily: fonts.bold, fontSize: 17, textAlign: 'center' },
+  sheet: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+  },
+  handleZone: { alignItems: 'center', paddingVertical: 10 },
+  handle: { width: 40, height: 4, borderRadius: 2 },
   scroll: { paddingHorizontal: 20, paddingBottom: 32 },
-  statsRow: { flexDirection: 'row', borderRadius: 16, paddingVertical: 18, marginBottom: 4 },
-  earlierTowers: { fontFamily: fonts.regular, fontSize: 12, textAlign: 'center', marginBottom: 16 },
-  motivation: { fontFamily: fonts.regular, fontStyle: 'italic', fontSize: 13, textAlign: 'center', marginBottom: 16 },
-  statBlock: { flex: 1, alignItems: 'center' },
-  statValue: { fontFamily: fonts.extraBold, fontSize: 24 },
-  statLabel: { fontFamily: fonts.regular, fontSize: 12, marginTop: 4 },
+  titleRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
+  colorChip: { width: 6, borderRadius: 3, alignSelf: 'stretch' },
+  titleTextWrap: { flex: 1 },
+  eyebrow: { fontFamily: fonts.bold, fontSize: 11, letterSpacing: 0.6 },
+  title: { fontFamily: fonts.extraBold, fontSize: 24, marginTop: 2 },
+  meta: { fontFamily: fonts.regular, fontSize: 13, marginTop: 4 },
+  motivation: { fontFamily: fonts.regular, fontStyle: 'italic', fontSize: 13, marginTop: 8 },
+  runRow: { flexDirection: 'row', gap: 16, marginBottom: 20 },
+  runTextWrap: { flex: 1 },
+  runHeadline: { fontFamily: fonts.extraBold, fontSize: 26 },
+  runSubtext: { fontFamily: fonts.regular, fontSize: 13, marginTop: 4, marginBottom: 14 },
+  legendRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
+  legendSwatchWrap: { width: 22, alignItems: 'center', paddingTop: 3 },
+  legendTextWrap: { flex: 1 },
+  legendTitle: { fontFamily: fonts.semiBold, fontSize: 14 },
+  legendBody: { fontFamily: fonts.regular, fontSize: 12, marginTop: 1 },
+  ledgeSwatch: { width: 18, height: 2, borderRadius: 1 },
+  windowSwatch: { width: 18, height: 14, borderRadius: 3, alignItems: 'center', justifyContent: 'center' },
+  windowPip: { width: 8, height: 4, borderRadius: 1 },
+  glassSwatch: { width: 18, height: 14, borderRadius: 3, borderWidth: 1, opacity: 0.9, alignItems: 'center', justifyContent: 'center' },
+  openSwatch: { width: 18, height: 14, borderRadius: 3, borderWidth: 1.2 },
+  earlierTowers: { fontFamily: fonts.regular, fontSize: 12, marginBottom: 16 },
   topOutCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     borderRadius: 16,
     borderWidth: 1.5,
-    padding: 14,
-    marginBottom: 16,
+    padding: 16,
+    marginBottom: 20,
   },
   topOutTextWrap: { flex: 1 },
-  topOutLabel: { fontFamily: fonts.semiBold, fontSize: 15 },
-  topOutSublabel: { fontFamily: fonts.regular, fontSize: 12, marginTop: 2 },
+  topOutLabel: { fontFamily: fonts.bold, fontSize: 16 },
+  topOutBody: { fontFamily: fonts.regular, fontSize: 13, marginTop: 4 },
+  topOutButton: { borderRadius: 999, paddingHorizontal: 18, paddingVertical: 10 },
+  topOutButtonText: { fontFamily: fonts.bold, fontSize: 14, color: '#1A1300' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 4 },
-  gridButton: {
+  pillButton: {
     width: '47%',
-    minHeight: 64,
-    borderRadius: 14,
-    padding: 12,
-    gap: 4,
+    minHeight: 48,
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  gridButtonLabel: { fontFamily: fonts.semiBold, fontSize: 14 },
-  gridButtonSublabel: { fontFamily: fonts.regular, fontSize: 11 },
+  pillButtonText: { fontFamily: fonts.semiBold, fontSize: 14 },
   backdateCard: { alignSelf: 'stretch', borderRadius: 16, padding: 14, marginTop: 16, alignItems: 'center' },
   backdateEntries: { alignSelf: 'stretch', marginTop: 12 },
   entryRow: {

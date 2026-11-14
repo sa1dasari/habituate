@@ -3,47 +3,22 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'r
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { runOnJS } from 'react-native-reanimated';
 import api from '../api/client';
-import CalendarModal from '../components/CalendarModal';
 import TourHighlight from '../components/TourHighlight';
 import Toast from '../components/Toast';
-import { categoryColor, categoryIcon, HABIT_CATEGORY_COLORS } from '../constants/habitCategories';
+import { categoryColor, HABIT_CATEGORY_COLORS } from '../constants/habitCategories';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useHabits } from '../hooks/useHabits';
 import { useToast } from '../hooks/useToast';
 import { useRegisterScrollToTop } from '../hooks/useRegisterScrollToTop';
 import { useTourTarget } from '../hooks/useTourTarget';
 import { TOUR_SCOPES, TOUR_TARGETS } from '../constants/onboardingTour';
-import {
-  CONSISTENCY_PERIODS,
-  habitHistorySummary,
-  habitPeriodHistory,
-  isCurrentPeriod,
-  periodRangeLabel,
-  shiftAnchor,
-  totalFloorsHistory,
-} from '../utils/consistency';
+import { CONSISTENCY_PERIODS, isCurrentPeriod, periodRangeLabel, shiftAnchor, totalFloorsHistory } from '../utils/consistency';
 import { hasDailyTarget } from '../utils/cadence';
 import { startOfWeek, toDateKey } from '../utils/date';
 import { buildLots } from '../utils/lots';
 import { toLotHabit } from '../utils/skylineAdapter';
-import { buildCategoryTowerColors, fonts, gradients, radii, shadow, skylineTowerTheme, spacing } from '../theme';
-
-/**
- * Cycled per selected habit so a multi-select chart can tell bars apart —
- * same palette ConsistencyDetailModal used before this screen absorbed it.
- */
-const BAR_COLOR_SETS = [
-  gradients.safe,
-  gradients.accent,
-  gradients.warm,
-  ['#FB7185', '#E11D48'], // rose
-  ['#2DD4BF', '#0D9488'], // teal
-  ['#818CF8', '#4338CA'], // indigo
-];
+import { buildCategoryTowerColors, fonts, radii, shadow, skylineTowerTheme, spacing } from '../theme';
 
 // Per-habit color for the new Floors/Runs/Shield-use cards — the raw habit
 // record (unlike the Skyline scene/lot builders' transformed shape) has no
@@ -51,12 +26,6 @@ const BAR_COLOR_SETS = [
 const towerColorsByMode = buildCategoryTowerColors(HABIT_CATEGORY_COLORS);
 
 const BAR_MAX_HEIGHT = 120;
-const HISTORY_TITLES = {
-  weekly: 'This week, day by day',
-  monthly: 'This month, week by week',
-  yearly: 'This year, month by month',
-};
-const HISTORY_SUBTITLES = { weekly: 'By day', monthly: 'By week', yearly: 'By month' };
 // Phase 5 (design/skyline/06-insights.png): Week/Month/Year only — the old
 // Daily tab (24-hourly-bar view) is dropped, owner decision 2026-11-13.
 // CONSISTENCY_PERIODS itself still includes 'daily' (computeConsistency/
@@ -99,47 +68,24 @@ export default function InsightsScreen({ navigation, route }) {
     [habitCategoryColors]
   );
 
-  const { habits, refresh, toggleCheckIn, busy } = useHabits();
+  const { habits, refresh } = useHabits();
   const { toast, showToast, hideToast } = useToast();
   const [period, setPeriod] = useState('weekly');
   // The date each period's trailing window ends at — "now" shows the live
   // period; prev/next slide it back/forward a whole window-length at a time
   // (see utils/consistency.js's shiftAnchor), which is what lets this one
   // state value drive weekly/monthly/yearly navigation without a new
-  // backend endpoint — computeConsistency/habitPeriodHistory already derive
-  // every stat from the full check-in history already loaded client-side.
+  // backend endpoint.
   const [anchor, setAnchor] = useState(() => new Date());
   const [refreshing, setRefreshing] = useState(false);
-  // Multi-select: an empty array defaults to just the first habit — tapping
-  // a chip toggles it in/out from there, same as the old detail drill-down.
+  // Habit filter chips (design-review board 23): empty = "All" (every habit
+  // counts), non-empty = only those habits feed Floors/Runs/Shield-use.
+  // Multi-select — tapping a habit toggles it in/out; tapping "All" clears
+  // back to empty.
   const [selectedHabitIds, setSelectedHabitIds] = useState([]);
-  // Tapping a week/month/year bar opens the real calendar at that bucket's
-  // date, reusing its existing day-detail panel.
-  const [calendarVisible, setCalendarVisible] = useState(false);
-  const [calendarAnchorDateKey, setCalendarAnchorDateKey] = useState(null);
-  const [calendarSelectedDayKey, setCalendarSelectedDayKey] = useState(null);
-
-  // Was HabitsScreen.js's handleToggleCalendarDay — backdates/undoes a BOOLEAN
-  // habit's check-in for the tapped day. HabitsScreen was the only screen
-  // wiring this into CalendarModal's onToggleHabitDay; restoring it here so
-  // removing that screen doesn't silently drop the capability.
-  const handleToggleCalendarDay = useCallback(
-    async (habit, dayKey) => {
-      try {
-        await toggleCheckIn(habit.id, dayKey);
-      } catch (err) {
-        showToast(`Could not update check-in — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
-      }
-    },
-    [toggleCheckIn, showToast]
-  );
 
   useEffect(() => {
-    setSelectedHabitIds((current) => {
-      const stillValid = current.filter((id) => habits.some((h) => h.id === id));
-      if (stillValid.length > 0) return stillValid;
-      return habits[0] ? [habits[0].id] : [];
-    });
+    setSelectedHabitIds((current) => current.filter((id) => habits.some((h) => h.id === id)));
   }, [habits]);
 
   const toggleHabit = (habitId) => {
@@ -148,16 +94,11 @@ export default function InsightsScreen({ navigation, route }) {
     );
   };
 
-  const openBucketInCalendar = (bucketPeriod, bucket) => {
-    if (!bucket.dateKey) return;
-    setCalendarAnchorDateKey(bucket.dateKey);
-    setCalendarSelectedDayKey(bucketPeriod === 'yearly' ? null : bucket.dateKey);
-    setCalendarVisible(true);
-  };
+  const filteredHabits = selectedHabitIds.length === 0 ? habits : habits.filter((h) => selectedHabitIds.includes(h.id));
 
   const tourFloorsCardRef = useTourTarget(TOUR_TARGETS.INSIGHTS_CONSISTENCY_CARD);
 
-  const floors = useMemo(() => totalFloorsHistory(habits, period, anchor), [habits, period, anchor]);
+  const floors = useMemo(() => totalFloorsHistory(filteredHabits, period, anchor), [filteredHabits, period, anchor]);
   const maxFloorsBucketValue = Math.max(1, ...floors.buckets.map((b) => b.value));
 
   // "Runs" card (Phase 5 follow-up mockup): every habit, current vs. best
@@ -167,7 +108,7 @@ export default function InsightsScreen({ navigation, route }) {
   // the Weekly & Monthly lots view uses, which carries both currentRun and
   // (new this round) bestRun in that habit's own period unit.
   const runsRows = useMemo(() => {
-    const dailyRows = habits
+    const dailyRows = filteredHabits
       .filter((h) => hasDailyTarget(h))
       .map((h) => ({
         id: h.id,
@@ -178,7 +119,7 @@ export default function InsightsScreen({ navigation, route }) {
         currentLabel: `${h.streak || 0} day${(h.streak || 0) === 1 ? '' : 's'}`,
         bestLabel: `best ${h.longestStreak || 0}`,
       }));
-    const periodOnlyHabits = habits.filter((h) => !hasDailyTarget(h));
+    const periodOnlyHabits = filteredHabits.filter((h) => !hasDailyTarget(h));
     const lotRows =
       periodOnlyHabits.length === 0
         ? []
@@ -197,7 +138,7 @@ export default function InsightsScreen({ navigation, route }) {
     const all = [...dailyRows, ...lotRows];
     const maxCurrent = Math.max(0, ...all.map((r) => r.current));
     return all.map((r) => ({ ...r, isBest: maxCurrent > 0 && r.current === maxCurrent }));
-  }, [habits, anchor, habitColor, habitCategoryColors]);
+  }, [filteredHabits, anchor, habitColor, habitCategoryColors]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -207,11 +148,6 @@ export default function InsightsScreen({ navigation, route }) {
 
   const isLivePeriod = isCurrentPeriod(period, anchor);
   const rangeLabel = periodRangeLabel(period, anchor);
-  // Yearly (12 monthly bars) gets its own horizontal ScrollView below (see
-  // isDense usage further down) — the swipe-to-navigate-period pan gesture
-  // is disabled there so a finger drag over the bars scrolls them instead
-  // of fighting the period swipe.
-  const isDense = period === 'yearly';
 
   const selectPeriod = (p) => {
     setPeriod(p);
@@ -222,66 +158,6 @@ export default function InsightsScreen({ navigation, route }) {
     setAnchor((a) => (isCurrentPeriod(period, a) ? a : shiftAnchor(period, a, 1)));
   }, [period]);
   const goToNow = () => setAnchor(new Date());
-
-  // Pinch-out = zoom into finer detail (yearly -> monthly -> weekly -> daily),
-  // pinch-in = zoom out to a broader range — same metaphor as a map or photo
-  // gallery. Swipe left/right moves one period at a time, same step as the
-  // prev/next chevrons. Both gestures land back on the live period on a
-  // granularity change, same as tapping a period tab directly.
-  const zoomToFinerPeriod = useCallback(() => {
-    setPeriod((p) => {
-      const idx = PERIOD_ORDER.indexOf(p);
-      return PERIOD_ORDER[Math.max(idx - 1, 0)];
-    });
-    setAnchor(new Date());
-  }, []);
-  const zoomToBroaderPeriod = useCallback(() => {
-    setPeriod((p) => {
-      const idx = PERIOD_ORDER.indexOf(p);
-      return PERIOD_ORDER[Math.min(idx + 1, PERIOD_ORDER.length - 1)];
-    });
-    setAnchor(new Date());
-  }, []);
-
-  const pinchGesture = useMemo(
-    () =>
-      Gesture.Pinch().onEnd((e) => {
-        'worklet';
-        if (e.scale > 1.25) runOnJS(zoomToFinerPeriod)();
-        else if (e.scale < 0.8) runOnJS(zoomToBroaderPeriod)();
-      }),
-    [zoomToFinerPeriod, zoomToBroaderPeriod]
-  );
-  const panGesture = useMemo(
-    () =>
-      Gesture.Pan()
-        .enabled(!isDense)
-        .activeOffsetX([-16, 16])
-        .failOffsetY([-12, 12])
-        .onEnd((e) => {
-          'worklet';
-          if (e.translationX < -40) runOnJS(goToNextPeriod)();
-          else if (e.translationX > 40) runOnJS(goToPreviousPeriod)();
-        }),
-    [goToNextPeriod, goToPreviousPeriod, isDense]
-  );
-  const chartGesture = useMemo(() => Gesture.Simultaneous(pinchGesture, panGesture), [pinchGesture, panGesture]);
-
-  const selectedHabits = habits.filter((h) => selectedHabitIds.includes(h.id));
-  const selectedHistories = useMemo(
-    () => selectedHabits.map((habit) => ({ habit, history: habitPeriodHistory(habit, period, anchor || new Date()) })),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selectedHabitIds, period, habits, anchor]
-  );
-  const maxBucketValue =
-    selectedHistories.length > 0
-      ? Math.max(1, ...selectedHistories.flatMap(({ history }) => history.buckets.map((b) => b.windowLen)))
-      : 1;
-  const hasAnyWindow = selectedHistories.some(({ history }) => history.buckets.some((b) => b.windowLen > 0));
-  const latestSingleBucket =
-    selectedHistories.length === 1 && period !== 'daily'
-      ? selectedHistories[0].history.buckets[selectedHistories[0].history.buckets.length - 1]
-      : null;
 
   // Coming from a WEEKLY_SUMMARY/MONTHLY_SUMMARY/YEARLY_SUMMARY notification
   // (NotificationCenterModal.handlePress) — land directly on that period's
@@ -348,6 +224,18 @@ export default function InsightsScreen({ navigation, route }) {
             </Pressable>
           ))}
         </View>
+
+        {habits.length > 0 && (
+          <HabitFilterChips
+            habits={habits}
+            habitColor={habitColor}
+            selectedHabitIds={selectedHabitIds}
+            onToggleHabit={toggleHabit}
+            onSelectAll={() => setSelectedHabitIds([])}
+            styles={styles}
+            colors={colors}
+          />
+        )}
 
         <View style={styles.periodNavRow}>
           <Pressable
@@ -490,168 +378,65 @@ export default function InsightsScreen({ navigation, route }) {
         ) : null}
 
         <ShieldUseCard
-          habits={habits}
+          habits={filteredHabits}
           habitColor={habitColor}
           colors={colors}
           towerTheme={skylineTowerTheme[effectiveMode]}
           styles={styles}
         />
-
-        {habits.length > 0 ? (
-          <>
-            <View style={styles.card}>
-              <View style={styles.cardHeaderRow}>
-                <Text style={styles.cardTitle}>Selected habits</Text>
-                <View style={styles.countBadge}>
-                  <Text style={styles.countBadgeText}>
-                    {selectedHabits.length} of {habits.length} selected
-                  </Text>
-                </View>
-              </View>
-
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.chipRow}
-              >
-                {habits.map((habit) => {
-                  const selected = selectedHabitIds.includes(habit.id);
-                  return (
-                    <Pressable
-                      key={habit.id}
-                      style={[styles.chip, selected && styles.chipSelected]}
-                      onPress={() => toggleHabit(habit.id)}
-                    >
-                      <MaterialCommunityIcons
-                        name={categoryIcon(habit.category)}
-                        size={20}
-                        color={selected ? colors.safe : colors.textSecondary}
-                      />
-                      <Text style={[styles.chipText, selected && styles.chipTextSelected]} numberOfLines={1}>
-                        {habit.name}
-                      </Text>
-                      {selected ? (
-                        <MaterialCommunityIcons name="check" size={14} color={colors.safe} />
-                      ) : null}
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
-            </View>
-
-            {selectedHabits.length === 0 ? (
-              <View style={styles.card}>
-                <Text style={styles.emptyText}>Select at least one habit above to see its consistency.</Text>
-              </View>
-            ) : (
-              <>
-                <GestureDetector gesture={chartGesture}>
-                  <View style={styles.card}>
-                    <View style={styles.cardHeaderRow}>
-                      <View>
-                        <Text style={styles.cardTitle}>{HISTORY_TITLES[period]}</Text>
-                        <Text style={styles.cardSubtitle}>
-                          {HISTORY_SUBTITLES[period]} · pinch to zoom{isDense ? '' : ', swipe to move'}
-                        </Text>
-                      </View>
-                      {latestSingleBucket && latestSingleBucket.value > 0 ? (
-                        <View style={styles.statusPill}>
-                          <View style={styles.statusDot} />
-                          <Text style={styles.statusText}>
-                            {latestSingleBucket.windowLen > 0 && latestSingleBucket.value >= latestSingleBucket.windowLen
-                              ? 'Completed'
-                              : 'In progress'}
-                          </Text>
-                        </View>
-                      ) : null}
-                    </View>
-
-                    {hasAnyWindow ? (
-                      selectedHistories.map(({ habit, history }, historyIndex) => {
-                        const colorSet = BAR_COLOR_SETS[historyIndex % BAR_COLOR_SETS.length];
-                        const bars = (
-                          <View style={[styles.chartRow, isDense && styles.chartRowDense]}>
-                            {history.buckets.map((bucket, bucketIndex) => {
-                              const pct = maxBucketValue > 0 ? Math.round((bucket.value / maxBucketValue) * 100) : 0;
-                              const tappable = Boolean(bucket.dateKey);
-                              return (
-                                <Pressable
-                                  key={bucketIndex}
-                                  style={[styles.barColumn, isDense && styles.barColumnDense]}
-                                  disabled={!tappable}
-                                  onPress={tappable ? () => openBucketInCalendar(period, bucket) : undefined}
-                                  accessibilityRole={tappable ? 'button' : undefined}
-                                  accessibilityLabel={`${bucket.label || bucketIndex}: ${bucket.value} day${bucket.value === 1 ? '' : 's'}${tappable ? ' — view check-ins' : ''}`}
-                                >
-                                  <View style={styles.barGroup}>
-                                    <View style={[styles.barTrack, isDense && styles.barTrackDense]}>
-                                      {bucket.value > 0 ? (
-                                        <LinearGradient
-                                          colors={colorSet}
-                                          start={{ x: 0, y: 0 }}
-                                          end={{ x: 0, y: 1 }}
-                                          style={[styles.barFill, { height: `${Math.max(pct, 6)}%` }]}
-                                        />
-                                      ) : null}
-                                    </View>
-                                  </View>
-                                  <Text style={styles.barAxisLabel}>{bucket.label}</Text>
-                                </Pressable>
-                              );
-                            })}
-                          </View>
-                        );
-                        return (
-                          <View key={habit.id} style={historyIndex > 0 ? styles.summaryBlock : null}>
-                            {selectedHistories.length > 1 ? (
-                              <Text style={styles.summaryHabitName}>{habit.name}</Text>
-                            ) : null}
-                            {isDense ? (
-                              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                                {bars}
-                              </ScrollView>
-                            ) : (
-                              bars
-                            )}
-                          </View>
-                        );
-                      })
-                    ) : (
-                      <Text style={styles.emptyText}>No history yet in this window.</Text>
-                    )}
-                  </View>
-                </GestureDetector>
-
-                <View style={styles.card}>
-                  <Text style={styles.cardTitle}>Selected-period details</Text>
-                  {selectedHistories.map(({ habit, history: h }, i) => (
-                    <View key={habit.id} style={i > 0 ? styles.summaryBlock : null}>
-                      {selectedHistories.length > 1 ? (
-                        <Text style={styles.summaryHabitName}>{habit.name}</Text>
-                      ) : null}
-                      <Text style={styles.summaryText}>{habitHistorySummary(h)}</Text>
-                    </View>
-                  ))}
-                </View>
-              </>
-            )}
-          </>
-        ) : null}
       </ScrollView>
-
-      <CalendarModal
-        visible={calendarVisible}
-        habits={habits}
-        initialAnchorDateKey={calendarAnchorDateKey}
-        initialSelectedDayKey={calendarSelectedDayKey}
-        onClose={() => setCalendarVisible(false)}
-        onToggleHabitDay={handleToggleCalendarDay}
-        busy={busy}
-      />
     </SafeAreaView>
     <TourHighlight scope={TOUR_SCOPES.INSIGHTS} />
     <Toast toast={toast} onHide={hideToast} />
     </>
+  );
+}
+
+/**
+ * Habit filter chips (design-review board 23, owner-approved 2026-11-13):
+ * "Habits" label, an "All" chip, then one chip per habit with its color
+ * dot. Multi-select — tapping "All" clears back to showing everything;
+ * tapping a habit toggles it. Filters Floors built, Runs and Shield use
+ * at once (Floors built stays daily-towers-only regardless, since a
+ * weekly/monthly habit never builds a floor).
+ */
+function HabitFilterChips({ habits, habitColor, selectedHabitIds, onToggleHabit, onSelectAll, styles, colors }) {
+  const allSelected = selectedHabitIds.length === 0;
+  return (
+    <View style={styles.habitChipsRow}>
+      <Text style={styles.habitChipsLabel}>Habits</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.habitChipsScroll}>
+        <Pressable
+          style={[styles.habitChip, allSelected && styles.habitChipSelected]}
+          onPress={onSelectAll}
+          hitSlop={{ top: 5, bottom: 5 }}
+          testID="insights-habit-chip-all"
+          accessibilityRole="button"
+          accessibilityLabel={`All, ${allSelected ? 'selected' : 'not selected'}`}
+        >
+          <Text style={[styles.habitChipText, allSelected && styles.habitChipTextSelected]}>All</Text>
+        </Pressable>
+        {habits.map((habit) => {
+          const selected = selectedHabitIds.includes(habit.id);
+          return (
+            <Pressable
+              key={habit.id}
+              style={[styles.habitChip, selected && styles.habitChipSelected]}
+              onPress={() => onToggleHabit(habit.id)}
+              hitSlop={{ top: 5, bottom: 5 }}
+              testID={`insights-habit-chip-${habit.id}`}
+              accessibilityRole="button"
+              accessibilityLabel={`${habit.name}, ${selected ? 'selected' : 'not selected'}`}
+            >
+              <View style={[styles.habitChipDot, { backgroundColor: habitColor(habit) }]} />
+              <Text style={[styles.habitChipText, selected && styles.habitChipTextSelected]} numberOfLines={1}>
+                {habit.name}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+    </View>
   );
 }
 
@@ -887,65 +672,33 @@ function makeStyles(colors, typography) {
     },
     cardTitle: { ...typography.cardTitle },
     cardSubtitle: { ...typography.meta, marginTop: 2 },
-    countBadge: {
-      backgroundColor: colors.neutralSoft,
-      borderRadius: radii.pill,
-      paddingHorizontal: spacing.sm + 2,
-      paddingVertical: 4,
+    habitChipsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      marginBottom: spacing.lg,
     },
-    countBadgeText: { fontSize: 12, fontWeight: '700', color: colors.textSecondary },
-    chipRow: { gap: spacing.sm },
-    chip: {
+    habitChipsLabel: { ...typography.meta, marginRight: 2 },
+    habitChipsScroll: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+    habitChip: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 6,
-      backgroundColor: colors.background,
+      minHeight: 34,
+      backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.border,
-      borderRadius: radii.md,
-      paddingHorizontal: spacing.sm + 2,
-      paddingVertical: spacing.sm,
-      maxWidth: 160,
-    },
-    chipSelected: {
-      backgroundColor: colors.safeSoft,
-      borderColor: colors.safe,
-    },
-    chipText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
-    chipTextSelected: { color: colors.textPrimary, fontWeight: '700' },
-    statusPill: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 5,
-      backgroundColor: colors.safeSoft,
       borderRadius: radii.pill,
-      paddingHorizontal: spacing.sm + 2,
-      paddingVertical: 4,
+      paddingHorizontal: spacing.sm + 4,
+      paddingVertical: 6,
     },
-    statusDot: { width: 6, height: 6, borderRadius: radii.pill, backgroundColor: colors.safe },
-    statusText: { fontSize: 12, fontWeight: '700', color: colors.safe },
-    chartRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-around',
-      alignItems: 'flex-end',
-      marginTop: spacing.md,
+    habitChipSelected: {
+      backgroundColor: `${colors.amber}2E`,
+      borderColor: colors.amber,
     },
-    barColumn: { alignItems: 'center', flex: 1 },
-    chartRowDense: { justifyContent: 'flex-start', paddingHorizontal: spacing.xs },
-    barColumnDense: { flex: 0, width: 30 },
-    barTrackDense: { width: 14 },
-    barGroup: { flexDirection: 'row', alignItems: 'flex-end', gap: 3 },
-    barTrack: {
-      width: 28,
-      height: BAR_MAX_HEIGHT,
-      justifyContent: 'flex-end',
-      backgroundColor: colors.ringTrack,
-      borderRadius: radii.sm,
-      overflow: 'hidden',
-    },
-    barFill: { width: '100%', borderRadius: radii.sm },
-    ringHint: { ...typography.meta, textAlign: 'center', marginTop: spacing.sm },
-    barAxisLabel: { fontSize: 11, fontWeight: '600', color: colors.textMuted, marginTop: spacing.sm },
+    habitChipDot: { width: 8, height: 8, borderRadius: radii.pill },
+    habitChipText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
+    habitChipTextSelected: { color: colors.textPrimary, fontWeight: '700' },
     legendRow: {
       flexDirection: 'row',
       flexWrap: 'wrap',
@@ -955,10 +708,6 @@ function makeStyles(colors, typography) {
     legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5, maxWidth: 140 },
     legendDot: { width: 8, height: 8, borderRadius: radii.pill },
     legendText: { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
-    summaryText: { ...typography.body, color: colors.textSecondary, lineHeight: 20 },
-    summaryBlock: { marginTop: spacing.md },
-    summaryHabitName: { fontSize: 13, fontWeight: '700', color: colors.textPrimary, marginBottom: 2 },
-    emptyText: { ...typography.body, color: colors.textSecondary, textAlign: 'center' },
     runRow: { marginTop: spacing.md },
     runRowHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     runName: { flex: 1, fontSize: 14, fontWeight: '700', color: colors.textPrimary },

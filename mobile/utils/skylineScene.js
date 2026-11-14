@@ -43,7 +43,7 @@ const DEFAULT_WINDOW_COUNT = 3;
 /** Evenly spaced window x-fractions (0-1 across the floor width) for a given
  * count — an Accessibility setting (useWindowCount.js). n=3 reproduces the
  * [0.18, 0.5, 0.82] layout from
- * concept_screens/tower_floor_states_windows_and_shield.png exactly. */
+ * design/skyline/22-floor-states-reference.png exactly. */
 function windowFractions(n) {
   if (n <= 1) return [0.5];
   const margin = 0.18;
@@ -202,7 +202,7 @@ function faceShapes({
   }
 
   // 'set' — wall color is the same whether this floor is in the current run
-  // or not (concept_screens/tower_floor_states_windows_and_shield.png shows
+  // or not (design/skyline/22-floor-states-reference.png shows
   // identical block color for both); only the windows differ. Every real
   // check-in gets windows — lit (bright) inside the current run, dark
   // (muted) once the run has moved past it. That's the non-color signal:

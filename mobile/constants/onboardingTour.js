@@ -55,7 +55,7 @@ export const TOUR_STEPS = [
     targetKey: TOUR_TARGETS.TODAY_ADD_HABIT_BUTTON,
     eyebrow: 'BUILD YOUR ROUTINE',
     title: 'Habits start right here',
-    body: '"Add your first habit" builds one from scratch: name it, set a cadence (daily, weekly, monthly, or stack all three), pick how you log it.',
+    body: '"Lay a foundation" builds one from scratch: name it, set a cadence (daily, weekly, monthly, or stack all three), pick how you log it.',
   },
   {
     id: 'habits-create-form',

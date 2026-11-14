@@ -12,7 +12,7 @@ import { daysInMonth, startOfDay, startOfMonth, startOfWeek, toDateKey } from '.
  * Each period (a week, or a month) carries a flat `days` array — one cell
  * per real calendar day (Mon..Sun for a week; day 1..last for a month) with
  * that specific day's own log count, not a sequential "houses built" tally.
- * The concept screens (concept _screens/2-weekly-monthly.png and the two
+ * The concept screens (design/skyline/16-weekly-monthly.png and the two
  * lot-sheet mockups) show the tile as a per-day heatmap: a weekly tile is
  * one row of 7 real weekdays, a monthly tile is N rows of 7 real calendar
  * days (chunking `days` into rows of 7 lines up with the day-block rule —

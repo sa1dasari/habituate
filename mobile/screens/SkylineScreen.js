@@ -47,7 +47,7 @@ function hexToRgba(hex, alpha) {
  * is Phase 3, so renaming the tab now would lose capability versus the old
  * TodayScreen. Reachable for now via the __DEV__ tab in App.js.
  *
- * Layout matches concept_screens/1-skyline-daily.png: header (title, date +
+ * Layout matches design/skyline/01-skyline.png: header (title, date +
  * built count, chat/profile icons), the sky+towers scene, then a persistent
  * bottom sheet listing every habit as a row — the full non-visual
  * equivalent of the skyline (section 13).
@@ -85,7 +85,7 @@ export default function SkylineScreen({ navigation }) {
   const [archivedTowersVisible, setArchivedTowersVisible] = useState(false);
   const [addHabitVisible, setAddHabitVisible] = useState(false);
   const [stageHeight, setStageHeight] = useState(0);
-  // Measured, not guessed — concept_screens/1-skyline-daily.png shows the
+  // Measured, not guessed — design/skyline/01-skyline.png shows the
   // sun/moon clearly below the header, not behind or crowding it. A flat
   // fraction of the full window height would sit right under the header on
   // some devices and well below it on others.
@@ -247,8 +247,8 @@ export default function SkylineScreen({ navigation }) {
     setChatInitialQuestion(null);
   }, []);
 
-  // The lot sheet (concept _screens/3-lot-sheet-weekly.png,
-  // 5-lot-sheet-monthly.png — SKYLINE.md section 4a's Phase 2b gate):
+  // The lot sheet (design/skyline/17-lot-sheet-weekly.png,
+  // 19-lot-sheet-monthly.png — SKYLINE.md section 4a's Phase 2b gate):
   // backdates or deletes a check-in for any day in a period, from a
   // LotTile tap or a row's "Add for another day" link. Errors are caught
   // and toasted inside LotSheet.js itself (same as InviteFriendsSheet's

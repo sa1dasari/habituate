@@ -26,7 +26,7 @@ const EMPTY_LOT_SIZE = 40;
  * fixed while the art underneath moves.
  *
  * Also renders a name label under each tower and a trailing "+ New"
- * empty-lot marker (concept_screens/1-skyline-daily.png) — `onAddHabit`,
+ * empty-lot marker (design/skyline/01-skyline.png) — `onAddHabit`,
  * when given, makes that lot tappable.
  */
 export default function SkylineView({

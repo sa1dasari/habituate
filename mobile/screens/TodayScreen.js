@@ -77,7 +77,7 @@ function encouragement({ total, done }, hasOtherHabits = false) {
   if (total === 0) {
     return hasOtherHabits
       ? 'Nothing due today — your weekly and monthly habits are below.'
-      : 'Add your first habit below to get started.';
+      : 'Lay a foundation below to get started.';
   }
   if (done === 0) return 'Nothing logged yet — any one of these is a fine place to start.';
   if (done === total) return 'Everything for today is logged. Nice.';
@@ -678,10 +678,10 @@ export default function TodayScreen() {
             ref={tourAddHabitButtonRef}
             style={styles.emptyCta}
             accessibilityRole="button"
-            accessibilityLabel="Add your first habit"
+            accessibilityLabel="Lay a foundation"
             onPress={() => setTowerFormVisible(true)}
           >
-            <Text style={styles.emptyCtaText}>Add your first habit</Text>
+            <Text style={styles.emptyCtaText}>Lay a foundation</Text>
             <MaterialCommunityIcons name="arrow-right" size={16} color={colors.accent} />
           </Pressable>
         ) : null}
@@ -702,10 +702,10 @@ export default function TodayScreen() {
               ref={tourAddHabitButtonRef}
               style={styles.emptyCta}
               accessibilityRole="button"
-              accessibilityLabel="Add your first habit"
+              accessibilityLabel="Lay a foundation"
               onPress={() => setTowerFormVisible(true)}
             >
-              <Text style={styles.emptyCtaText}>Add your first habit</Text>
+              <Text style={styles.emptyCtaText}>Lay a foundation</Text>
               <MaterialCommunityIcons name="arrow-right" size={16} color={colors.accent} />
             </Pressable>
           </View>

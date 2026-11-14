@@ -21,7 +21,7 @@ function shieldIconPath(cx, cy, w = 11, h = 12) {
  * is a single row of 7 weekdays; a monthly lot chunks `period.days` into
  * rows of 7, which lines up with the day-block rule — 1-7/8-14/.../29-end —
  * for free). Each cell's fill tracks that day's own log count (0/1/2/3+,
- * matching concept _screens/2-weekly-monthly.png's legend), a dashed
+ * matching design/skyline/16-weekly-monthly.png's legend), a dashed
  * outline marks a day still to come, and a plain white outline marks
  * today — distinct from the tile's own amber border, which means the whole
  * period's target was met.
@@ -245,8 +245,8 @@ const LotTile = React.memo(function LotTile({ period, color, theme, towerTheme, 
 
 export default LotTile;
 
-/** The static legend card under the tile list (concept _screens/
- * 2-weekly-monthly.png's bottom card) — explains the day-cell color tiers
+/** The static legend card under the tile list (design/skyline/
+ * 16-weekly-monthly.png's bottom card) — explains the day-cell color tiers
  * and the three border states, so a reader isn't left guessing what a
  * dashed or white-outlined cell means. */
 export function LotLegend({ theme }) {

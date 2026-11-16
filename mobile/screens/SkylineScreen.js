@@ -328,10 +328,26 @@ export default function SkylineScreen({ navigation }) {
         <View style={[styles.header, { backgroundColor: hexToRgba(ui.background, 0.55) }]}>
           <View style={styles.headerText}>
             <Text style={[styles.title, { color: ui.text }]} numberOfLines={1}>Skyline</Text>
+            {/* Boards 01/16: two lines on Daily (date, then the built count),
+                one line (date only) on Weekly & monthly. */}
             <Text style={[styles.subtitle, { color: ui.muted }]} numberOfLines={1}>
-              {formatHeaderDate(today)} · {dueTodayCount.done} of {dueTodayCount.total} built today
+              {formatHeaderDate(today)}
             </Text>
+            {view === 'daily' && (
+              <Text style={[styles.subtitleLine2, { color: ui.muted }]} numberOfLines={1}>
+                {dueTodayCount.done} of {dueTodayCount.total} built today
+              </Text>
+            )}
           </View>
+          <Pressable
+            style={styles.iconBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Retired towers"
+            onPress={() => setArchivedTowersVisible(true)}
+            testID="skyline-archived-towers-icon"
+          >
+            <MaterialCommunityIcons name="archive-outline" size={20} color={ui.text} />
+          </Pressable>
           <Pressable
             style={styles.iconBtn}
             accessibilityRole="button"
@@ -346,15 +362,6 @@ export default function SkylineScreen({ navigation }) {
             }}
           >
             <MaterialCommunityIcons name="chat-processing-outline" size={20} color={ui.text} />
-          </Pressable>
-          <Pressable
-            style={styles.iconBtn}
-            accessibilityRole="button"
-            accessibilityLabel="Retired towers"
-            onPress={() => setArchivedTowersVisible(true)}
-            testID="skyline-archived-towers-icon"
-          >
-            <MaterialCommunityIcons name="archive-outline" size={20} color={ui.text} />
           </Pressable>
           <Pressable
             style={styles.iconBtn}
@@ -595,7 +602,17 @@ const styles = StyleSheet.create({
   headerText: { flex: 1 },
   title: { fontFamily: fonts.extraBold, fontSize: 28 },
   subtitle: { fontFamily: fonts.regular, fontSize: 14, marginTop: 2 },
-  iconBtn: { marginLeft: 10 },
+  subtitleLine2: { fontFamily: fonts.regular, fontSize: 14 },
+  // 44dp circles, 8dp gaps (boards 01/16).
+  iconBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    marginLeft: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(128,140,155,0.22)',
+  },
   viewSwitch: { flexDirection: 'row', paddingHorizontal: 12, marginTop: 14, marginBottom: 8, gap: 8 },
   viewSwitchSeg: {
     flex: 1,

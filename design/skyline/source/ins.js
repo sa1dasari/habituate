@@ -8,13 +8,13 @@ const OPEN=(w,h)=>`<svg width="${w}" height="${h}"><rect x=".6" y=".6" width="${
 const FUT=(w,h)=>`<svg width="${w}" height="${h}"><rect x=".6" y=".6" width="${w-1.2}" height="${h-1.2}" rx="${Math.min(w,h)*.25}" fill="none" stroke="#2F3944" stroke-dasharray="3 3"/></svg>`;
 const TODAY=(w,h)=>`<svg width="${w}" height="${h}"><rect x=".9" y=".9" width="${w-1.8}" height="${h-1.8}" rx="${Math.min(w,h)*.25}" fill="none" stroke="#F2C14E" stroke-width="1.5" stroke-dasharray="4 3"/></svg>`;
 const BLD=(w,h,c)=>`<svg width="${w}" height="${h}"><rect width="${w}" height="${h}" rx="${Math.min(w,h)*.25}" fill="${c}"/></svg>`;
-function bars(cols,labels,{h=170,bw=30,gap=14,hiLast=true,max}){ // cols: arrays of 5 values (stack bottom->top by HAB order) ; null=future
+function bars(cols,labels,{h=170,bw=30,gap=14,hiLast=true,max,cur}){const CUR=cur==null?cols.length-1:cur; // cols: arrays of 5 values (stack bottom->top by HAB order) ; null=future
   const mx=max||Math.max(...cols.map(c=>c?c.reduce((a,b)=>a+b,0):0));
   const W=cols.length*(bw+gap)-gap;let out='';
   cols.forEach((c,i)=>{const x=i*(bw+gap);
     if(!c){out+=bw<12?``:`<rect x="${x}" y="${h-4}" width="${bw}" height="3" rx="1.5" fill="#2A333D"/>`;}
     else{let y=h;c.forEach((v,k)=>{if(!v)return;const sh=v/mx*h;out+=`<rect x="${x}" y="${y-sh+.75}" width="${bw}" height="${Math.max(sh-1.5,1)}" rx="2" fill="${HAB[k].c}" ${hiLast&&i!==cols.length-1&&false?'':''}/>`;y-=sh;});}
-    out+=`<text x="${x+bw/2}" y="${h+18}" text-anchor="middle" font-size="11.5" font-family="Nunito" font-weight="${i===cols.length-1?800:600}" fill="${i===cols.length-1?'#F2F4F6':'#A3ADB8'}">${labels[i]}</text>`;});
+    out+=`<text x="${x+bw/2}" y="${h+18}" text-anchor="middle" font-size="11.5" font-family="Nunito" font-weight="${i===CUR?800:600}" fill="${i===CUR?'#F2F4F6':'#A3ADB8'}">${labels[i]}</text>`;});
   return `<svg width="${W}" height="${h+24}" style="display:block;margin:0 auto">${out}</svg>`;
 }
 const sum=a=>a.reduce((x,y)=>x+y,0);
@@ -101,16 +101,17 @@ if(S==='det-month'){
    habitCard(4,['11 check-ins','Monthly target 50'],`<div style="height:10px;border-radius:5px;background:#232b34;overflow:hidden"><div style="width:22%;height:100%;background:${HAB[4].c}"></div></div>`,`<span>11 of 50 so far · 39 to go</span>`))}`;
 }
 if(S==='det-year'){
-  const ml=['Dec','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov'];
-  const ym=[[18,20,10,12,8],[20,22,11,13,9],[17,20,9,11,8],[22,24,12,14,10],[20,23,11,13,11],[23,25,12,14,12],[22,24,12,14,9],[24,26,13,15,11],[21,25,11,13,10],[25,27,14,16,12],[23,26,12,15,13],[17,19,9,11,12]];
-  const mini=(vals,i)=>`<svg width="288" height="46" style="display:block">${vals.map((v,k)=>`<rect x="${k*24}" y="${46-v/28*40-4}" width="19" height="${v/28*40+4}" rx="3" fill="${HAB[i].c}" opacity="${k===11?1:.85}"/>`).join('')}</svg><div style="display:flex;justify-content:space-between;font-size:10.5px;color:#A3ADB8;width:288px;margin-top:3px">${ml.map(x=>`<span style="width:24px">${x[0]}</span>`).join('')}</div>`;
-  el.innerHTML=pageHead('year','Last 12 months','Dec 2025 to Nov 2026 · this month is still in progress')+`
-  <div style="display:flex;gap:10px;margin-top:14px">${tile('1,284','built in 12 months','1,052 floors · 232 lot check-ins')}${tile('Oct','busiest month','Best month so far: 74')}</div>
-  ${card('<b style="font-size:16px">Month by month</b>',`<div style="margin-top:12px">${bars(ym,ml,{h:120,bw:18,gap:8})}</div>${legend()}`)}
+  const ml=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const ym=[[20,22,11,13,9],[17,20,9,11,8],[22,24,12,14,10],[20,23,11,13,11],[23,25,12,14,12],[22,24,12,14,9],[24,26,13,15,11],[21,25,11,13,10],[25,27,14,16,12],[23,26,12,15,13],[17,19,9,11,12],null];
+  const col=(i)=>ym.map(r=>r?r[i]:null);
+  const mini=(vals,i)=>`<svg width="288" height="46" style="display:block">${vals.map((v,k)=>v==null?`<rect x="${k*24}" y="41" width="19" height="3" rx="1.5" fill="#2A333D"/>`:`<rect x="${k*24}" y="${46-v/28*40-4}" width="19" height="${v/28*40+4}" rx="3" fill="${HAB[i].c}" opacity="${k===10?1:.85}"/>`).join('')}</svg><div style="display:flex;justify-content:space-between;font-size:10.5px;color:#A3ADB8;width:288px;margin-top:3px">${ml.map(x=>`<span style="width:24px">${x[0]}</span>`).join('')}</div>`;
+  el.innerHTML=pageHead('year','2026','Jan to Dec · this month is still in progress')+`
+  <div style="display:flex;gap:10px;margin-top:14px">${tile('1,127','built so far this year','922 floors · 205 lot check-ins')}${tile('Sep','busiest month','Best month so far: 74')}</div>
+  ${card('<b style="font-size:16px">Month by month</b>',`<div style="margin-top:12px">${bars(ym,ml,{h:120,bw:18,gap:8,cur:10})}</div>${legend()}`)}
   ${card('<b style="font-size:16px">By habit</b><span style="float:right;font-size:12.5px;color:#A3ADB8">Floors per month</span>',
-   habitCard(0,['246 floors','Previous 12 months: 210'],mini(ym.map(r=>r[0]),0),runTxt('9 days','9')+shieldTxt(5))+
-   habitCard(1,['271 floors','Previous 12 months: 240'],mini(ym.map(r=>r[1]),1),runTxt('17 days','17'))+
-   habitCard(2,['136 floors','Previous 12 months: 120'],mini(ym.map(r=>r[2]),2),runTxt('1 day','21'))+
-   habitCard(3,['160 floors','Previous 12 months: 150'],mini(ym.map(r=>r[3]),3),runTxt('1 day','12'))+
-   habitCard(4,['132 check-ins','Monthly target 50'],mini(ym.map(r=>r[4]*2),4),`<span>Target met in 0 of 12 months · closest 36 of 50</span>`))}`;
+   habitCard(0,['226 floors','2025: 198'],mini(col(0),0),runTxt('9 days','9')+shieldTxt(5))+
+   habitCard(1,['249 floors','2025: 224'],mini(col(1),1),runTxt('17 days','17'))+
+   habitCard(2,['126 floors','2025: 110'],mini(col(2),2),runTxt('1 day','21'))+
+   habitCard(3,['148 floors','2025: 138'],mini(col(3),3),runTxt('1 day','12'))+
+   habitCard(4,['111 check-ins','Monthly target 50'],mini(col(4).map(v=>v==null?null:v*2),4),`<span>Target met in 0 of 11 months · closest 36 of 50</span>`))}`;
 }

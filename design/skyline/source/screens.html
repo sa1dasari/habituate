@@ -21,9 +21,10 @@ h1{font-weight:800}
 const C={front:'#F2C14E',side:'#B98E2C',top:'#F8D57E',lit:'#FFE9B0',dark:'#6B4A38',shield:'#5B7083',open:'#5B6472',ledge:'#F2F4F6'};
 function shade(h,p){const n=parseInt(h.slice(1),16);let r=n>>16,g=(n>>8)&255,b=n&255;const f=v=>Math.max(0,Math.min(255,Math.round(v+p*2.55)));return '#'+[f(r),f(g),f(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
 // floors bottom->top: 'lit','dark','shield','open'. Returns svg string.
-function tower({x,base,w,fh,dx,dy,floors,windows=2,today=true,ledgeAfter=null,select=null,gap=1}){
+function tower({x,base,w,fh,dx,dy,floors,windows=2,today=true,ledgeAfter=null,select=null,gap=1,wW=null,wH=null}){
   let s='';const n=floors.length;
-  floors.forEach((st,i)=>{
+  floors.forEach((st0,i)=>{
+    const hx=String(st0).indexOf('#');const st=hx>=0?st0.slice(0,hx):st0;const col=hx>=0?st0.slice(hx):C.front;
     const y=base-(i+1)*fh;
     const front=`M${x},${y}h${w}v${fh}h${-w}Z`;
     const side=`M${x+w},${y}l${dx},${-dy}v${fh}l${-dx},${dy}Z`;
@@ -41,18 +42,18 @@ function tower({x,base,w,fh,dx,dy,floors,windows=2,today=true,ledgeAfter=null,se
       if(fh>=8) s+=`<path d="M${cx},${cy-r}L${cx+r*0.85},${cy-r*0.6}V${cy+r*0.05}C${cx+r*0.85},${cy+r*0.6} ${cx+r*0.4},${cy+r*0.9} ${cx},${cy+r}C${cx-r*0.4},${cy+r*0.9} ${cx-r*0.85},${cy+r*0.6} ${cx-r*0.85},${cy+r*0.05}V${cy-r*0.6}Z" fill="#fff"/>`;
       return;
     }
-    const f= st==='shield'?C.shield:C.front;
+    const f= st==='shield'?C.shield:col;
     s+=`<path d="${front}" fill="${f}"/><path d="${side}" fill="${shade(f,-22)}"/>`;
     s+=`<line x1="${x}" x2="${x+w}" y1="${y+fh}" y2="${y+fh}" stroke="${shade(f,-30)}" stroke-width="${gap}"/>`;
     if(st!=='shield'){
-      const ww=Math.max(3,w*0.13),wh=Math.max(2,fh*0.42);
+      const ww=wW||Math.max(3,w*0.13),wh=wH||Math.max(2,fh*0.42);
       for(let k=0;k<windows;k++){const fx=x+w*((k+1)/(windows+1))-ww/2;
         s+=`<rect x="${fx}" y="${y+fh/2-wh/2}" width="${ww}" height="${wh}" fill="${st==='lit'?C.lit:C.dark}"/>`;}
     }
   });
   const topY=base-n*fh;
-  const topF=floors[n-1]==='shield'?C.shield:C.front;
-  if(floors[n-1]!=='open') s+=`<path d="M${x},${topY}l${dx},${-dy}h${w}l${-dx},${dy}Z" fill="${shade(topF,18)}"/>`;
+  const lastF=String(floors[n-1]);const lhx=lastF.indexOf('#');const topF=lastF.startsWith('shield')?C.shield:(lhx>=0?lastF.slice(lhx):C.front);
+  if(!lastF.startsWith('open')) s+=`<path d="M${x},${topY}l${dx},${-dy}h${w}l${-dx},${dy}Z" fill="${shade(topF,18)}"/>`;
   if(today){const y=topY-fh;
     s+=`<path d="M${x},${y}h${w}v${fh}h${-w}Z M${x+w},${y}l${dx},${-dy}v${fh} M${x},${y}l${dx},${-dy}h${w}" fill="none" stroke="${C.front}" stroke-width="1.5" stroke-dasharray="4 3"/>`;}
   if(ledgeAfter!=null){const y=base-ledgeAfter*fh;s+=`<line x1="${x-14}" x2="${x+w+dx+2}" y1="${y}" y2="${y}" stroke="${C.ledge}" stroke-width="3"/>`;}
@@ -273,4 +274,4 @@ if(screen==='lotcallout'){
     <div style="margin-top:14px;height:52px;border-radius:26px;background:#FF8A5C;color:#1b1608;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:16px">Hold to build</div>
   </div>${tabs}`;
 }
-</script><script src="ins.js"></script><script src="new.js"></script></body></html>
+</script><script src="ins.js"></script><script src="new.js"></script><script src="old.js"></script></body></html>

@@ -35,12 +35,12 @@ import { navigateToTab, navigationRef } from './utils/navigationRef';
 import {
   ChooseUsernameScreen,
   CommunityScreen,
-  InsightsScreen,
   LoginScreen,
   SignupScreen,
   TodayScreen,
 } from './screens';
 import ProfileStack from './navigation/ProfileStack';
+import InsightsStack from './navigation/InsightsStack';
 // Skyline rebuild dev screens only (SKYLINE.md section 11) — __DEV__-gated
 // below, never shown in a release build. SkylineEngineScreen is the Phase 1
 // fixture-only render check; SkylineScreen is Phase 2's real-data screen,
@@ -105,7 +105,7 @@ function Tabs() {
       />
       <Tab.Screen
         name="Insights"
-        component={InsightsScreen}
+        component={InsightsStack}
         listeners={{ tabPress: () => scrollToTop('Insights') }}
       />
       <Tab.Screen
@@ -190,7 +190,7 @@ function WidgetDeepLinkBridge() {
         const match = url.match(/habitId=(\d+)/);
         const habitId = match ? Number(match[1]) : null;
         if (!habitId) return;
-        navigateToTab('Insights', { openHabitId: habitId });
+        navigateToTab('Insights', { screen: 'InsightsMain', params: { openHabitId: habitId } });
       }
     };
 

@@ -364,24 +364,31 @@ export function habitHistorySummary(history) {
   return `${currentLabel}: ${totalValue} of ${totalPossible} days across ${buckets.length} ${periodWord}s (${totalPct}%), averaging ${avgPerBucket} days per ${periodWord}.`;
 }
 
-// How many calendar buckets the floors chart shows — the tab names say so
-// directly ("8 weeks" / "6 months" / "Year"), so unlike habitPeriodHistory
-// these ARE the real buckets, not one level finer. "Year" has no number in
-// its own label; 12 months is the reasonable reading.
-const FLOORS_BUCKET_COUNT = { weekly: 8, monthly: 6, yearly: 12 };
+// Weeks = 8 weekly bars, Months = 6 monthly bars (the tabs say so directly),
+// Years = one bar per calendar year from the earliest year with any history
+// up to the anchor's year (design-review boards 28-30, owner's choice over 12
+// monthly bars) — so it's 1-2 bars early on, capped so a long history stays
+// readable.
+const FLOORS_BUCKET_COUNT = { weekly: 8, monthly: 6 };
+const MAX_YEAR_BUCKETS = 6;
 
 function countByHabit(habits, start, endExclusive) {
   const byHabit = {};
-  let total = 0;
+  let floors = 0;
+  let lots = 0;
   habits.forEach((h) => {
     const n = (h.checkIns || []).filter((ci) => {
       const t = new Date(ci.occurredAt);
       return t >= start && t < endExclusive;
     }).length;
     if (n > 0) byHabit[h.id] = n;
-    total += n;
+    // A daily-cadence check-in builds a floor; a weekly/monthly-target one
+    // is a lot check-in (CLAUDE.md's UI vocabulary) — counted together but
+    // reported separately.
+    if (hasDailyTarget(h)) floors += n;
+    else lots += n;
   });
-  return { total, byHabit };
+  return { total: floors + lots, floors, lots, byHabit };
 }
 
 function addWeeks(date, n) {
@@ -396,29 +403,53 @@ function addMonths(date, n) {
   return d;
 }
 
+function startOfYear(date) {
+  return new Date(date.getFullYear(), 0, 1);
+}
+
+function addYears(date, n) {
+  return new Date(date.getFullYear() + n, 0, 1);
+}
+
+function earliestYear(habits, fallback) {
+  let min = fallback;
+  habits.forEach((h) => {
+    (h.checkIns || []).forEach((ci) => {
+      const y = new Date(ci.occurredAt).getFullYear();
+      if (y < min) min = y;
+    });
+    if (h.createdAt) {
+      const y = new Date(h.createdAt).getFullYear();
+      if (y < min) min = y;
+    }
+  });
+  return min;
+}
+
 /**
- * "Floors built" (Phase 5, design/skyline/06-insights.png plus the
- * follow-up Runs/Shield-use mockup): a stacked-by-habit bar chart of real
- * calendar buckets — 8 weeks, 6 months, or 12 months (the "Year" tab) —
+ * "Floors built" (design-review boards 28-30): a stacked-by-habit bar chart
+ * of real calendar buckets — 8 weeks, 6 months, or calendar years —
  * ending at the one `anchor` currently falls in, which is always the LAST
- * bucket and is necessarily partial (the calendar unit isn't over). The
- * headline is that last bucket's own total ("8 so far this week"); "Last
- * week at this point: 7" is a same-elapsed-time comparison against the
- * previous bucket (Monday through today, not the full previous week) —
- * comparing full-bucket totals would overstate how far behind/ahead the
- * still-in-progress current bucket looks.
- *
- * "Daily towers" only — a weekly/monthly habit's check-in builds a house
- * in a lot, not a floor on a tower (CLAUDE.md's UI vocabulary), so it's
- * excluded here rather than silently counted as a "floor."
+ * bucket and is necessarily partial. The headline is that last bucket's own
+ * total ("18 so far this week"), split into floors (daily habits) and lot
+ * check-ins (weekly/monthly-target habits); "Last week at this point: 20" is
+ * a same-elapsed-time comparison against the previous bucket, not its full
+ * total, which would overstate how far behind the in-progress one looks.
  */
 export function totalFloorsHistory(habits, period, anchor = new Date()) {
-  const dailyHabits = habits.filter((h) => hasDailyTarget(h));
-  const bucketCount = FLOORS_BUCKET_COUNT[period] || FLOORS_BUCKET_COUNT.weekly;
   const isWeekly = period === 'weekly';
+  const isYearly = period === 'yearly';
 
-  const currentBucketStart = isWeekly ? startOfWeek(anchor) : startOfMonth(anchor);
-  const step = (start, n) => (isWeekly ? addWeeks(start, n) : addMonths(start, n));
+  const currentBucketStart = isYearly ? startOfYear(anchor) : isWeekly ? startOfWeek(anchor) : startOfMonth(anchor);
+  const step = (start, n) => (isYearly ? addYears(start, n) : isWeekly ? addWeeks(start, n) : addMonths(start, n));
+
+  let bucketCount;
+  if (isYearly) {
+    const first = earliestYear(habits, anchor.getFullYear());
+    bucketCount = Math.min(MAX_YEAR_BUCKETS, Math.max(1, anchor.getFullYear() - first + 1));
+  } else {
+    bucketCount = FLOORS_BUCKET_COUNT[period] || FLOORS_BUCKET_COUNT.weekly;
+  }
 
   const buckets = [];
   const habitLegendIds = new Set();
@@ -427,46 +458,51 @@ export function totalFloorsHistory(habits, period, anchor = new Date()) {
     const start = step(currentBucketStart, -i);
     const end = step(currentBucketStart, -i + 1);
     const isCurrent = i === 0;
-    const { total, byHabit } = countByHabit(dailyHabits, start, end);
+    const { total, floors, lots, byHabit } = countByHabit(habits, start, end);
     Object.keys(byHabit).forEach((id) => habitLegendIds.add(id));
     buckets.push({
-      label: isCurrent
-        ? 'Now'
-        : isWeekly
-          ? start.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })
-          : start.toLocaleDateString('en-US', { month: 'short' }),
+      label: isYearly
+        ? String(start.getFullYear())
+        : isCurrent
+          ? 'Now'
+          : isWeekly
+            ? start.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })
+            : start.toLocaleDateString('en-US', { month: 'short' }),
       value: total,
+      floors,
+      lots,
       byHabit,
       isCurrent,
       start,
+      end,
     });
   }
 
   const currentBucket = buckets[buckets.length - 1];
-  const previousBucket = buckets.length > 1 ? buckets[buckets.length - 2] : null;
+  const previousStart = step(currentBucketStart, -1);
   const elapsedMs = anchor.getTime() - currentBucket.start.getTime();
-  const previousAtThisPointTotal = previousBucket
-    ? countByHabit(dailyHabits, previousBucket.start, new Date(previousBucket.start.getTime() + elapsedMs)).total
-    : null;
+  // Unlike the bar list (which stops at the earliest year with data), the
+  // comparison always looks one real bucket back — a first-ever year has
+  // nothing there, which reads as 0, not "no comparison".
+  const previousAtThisPointTotal = countByHabit(habits, previousStart, new Date(previousStart.getTime() + elapsedMs)).total;
+  const hasPreviousData = isYearly ? bucketCount > 1 : true;
 
   return {
     currentTotal: currentBucket.value,
-    previousAtThisPointTotal,
-    trendDelta: previousAtThisPointTotal == null ? null : currentBucket.value - previousAtThisPointTotal,
+    currentFloors: currentBucket.floors,
+    currentLots: currentBucket.lots,
+    previousAtThisPointTotal: hasPreviousData ? previousAtThisPointTotal : null,
+    trendDelta: hasPreviousData ? currentBucket.value - previousAtThisPointTotal : null,
     buckets,
     // habitLegendIds holds string keys (Object.keys always returns strings,
     // even for a numeric id used as a property key) — h.id is the API's
     // original numeric id, so comparing them directly via Set.has would
     // always miss under strict equality. Coerce to match.
-    habitLegend: dailyHabits.filter((h) => habitLegendIds.has(String(h.id))),
-    // The bucket's own unit, not the tab name — the Year tab's buckets are
-    // still months (12 of them), so its headline/subtitle read "this
-    // month"/"N months before it" too, same as the Month tab just with
-    // more bars for context.
-    periodNoun: isWeekly ? 'week' : 'month',
+    habitLegend: habits.filter((h) => habitLegendIds.has(String(h.id))),
+    periodNoun: isYearly ? 'year' : isWeekly ? 'week' : 'month',
     currentBucketLabel: currentBucketStart.toLocaleDateString(
       'en-US',
-      isWeekly ? { month: 'short', day: 'numeric' } : { month: 'long', year: 'numeric' }
+      isYearly ? { year: 'numeric' } : isWeekly ? { month: 'short', day: 'numeric' } : { month: 'long', year: 'numeric' }
     ),
   };
 }

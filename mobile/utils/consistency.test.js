@@ -76,25 +76,38 @@ describe('totalFloorsHistory', () => {
     expect(result.periodNoun).toBe('month');
   });
 
-  test('yearly tab: 12 calendar-month buckets, periodNoun is still "month" not "year"', () => {
+  test('yearly tab: one bar per calendar year from the earliest year with data, labeled by year', () => {
     const anchor = new Date('2026-11-12T12:00:00');
-    const result = totalFloorsHistory([], 'yearly', anchor);
-    expect(result.buckets).toHaveLength(12);
-    expect(result.periodNoun).toBe('month');
+    const h = habit('read', ['2025-03-10T08:00:00', '2026-11-10T08:00:00']);
+    const result = totalFloorsHistory([h], 'yearly', anchor);
+    expect(result.buckets.map((b) => b.label)).toEqual(['2025', '2026']);
+    expect(result.buckets[1].isCurrent).toBe(true);
+    expect(result.periodNoun).toBe('year');
+    expect(result.currentTotal).toBe(1);
   });
 
-  test('a weekly/monthly-target-only habit (a "lot", not a "tower") is excluded entirely', () => {
+  test('yearly tab with only this year of data is a single bar and no comparison', () => {
     const anchor = new Date('2026-11-12T12:00:00');
-    const periodOnly = {
+    const result = totalFloorsHistory([habit('read', ['2026-11-10T08:00:00'])], 'yearly', anchor);
+    expect(result.buckets).toHaveLength(1);
+    expect(result.previousAtThisPointTotal).toBeNull();
+  });
+
+  test('weekly/monthly-target habits count as lot check-ins, split from floors', () => {
+    const anchor = new Date('2026-11-12T12:00:00');
+    const tower = habit('read', ['2026-11-10T08:00:00', '2026-11-11T08:00:00']);
+    const lot = {
       id: 'gym',
       name: 'Gym',
       weeklyTarget: 3,
       cadenceTarget: 1,
       checkIns: [{ id: 'gym-1', occurredAt: '2026-11-10T08:00:00', value: 1 }],
     };
-    const result = totalFloorsHistory([periodOnly], 'weekly', anchor);
-    expect(result.currentTotal).toBe(0);
-    expect(result.habitLegend).toEqual([]);
+    const result = totalFloorsHistory([tower, lot], 'weekly', anchor);
+    expect(result.currentTotal).toBe(3);
+    expect(result.currentFloors).toBe(2);
+    expect(result.currentLots).toBe(1);
+    expect(result.habitLegend.map((h) => h.id).sort()).toEqual(['gym', 'read']);
   });
 
   test('empty habits array produces zeroed buckets, not an error', () => {

@@ -17,6 +17,7 @@ import { CONSISTENCY_PERIODS, isCurrentPeriod, periodRangeLabel, shiftAnchor, to
 import { hasDailyTarget } from '../utils/cadence';
 import { startOfWeek, toDateKey } from '../utils/date';
 import { buildLots } from '../utils/lots';
+import { plural } from '../utils/insightsDetails';
 import { toLotHabit } from '../utils/skylineAdapter';
 import { buildCategoryTowerColors, fonts, radii, shadow, skylineTowerTheme, skylineUI, spacing } from '../theme';
 
@@ -34,10 +35,14 @@ const BAR_MAX_HEIGHT = 120;
 // here anymore.
 const PERIOD_ORDER = CONSISTENCY_PERIODS.filter((p) => p !== 'daily');
 
-// Tab labels match the Runs/Shield-use follow-up mockup exactly ("8 weeks" /
-// "6 months" / "Year") — a rolling bucket-count framing, not calendar-period
-// names, superseding 06-insights.png's plain "Week/Month/Year" labels.
-const PERIOD_LABELS = { weekly: '8 weeks', monthly: '6 months', yearly: 'Year' };
+// Design-review boards 28-30: "Weeks / Months / Years" (Weeks = 8 weekly
+// bars, Months = 6 monthly bars, Years = one bar per calendar year).
+const PERIOD_LABELS = { weekly: 'Weeks', monthly: 'Months', yearly: 'Years' };
+const BAR_COMPARISON_LABELS = {
+  weekly: 'Last week at this point',
+  monthly: 'Last month at this point',
+  yearly: 'Last year to this date',
+};
 const LIVE_PERIOD_LABELS = { weekly: 'This week', monthly: 'This month', yearly: 'This year' };
 
 /**
@@ -160,6 +165,17 @@ export default function InsightsScreen({ navigation, route }) {
   }, [period]);
   const goToNow = () => setAnchor(new Date());
 
+  // Details page for one bucket (boards 31-33). Passes the bucket's own start
+  // date plus the chip filter, so the page respects "selected habits only".
+  const openDetails = (bucket) => {
+    if (!bucket) return;
+    navigation.navigate('InsightsDetail', {
+      period,
+      startMs: bucket.start.getTime(),
+      habitIds: selectedHabitIds,
+    });
+  };
+
   // Coming from a WEEKLY_SUMMARY/MONTHLY_SUMMARY/YEARLY_SUMMARY notification
   // (NotificationCenterModal.handlePress) — land directly on that period's
   // tab, anchored to approximately the date range it covers. The backend's
@@ -207,10 +223,6 @@ export default function InsightsScreen({ navigation, route }) {
         }
       >
         <Text style={styles.title}>Insights</Text>
-        <Text style={styles.subtitle}>
-          {floors.currentBucketLabel} {floors.periodNoun}, with {floors.buckets.length - 1} {floors.periodNoun}
-          {floors.buckets.length - 1 === 1 ? '' : 's'} before it
-        </Text>
 
         <View style={styles.tabRow}>
           {PERIOD_ORDER.map((p) => (
@@ -273,14 +285,19 @@ export default function InsightsScreen({ navigation, route }) {
         <View ref={tourFloorsCardRef} style={styles.floorsCard}>
           <View style={styles.cardHeaderRow}>
             <Text style={styles.cardTitle}>Floors built</Text>
-            <Text style={styles.floorsTag}>Daily towers</Text>
+            <Text style={styles.floorsTag}>Towers and lots</Text>
           </View>
 
-          <Text style={styles.floorsHeadlineNumber}>{floors.currentTotal}</Text>
-          <Text style={styles.floorsHeadlineLabel}>so far this {floors.periodNoun}</Text>
+          <View style={styles.floorsHeadlineRow}>
+            <Text style={styles.floorsHeadlineNumber}>{floors.currentTotal.toLocaleString('en-US')}</Text>
+            <Text style={styles.floorsHeadlineLabel}>so far this {floors.periodNoun}</Text>
+          </View>
+          <Text style={styles.floorsComparison}>
+            {plural(floors.currentFloors, 'floor')} · {plural(floors.currentLots, 'lot check-in')}
+          </Text>
           {floors.previousAtThisPointTotal != null ? (
             <Text style={styles.floorsComparison}>
-              Last {floors.periodNoun} at this point: {floors.previousAtThisPointTotal}
+              {BAR_COMPARISON_LABELS[period]}: {floors.previousAtThisPointTotal.toLocaleString('en-US')}
             </Text>
           ) : null}
 
@@ -290,12 +307,19 @@ export default function InsightsScreen({ navigation, route }) {
                 .map((h) => ({ habit: h, value: bucket.byHabit[h.id] || 0 }))
                 .filter((s) => s.value > 0);
               return (
-                <View key={i} style={styles.floorsBarColumn}>
-                  <View style={styles.floorsBarTrack}>
-                    {/* column-reverse so the first-rendered (first-legend-order)
-                        habit's segment sits at the bottom of the stack, like a
-                        floor actually built first — each segment's height is a
-                        % of the bar's own max, so they sum to the bar's total. */}
+                <Pressable
+                  key={i}
+                  style={styles.floorsBarColumn}
+                  onPress={() => openDetails(bucket)}
+                  testID={`insights-floors-bar-${i}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${bucket.label}, ${bucket.value} built, open details`}
+                >
+                  <View style={[styles.floorsBarTrack, floors.buckets.length <= 3 && styles.floorsBarTrackWide]}>
+                    {/* column-reverse so the first-legend-order habit's segment
+                        sits at the bottom, like a floor built first — each
+                        segment's height is a share of the tallest bar, so
+                        they sum to the bar's own total. */}
                     {segments.map(({ habit, value }) => {
                       const pct = maxFloorsBucketValue > 0 ? (value / maxFloorsBucketValue) * 100 : 0;
                       return (
@@ -305,11 +329,12 @@ export default function InsightsScreen({ navigation, route }) {
                         />
                       );
                     })}
+                    {segments.length === 0 ? <View style={styles.floorsBarEmpty} /> : null}
                   </View>
                   <Text style={[styles.floorsBarAxisLabel, bucket.isCurrent && styles.floorsBarAxisLabelCurrent]}>
                     {bucket.label}
                   </Text>
-                </View>
+                </Pressable>
               );
             })}
           </View>
@@ -337,7 +362,18 @@ export default function InsightsScreen({ navigation, route }) {
               <Text style={styles.emptyCtaText}>Lay a foundation</Text>
               <MaterialCommunityIcons name="arrow-right" size={16} color={colors.accent} />
             </Pressable>
-          ) : null}
+          ) : (
+            <Pressable
+              style={styles.floorsFooter}
+              onPress={() => openDetails(floors.buckets[floors.buckets.length - 1])}
+              testID="insights-floors-footer"
+              accessibilityRole="button"
+              accessibilityLabel={`Tap a bar to see everything for that ${floors.periodNoun}`}
+            >
+              <Text style={styles.floorsFooterText}>Tap a bar to see everything for that {floors.periodNoun}</Text>
+              <MaterialCommunityIcons name="chevron-right" size={18} color={amber} />
+            </Pressable>
+          )}
         </View>
 
         {runsRows.length > 0 ? (
@@ -568,12 +604,7 @@ function makeStyles(colors, typography, amber) {
   return StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: colors.background },
     container: { padding: spacing.xl },
-    title: { ...typography.screenTitle },
-    subtitle: {
-      ...typography.meta,
-      marginTop: 2,
-      marginBottom: spacing.lg,
-    },
+    title: { ...typography.screenTitle, marginBottom: spacing.lg },
     tabRow: {
       flexDirection: 'row',
       backgroundColor: colors.surface,
@@ -622,14 +653,25 @@ function makeStyles(colors, typography, amber) {
       ...shadow,
     },
     floorsTag: { ...typography.meta },
+    floorsHeadlineRow: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.sm, marginTop: spacing.sm },
     floorsHeadlineNumber: {
       fontFamily: fonts.extraBold,
-      fontSize: 32,
+      fontSize: 40,
       color: colors.textPrimary,
-      marginTop: spacing.sm,
     },
-    floorsHeadlineLabel: { ...typography.body, color: colors.textSecondary, marginTop: -2 },
+    floorsHeadlineLabel: { ...typography.body, color: colors.textSecondary },
     floorsComparison: { ...typography.meta, marginTop: 4 },
+    floorsFooter: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      minHeight: 44,
+      marginTop: spacing.md,
+      paddingTop: spacing.sm,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+    },
+    floorsFooterText: { fontFamily: fonts.bold, fontSize: 14, color: amber, flex: 1 },
     floorsBarRow: {
       flexDirection: 'row',
       alignItems: 'flex-end',
@@ -638,14 +680,16 @@ function makeStyles(colors, typography, amber) {
     },
     floorsBarColumn: { alignItems: 'center', flex: 1 },
     floorsBarTrack: {
-      width: 20,
+      width: 26,
       height: BAR_MAX_HEIGHT,
       flexDirection: 'column-reverse',
-      backgroundColor: colors.ringTrack,
-      borderRadius: radii.sm,
+      justifyContent: 'flex-start',
+      gap: 1,
       overflow: 'hidden',
     },
-    floorsBarSegment: { width: '100%' },
+    floorsBarTrackWide: { width: 72 },
+    floorsBarSegment: { width: '100%', borderRadius: 2 },
+    floorsBarEmpty: { width: '100%', height: 2, backgroundColor: colors.ringTrack },
     floorsBarAxisLabel: { fontSize: 10, fontWeight: '600', color: colors.textMuted, marginTop: spacing.sm },
     floorsBarAxisLabelCurrent: { color: colors.textPrimary },
     emptyCta: {

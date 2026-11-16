@@ -437,7 +437,10 @@ export default function CommunityScreen({ navigation, route }) {
         onOpenGroup={setSelectedGroupId}
         onOpenChallenge={setSelectedChallengeId}
         onOpenInsightsPeriod={(period, periodStart) => {
-          navigation.navigate('Insights', { periodNav: { period, anchorDate: periodStart || null } });
+          navigation.navigate('Insights', {
+            screen: 'InsightsMain',
+            params: { periodNav: { period, anchorDate: periodStart || null } },
+          });
         }}
         onOpenFriends={() => setFriendsVisible(true)}
       />

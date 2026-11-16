@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { AppState, Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { AppState, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,7 +13,8 @@ import { useToast } from '../hooks/useToast';
 import Toast from '../components/Toast';
 import LocationPermissionModal from '../components/LocationPermissionModal';
 import AskHabituateModal from '../components/AskHabituateModal';
-import TemplateHabitsPicker from '../components/TemplateHabitsPicker';
+import FoundationTemplates from '../components/FoundationTemplates';
+import FirstRunEmptyState from '../components/FirstRunEmptyState';
 import AvatarImage from '../components/AvatarImage';
 import { HABIT_CATEGORY_COLORS } from '../constants/habitCategories';
 import { buildCategoryTowerColors, fonts, skyGradients, skylineTowerTheme, skylineUI } from '../theme';
@@ -311,6 +312,10 @@ export default function SkylineScreen({ navigation }) {
     [createHabit, showToast],
   );
 
+  // First run (board 34): no habits at all. Not while the very first load is
+  // still in flight, or a returning user would flash the empty state.
+  const isEmpty = !loading && habits.length === 0;
+
   return (
     <View style={styles.pageRoot}>
       <View style={StyleSheet.absoluteFill}>
@@ -331,14 +336,15 @@ export default function SkylineScreen({ navigation }) {
             {/* Boards 01/16: two lines on Daily (date, then the built count),
                 one line (date only) on Weekly & monthly. */}
             <Text style={[styles.subtitle, { color: ui.muted }]} numberOfLines={1}>
-              {formatHeaderDate(today)}
+              {isEmpty ? 'Your skyline starts here' : formatHeaderDate(today)}
             </Text>
-            {view === 'daily' && (
+            {view === 'daily' && !isEmpty && (
               <Text style={[styles.subtitleLine2, { color: ui.muted }]} numberOfLines={1}>
                 {dueTodayCount.done} of {dueTodayCount.total} built today
               </Text>
             )}
           </View>
+          {!isEmpty && (
           <Pressable
             style={styles.iconBtn}
             accessibilityRole="button"
@@ -348,6 +354,7 @@ export default function SkylineScreen({ navigation }) {
           >
             <MaterialCommunityIcons name="archive-outline" size={20} color={ui.text} />
           </Pressable>
+          )}
           <Pressable
             style={styles.iconBtn}
             accessibilityRole="button"
@@ -373,6 +380,7 @@ export default function SkylineScreen({ navigation }) {
           </Pressable>
         </View>
 
+        {!isEmpty && (
         <View style={styles.viewSwitch}>
           <Pressable
             testID="skyline-view-daily"
@@ -411,6 +419,7 @@ export default function SkylineScreen({ navigation }) {
             )}
           </Pressable>
         </View>
+        )}
         </View>
 
         {loading && habits.length === 0 ? (
@@ -421,6 +430,8 @@ export default function SkylineScreen({ navigation }) {
           // entire skyline on every single floor build, flashing blank each
           // time.
           <Text style={[styles.loading, { color: ui.muted }]}>Loading your skyline…</Text>
+        ) : isEmpty ? (
+          <FirstRunEmptyState onLayFoundation={() => setAddHabitVisible(true)} theme={ui} />
         ) : (
           // Both tabs stay mounted at once, toggled with `display` instead
           // of a `view === 'lots' ? A : B` ternary — the ternary used to
@@ -564,24 +575,16 @@ export default function SkylineScreen({ navigation }) {
         habits={habits}
         initialQuestion={chatInitialQuestion}
       />
-      <Modal visible={addHabitVisible} transparent animationType="fade" onRequestClose={() => setAddHabitVisible(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setAddHabitVisible(false)}>
-          <Pressable style={[styles.addHabitCard, { backgroundColor: ui.surfaceLow }]} onPress={() => {}}>
-            <Text style={[styles.title, { color: ui.text, marginBottom: 12 }]}>Lay a foundation</Text>
-            <TemplateHabitsPicker onSelect={handleAddTemplateHabit} />
-            <Pressable
-              onPress={() => {
-                setAddHabitVisible(false);
-                handleOpenTowerForm(null);
-              }}
-              style={styles.customTowerLink}
-              testID="skyline-custom-tower-link"
-            >
-              <Text style={[styles.customTowerLinkText, { color: ui.amber }]}>Create your own tower ›</Text>
-            </Pressable>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      <FoundationTemplates
+        visible={addHabitVisible}
+        onClose={() => setAddHabitVisible(false)}
+        onSelectTemplate={handleAddTemplateHabit}
+        onCustom={() => {
+          setAddHabitVisible(false);
+          handleOpenTowerForm(null);
+        }}
+        theme={ui}
+      />
       </SafeAreaView>
     </View>
   );
@@ -640,8 +643,4 @@ const styles = StyleSheet.create({
   hidden: { display: 'none' },
   sceneWrap: { height: 560, overflow: 'hidden' },
   sceneAnchorBottom: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 560 },
-  backdrop: { flex: 1, backgroundColor: 'rgba(8,10,16,0.5)', alignItems: 'center', justifyContent: 'center', padding: 20 },
-  addHabitCard: { width: '100%', maxWidth: 420, borderRadius: 20, padding: 20 },
-  customTowerLink: { alignItems: 'center', paddingTop: 16 },
-  customTowerLinkText: { fontFamily: fonts.semiBold, fontSize: 14 },
 });

@@ -421,6 +421,19 @@ export default function TowerSheet({
   const shieldDisabled = !displayHabit.shieldedToday && (!displayHabit.shieldEligible || shieldsAvailable <= 0);
 
   return (
+    <>
+    {/* Tap anywhere on the sky/towers peeking above the open sheet to close
+        it. Rendered before the sheet so the sheet itself stays on top, and
+        only while visible so it never swallows taps on the live skyline. */}
+    {visible && (
+      <Pressable
+        style={StyleSheet.absoluteFill}
+        onPress={onClose}
+        testID="tower-sheet-backdrop"
+        accessibilityRole="button"
+        accessibilityLabel="Close tower details"
+      />
+    )}
     <Animated.View
       pointerEvents={visible ? 'auto' : 'none'}
       style={[
@@ -649,6 +662,7 @@ export default function TowerSheet({
       <Toast toast={toast} onHide={hideToast} />
       <ConfirmModal request={request} onRespond={respond} />
     </Animated.View>
+    </>
   );
 }
 

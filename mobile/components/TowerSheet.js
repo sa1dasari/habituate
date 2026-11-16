@@ -129,6 +129,13 @@ export default function TowerSheet({
   // explicitly whenever a genuinely different habit opens, so a stale
   // selectedDateKey/showBackdate from the previous tower can't carry over
   // and let a Hold land on the wrong habit's day.
+  // The ScrollView is a permanent sibling (not remounted per open), so its
+  // scroll offset would otherwise persist from the previous tower — every
+  // open starts at the top.
+  useEffect(() => {
+    if (visible) scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [visible, habit?.id]);
+
   useEffect(() => {
     if (!habit) return;
     setShowBackdate(false);

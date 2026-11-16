@@ -9,7 +9,7 @@ This is the only folder of Skyline mockups. The old `concept _screens/` folder w
 
 | # | File | Screen | Phase | Status |
 |---|---|---|---|---|
-| 01 | `01-skyline.png` | Skyline home, Daily view | 2 | current (was `concept _screens/1-skyline-daily.png`) |
+| 01 | `01-skyline.png` | Skyline home, Daily view | 2 | current. Header updated 2026-11-16 with the retired-towers icon (archive) beside chat and profile; the subtitle wraps to two lines. The icon already exists in the build. |
 | 02 | `02-hold.png` | Hold to build | 2 | interaction only (glass Shield Day on Run, past floors drawn without windows) |
 | 03 | `03-towersheet.png` | Tower details | 3 | **current, approved by the owner 2026-11-13.** See-through open floor, glass + shield Shield Day. The eyebrow "TOWER DETAILS" names the page; the habit name is the title (always present, since a name is required); the optional "Why does this matter?" text shows as a muted italic line only when set. A Top out card appears only when the tower is eligible, then a 2-column grid of 6 buttons (Shield Day · count, Add another day, See inside, Ask about tower, Edit, Retire). | **Build gap (2026-11-14):** the build is a full-screen page with a stats row; it must become a bottom sheet over the live sky with the tower picture, run headline and floor legend, as drawn.
 | 04 | `04-topout.png` | Top out confirm | 3 | interaction only (past floors drawn without windows) |
@@ -43,6 +43,12 @@ This is the only folder of Skyline mockups. The old `concept _screens/` folder w
 | 36 | `36-firstrun-first-hold.png` | First run: first hold | 7 | **PROPOSAL.** SKYLINE §5 step 4: a one-line hint and the ring filling. Mentions Tap to build in Profile, Accessibility. Wording is mine. |
 | 37 | `37-firstrun-notification-explainer.png` | First run: notification explainer | 7 | **PROPOSAL.** SKYLINE §5 step 5, shown after the first floor, before the system prompt. All copy is mine; no existing explainer text was found. |
 | 38 | `38-firstrun-location-explainer.png` | First run: location explainer | 7 | **PROPOSAL.** SKYLINE §5 step 6. Uses the existing LocationPermissionModal copy word for word, restyled. |
+| 39 | `39-retired-towers-list.png` | Retired towers list | 3 | **PROPOSAL, awaiting owner approval (2026-11-16).** Restyle of the existing screen: icon tile, name, Restore, delete. The explanatory line under the list is mine. The developer confirms the list already opens from a header icon. |
+| 40 | `40-notification-center.png` | Notification center | 7 | **PROPOSAL.** Restyle of the existing center: close, "Notifications", mark-all-read, rows with a type icon, title, body, time and an unread dot. All sample titles and bodies are mine; the real ones come from the server. It already opens from a bell in the Community header (confirmed by the developer). |
+| 41 | `41-ask-habituate-chat.png` | Ask Habituate, conversation | 7 | **PROPOSAL.** Uses the existing strings: "Ask Habituate", "Ask about your routine...", "AI suggestions can be imperfect. You're in control.", "Nothing changes until you confirm.", "Confirm adjustment" / "Keep my goal". The question and answer text are sample copy, written non-causally. |
+| 42 | `42-ask-habituate-empty.png` | Ask Habituate, empty state with starter questions | 7 | **PROPOSAL.** Starter questions are generated from the user's habits in the app; the three shown and the heading text are my sample copy. |
+| 43 | `43-friend-skyline-public.png` | Friend skyline, public profile | 6 | **PROPOSAL, blocked on an owner decision.** Shows a public friend's towers with habit names. The developer found that the server deliberately does NOT expose per-habit data for public profiles, so this needs a rule change and a new endpoint. |
+| 44 | `44-friend-skyline-private.png` | Friend skyline, private profile | 6 | **PROPOSAL, blocked on the same decision.** Only the shared-habit towers you both belong to, joined by a skybridge, plus the existing "keeps their stats private" note. Needs floor and run data for shared towers, which the server does not return today. |
 
 `superseded/` keeps old versions and boards that were not chosen (01, 03, 06, 07, 22, 23, 25). Don't build from them.
 

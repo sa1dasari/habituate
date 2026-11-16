@@ -1,7 +1,7 @@
 // New boards: first-run, notifications, retired, coach, friend skyline, forms
 (function(){
 const Q=new URLSearchParams(location.search);const S2=Q.get('s');
-if(!/^(fr-|nt-|rt-|co-|fs-|fm-|hd-)/.test(S2||''))return;
+if(!/^(fr-|nt-|rt-|co-|fs-|fm-|hd-|fo-)/.test(S2||''))return;
 
 const R=document.getElementById('root');const ICO={'heart-pulse':'<path d="M12 21s-8-5.5-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.5-8 11-8 11Z"/>','book-open-outline':'<path d="M3 5.5c3-1 6-1 9 1.5 3-2.5 6-2.5 9-1.5V19c-3-1-6-1-9 1.5C9 18 6 18 3 19Z M12 7v13"/>','meditation':'<circle cx="12" cy="6" r="2.5"/><path d="M5 20c0-4 3-6 7-6s7 2 7 6M8 14l-3 3M16 14l3 3"/>','dumbbell':'<path d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10"/>','weather-night':'<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/>','home-outline':'<path d="M4 11l8-7 8 7v9H4ZM10 20v-6h4v6"/>','pencil-plus-outline':'<path d="M4 20l1-4L16 5l3 3L8 19ZM15 6l3 3"/>','bell-ring-outline':'<path d="M6 17V11a6 6 0 0 1 12 0v6l2 2H4ZM10 21h4"/>','weather-partly-cloudy':'<path d="M7 19a4 4 0 0 1 0-8 5 5 0 0 1 9.5 1A3.5 3.5 0 0 1 16 19ZM5 5l1.5 1.5M12 3v2M19 5l-1.5 1.5"/>','archive-outline':'<path d="M3 5h18v4H3ZM5 9v10h14V9M10 13h4"/>'};
 const mdi=(n,s=20,c='currentColor')=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${ICO[n]||''}</svg>`;
@@ -39,9 +39,9 @@ if(S2==='fr-hold'){
 const dim=(inner)=>`<div style="position:absolute;inset:0;overflow:hidden"><svg width="390" height="844" style="position:absolute;inset:0">${sky(844)}${moon(320,120)}<rect y="700" width="390" height="144" fill="#0F1216"/>${tower({x:150,base:700,w:84,fh:20,dx:22,dy:12,floors:['lit','lit','lit'],windows:2,today:true})}</svg><div style="position:absolute;inset:0;background:rgba(4,6,10,.7)"></div>${inner}</div>`;
 if(S2==='fr-notif'){
   R.innerHTML=dim(`<div style="position:absolute;left:20px;right:20px;top:230px;background:#1B2128;border-radius:24px;padding:24px 22px"><div style="width:48px;height:48px;border-radius:14px;background:#2B2717;display:flex;align-items:center;justify-content:center">${mdi('bell-ring-outline',26,'#F2C14E')}</div>
-   <div style="font-size:22px;font-weight:800;margin-top:16px;line-height:1.2">A gentle reminder, if you want one</div>
-   <div style="color:#C9CED4;font-size:14.5px;line-height:1.5;margin-top:8px">We can remind you at the time you choose for each tower, and tell you when a friend builds beside you. You can change this any time in Profile.</div>
-   <div style="display:flex;gap:10px;margin-top:20px"><div style="flex:1">${btn('Not now','sec')}</div><div style="flex:1">${btn('Turn on','pri','height:48px;font-size:15px')}</div></div></div>`);
+   <div style="font-size:22px;font-weight:800;margin-top:16px;line-height:1.2">Stay on track</div>
+   <div style="color:#C9CED4;font-size:14.5px;line-height:1.5;margin-top:8px">Get a gentle reminder right when it's time for a habit — no spam, just the nudges you set up yourself. You can turn any of this off later in Notification Settings.</div>
+   <div style="display:flex;gap:10px;margin-top:20px"><div style="flex:1">${btn('Not now','sec')}</div><div style="flex:1.25">${btn('Allow notifications','pri','height:48px;font-size:14.5px')}</div></div></div>`);
 }
 if(S2==='fr-loc'){
   R.innerHTML=dim(`<div style="position:absolute;left:20px;right:20px;top:210px;background:#1B2128;border-radius:24px;padding:24px 22px"><div style="width:48px;height:48px;border-radius:14px;background:#17304a;display:flex;align-items:center;justify-content:center">${mdi('weather-partly-cloudy',26,'#7DC4F0')}</div>
@@ -106,6 +106,40 @@ if(S2==='fs-private'){
   R.innerHTML=shell(friendHead('Alex','alex',false)+`<svg width="390" height="280" style="position:absolute;top:176px;left:0"><rect width="390" height="240" fill="url(#fg)"/><defs><linearGradient id="fg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a2f63"/><stop offset="1" stop-color="#7a5a86"/></linearGradient></defs><rect width="390" height="240" fill="url(#fg)"/><rect y="240" width="390" height="40" fill="#0F1216"/>${sc}</svg>
    <div style="position:absolute;top:476px;left:20px;right:20px"><div style="font-weight:800;font-size:16px;margin-bottom:8px">Shared with you</div><div style="background:#161B21;border-radius:14px;padding:12px 14px;display:flex;justify-content:space-between"><b>Morning Run Crew</b><span style="color:#F2C14E;font-weight:800">12 day run</span></div>
    <div style="display:flex;gap:10px;align-items:flex-start;margin-top:14px;color:#A3ADB8;font-size:13.5px;line-height:1.45"><div style="margin-top:1px">${mdi('bell-ring-outline',0)}</div>Alex keeps their stats private. You can still see any Shared Habit streak you're both part of.</div></div>`);
+}
+
+
+const SK='file:///home/user/habituate/design/skyline/';
+const lab=(t)=>`<div style="font-size:14px;font-weight:800;color:#A3ADB8;margin:18px 0 8px">${t}</div>`;
+const inp=(t)=>`<div style="height:54px;border-radius:16px;background:#161B21;border:1px solid #232b34;display:flex;align-items:center;padding:0 16px;font-size:16px;font-weight:600">${t}</div>`;
+const seg2=(opts,on)=>`<div style="display:flex;gap:10px">${opts.map((o,i)=>`<div style="flex:1;height:48px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;${i===on?'background:#2B2717;border:1.5px solid #F2C14E':'background:#161B21;border:1px solid #2A333D'}">${o}</div>`).join('')}</div>`;
+const hint=(t)=>`<div style="font-size:13px;color:#A3ADB8;margin-top:6px">${t}</div>`;
+const stepRow=(l,v)=>`<div style="margin-top:12px;height:56px;border-radius:16px;background:#161B21;display:flex;align-items:center;justify-content:space-between;padding:0 14px 0 16px"><b style="font-size:15px">${l}</b><div style="display:flex;align-items:center;gap:14px"><div style="width:36px;height:36px;border-radius:18px;border:1px solid #2F3944;display:flex;align-items:center;justify-content:center;font-size:20px">−</div><b style="font-size:15px;min-width:76px;text-align:center">${v}</b><div style="width:36px;height:36px;border-radius:18px;border:1px solid #2F3944;display:flex;align-items:center;justify-content:center;font-size:20px">+</div></div></div>`;
+const banner=(f)=>`<div style="width:350px;height:118px;border-radius:22px;overflow:hidden;position:relative;margin-top:12px"><img src="${SK}${f}" style="position:absolute;width:390px;left:-20px;top:-110px"></div>`;
+const formPage=(title,sub,ban,body,cta,extraFooter='')=>`<div style="position:absolute;inset:0;overflow:hidden"><div style="padding:26px 20px 0;height:100%;overflow:hidden"><div style="color:#A3ADB8;font-size:16px;font-weight:600">Cancel</div><h1 style="font-size:30px;margin-top:12px;line-height:1.1">${title}</h1><div style="color:#A3ADB8;font-size:14px;margin-top:4px;line-height:1.4">${sub}</div>${ban||''}${body}</div>
+ <div style="position:absolute;left:0;right:0;bottom:0;height:${extraFooter?150:112}px"><div style="height:34px;background:linear-gradient(rgba(15,18,22,0),#0F1216)"></div><div style="background:#0F1216;border-top:1px solid #1B222A;padding:12px 20px 18px;height:calc(100% - 34px);margin-top:-1px">${cta}${extraFooter}</div></div></div>`;
+const cta=(t)=>`<div style="height:54px;border-radius:27px;background:#F2C14E;color:#1b1608;font-weight:800;font-size:17px;display:flex;align-items:center;justify-content:center">${t}</div>`;
+const chip=(t,c,on)=>`<div style="height:42px;border-radius:21px;padding:0 16px;display:flex;align-items:center;gap:8px;font-weight:700;font-size:15px;white-space:nowrap;${on?'background:#2B2717;border:1.5px solid #F2C14E':'background:#161B21;border:1px solid #2A333D'}"><i style="width:10px;height:10px;border-radius:50%;background:${c};display:block"></i>${t}</div>`;
+if(S2==='fo-new'){
+  R.innerHTML=formPage('Lay a foundation','Your new tower grows one floor each time you build.',banner('superseded/12-newtower-v1.png'),
+   lab('Name your tower')+inp('Write 300 words')+lab('Category (sets the tower color)')+`<div style="display:flex;gap:8px;overflow:hidden">${chip('Creativity','#F2C14E',1)}${chip('Learning','#38BDF8')}${chip('Fitness','#FF8A5C')}${chip('Sleep','#A78BFA')}</div>`+lab('How often do you build a floor?')+seg2(['Daily','Weekly','Monthly'],0)+lab('What counts as a floor?')+seg2(['Check-off','An amount'],1)+stepRow('Amount per floor','300 words')+lab('Best time (optional)')+inp('8:00 PM')+lab('Why does this matter? (optional)')+inp('So the book gets finished'),
+   cta('Lay foundation'));
+}
+if(S2==='fo-shared'){
+  R.innerHTML=formPage('Build together','A habit you and friends build side by side.',banner('superseded/13-newshared-v1.png'),
+   lab('Name (optional)')+inp('Morning Run Crew')+lab('Builders')+`<div style="display:flex;align-items:center;gap:10px"><div style="display:flex">${[['S','#FF8A5C'],['M','#38BDF8'],['A','#F2C14E']].map(([l,c],i)=>`<div style="width:44px;height:44px;border-radius:22px;background:${c};color:#0b1b24;font-weight:800;display:flex;align-items:center;justify-content:center;border:3px solid #0F1216;margin-left:${i?-10:0}px">${l}</div>`).join('')}</div><div style="height:44px;border-radius:22px;background:#1E252D;padding:0 18px;display:flex;align-items:center;font-weight:800;font-size:14px">Invite friends</div></div>`+lab('Goal')+seg2(['Unified','Split'],0)+hint('Everyone aims for the same target.')+lab('Streak')+seg2(['Cooperative','Independent'],0)+hint('One group run, shown as a skybridge between towers.')+lab('Streak rule')+seg2(['All members','Any member'],0)+stepRow('Skip days per month','2 days')+lab('What friends see')+seg2(['Full details','Status only'],0)+hint('Groupmates see your exact logged amount.'),
+   cta('Start building together'));
+}
+if(S2==='fo-landmark'){
+  const days=['M','T','W','T','F','S','S'];
+  R.innerHTML=formPage('Raise a landmark','A goal with an end date. Everyone adds floors until it is done.',banner('superseded/14-newchallenge-v1.png'),
+   lab('Name the landmark')+inp('30 days of reading')+lab('How do you count?')+seg2(['Check-off','Quantitative'],1)+stepRow('Target floors','80 total')+lab('Build days')+`<div style="display:flex;gap:6px">${days.map((d,i)=>`<div style="flex:1;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-weight:800;${i<5?'background:#2B2717;border:1.5px solid #F2C14E':'background:#161B21;border:1px solid #2A333D'}">${d}</div>`).join('')}</div>`+lab('Time box')+`<div style="display:flex;gap:6px">${['1 week','2 weeks','1 month','3 months'].map((t,i)=>`<div style="height:42px;border-radius:21px;padding:0 12px;display:flex;align-items:center;font-weight:700;font-size:14px;${i===2?'background:#2B2717;border:1.5px solid #F2C14E':'background:#161B21;border:1px solid #2A333D'}">${t}</div>`).join('')}</div>`+lab('Who can see it')+seg2(['Private','Public'],0),
+   cta('Break ground'));
+}
+if(S2==='fo-edit'){
+  R.innerHTML=formPage('Edit tower','Changes apply from today. Your floors and run stay as they are.','',
+   lab('Name your tower')+inp('Write 300 words')+lab('Category (sets the tower color)')+`<div style="display:flex;gap:8px;overflow:hidden">${chip('Creativity','#F2C14E',1)}${chip('Learning','#38BDF8')}${chip('Fitness','#FF8A5C')}${chip('Sleep','#A78BFA')}</div>`+lab('How often do you build a floor?')+seg2(['Daily','Weekly','Monthly'],0)+lab('What counts as a floor?')+seg2(['Check-off','An amount'],1)+stepRow('Amount per floor','300 words')+lab('Best time (optional)')+inp('8:00 PM')+lab('Why does this matter? (optional)')+inp('So the book gets finished')+lab('Top out after (days)')+`<div style="margin-top:0;height:56px;border-radius:16px;background:#161B21;display:flex;align-items:center;justify-content:space-between;padding:0 14px 0 16px"><b style="font-size:15px">Days</b><div style="display:flex;align-items:center;gap:14px"><div style="width:36px;height:36px;border-radius:18px;border:1px solid #2F3944;display:flex;align-items:center;justify-content:center;font-size:20px">−</div><b style="font-size:15px;min-width:76px;text-align:center">30</b><div style="width:36px;height:36px;border-radius:18px;border:1px solid #2F3944;display:flex;align-items:center;justify-content:center;font-size:20px">+</div></div></div>`+hint('How old this tower must be before you can top it out and start a new one.'),
+   cta('Save changes'),`<div style="text-align:center;margin-top:10px;font-weight:800;font-size:14.5px;color:#C9CED4;height:44px;display:flex;align-items:center;justify-content:center">Delete tower</div>`);
 }
 
 })();

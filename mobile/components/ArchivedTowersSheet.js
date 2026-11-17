@@ -70,11 +70,17 @@ export default function ArchivedTowersSheet({ visible, onClose, theme }) {
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
         <View style={styles.header}>
-          <Pressable onPress={onClose} hitSlop={12} testID="archived-towers-close">
-            <MaterialCommunityIcons name="close" size={22} color={theme.muted} />
+          <Pressable
+            onPress={onClose}
+            style={[styles.closeBtn, { backgroundColor: theme.surfaceHigh }]}
+            testID="archived-towers-close"
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+          >
+            <MaterialCommunityIcons name="close" size={22} color={theme.text} />
           </Pressable>
           <Text style={[styles.headerTitle, { color: theme.text }]}>Retired towers</Text>
-          <View style={{ width: 22 }} />
+          <View style={styles.closeBtn} />
         </View>
 
         <FlatList
@@ -88,18 +94,39 @@ export default function ArchivedTowersSheet({ visible, onClose, theme }) {
           }
           renderItem={({ item }) => (
             <View style={[styles.row, { borderBottomColor: theme.border || 'rgba(128,128,128,0.2)' }]}>
-              <MaterialCommunityIcons name={categoryIcon(item.category)} size={20} color={theme.muted} style={styles.rowIcon} />
+              <View style={[styles.iconTile, { backgroundColor: theme.surfaceHigh }]}>
+                <MaterialCommunityIcons name={categoryIcon(item.category)} size={22} color={theme.muted} />
+              </View>
               <Text style={[styles.rowName, { color: theme.text }]} numberOfLines={1}>
                 {item.name}
               </Text>
-              <Pressable onPress={() => handleRestore(item)} style={styles.rowAction} testID={`archived-restore-${item.id}`}>
+              <Pressable
+                onPress={() => handleRestore(item)}
+                style={styles.rowAction}
+                testID={`archived-restore-${item.id}`}
+                accessibilityRole="button"
+                accessibilityLabel={`Restore ${item.name}`}
+              >
                 <Text style={[styles.rowActionText, { color: theme.amber }]}>Restore</Text>
               </Pressable>
-              <Pressable onPress={() => handleDelete(item)} style={styles.rowAction} testID={`archived-delete-${item.id}`}>
-                <MaterialCommunityIcons name="trash-can-outline" size={18} color={theme.muted} />
+              <Pressable
+                onPress={() => handleDelete(item)}
+                style={styles.rowAction}
+                testID={`archived-delete-${item.id}`}
+                accessibilityRole="button"
+                accessibilityLabel={`Delete ${item.name}`}
+              >
+                <MaterialCommunityIcons name="trash-can-outline" size={22} color={theme.muted} />
               </Pressable>
             </View>
           )}
+          ListFooterComponent={
+            archivedHabits.length > 0 ? (
+              <Text style={[styles.footnote, { color: theme.muted }]}>
+                Retired towers stay on your skyline as grey monuments. Restore one to build on it again.
+              </Text>
+            ) : null
+          }
           testID="archived-towers-list"
         />
 
@@ -112,13 +139,15 @@ export default function ArchivedTowersSheet({ visible, onClose, theme }) {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
-  headerTitle: { fontFamily: fonts.bold, fontSize: 17 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 12 },
+  headerTitle: { fontFamily: fonts.bold, fontSize: 20 },
+  closeBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   listContent: { paddingHorizontal: 20, paddingBottom: 24, flexGrow: 1 },
   empty: { fontFamily: fonts.regular, fontSize: 14, textAlign: 'center', paddingTop: 48 },
-  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, gap: 10 },
-  rowIcon: { marginRight: 2 },
-  rowName: { flex: 1, fontFamily: fonts.semiBold, fontSize: 15 },
-  rowAction: { paddingHorizontal: 8, paddingVertical: 6 },
-  rowActionText: { fontFamily: fonts.semiBold, fontSize: 14 },
+  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, gap: 12 },
+  iconTile: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  rowName: { flex: 1, fontFamily: fonts.semiBold, fontSize: 18 },
+  rowAction: { minHeight: 44, minWidth: 44, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center' },
+  rowActionText: { fontFamily: fonts.bold, fontSize: 17 },
+  footnote: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, marginTop: 18 },
 });

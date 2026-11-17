@@ -56,6 +56,7 @@ This is the only folder of Skyline mockups. The old `concept _screens/` folder w
 | 53 | `superseded/53-full-tower-blocked.png` | Full tower: blocked state | 3 | **dropped by the owner 2026-11-17**: towers now top out on their own at the cap, so there is no block and no run-protection rule. |
 | 54 | `superseded/54-full-tower-fit-to-height.png` | Full tower: fit to height | 3 | **not chosen** (2026-11-17). |
 | 55 | `55-tower-topped-out-automatically.png` | Announcement: tower topped out on its own | 3 | **APPROVED by the owner 2026-11-17.** Shown when a tower reaches its cap: the finished tower fades behind a fresh one. "Got it" or "Change cap" (opens Edit). All wording is mine. |
+| 56 | `56-finished-tower-sheet.png` | Finished tower sheet (tap a faded, topped-out tower) | 3 | **PROPOSAL, awaiting owner approval (2026-11-17).** Opens from tapping a finished tower behind a habit's current one. Shows the faded gold-capped tower, name, when it topped out and how long it stood, a chip "Topped out on its own at the cap" (or "You topped it out" for a manual top-out), total built, best run in that tower, started date, and See inside (the finished tower's inside view) and Close. Wording is mine. The developer confirms which of these figures exist per finished tower. |
 
 `superseded/` keeps old versions and boards that were not chosen (01, 03, 06, 07, 22, 23, 25, 53, 54). Don't build from them.
 

@@ -153,5 +153,18 @@ if(S3==='ft-done'){
   R.innerHTML=`<div style="position:absolute;inset:0;overflow:hidden">${fullHome({done:true})}${dimL()}${sheetCard(420,'Push ups topped out','It reached 30 days, the cap you set when you created this habit. A fresh tower is ready and your 17 day run carries over. You can change the cap any time in Edit.','Got it','Change cap')}</div>`;
 }
 
+if(S3==='ft-sheet'){
+  const pic=`<svg width="96" height="176" style="flex:0 0 96px">${tw('#7A6A58',{x:16,base:170,w:44,fh:4.6,dx:16,dy:9,floors:rep('dark',30),windows:2,today:false,wW:2.4,wH:1.6})}${flagCap(16,170-30*4.6,44,16,9)}</svg>`;
+  const tile=(v,l)=>`<div style="flex:1;background:#161B21;border-radius:14px;padding:12px 10px;text-align:center"><div style="font-size:20px;font-weight:800">${v}</div><div style="font-size:12px;color:#A3ADB8;margin-top:2px">${l}</div></div>`;
+  R.innerHTML=`<div style="position:absolute;inset:0;overflow:hidden">${fullHome({done:true})}${dimL()}
+  <div style="position:absolute;left:0;right:0;top:250px;bottom:76px;background:#1B2128;border-radius:24px 24px 0 0;padding:12px 22px"><div style="width:40px;height:4px;border-radius:2px;background:#3A4552;margin:0 auto 12px"></div>
+   <div style="color:#A3ADB8;font-size:11px;font-weight:800;letter-spacing:.8px">FINISHED TOWER</div>
+   <div style="display:flex;gap:14px;align-items:center;margin-top:2px">${pic}<div style="flex:1"><div style="font-size:26px;font-weight:800;line-height:1.15">Push ups</div><div style="color:#A3ADB8;font-size:14px;margin-top:3px">Topped out Oct 12 · stood 30 days</div><div style="display:inline-block;margin-top:8px;font-size:12.5px;font-weight:800;padding:5px 11px;border-radius:14px;background:#2B2717;color:#F2C14E">Topped out on its own at the cap</div></div></div>
+   <div style="display:flex;gap:8px;margin-top:6px">${tile('26','Total built')}${tile('17 days','Best run here')}${tile('Sep 13','Started')}</div>
+   <div style="color:#A3ADB8;font-size:13.5px;line-height:1.5;margin-top:12px">This tower stays on your skyline behind the new one. Your run carried over to the new tower.</div>
+   <div style="margin-top:14px;height:54px;border-radius:27px;background:#F2C14E;color:#1b1608;font-weight:800;font-size:16.5px;display:flex;align-items:center;justify-content:center">See inside</div>
+   <div style="margin-top:4px;height:46px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#C9CED4">Close</div></div></div>`;
+}
+
 //END
 })();

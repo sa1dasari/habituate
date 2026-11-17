@@ -13,7 +13,8 @@ public record HabitTowerResponse(
         Instant startedAt,
         Instant toppedOutAt,
         Integer bestRunInSegment,
-        int floorCount) {
+        int floorCount,
+        boolean autoToppedOut) {
 
     public static HabitTowerResponse from(HabitTower segment, int floorCount) {
         return new HabitTowerResponse(
@@ -21,6 +22,7 @@ public record HabitTowerResponse(
                 segment.getStartedAt(),
                 segment.getToppedOutAt(),
                 segment.getBestRunInSegment(),
-                floorCount);
+                floorCount,
+                segment.isAutoToppedOut());
     }
 }

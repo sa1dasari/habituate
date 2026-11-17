@@ -19,6 +19,6 @@ public record UpdateHabitRequest(
         Boolean reminderEnabled,
         Boolean archived,
         @Size(max = 500) String motivation,
-        @Min(1) @Max(3650) Integer topOutThresholdDays
+        @Min(value = 1, message = "Top out after must be between 1 and 35 days") @Max(value = 35, message = "Top out after must be between 1 and 35 days") Integer topOutThresholdDays
 ) {
 }

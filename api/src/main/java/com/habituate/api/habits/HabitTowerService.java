@@ -59,13 +59,22 @@ public class HabitTowerService {
      * itself (CLAUDE.md: "Topping out never resets the run"). */
     @Transactional
     public HabitTower topOut(Habit habit, ZoneId zone) {
+        return topOutAt(habit, zone, Instant.now(), false);
+    }
+
+    /** Same as {@link #topOut} but closes the segment at an explicit instant —
+     * the cap boundary for an automatic top-out, so the new tower starts
+     * exactly where the old one ended even if this runs late. Check-ins at or
+     * after {@code closeAt} belong to the new segment. */
+    @Transactional
+    public HabitTower topOutAt(Habit habit, ZoneId zone, Instant closeAt, boolean auto) {
         HabitTower open = currentSegment(habit);
-        Instant now = Instant.now();
+        Instant now = closeAt;
 
         List<CheckIn> checkIns = checkInRepository
                 .findByUserIdAndHabitIdOrderByOccurredAtAsc(habit.getUserId(), habit.getId());
         List<CheckIn> inSegment = checkIns.stream()
-                .filter(c -> !c.getOccurredAt().isBefore(open.getStartedAt()))
+                .filter(c -> !c.getOccurredAt().isBefore(open.getStartedAt()) && c.getOccurredAt().isBefore(closeAt))
                 .toList();
         Set<LocalDate> frozenDaysInSegment = streakFreezeRepository.findByHabitId(habit.getId()).stream()
                 .map(StreakFreeze::getUsedOnDate)
@@ -74,6 +83,7 @@ public class HabitTowerService {
         int bestRun = StreakCalculator.compute(inSegment, zone, now, frozenDaysInSegment).longest();
 
         open.setToppedOutAt(now);
+        open.setAutoToppedOut(auto);
         open.setBestRunInSegment(bestRun);
         habitTowerRepository.save(open);
 

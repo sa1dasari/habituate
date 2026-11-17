@@ -48,6 +48,12 @@ public class HabitTower {
     @Column
     private Integer bestRunInSegment;
 
+    /** True when this segment was closed by the cap rule (the scheduled job),
+     * false for a manual top-out. Lets the app show the "topped out on its
+     * own" announcement only for automatic ones. */
+    @Column(nullable = false, columnDefinition = "boolean not null default false")
+    private boolean autoToppedOut = false;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -87,6 +93,14 @@ public class HabitTower {
 
     public void setToppedOutAt(Instant toppedOutAt) {
         this.toppedOutAt = toppedOutAt;
+    }
+
+    public boolean isAutoToppedOut() {
+        return autoToppedOut;
+    }
+
+    public void setAutoToppedOut(boolean autoToppedOut) {
+        this.autoToppedOut = autoToppedOut;
     }
 
     public Integer getBestRunInSegment() {

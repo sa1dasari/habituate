@@ -160,7 +160,18 @@ public class HabitService {
                 Boolean.TRUE.equals(request.reminderEnabled()) && habit.getScheduledTime() != null
         );
         habit.setMotivation(blankToNull(request.motivation()));
+        if (request.topOutThresholdDays() != null) {
+            habit.setTopOutThresholdDays(requireValidCap(request.topOutThresholdDays()));
+        }
         return toResponse(habitRepository.save(habit));
+    }
+
+    /** The cap is 1..35 days; anything else is a specific, user-facing 400. */
+    private static int requireValidCap(int capDays) {
+        if (!TowerCap.isValidCap(capDays)) {
+            throw new IllegalArgumentException("Top out after must be between 1 and 35 days");
+        }
+        return capDays;
     }
 
     private static String blankToNull(String value) {
@@ -214,7 +225,7 @@ public class HabitService {
             habit.setArchived(request.archived());
         }
         if (request.topOutThresholdDays() != null) {
-            habit.setTopOutThresholdDays(request.topOutThresholdDays());
+            habit.setTopOutThresholdDays(requireValidCap(request.topOutThresholdDays()));
         }
 
         return toResponse(habitRepository.save(habit));
@@ -517,16 +528,38 @@ public class HabitService {
         }
 
         ZoneId zone = resolveZone(timezone);
-        HabitTower current = habitTowerService.currentSegment(habit);
-        long ageDays = Duration.between(current.getStartedAt(), Instant.now()).toDays();
-        int threshold = habit.getTopOutThresholdDays();
-        if (ageDays < threshold) {
-            throw new IllegalArgumentException(
-                    "This tower needs to be at least " + threshold + " days old to top out (currently " + ageDays + ")");
-        }
-
+        // Manual top-out is allowed on any day, until the tower tops out on
+        // its own at its cap — there is no minimum age.
         habitTowerService.topOut(habit, zone);
         return toResponse(habit, zone);
+    }
+
+    /**
+     * Automatic top-out (SKYLINE.md section 6): if the habit's open tower has
+     * stood its cap in local calendar days, closes it once at the most recent
+     * cap boundary and starts a new tower there. Returns whether it topped
+     * out. Idempotent (a second call finds a fresh tower and does nothing);
+     * called by TowerAutoTopOutScheduler, not by a request. Daily-cadence
+     * habits only; retired habits are left alone.
+     */
+    @Transactional
+    public boolean autoTopOutIfDue(Habit habit, ZoneId zone, Instant now) {
+        if (habit.isArchived() || !hasDailyTarget(habit)) {
+            return false;
+        }
+        HabitTower open = habitTowerService.currentSegment(habit);
+        var boundary = TowerCap.latestDueBoundary(open.getStartedAt(), habit.getTopOutThresholdDays(), zone, now);
+        if (boundary.isEmpty()) {
+            return false;
+        }
+        habitTowerService.topOutAt(habit, zone, boundary.get(), true);
+        return true;
+    }
+
+    /** One-time, idempotent clamp of caps above the new maximum (35). Returns rows changed. */
+    @Transactional
+    public int clampTopOutCaps() {
+        return habitRepository.clampTopOutThresholds(TowerCap.MAX_CAP_DAYS);
     }
 
     /**

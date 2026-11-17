@@ -460,7 +460,7 @@ export default function TowerForm({ visible, onClose, habit, theme, towerTheme, 
           <Field
             label="Top out after (days)"
             theme={theme}
-            sublabel="The tower finishes on its own after this many days. You can also top it out any day before."
+            sublabel="Your tower tops out on its own after this many days, 35 at most. You can also top it out any time from the tower sheet."
           >
             <ScrubberInput
               value={form.topOutThresholdDays ?? DEFAULT_TOP_OUT_THRESHOLD_DAYS}

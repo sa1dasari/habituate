@@ -187,6 +187,43 @@ describe('buildScene — Phase 3d closed-segment compositing', () => {
     expect(withField.hitTargets).toEqual(withoutField.hitTargets);
   });
 
+  describe('a finished tower keeps the height it reached (boards 20/21)', () => {
+    const closedTopY = (floorCount) => {
+      const scene = buildScene([dailyHabit({ closedSegments: [{ floorCount, bestRun: 1 }] })], { today: TODAY, theme });
+      const front = scene.shapes.find((sh) => sh.id === 'h1-closed0-front');
+      // front face path: "Mx,y L..." — the first point's y is the tower top.
+      return Number(front.d.match(/^M[-\d.]+,([-\d.]+)/)[1]);
+    };
+
+    test('a taller finished tower reaches higher', () => {
+      expect(closedTopY(30)).toBeLessThan(closedTopY(12));
+      expect(closedTopY(12)).toBeLessThan(closedTopY(4));
+    });
+
+    test('is capped like the live tower, so it never outgrows the scene', () => {
+      expect(closedTopY(500)).toBeGreaterThanOrEqual(0);
+      expect(closedTopY(500)).toBeLessThan(closedTopY(35));
+      expect(closedTopY(200)).toBe(closedTopY(500));
+    });
+
+    test('costs a fixed handful of shapes however tall it is', () => {
+      const count = (floorCount) =>
+        buildScene([dailyHabit({ closedSegments: [{ floorCount, bestRun: 1 }] })], { today: TODAY, theme }).shapes.filter(
+          (sh) => sh.id.startsWith('h1-closed0-'),
+        ).length;
+      expect(count(5)).toBe(count(300));
+      expect(count(300)).toBeLessThanOrEqual(7);
+    });
+
+    test('has all-dark windows and a gold cap with a flag', () => {
+      const scene = buildScene([dailyHabit({ closedSegments: [{ floorCount: 12, bestRun: 9 }] })], { today: TODAY, theme });
+      const byId = (id) => scene.shapes.find((sh) => sh.id === id);
+      expect(byId('h1-closed0-windows').fill).toBe(theme.windowDark);
+      expect(byId('h1-closed0-top').fill).toBe(theme.flagColor);
+      expect(byId('h1-closed0-flag')).toBeTruthy();
+    });
+  });
+
   test('a closed segment adds faded shapes but never a second hit target', () => {
     const habit = dailyHabit({ closedSegments: [{ floorCount: 12, bestRun: 9 }] });
     const scene = buildScene([habit], { today: TODAY, theme });

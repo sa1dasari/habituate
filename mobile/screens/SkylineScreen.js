@@ -16,6 +16,9 @@ import AskHabituateModal from '../components/AskHabituateModal';
 import FoundationTemplates from '../components/FoundationTemplates';
 import FirstRunEmptyState from '../components/FirstRunEmptyState';
 import FirstHoldHint from '../components/FirstHoldHint';
+import TopOutNoticeSheet from '../components/TopOutNoticeSheet';
+import { useTopOutNotices } from '../hooks/useTopOutNotices';
+import { towerCapDays } from '../utils/towerAge';
 import { usePushPromptDone } from '../hooks/PushPromptContext';
 import AvatarImage from '../components/AvatarImage';
 import { HABIT_CATEGORY_COLORS } from '../constants/habitCategories';
@@ -66,7 +69,7 @@ function formatHeaderDate(date) {
 export default function SkylineScreen({ navigation }) {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const { habits, loading, toggleCheckIn, addCheckIn, removeCheckIn, createHabit } = useHabits();
+  const { habits, loading, toggleCheckIn, addCheckIn, removeCheckIn, createHabit, topOutHabit } = useHabits();
   const { user } = useAuth();
   const { effectiveMode } = useAppTheme();
   const { tapToBuild } = useTapToBuild();
@@ -319,6 +322,32 @@ export default function SkylineScreen({ navigation }) {
   // First run (board 34): no habits at all. Not while the very first load is
   // still in flight, or a returning user would flash the empty state.
   const isEmpty = !loading && habits.length === 0;
+  // Tower-cap notices (boards 52/55): an announcement for an automatic
+  // top-out, or a pop-up in the last three days before a tower's cap. Held
+  // back while another form/sheet is open so two layers never stack.
+  const notices = useTopOutNotices(habits, !loading && !isEmpty && !towerFormVisible && !addHabitVisible);
+  const [noticeBusy, setNoticeBusy] = useState(false);
+  const handleWarningTopOut = async () => {
+    const w = notices.warning;
+    if (!w) return;
+    setNoticeBusy(true);
+    try {
+      await topOutHabit(w.habit.id);
+    } catch (err) {
+      // The sheet is a Modal, so a toast would sit behind it; close it first.
+      showToast(`Could not top out — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+    } finally {
+      notices.markWarned(w.habit);
+      setNoticeBusy(false);
+    }
+  };
+  const handleAnnouncementChangeCap = () => {
+    const a = notices.announcement;
+    if (!a) return;
+    notices.markAnnounced(a.segment);
+    handleOpenTowerForm(a.habit);
+  };
+
   // Has a tower but has never built a floor (board 36). Derived from data, so
   // there is nothing to persist and it can't come back.
   const showFirstHoldHint =
@@ -584,6 +613,34 @@ export default function SkylineScreen({ navigation }) {
         habits={habits}
         initialQuestion={chatInitialQuestion}
       />
+      {notices.announcement ? (
+        <TopOutNoticeSheet
+          visible
+          testID="top-out-announcement"
+          theme={ui}
+          title={`${notices.announcement.habit.name} topped out`}
+          body={`It reached ${towerCapDays(notices.announcement.habit)} days, the cap you set when you created this habit. A fresh tower is ready${
+            notices.announcement.habit.streak > 0 ? ` and your ${notices.announcement.habit.streak} day run carries over` : ''
+          }. You can change the cap any time in Edit.`}
+          primaryLabel="Got it"
+          secondaryLabel="Change cap"
+          onPrimary={() => notices.markAnnounced(notices.announcement.segment)}
+          onSecondary={handleAnnouncementChangeCap}
+        />
+      ) : notices.warning ? (
+        <TopOutNoticeSheet
+          visible
+          testID="top-out-warning"
+          theme={ui}
+          busy={noticeBusy}
+          title={`${notices.warning.habit.name} tops out in ${notices.warning.daysToGo} ${notices.warning.daysToGo === 1 ? 'day' : 'days'}`}
+          body={`It finishes on its own at ${notices.warning.capDays} days, the cap you set when you created it. Top it out now, or change the cap in Edit. Your run carries over and nothing is lost.`}
+          primaryLabel="Top out now"
+          secondaryLabel="Not now"
+          onPrimary={handleWarningTopOut}
+          onSecondary={() => notices.markWarned(notices.warning.habit)}
+        />
+      ) : null}
       <FoundationTemplates
         visible={addHabitVisible}
         onClose={() => setAddHabitVisible(false)}

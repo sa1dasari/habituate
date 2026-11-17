@@ -16,14 +16,13 @@ import { isCountMode } from '../utils/cadence';
 import { buildDays } from '../utils/lots';
 import { categoryColor } from '../constants/habitCategories';
 import { toDateKey } from '../utils/date';
-import { currentSegmentAgeDays } from '../utils/towerAge';
+import { towerCapInfo } from '../utils/towerAge';
 import { buildScene, classifyDays, X0, TOWER_W, DX, CRANE_HEIGHT, FLOOR_H, BASE_Y } from '../utils/skylineScene';
 import { toSceneHabit } from '../utils/skylineAdapter';
 import api from '../api/client';
 import { fonts } from '../theme';
 
 const MS_PER_DAY = 86400000;
-const DEFAULT_TOP_OUT_THRESHOLD_DAYS = 30;
 const BACKDATE_WINDOW_DAYS = 7; // matches weekly/monthly's own "Add for another day" reach (SKYLINE.md section 14 #14)
 const GRID_PAD = 16;
 const GRID_GAP = 6;
@@ -288,9 +287,9 @@ export default function TowerSheet({
   const ageDays = displayHabit.createdAt
     ? Math.floor((Date.now() - new Date(displayHabit.createdAt).getTime()) / MS_PER_DAY)
     : 0;
-  const segmentAgeDays = currentSegmentAgeDays(displayHabit);
-  const threshold = displayHabit.topOutThresholdDays || DEFAULT_TOP_OUT_THRESHOLD_DAYS;
-  const canTopOut = segmentAgeDays >= threshold;
+  // Where this tower is against its cap (board 03): it tops out on its own at
+  // `capDays`, and "Top out now" is always available before that.
+  const { capDays, daysToGo } = towerCapInfo(displayHabit);
 
   // Tall-tower side layout (design-review board 24, owner-approved
   // 2026-11-13): switches once the compact (board 03) layout would need
@@ -496,22 +495,22 @@ export default function TowerSheet({
             </>
           );
 
-          const topOutCard = canTopOut && (
-            <View style={[styles.topOutCard, { backgroundColor: theme.surfaceHigh, borderColor: theme.amber }]}>
+          const topOutCard = (stacked) => (
+            <View style={[styles.topOutCard, stacked && styles.topOutCardStacked, { backgroundColor: `${theme.amber}1F`, borderColor: theme.amber }]}>
               <View style={styles.topOutTextWrap}>
-                <Text style={[styles.topOutLabel, { color: theme.text }]}>Ready to top out?</Text>
+                <Text style={[styles.topOutLabel, { color: theme.text }]}>Tops out at {capDays} days</Text>
                 <Text style={[styles.topOutBody, { color: theme.muted }]}>
-                  You've built this tower for over {threshold} days. Finish it and start a new one whenever you like.
+                  {daysToGo} {daysToGo === 1 ? 'day' : 'days'} to go. It tops out on its own, or you can top it out now.
                 </Text>
               </View>
               <Pressable
                 onPress={handleTopOut}
-                style={[styles.topOutButton, { backgroundColor: theme.amber }]}
+                style={[styles.topOutButton, stacked && styles.topOutButtonStacked, { backgroundColor: theme.amber }]}
                 testID="tower-sheet-top-out"
                 accessibilityRole="button"
-                accessibilityLabel={`Top out, ${segmentAgeDays} days old`}
+                accessibilityLabel={`Top out now, ${daysToGo} days to go`}
               >
-                <Text style={styles.topOutButtonText}>Top out</Text>
+                <Text style={styles.topOutButtonText}>Top out now</Text>
               </Pressable>
             </View>
           );
@@ -548,7 +547,7 @@ export default function TowerSheet({
                   </Text>
                 )}
 
-                {topOutCard}
+                {topOutCard(false)}
 
                 <View style={styles.grid}>
                   {actions.map((a) => (
@@ -585,7 +584,7 @@ export default function TowerSheet({
                     </Text>
                   )}
 
-                  {topOutCard}
+                  {topOutCard(true)}
 
                   <View style={styles.actionList}>
                     {actions.map((a) => (
@@ -766,6 +765,9 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 20,
   },
+  // Narrow right column of the tall layout: text on top, button below.
+  topOutCardStacked: { flexDirection: 'column', alignItems: 'stretch' },
+  topOutButtonStacked: { alignItems: 'center', marginTop: 12 },
   topOutTextWrap: { flex: 1 },
   topOutLabel: { fontFamily: fonts.bold, fontSize: 16 },
   topOutBody: { fontFamily: fonts.regular, fontSize: 13, marginTop: 4 },

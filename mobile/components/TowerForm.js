@@ -75,7 +75,7 @@ function formFromHabit(habit) {
     scheduledTime: habit.scheduledTime || '',
     reminderEnabled: Boolean(habit.reminderEnabled),
     motivation: habit.motivation || '',
-    topOutThresholdDays: habit.topOutThresholdDays ?? null,
+    topOutThresholdDays: habit.topOutThresholdDays != null ? Math.min(35, habit.topOutThresholdDays) : null,
   };
 }
 
@@ -454,27 +454,22 @@ export default function TowerForm({ visible, onClose, habit, theme, towerTheme, 
             />
           </Field>
 
-          {/* Edit mode only: CreateHabitRequest has no topOutThresholdDays
-              field (a deliberate Part B scope decision — 13 positional
-              call sites in the backend test suite use that record), so
-              showing this control during create would silently do nothing
-              on submit. A brand-new tower gets the entity's own 30-day
-              default and the owner can raise/lower it here once it exists. */}
-          {isEditing && (
-            <Field
-              label="Top out after (days)"
-              theme={theme}
-              sublabel="How old this tower must be before you can top it out and start a new one"
-            >
-              <ScrubberInput
-                value={form.topOutThresholdDays ?? DEFAULT_TOP_OUT_THRESHOLD_DAYS}
-                onChange={(v) => setField('topOutThresholdDays', v)}
-                min={1}
-                max={3650}
-                label="days"
-              />
-            </Field>
-          )}
+          {/* The tower's cap (SKYLINE.md section 6, revised 2026-11-17): it
+              tops out on its own after this many days, and you can top it
+              out any day before. 1-35, default 30; set at creation or edit. */}
+          <Field
+            label="Top out after (days)"
+            theme={theme}
+            sublabel="The tower finishes on its own after this many days. You can also top it out any day before."
+          >
+            <ScrubberInput
+              value={form.topOutThresholdDays ?? DEFAULT_TOP_OUT_THRESHOLD_DAYS}
+              onChange={(v) => setField('topOutThresholdDays', v)}
+              min={1}
+              max={35}
+              label="days"
+            />
+          </Field>
 
           <Pressable
             onPress={submit}

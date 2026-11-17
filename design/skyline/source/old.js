@@ -1,7 +1,7 @@
 // Redraws of boards 02, 04, 05, 08, 09, 10, 11, 15 with the current floor art
 (function(){
 const Q3=new URLSearchParams(location.search);const S3=Q3.get('s');
-if(!/^(cm-|sh-|ch-|pf-|ho-|to-|sk-)/.test(S3||''))return;
+if(!/^(cm-|sh-|ch-|pf-|ho-|to-|sk-|ft-)/.test(S3||''))return;
 const R=document.getElementById('root');
 const tw=(col,o)=>{const old=C.front;C.front=col;const r=tower(o);C.front=old;return r};
 const grow=(n,lit,over={})=>Array.from({length:n},(_,i)=>over[i]||(i>=n-lit?'lit':'dark'));
@@ -121,6 +121,32 @@ if(S3==='sk-states'){
   R.innerHTML=`<div style="position:absolute;inset:0;overflow:hidden"><div style="padding:24px 20px 0"><h1 style="font-size:30px">Sky and weather</h1><div style="color:#A3ADB8;font-size:14.5px;margin-top:4px;line-height:1.4">The sky behind your skyline follows your local time and weather.</div></div>
    <div style="padding:12px 20px 0;display:grid;grid-template-columns:165px 165px;justify-content:space-between;row-gap:2px">${K.map(([k,l])=>`<div>${tile(k)}<div style="font-weight:800;font-size:15px;margin:6px 4px 4px">${l}</div></div>`).join('')}</div>
    <div style="padding:6px 20px 0;color:#A3ADB8;font-size:14px;line-height:1.5">Uses your approximate location, asked once and only when you open Skyline after your first floor. Without it, the sky follows your clock and skips weather.</div></div>${tabBar(0)}`;
+}
+
+const hdr3=`<div style="position:absolute;top:30px;left:20px;right:20px;display:flex;justify-content:space-between"><div><h1 style="font-size:30px;line-height:1.1">Skyline</h1><div style="color:#A3ADB8;font-size:14px;margin-top:2px;line-height:1.3">Wednesday, Nov 11<br>1 of 4 built today</div></div><div style="display:flex;gap:8px">${[1,2,3].map(()=>'<div style="width:44px;height:44px;border-radius:22px;background:#1E252D"></div>').join('')}</div></div><div style="position:absolute;top:120px;left:20px;right:20px;height:48px;border-radius:24px;background:#1A2027;display:flex;padding:4px"><div style="flex:1;border-radius:20px;background:#F2F4F6;color:#0F1216;font-weight:700;display:flex;align-items:center;justify-content:center">Daily</div><div style="flex:1;color:#A3ADB8;font-weight:700;display:flex;align-items:center;justify-content:center">Weekly and monthly</div></div>`;
+function fullHome(opt={}){
+  const T=[['Run','#FF8A5C',14,5],['Read','#38BDF8',20,9],['Push ups','#A78BFA',35,9],['Write','#F2C14E',12,4]];
+  const fh=9.2;let o='';
+  T.forEach(([n,c,f,l],i)=>{const x=22+i*92;const full=f>=35;o+=tw(c,{x,base:568,w:56,fh,dx:18,dy:10,floors:grow(f,l),windows:2,today:full?!opt.blocked:i===0,wW:2.6,wH:1.8});
+    if(full&&opt.crown)o+=`<path d="M${x-2},${568-f*fh-2}h60" stroke="#F2C14E" stroke-width="3" stroke-linecap="round"/><path d="M${x+6},${568-f*fh-4}l6,-10l8,6l8,-10l8,10l8,-6l6,10Z" fill="#F2C14E"/>`;
+    o+=`<text x="${x+37}" y="592" text-anchor="middle" font-size="12" font-weight="700" fill="#F2F4F6" font-family="Nunito">${n}</text>`});
+  return `<svg width="390" height="610" style="position:absolute;top:0;left:0">${night(390,568,'f1')}<rect y="568" width="390" height="42" fill="#0F1216"/>${o}</svg>${hdr3}<div style="position:absolute;top:612px;left:0;right:0;bottom:76px;background:#161B21;border-radius:24px 24px 0 0;padding:12px 20px"><div style="width:40px;height:4px;border-radius:2px;background:#3A4552;margin:0 auto 10px"></div>${['Push ups','Run'].map((n,i)=>`<div style="display:flex;align-items:center;gap:12px;height:50px"><i style="width:12px;height:12px;border-radius:4px;background:${i?'#FF8A5C':'#A78BFA'};display:block"></i><div style="flex:1;font-weight:700;font-size:15.5px">${n}</div><div style="width:86px;height:38px;border-radius:19px;border:1.5px solid #4a3f1c;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#F2C14E">Hold</div></div>`).join('')}</div>${tabBar(0)}`;
+}
+const dimL=(h)=>`<div style="position:absolute;inset:0;background:rgba(4,6,10,.62)"></div>`;
+const sheetCard=(top,title,body,primary,secondary,extra='')=>`<div style="position:absolute;left:0;right:0;top:${top}px;bottom:76px;background:#1B2128;border-radius:24px 24px 0 0;padding:12px 22px"><div style="width:40px;height:4px;border-radius:2px;background:#3A4552;margin:0 auto 16px"></div><div style="width:48px;height:48px;border-radius:14px;background:#2B2717;display:flex;align-items:center;justify-content:center"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#F2C14E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18l2-9 4 4 2-7 2 7 4-4 2 9Z"/><path d="M4 21h16"/></svg></div><div style="font-size:22px;font-weight:800;margin-top:14px;line-height:1.2">${title}</div><div style="color:#C9CED4;font-size:15px;line-height:1.5;margin-top:8px">${body}</div>${extra}<div style="margin-top:18px;height:54px;border-radius:27px;background:#F2C14E;color:#1b1608;font-weight:800;font-size:16.5px;display:flex;align-items:center;justify-content:center">${primary}</div><div style="margin-top:6px;height:48px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#C9CED4">${secondary}</div></div>`;
+if(S3==='ft-warn'){
+  R.innerHTML=`<div style="position:absolute;inset:0;overflow:hidden">${fullHome({crown:false})}${dimL()}${sheetCard(420,'Push ups is nearly at the top','In about 3 days this tower will be full. Top it out whenever you like and a fresh one starts. Your run carries over and nothing is lost.','Top out','Not now')}</div>`;
+}
+if(S3==='ft-blocked'){
+  R.innerHTML=`<div style="position:absolute;inset:0;overflow:hidden">${fullHome({crown:true,blocked:true})}${dimL()}${sheetCard(384,'This tower is full','Push ups has reached the top of your skyline. Top it out to keep building: a new tower starts and your 17 day run carries over.','Top out and keep building','Not now','<div style="margin-top:12px;background:#161B21;border-radius:14px;padding:12px 14px;font-size:14px;color:#A3ADB8;line-height:1.45">Today\'s floor waits for you on the new tower.</div>')}</div>`;
+}
+if(S3==='ft-fit'){
+  const fl=(n,fhh,x,c)=>tw(c,{x,base:520,w:60,fh:fhh,dx:18,dy:10,floors:grow(n,9),windows:2,today:false,wW:2.6,wH:Math.min(1.8,fhh*.5)});
+  R.innerHTML=`<div style="position:absolute;inset:0;overflow:hidden"><svg width="390" height="560" style="position:absolute;top:0;left:0">${night(390,520,'f2')}<rect y="520" width="390" height="40" fill="#0F1216"/>
+   ${fl(35,9.2,70,'#A78BFA')}${fl(70,4.6,250,'#A78BFA')}<text x="107" y="544" text-anchor="middle" font-size="13" font-weight="700" fill="#F2F4F6" font-family="Nunito">35 floors</text><text x="287" y="544" text-anchor="middle" font-size="13" font-weight="700" fill="#F2F4F6" font-family="Nunito">70 floors</text>
+   <line x1="40" x2="350" y1="196" y2="196" stroke="#F2C14E" stroke-dasharray="5 4" stroke-width="1.4"/><text x="350" y="188" text-anchor="end" font-size="12" font-weight="700" fill="#F2C14E" font-family="Nunito">top of the sky</text></svg>
+   <div style="position:absolute;top:30px;left:20px;right:20px"><h1 style="font-size:28px">Fit to height</h1><div style="color:#A3ADB8;font-size:14.5px;margin-top:4px;line-height:1.4">Floors get thinner as a tower grows, so any tower fits under the header. Nothing is blocked and nothing pops up.</div></div>
+   <div style="position:absolute;top:580px;left:20px;right:20px;color:#A3ADB8;font-size:14px;line-height:1.5">A 35 floor tower and a 70 floor tower end at the same height. Windows get smaller, the floors never come down, and topping out stays your choice.</div></div>`;
 }
 
 //END

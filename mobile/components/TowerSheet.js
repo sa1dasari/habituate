@@ -16,6 +16,7 @@ import { isCountMode } from '../utils/cadence';
 import { buildDays } from '../utils/lots';
 import { categoryColor } from '../constants/habitCategories';
 import { toDateKey } from '../utils/date';
+import { currentSegmentAgeDays } from '../utils/towerAge';
 import { buildScene, classifyDays, X0, TOWER_W, DX, CRANE_HEIGHT, FLOOR_H, BASE_Y } from '../utils/skylineScene';
 import { toSceneHabit } from '../utils/skylineAdapter';
 import api from '../api/client';
@@ -62,14 +63,10 @@ const DISMISS_DISTANCE = 120; // drag-down distance that counts as "let go of th
  * stats need a segments-listing endpoint, which Part E's compositing work
  * will add; not duplicated here ahead of that need.
  *
- * Tower age (for the Top out gate) is likewise read from the habit's own
- * `createdAt`, not a segment's own `startedAt` — same reasoning, same
- * caveat: once a habit has actually been topped out once, this client-side
- * guess goes stale until Part E's endpoint exists. The server
- * (`HabitService.topOutHabit`) is the real gate regardless and rejects
- * with a specific message if this estimate is ever wrong, so the worst
- * case is a Top out button that shows a little early or late, not an
- * action that incorrectly succeeds.
+ * Tower age (for the Top out gate) is the *current segment's* age — from
+ * the last closed segment's `toppedOutAt` when the habit has topped out
+ * before, else `createdAt` (utils/towerAge.js) — the same clock
+ * `HabitService.topOutHabit` checks, which stays the real gate regardless.
  */
 export default function TowerSheet({
   visible,
@@ -285,11 +282,15 @@ export default function TowerSheet({
   const closedSegmentCount = displayHabit.closedSegmentCount || 0;
   const floorCount = sceneHabit ? classifyDays(sceneHabit, todayKey).length : displayHabit.checkIns?.length || 0;
 
+  // Habit age drives the tall-tower layout (the drawn tower still spans the
+  // whole history); the Top out gate uses the *current segment's* age, the
+  // same clock the server checks — after a top-out the new tower starts over.
   const ageDays = displayHabit.createdAt
     ? Math.floor((Date.now() - new Date(displayHabit.createdAt).getTime()) / MS_PER_DAY)
     : 0;
+  const segmentAgeDays = currentSegmentAgeDays(displayHabit);
   const threshold = displayHabit.topOutThresholdDays || DEFAULT_TOP_OUT_THRESHOLD_DAYS;
-  const canTopOut = ageDays >= threshold;
+  const canTopOut = segmentAgeDays >= threshold;
 
   // Tall-tower side layout (design-review board 24, owner-approved
   // 2026-11-13): switches once the compact (board 03) layout would need
@@ -508,7 +509,7 @@ export default function TowerSheet({
                 style={[styles.topOutButton, { backgroundColor: theme.amber }]}
                 testID="tower-sheet-top-out"
                 accessibilityRole="button"
-                accessibilityLabel={`Top out, ${ageDays} days old`}
+                accessibilityLabel={`Top out, ${segmentAgeDays} days old`}
               >
                 <Text style={styles.topOutButtonText}>Top out</Text>
               </Pressable>

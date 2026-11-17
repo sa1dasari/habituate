@@ -131,7 +131,7 @@ public class HabitService {
 
         return HabitResponse.from(
                 habit, streaks.current(), streaks.longest(), shieldedToday, shieldEligible,
-                closedSegments.size(), recentClosedSegments, shared);
+                closedSegments.size(), recentClosedSegments, shared, habit.getColor());
     }
 
     private int countCheckInsInWindow(List<CheckIn> checkIns, Instant start, Instant end) {
@@ -163,6 +163,7 @@ public class HabitService {
         if (request.topOutThresholdDays() != null) {
             habit.setTopOutThresholdDays(requireValidCap(request.topOutThresholdDays()));
         }
+        habit.setColor(normalizeColor(request.color()));
         return toResponse(habitRepository.save(habit));
     }
 
@@ -172,6 +173,19 @@ public class HabitService {
             throw new IllegalArgumentException("Top out after must be between 1 and 35 days");
         }
         return capDays;
+    }
+
+    /** Blank clears to null (category fallback); anything else must be a palette key. */
+    private static String normalizeColor(String value) {
+        String trimmed = blankToNull(value);
+        if (trimmed == null) {
+            return null;
+        }
+        String key = trimmed.toLowerCase();
+        if (!TowerColors.isValid(key)) {
+            throw new IllegalArgumentException("Pick one of the tower colours");
+        }
+        return key;
     }
 
     private static String blankToNull(String value) {
@@ -226,6 +240,10 @@ public class HabitService {
         }
         if (request.topOutThresholdDays() != null) {
             habit.setTopOutThresholdDays(requireValidCap(request.topOutThresholdDays()));
+        }
+        // null leaves the colour unchanged; "" clears it back to the category colour.
+        if (request.color() != null) {
+            habit.setColor(normalizeColor(request.color()));
         }
 
         return toResponse(habitRepository.save(habit));

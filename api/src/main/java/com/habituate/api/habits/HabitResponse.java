@@ -40,7 +40,9 @@ public record HabitResponse(
         // habits — e.g. board 26's any-past-day backdate stays 7-day-limited
         // for shared habits since StreakFreeze/check-in rules for a shared
         // tower aren't the personal-habit ones.
-        boolean shared
+        boolean shared,
+        // Per-habit tower colour palette key; null = use the category colour.
+        String color
 ) {
     public static HabitResponse from(
             Habit habit,
@@ -50,7 +52,8 @@ public record HabitResponse(
             boolean shieldEligible,
             int closedSegmentCount,
             List<HabitTowerResponse> recentClosedSegments,
-            boolean shared) {
+            boolean shared,
+            String color) {
         return new HabitResponse(
                 habit.getId(),
                 habit.getUserId(),
@@ -77,7 +80,8 @@ public record HabitResponse(
                 habit.getTopOutThresholdDays(),
                 closedSegmentCount,
                 recentClosedSegments,
-                shared
+                shared,
+                habit.getColor()
         );
     }
 }

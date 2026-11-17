@@ -1,6 +1,7 @@
 import { toDateKey } from './date';
 import { sumValueForDay } from './dayStats';
 import { cadenceTarget, hasDailyTarget, isCountMode } from './cadence';
+import { currentSegmentStart } from './towerAge';
 
 /**
  * Converts a hydrated habit (useHabits.js's shape: id, name, category,
@@ -112,6 +113,17 @@ export function toLotHabit(habit, categoryColors) {
 
 export function toSceneHabit(habit, categoryColors) {
   const setDays = checkInDaySet(habit);
+  // The active tower is the *current segment* (SKYLINE.md section 6): after
+  // a top-out the old tower is finished (drawn faded behind) and a new one
+  // starts in front, short again. So it starts when the last segment closed,
+  // not at createdAt — otherwise topping out would never shrink anything.
+  const segStart = currentSegmentStart(habit);
+  const startDate = segStart ? toDateKey(segStart) : null;
+  // A best run that ended before this segment began belongs to a finished
+  // tower; the ledge would have nothing to sit on here.
+  const bestRunRaw = deriveBestRunWindow(habit, setDays);
+  const bestRun =
+    bestRunRaw && startDate && String(bestRunRaw.endDate).slice(0, 10) < startDate ? null : bestRunRaw;
   return {
     id: habit.id,
     name: habit.name,
@@ -123,14 +135,14 @@ export function toSceneHabit(habit, categoryColors) {
     monthlyTarget: habit.monthlyTarget,
     trackingMode: habit.trackingMode,
     dailyTargetExplicit: habit.dailyTargetExplicit,
-    startDate: habit.createdAt ? toDateKey(habit.createdAt) : null,
+    startDate,
     checkInDays: setDays,
     // Per-date Shield Day storage is an open decision (SKYLINE.md section 14
     // #1), not yet solved — glass floors aren't rendered for real habits
     // until that lands. Deliberately empty, not a bug.
     shieldDays: [],
     currentRun: habit.streak || 0,
-    bestRun: deriveBestRunWindow(habit, setDays),
+    bestRun,
     // Archived/topped-out towers are Phase 3 (tower sheet, monument state) —
     // every habit reaching this adapter is rendered as 'active' for now.
     state: 'active',

@@ -100,4 +100,33 @@ describe('toSceneHabit', () => {
     };
     expect(toSceneHabit(habit, categoryColors).shieldDays).toEqual([]);
   });
+
+  describe('after a top-out', () => {
+    const topped = {
+      id: 9,
+      name: 'Read',
+      category: 'Fitness',
+      cadenceType: 'DAILY',
+      cadenceTarget: 1,
+      trackingMode: 'BOOLEAN',
+      createdAt: '2026-09-01T00:00:00',
+      checkIns: [ci('2026-09-03'), ci('2026-09-04'), ci('2026-11-15')],
+      streak: 1,
+      longestStreak: 2,
+      recentClosedSegments: [{ floorCount: 40, bestRunInSegment: 2, toppedOutAt: '2026-11-14T10:00:00' }],
+    };
+
+    test('the active tower starts at the last top-out, not createdAt', () => {
+      expect(toSceneHabit(topped, categoryColors).startDate).toBe('2026-11-14');
+    });
+
+    test('a habit that never topped out still starts at createdAt', () => {
+      expect(toSceneHabit({ ...topped, recentClosedSegments: [] }, categoryColors).startDate).toBe('2026-09-01');
+    });
+
+    test('a best run that ended inside the finished tower gets no ledge on the new one', () => {
+      // longestStreak 2 matches Sep 3-4, which ended before 2026-11-14.
+      expect(toSceneHabit(topped, categoryColors).bestRun).toBeNull();
+    });
+  });
 });

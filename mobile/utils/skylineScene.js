@@ -114,8 +114,10 @@ function shade(hex, amount) {
   return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
 }
 
-function floorFaces(x, yTop, width = TOWER_W) {
-  const yBot = yTop + FLOOR_H;
+// `height` defaults to one floor; a finished tower passes its whole height so
+// its front and right faces fill the full body, not just the top floor.
+function floorFaces(x, yTop, width = TOWER_W, height = FLOOR_H) {
+  const yBot = yTop + height;
   return {
     front: [
       [x, yTop],
@@ -280,7 +282,12 @@ function towerBodyShapes(habit, x, days, theme, windowCount) {
   return { shapes, topY: yCursor, visible, hidden };
 }
 
-const CLOSED_SEGMENT_OPACITY = 0.4;
+// Board 21 draws the finished tower solid and clearly readable behind the new
+// one (not a ghost); only older ones behind it fall back a little.
+const CLOSED_SEGMENT_OPACITY = 0.85;
+const CLOSED_SEGMENT_DEPTH_FADE = 0.2;
+// The cap and flag are a muted gold on the board, not the bright live-tower gold.
+const CLOSED_CAP_ALPHA = 0.6;
 // A finished tower keeps the height it actually reached (design-review
 // boards 20/21: it stands tall behind the new one, muted brown with all-dark
 // windows and a gold cap + flag) — capped the same way the live tower is
@@ -315,7 +322,7 @@ function closedSegmentShapes(habit, x, theme) {
     // closest to (and reads less faded than) the active tower in front.
     const depth = segments.length - i;
     const offsetX = x - depth * CLOSED_SEGMENT_STEP_BACK;
-    const opacity = Math.max(0.2, CLOSED_SEGMENT_OPACITY - (depth - 1) * 0.08);
+    const opacity = Math.max(0.5, CLOSED_SEGMENT_OPACITY - (depth - 1) * CLOSED_SEGMENT_DEPTH_FADE);
     const floors = Math.max(
       CLOSED_SEGMENT_MIN_FLOORS,
       Math.min(MAX_INDIVIDUAL_FLOORS, segment.floorCount || 1),
@@ -323,7 +330,7 @@ function closedSegmentShapes(habit, x, theme) {
     const tier = (segment.floorCount || 0) > MAX_INDIVIDUAL_FLOORS ? TIER_HEIGHT : 0;
     const height = floors * FLOOR_H + tier;
     const yTop = BASE_Y - height;
-    const faces = floorFaces(offsetX, yTop, TOWER_W);
+    const faces = floorFaces(offsetX, yTop, TOWER_W, height);
     const fill = theme.closedSegmentFill;
     const idBase = `${habit.id}-closed${i}`;
 
@@ -344,14 +351,14 @@ function closedSegmentShapes(habit, x, theme) {
       { id: `${idBase}-front`, kind: 'path', d: pointsToPath(faces.front), fill, opacity },
       { id: `${idBase}-right`, kind: 'path', d: pointsToPath(faces.right), fill: shade(fill, -30), opacity },
       // The top face doubles as the gold cap.
-      { id: `${idBase}-top`, kind: 'path', d: pointsToPath(faces.top), fill: theme.flagColor, opacity },
+      { id: `${idBase}-top`, kind: 'path', d: pointsToPath(faces.top), fill: theme.flagColor, opacity: opacity * CLOSED_CAP_ALPHA },
     );
     if (lines) {
       shapes.push({ id: `${idBase}-lines`, kind: 'path', d: lines, fill: 'none', stroke: shade(fill, -45), strokeWidth: 1, opacity });
     }
     shapes.push(
       // All windows dark: a finished tower is past its lit run (section 4).
-      { id: `${idBase}-windows`, kind: 'path', d: windows, fill: theme.windowDark, opacity },
+      { id: `${idBase}-windows`, kind: 'path', d: windows, fill: shade(fill, -45), opacity },
       {
         id: `${idBase}-flag`,
         kind: 'path',
@@ -359,7 +366,7 @@ function closedSegmentShapes(habit, x, theme) {
         fill: theme.flagColor,
         stroke: theme.flagColor,
         strokeWidth: 1.5,
-        opacity,
+        opacity: opacity * CLOSED_CAP_ALPHA,
       },
     );
   });

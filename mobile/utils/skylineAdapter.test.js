@@ -120,6 +120,17 @@ describe('toSceneHabit', () => {
       expect(toSceneHabit(topped, categoryColors).startDate).toBe('2026-11-14');
     });
 
+    test('a finished tower is as tall as the calendar days it stood, not its check-in count', () => {
+      const habit = {
+        ...topped,
+        recentClosedSegments: [
+          { startedAt: '2026-09-01T00:00:00', toppedOutAt: '2026-11-14T10:00:00', floorCount: 3, bestRunInSegment: 2 },
+        ],
+      };
+      // Sep 1 .. Nov 14 inclusive = 75 days, though only 3 check-ins landed in it.
+      expect(toSceneHabit(habit, categoryColors).closedSegments[0].floorCount).toBe(75);
+    });
+
     test('a habit that never topped out still starts at createdAt', () => {
       expect(toSceneHabit({ ...topped, recentClosedSegments: [] }, categoryColors).startDate).toBe('2026-09-01');
     });

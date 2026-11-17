@@ -215,10 +215,20 @@ describe('buildScene — Phase 3d closed-segment compositing', () => {
       expect(count(300)).toBeLessThanOrEqual(7);
     });
 
+    test('the body fills the whole tower height, not just the top floor', () => {
+      const scene = buildScene([dailyHabit({ closedSegments: [{ floorCount: 12, bestRun: 9 }] })], { today: TODAY, theme });
+      const front = scene.shapes.find((sh) => sh.id === 'h1-closed0-front');
+      const ys = [...front.d.matchAll(/,(-?[\d.]+)/g)].map((m) => Number(m[1]));
+      expect(Math.max(...ys)).toBe(BASE_Y);
+      expect(BASE_Y - Math.min(...ys)).toBe(12 * 10);
+    });
+
     test('has all-dark windows and a gold cap with a flag', () => {
       const scene = buildScene([dailyHabit({ closedSegments: [{ floorCount: 12, bestRun: 9 }] })], { today: TODAY, theme });
       const byId = (id) => scene.shapes.find((sh) => sh.id === id);
-      expect(byId('h1-closed0-windows').fill).toBe(theme.windowDark);
+      // Windows are a darker shade of the wall, never the lit window colour.
+      expect(byId('h1-closed0-windows').fill).not.toBe(byId('h1-closed0-front').fill);
+      expect(byId('h1-closed0-windows').fill).not.toBe(theme.windowLit);
       expect(byId('h1-closed0-top').fill).toBe(theme.flagColor);
       expect(byId('h1-closed0-flag')).toBeTruthy();
     });

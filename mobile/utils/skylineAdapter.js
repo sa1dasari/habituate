@@ -152,9 +152,18 @@ export function toSceneHabit(habit, categoryColors) {
     // Absent/empty for the overwhelming common case (a habit that's never
     // topped out), which keeps buildScene's additive-only guard exact: no
     // closedSegments means byte-identical output to before this phase.
-    closedSegments: (habit.recentClosedSegments || []).map((s) => ({
-      floorCount: s.floorCount || 0,
-      bestRun: s.bestRunInSegment || 0,
-    })),
+    // floorCount is the tower's drawn height: one floor per calendar day it
+    // stood (start to top-out), the same rule the live tower follows — not
+    // the number of check-ins, which would shrink a tower with open days.
+    closedSegments: (habit.recentClosedSegments || []).map((s) => {
+      const days =
+        s.startedAt && s.toppedOutAt
+          ? daysBetweenInclusive(toDateKey(s.startedAt), toDateKey(s.toppedOutAt))
+          : 0;
+      return {
+        floorCount: days > 0 ? days : s.floorCount || 0,
+        bestRun: s.bestRunInSegment || 0,
+      };
+    }),
   };
 }

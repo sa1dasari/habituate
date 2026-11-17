@@ -1,7 +1,7 @@
 // Redraws of boards 02, 04, 05, 08, 09, 10, 11, 15 with the current floor art
 (function(){
 const Q3=new URLSearchParams(location.search);const S3=Q3.get('s');
-if(!/^(cm-|sh-|ch-|pf-|ho-|to-|sk-|ft-)/.test(S3||''))return;
+if(!/^(cm-|sh-|ch-|pf-|ho-|to-|sk-|ft-|fx-)/.test(S3||''))return;
 const R=document.getElementById('root');
 const tw=(col,o)=>{const old=C.front;C.front=col;const r=tower(o);C.front=old;return r};
 const grow=(n,lit,over={})=>Array.from({length:n},(_,i)=>over[i]||(i>=n-lit?'lit':'dark'));
@@ -76,7 +76,7 @@ if(S3==='pf-profile'){
    <div style="display:flex;align-items:center;gap:14px;margin-top:10px"><div style="width:64px;height:64px;border-radius:32px;background:#FF8A5C;color:#1b1608;font-weight:800;font-size:28px;display:flex;align-items:center;justify-content:center">A</div><div style="flex:1"><div style="font-size:24px;font-weight:800">Alex</div><div style="color:#A3ADB8;font-size:14px">@alex · Profile: Private</div></div><div style="height:44px;padding:0 20px;border-radius:22px;background:#1E252D;display:flex;align-items:center;font-weight:800;font-size:15px">Edit</div></div>
    <div style="margin-top:12px;background:#161B21;border-radius:22px;padding:12px 16px"><div style="color:#A3ADB8;font-size:14px;font-weight:700">Your skyline so far</div><svg width="318" height="98" style="display:block;margin-top:2px">${sc}<rect x="0" y="91" width="318" height="1.5" fill="#2A333D"/></svg>
     <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:13px;color:#C9CED4">${[['4','building'],['1','finished'],['1','monument'],['15','best run']].map(([v,l])=>`<span><b style="font-size:20px;color:#F2F4F6">${v}</b> ${l}</span>`).join('')}</div></div>
-   ${row('Friends','12 friends · 2 requests')}${row('Sky and weather','Approximate location: On')}${row('Accessibility','Tap to build: Off')}${row('Notifications','Reminders and weekly recap')}${row('Privacy','Profile visibility: Private')}${row('Account','Sign-in, data export, delete')}</div></div>${tabBar(3)}`;
+   ${row('Friends','12 friends · 2 requests')}${row('Sky and weather','Approximate location: On')}${row('Skyline','Finished towers: Shown')}${row('Accessibility','Tap to build: Off')}${row('Notifications','Reminders and weekly recap')}${row('Privacy','Profile visibility: Private')}${row('Account','Sign-in, data export, delete')}</div></div>${tabBar(3)}`;
 }
 
 const night=(w,h,id)=>`<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0B1030"/><stop offset="1" stop-color="#232a5a"/></linearGradient></defs><rect width="${w}" height="${h}" fill="url(#${id})"/>${Array.from({length:60},(_,i)=>`<circle cx="${(i*97)%w}" cy="${(i*53)%(h-60)+6}" r="${i%3?.9:1.4}" fill="#dfe6ff" opacity="${.35+(i%4)*.15}"/>`).join('')}`;
@@ -163,7 +163,23 @@ if(S3==='ft-sheet'){
    <div style="display:flex;gap:8px;margin-top:6px">${tile('26','Total built')}${tile('17 days','Best run here')}${tile('Sep 13','Started')}</div>
    <div style="color:#A3ADB8;font-size:13.5px;line-height:1.5;margin-top:12px">This tower stays on your skyline behind the new one. Your run carried over to the new tower.</div>
    <div style="margin-top:14px;height:54px;border-radius:27px;background:#F2C14E;color:#1b1608;font-weight:800;font-size:16.5px;display:flex;align-items:center;justify-content:center">See inside</div>
-   <div style="margin-top:4px;height:46px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#C9CED4">Close</div></div></div>`;
+   <div style="margin-top:2px;height:42px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14.5px;color:#A3ADB8">Hide finished towers for Push ups</div><div style="height:40px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#C9CED4">Close</div></div></div>`;
+}
+
+const sw=(on)=>`<div style="width:52px;height:30px;border-radius:15px;background:${on?'#F2C14E':'#2F3944'};position:relative;flex:0 0 52px"><i style="position:absolute;top:3px;${on?'right:3px':'left:3px'};width:24px;height:24px;border-radius:12px;background:${on?'#1b1608':'#A3ADB8'};display:block"></i></div>`;
+if(S3==='fx-settings'){
+  R.innerHTML=`<div style="position:absolute;inset:0;overflow:hidden"><div style="padding:30px 20px 0"><div style="font-size:17px;font-weight:700">‹&nbsp; Profile</div><h1 style="font-size:30px;margin-top:14px">Skyline</h1></div>
+  <div style="padding:16px 20px 0"><div style="background:#161B21;border-radius:18px;padding:16px;display:flex;align-items:center;gap:14px"><div style="flex:1"><b style="font-size:16px">Show finished towers</b><div style="color:#A3ADB8;font-size:13.5px;line-height:1.45;margin-top:3px">Finished towers stay on your skyline, faded behind the current one. Turn this off to see only current towers.</div></div>${sw(true)}</div>
+  <div style="color:#A3ADB8;font-size:13.5px;line-height:1.5;margin:14px 4px 0">You can still open finished towers from the Retired and finished list. You can also change this for one habit in its Edit screen.</div></div></div>${tabBar(3)}`;
+}
+if(S3==='fx-list'){
+  const fin=[['Push ups','Topped out Oct 12 · 30 days','#A78BFA'],['Read 10 minutes','Topped out Sep 3 · 30 days','#38BDF8'],['Write 300 words','You topped it out Aug 18 · 21 days','#F2C14E']];
+  const ret=[['Drink water','heart-pulse'],['Meditate','meditation']];
+  const hd=(t)=>`<div style="color:#A3ADB8;font-size:12px;font-weight:800;letter-spacing:.8px;margin:18px 0 4px">${t}</div>`;
+  R.innerHTML=`<div style="position:absolute;inset:0;overflow:hidden"><div style="display:flex;align-items:center;justify-content:space-between;padding:30px 20px 10px"><div style="width:44px;height:44px;border-radius:22px;background:#1E252D;display:flex;align-items:center;justify-content:center;font-size:20px;color:#A3ADB8">×</div><div style="font-size:17px;font-weight:800">Retired and finished</div><div style="width:44px"></div></div>
+  <div style="padding:0 20px">${hd('FINISHED TOWERS')}${fin.map(([n,s,c])=>`<div style="display:flex;align-items:center;gap:12px;min-height:66px;border-bottom:1px solid #1F262E"><svg width="36" height="44" style="flex:0 0 36px">${tw('#7A6A58',{x:6,base:40,w:18,fh:1.9,dx:7,dy:4,floors:rep('dark',18),windows:1,today:false,wW:1.5,wH:.8})}<rect x="6" y="2" width="18" height="2" fill="${c}"/></svg><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:15.5px">${n}</div><div style="color:#A3ADB8;font-size:13px;margin-top:1px">${s}</div></div>${ico('chev',18,'#A3ADB8')}</div>`).join('')}
+  ${hd('RETIRED TOWERS')}${ret.map(([n,i])=>`<div style="display:flex;align-items:center;gap:12px;min-height:64px;border-bottom:1px solid #1F262E"><div style="width:40px;height:40px;border-radius:12px;background:#232b34"></div><div style="flex:1;font-weight:700;font-size:15.5px;color:#C9CED4">${n}</div><div style="color:#F2C14E;font-weight:800;font-size:14.5px;padding:10px 6px">Restore</div><div style="padding:10px 6px;color:#7C8794;font-size:18px">🗑</div></div>`).join('')}
+  <div style="color:#A3ADB8;font-size:13px;margin-top:16px;line-height:1.45">Finished towers can be hidden from your skyline in Profile, Skyline. They stay here either way.</div></div></div>${tabBar(0)}`;
 }
 
 //END

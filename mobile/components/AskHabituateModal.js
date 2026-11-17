@@ -16,13 +16,10 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import api from '../api/client';
 import ConfirmModal from './ConfirmModal';
 import Toast from './Toast';
-import TourHighlight from './TourHighlight';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useConfirm } from '../hooks/useConfirm';
 import { useHabits } from '../hooks/useHabits';
 import { useToast } from '../hooks/useToast';
-import { useTourTarget } from '../hooks/useTourTarget';
-import { TOUR_SCOPES, TOUR_TARGETS } from '../constants/onboardingTour';
 import { generateCoachStarterQuestions } from '../utils/consistency';
 import { fonts, radii, skylineUI, spacing } from '../theme';
 
@@ -54,7 +51,6 @@ export default function AskHabituateModal({ visible, onClose, initialQuestion, h
   const starterQuestions = useMemo(() => generateCoachStarterQuestions(habits), [habits]);
 
   const { refresh: refreshHabits } = useHabits();
-  const tourHeaderRef = useTourTarget(TOUR_TARGETS.MODAL_ASK_HABITUATE_HEADER);
   const { toast, showToast, hideToast } = useToast();
   const { request, confirm, respond } = useConfirm();
 
@@ -205,7 +201,7 @@ export default function AskHabituateModal({ visible, onClose, initialQuestion, h
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
         >
-          <View style={styles.header} ref={tourHeaderRef}>
+          <View style={styles.header}>
             <Pressable
               onPress={onClose}
               style={styles.circleBtn}
@@ -340,7 +336,6 @@ export default function AskHabituateModal({ visible, onClose, initialQuestion, h
           <Text style={styles.disclaimer}>AI suggestions can be imperfect. You're in control.</Text>
         </KeyboardAvoidingView>
       </SafeAreaView>
-      <TourHighlight scope={TOUR_SCOPES.ASK_HABITUATE_MODAL} />
       <Toast toast={toast} onHide={hideToast} />
       <ConfirmModal request={request} onRespond={respond} />
     </Modal>

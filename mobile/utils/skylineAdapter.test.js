@@ -1,4 +1,4 @@
-const { toSceneHabit, deriveBestRunWindow } = require('./skylineAdapter');
+const { toSceneHabit, toLotHabit, deriveBestRunWindow } = require('./skylineAdapter');
 
 function ci(day, value = 1) {
   return { occurredAt: `${day}T12:00:00`, value };
@@ -83,6 +83,17 @@ describe('toSceneHabit', () => {
       longestStreak: 0,
     };
     expect(toSceneHabit(habit, categoryColors).color).toBe('#6b7280');
+  });
+
+  test('a picked habit.color wins over the category colour, per mode', () => {
+    const habit = {
+      id: 9, name: 'Picked', category: 'Fitness', color: 'teal', cadenceType: 'DAILY', cadenceTarget: 1,
+      trackingMode: 'BOOLEAN', createdAt: '2026-11-01T00:00:00', checkIns: [], streak: 0, longestStreak: 0,
+    };
+    expect(toSceneHabit(habit, categoryColors).color).toBe('#14B8A6');
+    expect(toSceneHabit(habit, categoryColors, 'light').color).toBe('#009A88');
+    expect(toLotHabit(habit, categoryColors, 'light').color).toBe('#009A88');
+    expect(toLotHabit({ ...habit, color: null }, categoryColors).color).toBe('#f97316');
   });
 
   test('shieldDays is always empty (not yet solved, not a bug)', () => {

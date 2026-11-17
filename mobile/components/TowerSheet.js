@@ -19,6 +19,8 @@ import { toDateKey } from '../utils/date';
 import { towerCapInfo } from '../utils/towerAge';
 import { buildScene, classifyDays, X0, TOWER_W, DX, CRANE_HEIGHT, FLOOR_H, BASE_Y } from '../utils/skylineScene';
 import { toSceneHabit } from '../utils/skylineAdapter';
+import { resolveHabitColor } from '../constants/towerColors';
+import { useAppTheme } from '../hooks/useAppTheme';
 import api from '../api/client';
 import { fonts } from '../theme';
 
@@ -84,6 +86,7 @@ export default function TowerSheet({
     useHabits();
   const { toast, showToast, hideToast } = useToast();
   const { request, confirm, respond } = useConfirm();
+  const { effectiveMode } = useAppTheme();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   // stageHeight is only measured while the daily view is mounted
   // (SkylineScreen.js's onLayout lives on that branch) — a user whose last
@@ -234,8 +237,8 @@ export default function TowerSheet({
   // use, not a hand-measured guess.
   const sceneHabit = useMemo(() => {
     if (!displayHabit || !categoryColors) return null;
-    return { ...toSceneHabit(displayHabit, categoryColors), shieldDays: shieldDates };
-  }, [displayHabit, categoryColors, shieldDates]);
+    return { ...toSceneHabit(displayHabit, categoryColors, effectiveMode), shieldDays: shieldDates };
+  }, [displayHabit, categoryColors, shieldDates, effectiveMode]);
   const miniScene = useMemo(() => {
     if (!sceneHabit || !towerTheme) return null;
     return buildScene([sceneHabit], { today: new Date(), theme: towerTheme });
@@ -274,7 +277,8 @@ export default function TowerSheet({
 
   // The raw habit record (unlike the scene/lot builders' transformed shape)
   // has no .color of its own — derive it the same way TowerForm.js does.
-  const towerColor = (categoryColors && categoryColors[displayHabit.category]) || categoryColor(displayHabit.category);
+  const towerColor =
+    resolveHabitColor(displayHabit, effectiveMode, categoryColors) || categoryColor(displayHabit.category);
 
   const currentRun = displayHabit.streak || 0;
   const bestRun = displayHabit.longestStreak || 0;

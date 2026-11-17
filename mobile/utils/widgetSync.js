@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { API_BASE_URL } from '../api/client';
 import { cadenceProgress, hasDailyTarget } from './cadence';
+import { towerColorHex } from '../constants/towerColors';
 
 /**
  * Bridges auth + today's-habits state from the main app's JS runtime into
@@ -89,7 +90,8 @@ export async function syncHabitSnapshot(habits) {
       return {
         id: h.id,
         name: h.name,
-        color: h.color || '#2563EB',
+        // Widgets are light-palette only; a picked tower colour resolves to its light hex.
+        color: towerColorHex(h.color, 'light') || '#2563EB',
         category: h.category || 'General',
         currentStreak: h.currentStreak ?? 0,
         trackingMode: h.trackingMode || 'BOOLEAN',

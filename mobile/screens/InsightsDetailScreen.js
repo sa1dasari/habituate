@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import api from '../api/client';
 import Toast from '../components/Toast';
 import { categoryColor, HABIT_CATEGORY_COLORS } from '../constants/habitCategories';
+import { resolveHabitColor } from '../constants/towerColors';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useHabits } from '../hooks/useHabits';
 import { useToast } from '../hooks/useToast';
@@ -38,7 +39,7 @@ export default function InsightsDetailScreen({ navigation, route }) {
   const [shieldedByHabit, setShieldedByHabit] = useState({});
 
   const habitCategoryColors = towerColorsByMode[effectiveMode];
-  const habitColor = (habit) => (habitCategoryColors && habitCategoryColors[habit.category]) || categoryColor(habit.category);
+  const habitColor = (habit) => resolveHabitColor(habit, effectiveMode, habitCategoryColors) || categoryColor(habit.category);
 
   const shownHabits = useMemo(
     () => (habitIds.length === 0 ? habits : habits.filter((h) => habitIds.includes(h.id))),

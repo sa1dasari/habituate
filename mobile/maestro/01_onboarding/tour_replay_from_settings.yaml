@@ -7,6 +7,7 @@ appId: com.habituate.mobile
 # Starting the tour switches back to Today itself (useReplayTour/start(),
 # via the module-level navigationRef) even from inside the nested
 # ProfileStack — no manual navigation needed.
-- assertVisible: "Welcome to Habituate"
-- tapOn: "Skip"
+- assertVisible: "This is your skyline"
+- tapOn:
+    id: "tour-skip"
 - assertVisible: "Today"

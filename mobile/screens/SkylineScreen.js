@@ -39,6 +39,9 @@ import TowerForm from '../components/TowerForm';
 import ArchivedTowersSheet from '../components/ArchivedTowersSheet';
 import LotsView from '../components/LotsView';
 import LotSheet from '../components/LotSheet';
+import TourHighlight from '../components/TourHighlight';
+import { useTourTarget } from '../hooks/useTourTarget';
+import { TOUR_SCOPES, TOUR_TARGETS } from '../constants/onboardingTour';
 
 function hexToRgba(hex, alpha) {
   const n = parseInt(hex.replace('#', ''), 16);
@@ -83,6 +86,11 @@ export default function SkylineScreen({ navigation }) {
   // about this tower" (SKYLINE.md section 14 #5) — full `habits` context
   // still goes to the coach either way, this just seeds the question.
   const [chatInitialQuestion, setChatInitialQuestion] = useState(null);
+  // Onboarding tour targets (constants/onboardingTour.js): the scene, the first
+  // tower's hold zone, and the collapsed bottom sheet.
+  const tourSceneRef = useTourTarget(TOUR_TARGETS.SKYLINE_SCENE);
+  const tourHoldTowerRef = useTourTarget(TOUR_TARGETS.SKYLINE_HOLD_TOWER);
+  const tourSheetRef = useTourTarget(TOUR_TARGETS.SKYLINE_SHEET);
   const [towerSheetHabitId, setTowerSheetHabitId] = useState(null);
   const [insideViewHabitId, setInsideViewHabitId] = useState(null);
   // null habitId + visible = create mode; a real id = edit mode.
@@ -144,8 +152,8 @@ export default function SkylineScreen({ navigation }) {
   );
 
   const sceneHabits = useMemo(
-    () => towerHabits.map((h) => toSceneHabit(h, categoryColors)),
-    [towerHabits, categoryColors],
+    () => towerHabits.map((h) => toSceneHabit(h, categoryColors, effectiveMode)),
+    [towerHabits, categoryColors, effectiveMode],
   );
 
   const scene = useMemo(
@@ -154,8 +162,8 @@ export default function SkylineScreen({ navigation }) {
   );
 
   const lots = useMemo(
-    () => buildLots(lotHabits.map((h) => toLotHabit(h, categoryColors)), { today }),
-    [lotHabits, categoryColors, today],
+    () => buildLots(lotHabits.map((h) => toLotHabit(h, categoryColors, effectiveMode)), { today }),
+    [lotHabits, categoryColors, today, effectiveMode],
   );
 
   const habitsById = useMemo(() => {
@@ -515,6 +523,8 @@ export default function SkylineScreen({ navigation }) {
                   shows less sky above the towers, not a tower's base/labels
                   clipped off behind the collapsed sheet (see SHEET_PEEK_HEIGHT). */}
               <View
+                ref={tourSceneRef}
+                collapsable={false}
                 style={[
                   styles.sceneWrap,
                   stageHeight > 0 && { height: Math.min(560, stageHeight - SHEET_PEEK_HEIGHT) },
@@ -529,15 +539,33 @@ export default function SkylineScreen({ navigation }) {
                     theme={ui}
                     onAddHabit={() => setAddHabitVisible(true)}
                     interactiveOverlay={
-                      <SkylineHoldLayer
-                        hitTargets={scene.hitTargets}
-                        labels={scene.accessibilityLabels}
-                        getCanBuild={getCanBuild}
-                        onBuild={handleBuild}
-                        onOpenSheet={handleOpenTowerSheet}
-                        tapToBuild={tapToBuild}
-                        theme={ui}
-                      />
+                      <>
+                        <SkylineHoldLayer
+                          hitTargets={scene.hitTargets}
+                          labels={scene.accessibilityLabels}
+                          getCanBuild={getCanBuild}
+                          onBuild={handleBuild}
+                          onOpenSheet={handleOpenTowerSheet}
+                          tapToBuild={tapToBuild}
+                          theme={ui}
+                        />
+                        {/* Invisible tour-target marker over the first tower's
+                            hold zone (same rect as its hit target). */}
+                        {scene.hitTargets[0] ? (
+                          <View
+                            ref={tourHoldTowerRef}
+                            collapsable={false}
+                            pointerEvents="none"
+                            style={{
+                              position: 'absolute',
+                              left: scene.hitTargets[0].x,
+                              top: scene.hitTargets[0].y,
+                              width: scene.hitTargets[0].width,
+                              height: scene.hitTargets[0].height,
+                            }}
+                          />
+                        ) : null}
+                      </>
                     }
                   />
                 </View>
@@ -549,6 +577,13 @@ export default function SkylineScreen({ navigation }) {
                 tapToBuild={tapToBuild}
                 theme={ui}
                 stageHeight={stageHeight}
+              />
+              {/* Invisible tour-target marker over the collapsed sheet peek. */}
+              <View
+                ref={tourSheetRef}
+                collapsable={false}
+                pointerEvents="none"
+                style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: SHEET_PEEK_HEIGHT }}
               />
               {showFirstHoldHint && <FirstHoldHint theme={ui} />}
               <TowerSheet
@@ -587,6 +622,8 @@ export default function SkylineScreen({ navigation }) {
                 visible={archivedTowersVisible}
                 onClose={() => setArchivedTowersVisible(false)}
                 theme={ui}
+                towerTheme={towerTheme}
+                categoryColors={categoryColors}
               />
               <TowerForm
                 key={towerFormHabitId ?? 'new'}
@@ -652,6 +689,7 @@ export default function SkylineScreen({ navigation }) {
         theme={ui}
       />
       </SafeAreaView>
+      <TourHighlight scope={TOUR_SCOPES.SKYLINE} />
     </View>
   );
 }

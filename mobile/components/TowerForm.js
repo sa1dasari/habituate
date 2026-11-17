@@ -14,6 +14,9 @@ import { useHabits } from '../hooks/useHabits';
 import { HABIT_CATEGORIES, HABIT_CATEGORY_OPTIONS, DEFAULT_HABIT_CATEGORY, categoryColor } from '../constants/habitCategories';
 import { effectiveWeeklyTarget, effectiveMonthlyTarget } from '../utils/cadence';
 import { buildScene, X0, TOWER_W, DX, CRANE_HEIGHT, FLOOR_H, BASE_Y } from '../utils/skylineScene';
+import TowerColorPicker from './TowerColorPicker';
+import { useAppTheme } from '../hooks/useAppTheme';
+import { resolveHabitColor } from '../constants/towerColors';
 import { fonts } from '../theme';
 
 const DEFAULT_TOP_OUT_THRESHOLD_DAYS = 30;
@@ -39,6 +42,7 @@ function emptyForm() {
     reminderEnabled: false,
     motivation: '',
     topOutThresholdDays: null,
+    color: null,
   };
 }
 
@@ -72,6 +76,7 @@ function formFromHabit(habit) {
     reminderEnabled: Boolean(habit.reminderEnabled),
     motivation: habit.motivation || '',
     topOutThresholdDays: habit.topOutThresholdDays != null ? Math.min(35, habit.topOutThresholdDays) : null,
+    color: habit.color || null,
   };
 }
 
@@ -110,6 +115,7 @@ function formFromHabit(habit) {
  */
 export default function TowerForm({ visible, onClose, habit, theme, towerTheme, categoryColors }) {
   const { createHabit, updateHabit, deleteHabit } = useHabits();
+  const { effectiveMode } = useAppTheme();
   const { toast, showToast, hideToast } = useToast();
   const { request, confirm, respond } = useConfirm();
   const [form, setForm] = useState(() => (habit ? formFromHabit(habit) : emptyForm()));
@@ -136,7 +142,7 @@ export default function TowerForm({ visible, onClose, habit, theme, towerTheme, 
     return {
       id: 'preview',
       name: form.name.trim() || 'New tower',
-      color: categoryColors[form.category] || categoryColor(form.category),
+      color: resolveHabitColor({ color: form.color, category: form.category }, effectiveMode, categoryColors) || categoryColor(form.category),
       cadenceType: 'DAILY',
       cadenceTarget: 1,
       startDate: todayKey,
@@ -146,7 +152,7 @@ export default function TowerForm({ visible, onClose, habit, theme, towerTheme, 
       bestRun: null,
       state: 'active',
     };
-  }, [form.name, form.category, categoryColors]);
+  }, [form.name, form.category, form.color, effectiveMode, categoryColors]);
 
   const previewScene = useMemo(
     () => buildScene([previewHabit], { today: new Date(), theme: towerTheme }),
@@ -190,6 +196,8 @@ export default function TowerForm({ visible, onClose, habit, theme, towerTheme, 
       reminderEnabled: Boolean(filled.scheduledTime) && filled.reminderEnabled,
       motivation: filled.motivation.trim(),
       topOutThresholdDays: filled.topOutThresholdDays ?? null,
+      // A palette key, or null (create: no pick; update: leave as is).
+      color: filled.color ?? null,
     };
 
     setBusy(true);
@@ -311,8 +319,12 @@ export default function TowerForm({ visible, onClose, habit, theme, towerTheme, 
             </ScrollView>
           </Field>
 
-          {/* TOWER COLOR PICKER GOES HERE (lead wires <TowerColorPicker /> in
-              directly under Category, per boards 12 and 45). */}
+          <TowerColorPicker
+            value={form.color}
+            onChange={(key) => setField('color', key)}
+            theme={theme}
+            mode={effectiveMode}
+          />
 
           <Field label="How often do you build a floor?" theme={theme}>
             <View style={styles.pillRow}>

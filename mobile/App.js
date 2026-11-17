@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import {
@@ -30,6 +30,9 @@ import { isExpoGo, usePushToken, usePushPermissionPrompt } from './hooks/usePush
 import PushPermissionModal from './components/PushPermissionModal';
 import { PushPromptContext } from './hooks/PushPromptContext';
 import { TourProvider, useAutoStartTour } from './hooks/useOnboardingTour';
+import { useTourTarget } from './hooks/useTourTarget';
+import TourHighlight from './components/TourHighlight';
+import { TOUR_SCOPES, TOUR_TARGETS } from './constants/onboardingTour';
 import api from './api/client';
 import { scrollToTop } from './utils/scrollToTopRegistry';
 import { navigateToTab, navigationRef } from './utils/navigationRef';
@@ -70,6 +73,7 @@ function Tabs() {
   const { user } = useAuth();
 
   return (
+    <>
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
@@ -112,12 +116,16 @@ function Tabs() {
       <Tab.Screen
         name="Community"
         component={CommunityScreen}
+        options={{
+          tabBarButton: (props) => <TourTabButton {...props} targetKey={TOUR_TARGETS.TAB_COMMUNITY} />,
+        }}
         listeners={{ tabPress: () => scrollToTop('Community') }}
       />
       <Tab.Screen
         name="Profile"
         component={ProfileStack}
         options={{
+          tabBarButton: (props) => <TourTabButton {...props} targetKey={TOUR_TARGETS.TAB_PROFILE} />,
           tabBarIcon: ({ color, size, focused }) =>
             user?.photoURL ? (
               <AvatarImage
@@ -151,6 +159,33 @@ function Tabs() {
         />
       )}
     </Tab.Navigator>
+    {/* Hosts tour steps 4-5, which spotlight the tab bar buttons. */}
+    <TourHighlight scope={TOUR_SCOPES.TABS} />
+    </>
+  );
+}
+
+/**
+ * Default tab bar button, plus a ref registered as a tour target (tour steps
+ * 4-5). A plain RN Pressable with the navigator's own props; the navigator
+ * passes onPress/onLongPress/style/children/accessibility props through.
+ */
+function TourTabButton({ targetKey, children, style, onPress, onLongPress, testID, accessibilityLabel, accessibilityState }) {
+  const ref = useTourTarget(targetKey);
+  return (
+    <Pressable
+      ref={ref}
+      collapsable={false}
+      onPress={onPress}
+      onLongPress={onLongPress}
+      style={style}
+      testID={testID}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityState={accessibilityState}
+    >
+      {children}
+    </Pressable>
   );
 }
 

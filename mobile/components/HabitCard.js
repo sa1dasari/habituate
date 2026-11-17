@@ -4,6 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import StreakIndicator from './StreakIndicator';
 import { categoryColor, categoryIcon } from '../constants/habitCategories';
+import { towerColorHex } from '../constants/towerColors';
 import { completionSuffix, periodCheckIns } from '../utils/cadence';
 import { formatClockTime, formatDayLabel, formatTime } from '../utils/time';
 import { useAppTheme } from '../hooks/useAppTheme';
@@ -27,6 +28,7 @@ const CADENCE_LABEL = {
 export default function HabitCard({
   name = 'Habit name',
   category = 'General',
+  towerColor = null,
   cadenceType = 'DAILY',
   trackingMode = 'BOOLEAN',
   todayCount = 0,
@@ -58,7 +60,8 @@ export default function HabitCard({
   onToggleShield,
   onRepairStreak,
 }) {
-  const { colors, typography } = useAppTheme();
+  const { colors, typography, effectiveMode } = useAppTheme();
+  const tint = towerColorHex(towerColor, effectiveMode) || categoryColor(category);
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const cadence = CADENCE_LABEL[String(cadenceType).toUpperCase()] || 'Daily';
   const countMode = String(trackingMode).toUpperCase() === 'COUNT';
@@ -147,11 +150,11 @@ export default function HabitCard({
           accessibilityState={onPress ? { expanded } : undefined}
           accessibilityHint={onPress ? 'Shows when this habit was logged' : undefined}
         >
-          <View style={[styles.iconTile, { backgroundColor: `${categoryColor(category)}22` }]}>
+          <View style={[styles.iconTile, { backgroundColor: `${tint}22` }]}>
             <MaterialCommunityIcons
               name={categoryIcon(category)}
               size={22}
-              color={categoryColor(category)}
+              color={tint}
             />
           </View>
 

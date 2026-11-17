@@ -2,6 +2,7 @@ import { toDateKey } from './date';
 import { sumValueForDay } from './dayStats';
 import { cadenceTarget, hasDailyTarget, isCountMode } from './cadence';
 import { currentSegmentStart } from './towerAge';
+import { resolveHabitColor } from '../constants/towerColors';
 
 /**
  * Converts a hydrated habit (useHabits.js's shape: id, name, category,
@@ -79,12 +80,12 @@ export function deriveBestRunWindow(habit, setDays) {
   return matches.reduce((best, r) => (r.endDate > best.endDate ? r : best));
 }
 
-const FALLBACK_CATEGORY = 'Other';
-
 /**
  * @param {object} habit - one hydrated habit from useHabits.js.
  * @param {Record<string, string>} categoryColors - resolved per-mode tower
  *   colors (theme.js's buildCategoryTowerColors()[mode]).
+ * @param {'dark'|'light'} [mode] - which mode categoryColors is for; a
+ *   habit's own picked colour (habit.color) is resolved in this mode.
  */
 /**
  * Converts a hydrated habit into utils/lots.js's input shape (SKYLINE.md
@@ -94,11 +95,11 @@ const FALLBACK_CATEGORY = 'Other';
  * deliberate-gap reasoning as toSceneHabit's `shieldDays` — per-period
  * Shield Day storage is still open decision SKYLINE.md section 14 #1.
  */
-export function toLotHabit(habit, categoryColors) {
+export function toLotHabit(habit, categoryColors, mode = 'dark') {
   return {
     id: habit.id,
     name: habit.name,
-    color: categoryColors[habit.category] || categoryColors[FALLBACK_CATEGORY],
+    color: resolveHabitColor(habit, mode, categoryColors),
     trackingMode: habit.trackingMode,
     weeklyTarget: habit.weeklyTarget,
     monthlyTarget: habit.monthlyTarget,
@@ -111,7 +112,7 @@ export function toLotHabit(habit, categoryColors) {
   };
 }
 
-export function toSceneHabit(habit, categoryColors) {
+export function toSceneHabit(habit, categoryColors, mode = 'dark') {
   const setDays = checkInDaySet(habit);
   // The active tower is the *current segment* (SKYLINE.md section 6): after
   // a top-out the old tower is finished (drawn faded behind) and a new one
@@ -128,7 +129,7 @@ export function toSceneHabit(habit, categoryColors) {
     id: habit.id,
     name: habit.name,
     category: habit.category,
-    color: categoryColors[habit.category] || categoryColors[FALLBACK_CATEGORY],
+    color: resolveHabitColor(habit, mode, categoryColors),
     cadenceType: habit.cadenceType,
     cadenceTarget: habit.cadenceTarget,
     weeklyTarget: habit.weeklyTarget,

@@ -4,15 +4,13 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useFocusEffect } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import api from '../api/client';
-import TourHighlight from '../components/TourHighlight';
 import Toast from '../components/Toast';
 import { categoryColor, HABIT_CATEGORY_COLORS } from '../constants/habitCategories';
+import { resolveHabitColor } from '../constants/towerColors';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useHabits } from '../hooks/useHabits';
 import { useToast } from '../hooks/useToast';
 import { useRegisterScrollToTop } from '../hooks/useRegisterScrollToTop';
-import { useTourTarget } from '../hooks/useTourTarget';
-import { TOUR_SCOPES, TOUR_TARGETS } from '../constants/onboardingTour';
 import { CONSISTENCY_PERIODS, isCurrentPeriod, periodRangeLabel, shiftAnchor, totalFloorsHistory } from '../utils/consistency';
 import { hasDailyTarget } from '../utils/cadence';
 import { startOfWeek, toDateKey } from '../utils/date';
@@ -70,8 +68,8 @@ export default function InsightsScreen({ navigation, route }) {
   const scrollRef = useRegisterScrollToTop('Insights');
   const habitCategoryColors = towerColorsByMode[effectiveMode];
   const habitColor = useCallback(
-    (habit) => (habitCategoryColors && habitCategoryColors[habit.category]) || categoryColor(habit.category),
-    [habitCategoryColors]
+    (habit) => resolveHabitColor(habit, effectiveMode, habitCategoryColors) || categoryColor(habit.category),
+    [habitCategoryColors, effectiveMode]
   );
 
   const { habits, refresh } = useHabits();
@@ -102,7 +100,6 @@ export default function InsightsScreen({ navigation, route }) {
 
   const filteredHabits = selectedHabitIds.length === 0 ? habits : habits.filter((h) => selectedHabitIds.includes(h.id));
 
-  const tourFloorsCardRef = useTourTarget(TOUR_TARGETS.INSIGHTS_CONSISTENCY_CARD);
 
   const floors = useMemo(() => totalFloorsHistory(filteredHabits, period, anchor), [filteredHabits, period, anchor]);
   const maxFloorsBucketValue = Math.max(1, ...floors.buckets.map((b) => b.value));
@@ -282,7 +279,7 @@ export default function InsightsScreen({ navigation, route }) {
           </Pressable>
         </View>
 
-        <View ref={tourFloorsCardRef} style={styles.floorsCard}>
+        <View style={styles.floorsCard}>
           <View style={styles.cardHeaderRow}>
             <Text style={styles.cardTitle}>Floors built</Text>
             <Text style={styles.floorsTag}>Towers and lots</Text>
@@ -423,7 +420,6 @@ export default function InsightsScreen({ navigation, route }) {
         />
       </ScrollView>
     </SafeAreaView>
-    <TourHighlight scope={TOUR_SCOPES.INSIGHTS} />
     <Toast toast={toast} onHide={hideToast} />
     </>
   );

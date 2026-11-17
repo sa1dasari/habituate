@@ -28,6 +28,7 @@ import { WindowCountProvider } from './hooks/useWindowCount';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { isExpoGo, usePushToken, usePushPermissionPrompt } from './hooks/usePushToken';
 import PushPermissionModal from './components/PushPermissionModal';
+import { PushPromptContext } from './hooks/PushPromptContext';
 import { TourProvider, useAutoStartTour } from './hooks/useOnboardingTour';
 import api from './api/client';
 import { scrollToTop } from './utils/scrollToTopRegistry';
@@ -269,6 +270,21 @@ function TourAutoStart() {
   return null;
 }
 
+// Hosts the notification explainer (design-review board 37): shown after the
+// user's first floor, not at launch, and tells the location explainer
+// (board 38) when it has been answered so the two never stack.
+function PushPromptHost({ enabled, children }) {
+  const { habits } = useHabits();
+  const hasBuiltFloor = habits.some((h) => (h.checkIns || []).length > 0);
+  const prompt = usePushPermissionPrompt(enabled && hasBuiltFloor);
+  return (
+    <PushPromptContext.Provider value={prompt.decided && !prompt.visible}>
+      <PushPermissionModal visible={prompt.visible} onAllow={prompt.onAllow} onDismiss={prompt.onDismiss} />
+      {children}
+    </PushPromptContext.Provider>
+  );
+}
+
 function AppGate() {
   const { user } = useAuth();
   const { colors, effectiveMode } = useAppTheme();
@@ -277,7 +293,6 @@ function AppGate() {
   const [username, setUsername] = useState(undefined);
 
   usePushToken(!!user);
-  const pushPrompt = usePushPermissionPrompt(!!user);
 
   useEffect(() => {
     if (!user) {
@@ -352,14 +367,11 @@ function AppGate() {
                       <TourProvider>
                         <WidgetDeepLinkBridge />
                         <PushNotificationTapBridge />
-                        <PushPermissionModal
-                          visible={pushPrompt.visible}
-                          onAllow={pushPrompt.onAllow}
-                          onDismiss={pushPrompt.onDismiss}
-                        />
-                        <NavigationContainer ref={navigationRef} theme={navigationTheme}>
-                          <Tabs />
-                        </NavigationContainer>
+                        <PushPromptHost enabled={!!user}>
+                          <NavigationContainer ref={navigationRef} theme={navigationTheme}>
+                            <Tabs />
+                          </NavigationContainer>
+                        </PushPromptHost>
                         <TourAutoStart />
                       </TourProvider>
                     </WindowCountProvider>

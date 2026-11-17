@@ -144,27 +144,45 @@ export function usePushToken(enabled) {
  */
 export function usePushPermissionPrompt(enabled) {
   const [visible, setVisible] = useState(false);
+  // True once the check has run and the explainer is either not needed or has
+  // been answered — lets the location explainer wait its turn.
+  const [decided, setDecided] = useState(false);
   const registeredToken = useRef(null);
   const cancelledRef = useRef(false);
 
   useEffect(() => {
-    if (!enabled || isExpoGo()) return;
+    if (!enabled) return;
+    if (isExpoGo()) {
+      setDecided(true);
+      return;
+    }
     cancelledRef.current = false;
 
     (async () => {
       try {
-        if (!Device.isDevice) return;
+        if (!Device.isDevice) {
+          setDecided(true);
+          return;
+        }
 
         const alreadyShown = await AsyncStorage.getItem(EXPLAINER_SHOWN_KEY);
-        if (alreadyShown) return;
+        if (alreadyShown) {
+          setDecided(true);
+          return;
+        }
 
         const Notifications = await import('expo-notifications');
         const { status } = await Notifications.getPermissionsAsync();
-        if (status !== 'undetermined' || cancelledRef.current) return;
+        if (cancelledRef.current) return;
+        if (status !== 'undetermined') {
+          setDecided(true);
+          return;
+        }
 
         setVisible(true);
       } catch (err) {
         if (__DEV__) console.log('[habituate] Push explainer check skipped:', err?.message);
+        setDecided(true);
       }
     })();
 
@@ -179,6 +197,7 @@ export function usePushPermissionPrompt(enabled) {
 
   const onAllow = async () => {
     setVisible(false);
+    setDecided(true);
     markShown();
     try {
       await setUpNotificationChannelIfNeeded();
@@ -194,10 +213,11 @@ export function usePushPermissionPrompt(enabled) {
 
   const onDismiss = () => {
     setVisible(false);
+    setDecided(true);
     markShown();
   };
 
-  return { visible, onAllow, onDismiss };
+  return { visible, decided, onAllow, onDismiss };
 }
 
 /**

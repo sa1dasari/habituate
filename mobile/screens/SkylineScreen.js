@@ -15,6 +15,8 @@ import LocationPermissionModal from '../components/LocationPermissionModal';
 import AskHabituateModal from '../components/AskHabituateModal';
 import FoundationTemplates from '../components/FoundationTemplates';
 import FirstRunEmptyState from '../components/FirstRunEmptyState';
+import FirstHoldHint from '../components/FirstHoldHint';
+import { usePushPromptDone } from '../hooks/PushPromptContext';
 import AvatarImage from '../components/AvatarImage';
 import { HABIT_CATEGORY_COLORS } from '../constants/habitCategories';
 import { buildCategoryTowerColors, fonts, skyGradients, skylineTowerTheme, skylineUI } from '../theme';
@@ -97,6 +99,8 @@ export default function SkylineScreen({ navigation }) {
   // to the screen; the actual "only once ever" guarantee is
   // needsLocationPrompt's own AsyncStorage flag.
   const [hasBuiltOnce, setHasBuiltOnce] = useState(false);
+  // The notification explainer goes first (SKYLINE.md section 5); location waits.
+  const pushPromptDone = usePushPromptDone();
 
   const recomputeToday = useCallback(() => setToday(new Date()), []);
 
@@ -315,6 +319,10 @@ export default function SkylineScreen({ navigation }) {
   // First run (board 34): no habits at all. Not while the very first load is
   // still in flight, or a returning user would flash the empty state.
   const isEmpty = !loading && habits.length === 0;
+  // Has a tower but has never built a floor (board 36). Derived from data, so
+  // there is nothing to persist and it can't come back.
+  const showFirstHoldHint =
+    !loading && habits.length > 0 && view === 'daily' && !habits.some((h) => (h.checkIns || []).length > 0);
 
   return (
     <View style={styles.pageRoot}>
@@ -513,6 +521,7 @@ export default function SkylineScreen({ navigation }) {
                 theme={ui}
                 stageHeight={stageHeight}
               />
+              {showFirstHoldHint && <FirstHoldHint theme={ui} />}
               <TowerSheet
                 // No key here on purpose, unlike LotSheet.js — this is now a
                 // permanent bottom sheet (design-review board 03), not a
@@ -565,7 +574,7 @@ export default function SkylineScreen({ navigation }) {
 
       <Toast toast={toast} onHide={hideToast} />
       <LocationPermissionModal
-        visible={hasBuiltOnce && needsLocationPrompt}
+        visible={hasBuiltOnce && needsLocationPrompt && pushPromptDone}
         onAllow={requestLocation}
         onDismiss={skipLocationPrompt}
       />

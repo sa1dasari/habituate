@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -7,6 +7,8 @@ import ConfirmModal from './ConfirmModal';
 import { useToast } from '../hooks/useToast';
 import { useConfirm } from '../hooks/useConfirm';
 import { useHabits } from '../hooks/useHabits';
+import MonumentSheet from './MonumentSheet';
+import { restorePayload } from '../utils/monument';
 import { categoryIcon } from '../constants/habitCategories';
 import { fonts } from '../theme';
 
@@ -23,28 +25,20 @@ import { fonts } from '../theme';
  * phase for exactly this "optional fields are applied unconditionally on a
  * PUT" backend behavior.
  */
-export default function ArchivedTowersSheet({ visible, onClose, theme }) {
+export default function ArchivedTowersSheet({ visible, onClose, theme, towerTheme, categoryColors }) {
   const { archivedHabits, updateHabit, deleteHabit } = useHabits();
+  const [monumentHabitId, setMonumentHabitId] = useState(null);
+  const monumentHabit = monumentHabitId ? archivedHabits.find((h) => h.id === monumentHabitId) || null : null;
   const { toast, showToast, hideToast } = useToast();
   const { request, confirm, respond } = useConfirm();
 
-  const handleRestore = async (habit) => {
+  // Shared by the row's Restore text and the monument sheet's Restore button
+  // (same full-field PUT, see utils/monument.js). Throws on failure; each
+  // caller toasts in its own surface, since a Modal hides the other's toast.
+  const handleRestore = (habit) => updateHabit(habit.id, restorePayload(habit));
+  const restoreFromRow = async (habit) => {
     try {
-      await updateHabit(habit.id, {
-        name: habit.name,
-        category: habit.category,
-        cadenceType: habit.cadenceType,
-        cadenceTarget: habit.cadenceTarget,
-        weeklyTarget: habit.weeklyTarget,
-        monthlyTarget: habit.monthlyTarget,
-        trackingMode: habit.trackingMode,
-        featuredGoal: habit.featuredGoal,
-        scheduledTime: habit.scheduledTime,
-        reminderEnabled: habit.reminderEnabled,
-        motivation: habit.motivation,
-        topOutThresholdDays: habit.topOutThresholdDays,
-        archived: false,
-      });
+      await handleRestore(habit);
     } catch (err) {
       showToast(`Could not restore tower — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
     }
@@ -94,14 +88,22 @@ export default function ArchivedTowersSheet({ visible, onClose, theme }) {
           }
           renderItem={({ item }) => (
             <View style={[styles.row, { borderBottomColor: theme.border || 'rgba(128,128,128,0.2)' }]}>
-              <View style={[styles.iconTile, { backgroundColor: theme.surfaceHigh }]}>
-                <MaterialCommunityIcons name={categoryIcon(item.category)} size={22} color={theme.muted} />
-              </View>
-              <Text style={[styles.rowName, { color: theme.text }]} numberOfLines={1}>
-                {item.name}
-              </Text>
               <Pressable
-                onPress={() => handleRestore(item)}
+                onPress={() => setMonumentHabitId(item.id)}
+                style={styles.rowMain}
+                testID={`archived-open-${item.id}`}
+                accessibilityRole="button"
+                accessibilityLabel={`${item.name}, retired tower. Open details`}
+              >
+                <View style={[styles.iconTile, { backgroundColor: theme.surfaceHigh }]}>
+                  <MaterialCommunityIcons name={categoryIcon(item.category)} size={22} color={theme.muted} />
+                </View>
+                <Text style={[styles.rowName, { color: theme.text }]} numberOfLines={1}>
+                  {item.name}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => restoreFromRow(item)}
                 style={styles.rowAction}
                 testID={`archived-restore-${item.id}`}
                 accessibilityRole="button"
@@ -130,6 +132,15 @@ export default function ArchivedTowersSheet({ visible, onClose, theme }) {
           testID="archived-towers-list"
         />
 
+        <MonumentSheet
+          visible={!!monumentHabit}
+          habit={monumentHabit}
+          onClose={() => setMonumentHabitId(null)}
+          onRestore={handleRestore}
+          theme={theme}
+          towerTheme={towerTheme}
+          categoryColors={categoryColors}
+        />
         <Toast toast={toast} onHide={hideToast} />
         <ConfirmModal request={request} onRespond={respond} />
       </SafeAreaView>
@@ -146,6 +157,7 @@ const styles = StyleSheet.create({
   empty: { fontFamily: fonts.regular, fontSize: 14, textAlign: 'center', paddingTop: 48 },
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, gap: 12 },
   iconTile: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  rowMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44 },
   rowName: { flex: 1, fontFamily: fonts.semiBold, fontSize: 18 },
   rowAction: { minHeight: 44, minWidth: 44, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center' },
   rowActionText: { fontFamily: fonts.bold, fontSize: 17 },

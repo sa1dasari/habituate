@@ -1,13 +1,14 @@
 // Redraws of boards 02, 04, 05, 08, 09, 10, 11, 15 with the current floor art
 (function(){
 const Q3=new URLSearchParams(location.search);const S3=Q3.get('s');
-if(!/^(cm-|sh-|ch-|pf-|ho-|to-|sk-|ft-|fx-|ce-|ev-)/.test(S3||''))return;
+if(!/^(cm-|sh-|ch-|pf-|ho-|to-|sk-|ft-|fx-|ce-|ev-|nc-)/.test(S3||''))return;
 const R=document.getElementById('root');
 const tw=(col,o)=>{const old=C.front;C.front=col;const r=tower(o);C.front=old;return r};
 const grow=(n,lit,over={})=>Array.from({length:n},(_,i)=>over[i]||(i>=n-lit?'lit':'dark'));
 const tabBar=(on)=>`<div style="position:absolute;left:0;right:0;bottom:0;height:76px;border-top:1px solid #222a33;background:#0F1216;display:flex">${['Skyline','Insights','Community','Profile'].map((t,i)=>`<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:12px;font-weight:${i===on?800:600};color:${i===on?'#F2C14E':'#A3ADB8'}"><div style="width:22px;height:22px;border:2px solid currentColor;border-radius:6px"></div>${t}</div>`).join('')}</div>`;
 const circ=(inner,badge)=>`<div style="position:relative;width:44px;height:44px;border-radius:22px;background:#1E252D;display:flex;align-items:center;justify-content:center">${inner}${badge?`<div style="position:absolute;top:-3px;right:-3px;min-width:18px;height:18px;border-radius:9px;background:#F2C14E;color:#1b1608;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px">${badge}</div>`:''}</div>`;
 const IC={bell:'<path d="M6 17V11a6 6 0 0 1 12 0v6l2 2H4ZM10 21h4"/>',addp:'<circle cx="10" cy="8" r="3.5"/><path d="M3 20c0-4 3-6 7-6s7 2 7 6M19 7v6M16 10h6"/>',chev:'<path d="M9 5l7 7-7 7"/>'};
+IC['check-all']='<path d="M3 12l4 4L14 8M10 16l1 1L21 8"/>';
 const ico=(n,s=20,c='#F2F4F6')=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${IC[n]}</svg>`;
 const seg=(a,b,on)=>`<div style="display:flex;background:#1A2027;border-radius:24px;padding:4px;height:48px">${[a,b].map((l,i)=>`<div style="flex:1;display:flex;align-items:center;justify-content:center;border-radius:20px;font-weight:700;font-size:15px;${i===on?'background:#2B343E;color:#F2F4F6':'color:#A3ADB8'}">${l}</div>`).join('')}</div>`;
 const avs=(arr)=>`<div style="display:flex">${arr.map(([l,c],i)=>`<div style="width:36px;height:36px;border-radius:18px;background:${c};color:#0b1b24;font-weight:800;display:flex;align-items:center;justify-content:center;border:3px solid #161B21;margin-left:${i?-8:0}px;font-size:15px">${l}</div>`).join('')}</div>`;
@@ -251,6 +252,32 @@ if(S3==='ev-failed'){
 if(S3==='ev-list'){
   const card=(t,sub,prog,chipEl)=>`<div style="background:#161B21;border-radius:20px;padding:12px 16px;display:flex;gap:14px;margin-bottom:10px;align-items:center"><svg width="64" height="104" style="flex:0 0 64px">${tw('#FF8A5C',{x:8,base:100,w:30,fh:1.1,dx:11,dy:6,floors:lmFl(80,'lit'),windows:2,today:false,wW:1.4,wH:.6})}</svg><div style="flex:1"><b style="font-size:17px;line-height:1.2;display:block">${t}</b><div style="color:#A3ADB8;font-size:13.5px;margin-top:2px">${sub}</div><div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px"><span style="font-size:14.5px;font-weight:700">${prog}</span>${chipEl||''}</div></div></div>`;
   R.innerHTML=`<div style="position:absolute;inset:0;overflow:hidden">${comHead(1)}<div style="padding:12px 20px 0">${card('30 days of reading','6 days left · Private','<b>80</b> of 80 floors built',endedChip('Vote open · 18h',true))}${card('Walk 100 miles','9 days left · Public','<b>38</b> of 100 floors built','')}<div style="color:#A3ADB8;font-size:14px;line-height:1.5;margin-top:8px">A challenge that reaches its target keeps going until its end date. Any member can start a vote to end it early.</div></div></div>${tabBar(2)}`;
+}
+
+const NCAT={friends:['FRIENDS','#38BDF8'],shared:['SHARED HABITS','#FF8A5C'],chal:['CHALLENGES','#A78BFA'],rem:['REMINDERS','#F2C14E'],sum:['SUMMARIES','#14B8A6']};
+const NIC={friends:'<circle cx="10" cy="8" r="3.5"/><path d="M3 20c0-4 3-6 7-6s7 2 7 6M19 7v6M16 10h6"/>',shared:'<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5M16 15c3 0 5 1.5 5 4"/>',chal:'<path d="M8 4h8v5a4 4 0 0 1-8 0ZM5 5h3M16 5h3M12 13v4M9 20h6"/>',rem:'<path d="M6 17V11a6 6 0 0 1 12 0v6l2 2H4ZM10 21h4"/>',sum:'<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>'};
+const nIcon=(k,c)=>`<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${NIC[k]}</svg>`;
+const nRow=(k,title,body,time,unread,acts)=>{const [lab,c]=NCAT[k];return `<div style="display:flex;gap:12px;padding:14px 0;border-bottom:1px solid #1F262E;align-items:flex-start"><div style="width:44px;height:44px;border-radius:14px;background:${c}26;display:flex;align-items:center;justify-content:center;flex:0 0 44px">${nIcon(k,c)}</div><div style="flex:1;min-width:0"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;font-weight:800;letter-spacing:.7px;color:${c}">${lab}</span><span style="font-size:12px;color:#A3ADB8">${time}</span></div><div style="font-size:15.5px;font-weight:${unread?800:600};margin-top:2px;${unread?'':'color:#C9CED4'}">${title}</div><div style="font-size:13.5px;color:#A3ADB8;line-height:1.4;margin-top:2px">${body}</div>${acts?`<div style="display:flex;gap:8px;margin-top:10px">${acts.map((a,i)=>`<div style="height:40px;padding:0 16px;border-radius:20px;display:flex;align-items:center;font-weight:800;font-size:14px;${i===0?`background:${c};color:#0b0f14`:'border:1.5px solid #2F3944;color:#F2F4F6'}">${a}</div>`).join('')}</div>`:''}</div>${unread?`<i style="width:9px;height:9px;border-radius:50%;background:${c};display:block;margin-top:22px"></i>`:'<i style="width:9px;display:block"></i>'}</div>`};
+const nChips=(on)=>{const L=[['All',3],['Friends',1],['Shared habits',1],['Challenges',1],['Reminders',0],['Summaries',0]];return `<div style="display:flex;gap:8px;overflow:hidden;white-space:nowrap;padding:0 20px;${on>=3?'transform:translateX(-140px);':''}">${L.map(([t,n],i)=>`<div style="height:38px;border-radius:19px;padding:0 14px;display:flex;align-items:center;gap:7px;font-weight:700;font-size:14px;${i===on?'background:#2B2717;border:1.5px solid #F2C14E;color:#F2F4F6':'background:#1E252D;color:#C9CED4;border:1.5px solid transparent'}">${t}${n?`<span style="min-width:18px;height:18px;border-radius:9px;background:#F2C14E;color:#1b1608;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 5px">${n}</span>`:''}</div>`).join('')}</div>`};
+const nHead=`<div style="display:flex;align-items:center;justify-content:space-between;padding:30px 20px 12px"><div style="width:44px;height:44px;border-radius:22px;background:#1E252D;display:flex;align-items:center;justify-content:center;font-size:20px;color:#A3ADB8">×</div><div style="font-size:17px;font-weight:800">Notifications</div><div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center">${ico('check-all',22,'#A3ADB8')}</div></div>`;
+const dayH=(t)=>`<div style="font-size:12px;font-weight:800;letter-spacing:.8px;color:#A3ADB8;margin:14px 0 0">${t}</div>`;
+if(S3==='nc-all'){
+  R.innerHTML=`<div style="position:absolute;inset:0;overflow:hidden">${nHead}${nChips(0)}<div style="padding:0 20px">${dayH('TODAY')}
+  ${nRow('friends','New friend request','Maya wants to build alongside you.','2m',true,['Accept','Decline'])}
+  ${nRow('chal','Vote: end early?','Sawan proposed ending 30 days of reading. Closes in 18h.','1h',true,['Yes, end it','No'])}
+  ${nRow('shared','Morning Run Crew','Alex built a floor today.','3h',true)}
+  ${nRow('rem','A nudge from Dev','Dev is waiting on you in Morning Run Crew.','4h',false)}
+  ${dayH('EARLIER')}
+  ${nRow('rem','Time to build','Write 300 words','Yesterday',false)}
+  ${nRow('sum','Your week is ready','18 built this week. Tap for details.','Mon',false)}</div></div>`;
+}
+if(S3==='nc-chal'){
+  R.innerHTML=`<div style="position:absolute;inset:0;overflow:hidden">${nHead}${nChips(3)}<div style="padding:0 20px">${dayH('TODAY')}
+  ${nRow('chal','Vote: end early?','Sawan proposed ending 30 days of reading. Closes in 18h.','1h',true,['Yes, end it','No'])}
+  ${nRow('chal','Raise a landmark with Maya','Maya invited you to Walk 100 miles.','5h',false,['Join','Not now'])}
+  ${dayH('EARLIER')}
+  ${nRow('chal','30 days of reading ended','62 of 80 floors built. See the landmark.','Nov 8',false)}
+  ${nRow('chal','Time to build','Walk 100 miles is waiting for today\'s floor.','Nov 7',false)}</div></div>`;
 }
 
 //END

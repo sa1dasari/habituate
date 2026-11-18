@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import StackHeader from '../components/StackHeader';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useTapToBuild } from '../hooks/useTapToBuild';
+import { useShowFinishedTowers } from '../hooks/useShowFinishedTowers';
 import { WINDOW_COUNT_OPTIONS, useWindowCount } from '../hooks/useWindowCount';
 import { fonts, radii, shadow, spacing } from '../theme';
 
@@ -21,6 +22,7 @@ const MODE_OPTIONS = [
 export default function AccessibilityScreen({ navigation }) {
   const { colors, typography, mode, setMode } = useAppTheme();
   const { tapToBuild, setTapToBuild } = useTapToBuild();
+  const { showFinishedTowers, setShowFinishedTowers } = useShowFinishedTowers();
   const { windowCount, setWindowCount } = useWindowCount();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
 
@@ -67,6 +69,24 @@ export default function AccessibilityScreen({ navigation }) {
               onValueChange={setTapToBuild}
               accessibilityLabel="Tap to build"
               accessibilityRole="switch"
+            />
+          </View>
+        </View>
+        <View style={styles.card}>
+          <View style={styles.switchRow}>
+            <View style={styles.switchLabelWrap}>
+              <Text style={styles.cardTitle}>Show finished towers</Text>
+              <Text style={styles.cardNote}>
+                Draw a faded tower behind an active one for every tower it's topped out before. Turn this off
+                for one tower at a time from that tower's sheet.
+              </Text>
+            </View>
+            <Switch
+              value={showFinishedTowers}
+              onValueChange={setShowFinishedTowers}
+              accessibilityLabel="Show finished towers"
+              accessibilityRole="switch"
+              testID="accessibility-show-finished-towers"
             />
           </View>
         </View>

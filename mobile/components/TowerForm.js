@@ -16,6 +16,7 @@ import { effectiveWeeklyTarget, effectiveMonthlyTarget } from '../utils/cadence'
 import { buildScene, X0, TOWER_W, DX, CRANE_HEIGHT, FLOOR_H, BASE_Y } from '../utils/skylineScene';
 import TowerColorPicker from './TowerColorPicker';
 import { useAppTheme } from '../hooks/useAppTheme';
+import { useShowFinishedTowers } from '../hooks/useShowFinishedTowers';
 import { resolveHabitColor } from '../constants/towerColors';
 import { fonts } from '../theme';
 
@@ -116,6 +117,7 @@ function formFromHabit(habit) {
 export default function TowerForm({ visible, onClose, habit, theme, towerTheme, categoryColors }) {
   const { createHabit, updateHabit, deleteHabit } = useHabits();
   const { effectiveMode } = useAppTheme();
+  const { showFinishedTowers: globalShowFinishedTowers, habitOverrides, setHabitOverride } = useShowFinishedTowers();
   const { toast, showToast, hideToast } = useToast();
   const { request, confirm, respond } = useConfirm();
   const [form, setForm] = useState(() => (habit ? formFromHabit(habit) : emptyForm()));
@@ -482,6 +484,45 @@ export default function TowerForm({ visible, onClose, habit, theme, towerTheme, 
             />
           </Field>
 
+          {/* Board 45: overrides the Accessibility "Show finished towers"
+              default for just this tower. Only meaningful once the tower
+              exists (a brand-new one has no finished segments yet). */}
+          {isEditing && (
+            <Field
+              label="Show this tower when finished"
+              theme={theme}
+              sublabel={
+                habitOverrides[String(form.id)] === undefined
+                  ? `Following your Accessibility setting (currently ${globalShowFinishedTowers ? 'on' : 'off'}).`
+                  : 'Overriding your Accessibility setting for this tower only.'
+              }
+            >
+              <View style={styles.finishedTowerRow}>
+                <Switch
+                  value={
+                    habitOverrides[String(form.id)] === undefined
+                      ? globalShowFinishedTowers
+                      : habitOverrides[String(form.id)]
+                  }
+                  onValueChange={(v) => setHabitOverride(form.id, v)}
+                  accessibilityLabel="Show this tower when finished"
+                  accessibilityRole="switch"
+                  testID="tower-form-show-finished"
+                />
+                {habitOverrides[String(form.id)] !== undefined && (
+                  <Pressable
+                    onPress={() => setHabitOverride(form.id, null)}
+                    testID="tower-form-show-finished-reset"
+                    accessibilityRole="button"
+                    accessibilityLabel="Use the default setting"
+                  >
+                    <Text style={[styles.resetLink, { color: theme.amber }]}>Use default</Text>
+                  </Pressable>
+                )}
+              </View>
+            </Field>
+          )}
+
         </ScrollView>
 
         <View style={[styles.footer, { backgroundColor: theme.background, borderTopColor: theme.border || 'rgba(128,128,128,0.3)' }]}>
@@ -565,4 +606,6 @@ const styles = StyleSheet.create({
   submitLabel: { fontFamily: fonts.bold, fontSize: 16, color: '#15202B' },
   deleteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, paddingVertical: 10 },
   deleteLabel: { fontFamily: fonts.semiBold, fontSize: 14 },
+  finishedTowerRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  resetLink: { fontFamily: fonts.semiBold, fontSize: 13 },
 });

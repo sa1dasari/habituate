@@ -112,7 +112,7 @@ export function toLotHabit(habit, categoryColors, mode = 'dark') {
   };
 }
 
-export function toSceneHabit(habit, categoryColors, mode = 'dark') {
+export function toSceneHabit(habit, categoryColors, mode = 'dark', showFinishedTowers = true) {
   const setDays = checkInDaySet(habit);
   // The active tower is the *current segment* (SKYLINE.md section 6): after
   // a top-out the old tower is finished (drawn faded behind) and a new one
@@ -156,15 +156,20 @@ export function toSceneHabit(habit, categoryColors, mode = 'dark') {
     // floorCount is the tower's drawn height: one floor per calendar day it
     // stood (start to top-out), the same rule the live tower follows — not
     // the number of check-ins, which would shrink a tower with open days.
-    closedSegments: (habit.recentClosedSegments || []).map((s) => {
-      const days =
-        s.startedAt && s.toppedOutAt
-          ? daysBetweenInclusive(toDateKey(s.startedAt), toDateKey(s.toppedOutAt))
-          : 0;
-      return {
-        floorCount: days > 0 ? days : s.floorCount || 0,
-        bestRun: s.bestRunInSegment || 0,
-      };
-    }),
+    // Board 57/15's global switch (overridable per habit on board 45) hides
+    // this entirely rather than drawing it lighter — a display preference,
+    // not a new visual state.
+    closedSegments: !showFinishedTowers
+      ? []
+      : (habit.recentClosedSegments || []).map((s) => {
+          const days =
+            s.startedAt && s.toppedOutAt
+              ? daysBetweenInclusive(toDateKey(s.startedAt), toDateKey(s.toppedOutAt))
+              : 0;
+          return {
+            floorCount: days > 0 ? days : s.floorCount || 0,
+            bestRun: s.bestRunInSegment || 0,
+          };
+        }),
   };
 }

@@ -7,6 +7,7 @@ import { useHabits } from '../hooks/useHabits';
 import { useAuth } from '../hooks/useAuth';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useTapToBuild } from '../hooks/useTapToBuild';
+import { useShowFinishedTowers } from '../hooks/useShowFinishedTowers';
 import { useWindowCount } from '../hooks/useWindowCount';
 import { useWeatherSky } from '../hooks/useWeatherSky';
 import { useToast } from '../hooks/useToast';
@@ -151,9 +152,10 @@ export default function SkylineScreen({ navigation }) {
     [habits],
   );
 
+  const { isVisibleForHabit } = useShowFinishedTowers();
   const sceneHabits = useMemo(
-    () => towerHabits.map((h) => toSceneHabit(h, categoryColors, effectiveMode)),
-    [towerHabits, categoryColors, effectiveMode],
+    () => towerHabits.map((h) => toSceneHabit(h, categoryColors, effectiveMode, isVisibleForHabit(h.id))),
+    [towerHabits, categoryColors, effectiveMode, isVisibleForHabit],
   );
 
   const scene = useMemo(
@@ -393,7 +395,7 @@ export default function SkylineScreen({ navigation }) {
           <Pressable
             style={styles.iconBtn}
             accessibilityRole="button"
-            accessibilityLabel="Retired towers"
+            accessibilityLabel="Finished and retired towers"
             onPress={() => setArchivedTowersVisible(true)}
             testID="skyline-archived-towers-icon"
           >
@@ -623,6 +625,7 @@ export default function SkylineScreen({ navigation }) {
                 onClose={() => setArchivedTowersVisible(false)}
                 theme={ui}
                 towerTheme={towerTheme}
+                effectiveMode={effectiveMode}
                 categoryColors={categoryColors}
               />
               <TowerForm

@@ -24,6 +24,7 @@ import { NotificationsProvider } from './hooks/useNotifications';
 import { CelebrationProvider } from './hooks/useCelebration';
 import { ThemeProvider, useAppTheme } from './hooks/useAppTheme';
 import { TapToBuildProvider } from './hooks/useTapToBuild';
+import { ShowFinishedTowersProvider } from './hooks/useShowFinishedTowers';
 import { WindowCountProvider } from './hooks/useWindowCount';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { isExpoGo, usePushToken, usePushPermissionPrompt } from './hooks/usePushToken';
@@ -398,18 +399,20 @@ function AppGate() {
               <NotificationsProvider>
                 <CelebrationProvider>
                   <TapToBuildProvider>
-                    <WindowCountProvider>
-                      <TourProvider>
-                        <WidgetDeepLinkBridge />
-                        <PushNotificationTapBridge />
-                        <PushPromptHost enabled={!!user}>
-                          <NavigationContainer ref={navigationRef} theme={navigationTheme}>
-                            <Tabs />
-                          </NavigationContainer>
-                        </PushPromptHost>
-                        <TourAutoStart />
-                      </TourProvider>
-                    </WindowCountProvider>
+                    <ShowFinishedTowersProvider>
+                      <WindowCountProvider>
+                        <TourProvider>
+                          <WidgetDeepLinkBridge />
+                          <PushNotificationTapBridge />
+                          <PushPromptHost enabled={!!user}>
+                            <NavigationContainer ref={navigationRef} theme={navigationTheme}>
+                              <Tabs />
+                            </NavigationContainer>
+                          </PushPromptHost>
+                          <TourAutoStart />
+                        </TourProvider>
+                      </WindowCountProvider>
+                    </ShowFinishedTowersProvider>
                   </TapToBuildProvider>
                 </CelebrationProvider>
               </NotificationsProvider>

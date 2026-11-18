@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -36,7 +36,6 @@ export default function CommunityScreen({ navigation, route }) {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const scrollRef = useRegisterScrollToTop('Community');
-  const challengesSectionY = useRef(0);
   const [activityExpanded, setActivityExpanded] = useState(false);
 
   const { user } = useAuth();
@@ -73,26 +72,30 @@ export default function CommunityScreen({ navigation, route }) {
     setProfileUserId(userId);
   };
 
-  // Coming from Profile's Challenges card "See all" — jump straight to the
-  // Challenges section instead of landing at the top of a long scroll.
+  // Board 08/09: Shared habits and Challenges are two tabs, not one long
+  // scroll — "activeTab" replaces the old scroll-to-section behavior below.
+  const [activeTab, setActiveTab] = useState('shared');
+
+  // Coming from Profile's Challenges card "See all" — switch to the
+  // Challenges tab instead of scrolling to a section that no longer exists.
   useFocusEffect(
     useCallback(() => {
       if (!route.params?.scrollToChallenges) return;
-      const timer = setTimeout(() => {
-        scrollRef.current?.scrollTo({ y: Math.max(0, challengesSectionY.current - spacing.lg), animated: true });
-      }, 150);
+      setActiveTab('challenges');
       navigation.setParams({ scrollToChallenges: undefined });
-      return () => clearTimeout(timer);
     }, [route.params?.scrollToChallenges, navigation])
   );
 
   // Coming from Profile's Challenges card — tapping a specific challenge row
-  // opens that challenge's detail modal directly.
+  // switches to the Challenges tab and opens that challenge's detail modal.
   useFocusEffect(
     useCallback(() => {
       if (!route.params?.openChallengeId) return;
       const challenge = challenges.find((c) => c.id === route.params.openChallengeId);
-      if (challenge) setSelectedChallengeId(challenge.id);
+      if (challenge) {
+        setActiveTab('challenges');
+        setSelectedChallengeId(challenge.id);
+      }
       navigation.setParams({ openChallengeId: undefined });
     }, [route.params?.openChallengeId, challenges, navigation])
   );
@@ -168,6 +171,19 @@ export default function CommunityScreen({ navigation, route }) {
             <Pressable
               style={styles.iconButton}
               accessibilityRole="button"
+              accessibilityLabel="Notifications"
+              onPress={() => setNotificationsVisible(true)}
+            >
+              <MaterialCommunityIcons name="bell-outline" size={20} color={colors.accent} />
+              {unreadCount > 0 ? (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+                </View>
+              ) : null}
+            </Pressable>
+            <Pressable
+              style={styles.iconButton}
+              accessibilityRole="button"
               accessibilityLabel="Friends"
               onPress={() => setFriendsVisible(true)}
             >
@@ -180,22 +196,34 @@ export default function CommunityScreen({ navigation, route }) {
                 </View>
               ) : null}
             </Pressable>
-            <Pressable
-              style={styles.iconButton}
-              accessibilityRole="button"
-              accessibilityLabel="Notifications"
-              onPress={() => setNotificationsVisible(true)}
-            >
-              <MaterialCommunityIcons name="bell-outline" size={20} color={colors.accent} />
-              {unreadCount > 0 ? (
-                <View style={styles.notificationBadge}>
-                  <Text style={styles.notificationBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
-                </View>
-              ) : null}
-            </Pressable>
           </View>
         </View>
 
+        <View style={styles.tabPill} testID="community-tabs">
+          <Pressable
+            style={[styles.tabButton, activeTab === 'shared' && styles.tabButtonActive]}
+            accessibilityRole="button"
+            accessibilityState={{ selected: activeTab === 'shared' }}
+            onPress={() => setActiveTab('shared')}
+          >
+            <Text style={[styles.tabButtonText, activeTab === 'shared' && styles.tabButtonTextActive]}>
+              Shared habits
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[styles.tabButton, activeTab === 'challenges' && styles.tabButtonActive]}
+            accessibilityRole="button"
+            accessibilityState={{ selected: activeTab === 'challenges' }}
+            onPress={() => setActiveTab('challenges')}
+          >
+            <Text style={[styles.tabButtonText, activeTab === 'challenges' && styles.tabButtonTextActive]}>
+              Challenges
+            </Text>
+          </Pressable>
+        </View>
+
+        {activeTab !== 'shared' ? null : (
+        <>
         <Pressable
           style={[styles.sectionHeader, styles.activitySectionHeader]}
           accessibilityRole="button"
@@ -247,18 +275,15 @@ export default function CommunityScreen({ navigation, route }) {
           </View>
         )}
 
-        <View style={[styles.sectionHeader, styles.laterSection]}>
-          <View style={styles.sectionTitleRow}>
-            <Text style={styles.sectionTitle}>Shared Habits</Text>
-            <Pressable
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel="Streak freezes"
-              onPress={() => setFreezeInfoVisible(true)}
-            >
-              <MaterialCommunityIcons name="snowflake" size={18} color={colors.frozen} />
-            </Pressable>
-          </View>
+        <View style={styles.sectionHeader}>
+          <Pressable
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Streak freezes"
+            onPress={() => setFreezeInfoVisible(true)}
+          >
+            <MaterialCommunityIcons name="snowflake" size={18} color={colors.frozen} />
+          </Pressable>
           <View style={styles.sectionActions}>
             <Pressable
               style={styles.createBtn}
@@ -323,24 +348,14 @@ export default function CommunityScreen({ navigation, route }) {
             );
           })
         )}
+        </>
+        )}
 
-        <View
-          style={[styles.sectionHeader, styles.laterSection]}
-          onLayout={(e) => {
-            challengesSectionY.current = e.nativeEvent.layout.y;
-          }}
-        >
-          <Text style={styles.sectionTitle}>Challenges</Text>
+        {activeTab !== 'challenges' ? null : (
+        <>
+        <View style={styles.sectionHeader}>
+          <View />
           <View style={styles.sectionActions}>
-            <Pressable
-              style={styles.createBtn}
-              accessibilityRole="button"
-              accessibilityLabel="Create a challenge"
-              onPress={() => setCreateChallengeVisible(true)}
-            >
-              <MaterialCommunityIcons name="plus" size={16} color={colors.accent} />
-              <Text style={styles.createBtnText}>Create</Text>
-            </Pressable>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Browse challenges"
@@ -369,12 +384,9 @@ export default function CommunityScreen({ navigation, route }) {
             <ChallengeCard
               key={challenge.id}
               name={challenge.name}
-              icon={challenge.icon}
-              color={challenge.color}
               trackingMode={challenge.trackingMode}
               myProgress={challenge.myProgress}
               targetCount={challenge.targetCount}
-              progressPercent={challenge.progressPercent}
               participants={challenge.participants}
               participantCount={challenge.participantCount}
               joined={challenge.joined}
@@ -385,6 +397,28 @@ export default function CommunityScreen({ navigation, route }) {
               onPressPerson={handlePressPerson}
             />
           ))
+        )}
+
+        <Pressable
+          style={styles.landmarkCta}
+          accessibilityRole="button"
+          accessibilityLabel="Raise a landmark"
+          onPress={() => setCreateChallengeVisible(true)}
+        >
+          <View style={styles.landmarkCtaIcon}>
+            <MaterialCommunityIcons name="plus" size={20} color="#F2C14E" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.landmarkCtaTitle}>Raise a landmark</Text>
+            <Text style={styles.landmarkCtaBody}>A time-boxed goal everyone builds together.</Text>
+          </View>
+        </Pressable>
+
+        <Text style={styles.landmarkFootnote}>
+          Challenges and shared habits stay separate. A challenge ends on a date. When it ends, the
+          landmark joins your skyline as a finished tower.
+        </Text>
+        </>
         )}
 
       </ScrollView>
@@ -476,6 +510,44 @@ function makeStyles(colors, typography) {
       borderColor: colors.background,
     },
     notificationBadgeText: { fontSize: 10, fontWeight: '800', color: '#FFFFFF' },
+    tabPill: {
+      flexDirection: 'row',
+      backgroundColor: colors.surface,
+      borderRadius: radii.pill,
+      padding: 4,
+      marginBottom: spacing.lg,
+    },
+    tabButton: {
+      flex: 1,
+      alignItems: 'center',
+      paddingVertical: spacing.sm + 2,
+      borderRadius: radii.pill,
+    },
+    tabButtonActive: { backgroundColor: colors.background },
+    tabButtonText: { fontSize: 14, fontWeight: '700', color: colors.textSecondary },
+    tabButtonTextActive: { color: colors.textPrimary },
+    landmarkCta: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      borderWidth: 1.5,
+      borderStyle: 'dashed',
+      borderColor: colors.border,
+      borderRadius: radii.lg,
+      padding: spacing.lg,
+      marginBottom: spacing.lg,
+    },
+    landmarkCtaIcon: {
+      width: 40,
+      height: 40,
+      borderRadius: radii.pill,
+      backgroundColor: colors.background,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    landmarkCtaTitle: { ...typography.cardTitle, fontSize: 16 },
+    landmarkCtaBody: { ...typography.meta, marginTop: 2 },
+    landmarkFootnote: { ...typography.meta, lineHeight: 18 },
     avatar: {
       width: 48,
       height: 48,
@@ -583,7 +655,6 @@ function makeStyles(colors, typography) {
       paddingVertical: spacing.xs,
     },
     createBtnText: { fontSize: 13, fontWeight: '700', color: colors.accent },
-    laterSection: { marginTop: spacing.lg },
     loaderRow: { alignItems: 'center', paddingVertical: spacing.lg },
     emptyCard: {
       backgroundColor: colors.surface,

@@ -1,24 +1,29 @@
 import React, { useMemo } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import AvatarStack from './AvatarStack';
+import LandmarkTowerGraphic from './LandmarkTowerGraphic';
 import { useAppTheme } from '../hooks/useAppTheme';
-import { fonts, gradients, radii, shadow, spacing } from '../theme';
+import { fonts, radii, shadow, skylineTowerTheme, spacing } from '../theme';
+
+const MEMBER_COLORS = ['#2563EB', '#7C3AED', '#0891B2', '#DB2777', '#EA580C'];
+
+function totalBuilt(participants) {
+  return (Array.isArray(participants) ? participants : []).reduce((sum, p) => sum + Math.max(0, p?.progress || 0), 0);
+}
 
 /**
- * Time-boxed challenge card — a progress bar, never a streak. No red/at-risk
- * state here by design: CLAUDE.md draws Challenges and Shared Habits as
- * deliberately separate mechanics, so this card never borrows streak colors.
+ * Board 09: a Challenge card is a landmark silhouette, not a progress bar —
+ * "N of M floors built" plus "Your part: N", matching the detail page
+ * (board 11) rather than the old flat percentage bar. No red/at-risk state
+ * here by design: CLAUDE.md draws Challenges and Shared Habits as
+ * deliberately separate mechanics.
  */
 export default function ChallengeCard({
   name = 'Challenge',
-  icon,
-  color,
   trackingMode = 'BOOLEAN',
   myProgress = 0,
   targetCount = 1,
-  progressPercent = 0,
   participants = [],
   participantCount,
   joined = false,
@@ -33,7 +38,11 @@ export default function ChallengeCard({
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const Container = onPress ? Pressable : View;
   const isCount = trackingMode === 'COUNT';
-  const accentColor = color || colors.accent;
+  const built = totalBuilt(participants);
+  const contributors = (Array.isArray(participants) ? participants : []).map((p, i) => ({
+    color: MEMBER_COLORS[i % MEMBER_COLORS.length],
+    floors: Math.max(0, p?.progress || 0),
+  }));
 
   return (
     <Container
@@ -42,44 +51,46 @@ export default function ChallengeCard({
       accessibilityRole={onPress ? 'button' : undefined}
       accessibilityLabel={onPress ? `View ${name}` : undefined}
     >
-      <View style={styles.topRow}>
-        <View style={styles.titleRow}>
-          <View style={[styles.iconBadge, { backgroundColor: `${accentColor}22` }]}>
-            <MaterialCommunityIcons name={icon || 'trophy-outline'} size={18} color={accentColor} />
-          </View>
-          <Text style={styles.name} numberOfLines={1}>
-            {name}
-          </Text>
-          <View style={styles.socialBadge} accessibilityElementsHidden importantForAccessibility="no">
-            <MaterialCommunityIcons name="account-multiple" size={11} color={colors.accent} />
-          </View>
-        </View>
+      <View style={styles.body}>
         {joined ? (
-          <Text style={[styles.progressLabel, { color: accentColor }]}>
-            {myProgress}/{targetCount} {isCount ? '' : 'days'}
-          </Text>
-        ) : null}
+          <LandmarkTowerGraphic
+            contributors={contributors}
+            towerTheme={skylineTowerTheme.dark}
+            width={70}
+            height={140}
+            testID={`challenge-landmark-${name}`}
+          />
+        ) : (
+          <View style={styles.unjoinedTowerPlaceholder}>
+            <MaterialCommunityIcons name="office-building-outline" size={26} color={colors.textMuted} />
+          </View>
+        )}
+
+        <View style={styles.infoCol}>
+          <View style={styles.titleRow}>
+            <Text style={styles.name} numberOfLines={2}>
+              {name}
+            </Text>
+            <View style={styles.socialBadge} accessibilityElementsHidden importantForAccessibility="no">
+              <MaterialCommunityIcons name="account-multiple" size={11} color={colors.accent} />
+            </View>
+          </View>
+
+          {joined ? (
+            <>
+              <Text style={styles.builtText} numberOfLines={1}>
+                {built} of {targetCount} floors built
+              </Text>
+              <Text style={styles.yourPartText} numberOfLines={1}>
+                Your part: {myProgress}
+                {isCount ? '' : ' days'}
+              </Text>
+            </>
+          ) : (
+            <Text style={styles.notJoinedNote}>Not joined yet</Text>
+          )}
+        </View>
       </View>
-
-      {joined ? (
-        <>
-          <View style={styles.progressTrack}>
-            <LinearGradient
-              colors={gradients.accent}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={[styles.progressFill, { width: `${Math.max(4, progressPercent)}%` }]}
-            />
-          </View>
-
-          <View style={styles.bottomRow}>
-            <Text style={styles.progressPercentLabel}>Progress</Text>
-            <Text style={styles.progressPercent}>{progressPercent}%</Text>
-          </View>
-        </>
-      ) : (
-        <Text style={styles.notJoinedNote}>Not joined yet</Text>
-      )}
 
       <View style={styles.footerRow}>
         <AvatarStack people={participants} total={participantCount} size={24} onPressPerson={onPressPerson} />
@@ -142,25 +153,25 @@ function makeStyles(colors, typography) {
     cardPressed: {
       opacity: 0.85,
     },
-    topRow: {
+    body: {
       flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: spacing.sm,
+      gap: spacing.md,
     },
+    unjoinedTowerPlaceholder: {
+      width: 70,
+      height: 140,
+      borderRadius: radii.md,
+      backgroundColor: colors.background,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    infoCol: { flex: 1, justifyContent: 'flex-end', paddingBottom: spacing.sm },
     titleRow: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.sm,
       flexShrink: 1,
-    },
-    iconBadge: {
-      width: 32,
-      height: 32,
-      borderRadius: radii.md,
-      backgroundColor: colors.accentSoft,
-      alignItems: 'center',
-      justifyContent: 'center',
+      marginBottom: spacing.sm,
     },
     name: { ...typography.cardTitle, flexShrink: 1 },
     // A small "this involves other people" marker shared with SharedHabitCard
@@ -174,34 +185,8 @@ function makeStyles(colors, typography) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    progressLabel: {
-      fontFamily: fonts.bold,
-      fontSize: 13,
-      color: colors.accent,
-    },
-    progressTrack: {
-      height: 8,
-      borderRadius: radii.pill,
-      backgroundColor: colors.ringTrack,
-      overflow: 'hidden',
-      marginTop: spacing.md,
-    },
-    progressFill: {
-      height: '100%',
-      borderRadius: radii.pill,
-    },
-    bottomRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginTop: spacing.sm,
-    },
-    progressPercentLabel: { ...typography.meta },
-    progressPercent: {
-      fontFamily: fonts.bold,
-      fontSize: 13,
-      color: colors.textPrimary,
-    },
+    builtText: { fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary },
+    yourPartText: { ...typography.meta, marginTop: spacing.xs },
     notJoinedNote: {
       ...typography.meta,
       marginTop: spacing.sm,

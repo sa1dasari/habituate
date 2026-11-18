@@ -123,10 +123,13 @@ function TowerBody({ x, baseY, color, rowCount, litCount, foldHeight, towerTheme
  * label, per CLAUDE.md's "every tower gets a testID and accessibility
  * label" rule.
  */
-export default function FriendTowerGraphic({ tower, mode, towerTheme, width = 70, height = 150, testID }) {
+export default function FriendTowerGraphic({ tower, mode, towerTheme, width = 70, height = 150, testID, colorHex, accessibilityLabel: labelOverride }) {
   const { rows, foldedFloors } = layoutFriendTower(tower);
   const litCount = rows.filter((r) => r.lit).length;
-  const color = towerColorHex(tower?.color, mode) || towerColorHex('slate', mode);
+  // `colorHex` lets a caller with no TOWER_COLOR_PALETTE key to resolve
+  // (e.g. MemberTowerRow.js, which only has an ad hoc per-member colour, not
+  // a habit's own picked palette entry) draw directly with a literal hex.
+  const color = colorHex || towerColorHex(tower?.color, mode) || towerColorHex('slate', mode);
   const foldHeight = foldedFloors > 0 ? Math.min(MAX_FOLD_H, foldedFloors * FOLD_UNIT_H) : 0;
   const baseY = height - 4;
 
@@ -143,7 +146,10 @@ export default function FriendTowerGraphic({ tower, mode, towerTheme, width = 70
   const floorCount = Math.max(0, Math.floor(tower?.floorCount || 0));
   const currentRun = Math.max(0, Math.floor(tower?.currentRun || 0));
   const runWord = currentRun === 1 ? 'day' : 'days';
-  const accessibilityLabel = `Tower, ${floorCount} floors, ${currentRun} ${runWord} run`;
+  // MemberTowerRow overrides this with a per-member name — board 08's card
+  // is several near-identical towers in a row, which the generic label
+  // alone can't tell apart for a screen-reader user.
+  const accessibilityLabel = labelOverride || `Tower, ${floorCount} floors, ${currentRun} ${runWord} run`;
 
   return (
     <Svg

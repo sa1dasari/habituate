@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import FriendTowerGraphic from './FriendTowerGraphic';
 import { skylineTowerTheme } from '../theme';
 import { fonts, spacing } from '../theme';
@@ -33,9 +33,15 @@ const MAX_TOWERS = 6;
 export default function MemberTowerRow({ members = [], connectorColor, showLabels = false, isSelf, towerWidth = 70, height = 150 }) {
   const towerTheme = skylineTowerTheme.dark;
   const shown = Array.isArray(members) ? members.slice(0, MAX_TOWERS) : [];
+  // 4 towers at the caller's requested width is what the boards show fitting
+  // a card/strip without scrolling — beyond that, shrink per-tower width
+  // proportionally (floor 40px, below which a tower reads as a sliver) so a
+  // full 6-member row doesn't overflow or clip; ScrollView below is the
+  // fallback once even the floor width doesn't fit a narrow device.
+  const effectiveWidth = shown.length > 4 ? Math.max(40, Math.round(towerWidth * (4 / shown.length))) : towerWidth;
 
   return (
-    <View style={styles.row}>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
       {shown.map((member, index) => {
         const streak = Math.max(0, Math.floor(member?.currentStreak || 0));
         const tower = { color: null, floorCount: streak, currentRun: streak, closedSegmentFloorCounts: [] };
@@ -53,7 +59,7 @@ export default function MemberTowerRow({ members = [], connectorColor, showLabel
                 mode="dark"
                 towerTheme={towerTheme}
                 colorHex={MEMBER_COLORS[index % MEMBER_COLORS.length]}
-                width={towerWidth}
+                width={effectiveWidth}
                 height={height}
                 testID={`member-tower-${index}`}
                 accessibilityLabel={`${self ? 'You' : label}, tower, ${streak} ${runWord} run`}
@@ -67,7 +73,7 @@ export default function MemberTowerRow({ members = [], connectorColor, showLabel
           </React.Fragment>
         );
       })}
-    </View>
+    </ScrollView>
   );
 }
 

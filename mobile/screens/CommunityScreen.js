@@ -36,7 +36,6 @@ export default function CommunityScreen({ navigation, route }) {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const scrollRef = useRegisterScrollToTop('Community');
-  const [activityExpanded, setActivityExpanded] = useState(false);
 
   const { user } = useAuth();
   const { pendingRequests: pendingFriendRequests } = useFriends();
@@ -224,57 +223,6 @@ export default function CommunityScreen({ navigation, route }) {
 
         {activeTab !== 'shared' ? null : (
         <>
-        <Pressable
-          style={[styles.sectionHeader, styles.activitySectionHeader]}
-          accessibilityRole="button"
-          accessibilityLabel={activityExpanded ? 'Collapse recent activity' : 'Expand recent activity'}
-          onPress={() => setActivityExpanded((current) => !current)}
-        >
-          <View style={styles.sectionTitleRow}>
-            <Text style={styles.sectionTitle}>Recent activity</Text>
-            {!activityExpanded && activity.length > 0 ? (
-              <View style={styles.activityCountBadge}>
-                <Text style={styles.activityCountBadgeText}>{activity.length}</Text>
-              </View>
-            ) : null}
-          </View>
-          <MaterialCommunityIcons
-            name={activityExpanded ? 'chevron-up' : 'chevron-down'}
-            size={22}
-            color={colors.textMuted}
-          />
-        </Pressable>
-
-        {!activityExpanded ? null : activityLoading && activity.length === 0 ? (
-          <View style={styles.loaderRow}>
-            <ActivityIndicator size="small" color={colors.accent} />
-          </View>
-        ) : activity.length === 0 ? (
-          <Text style={styles.activityEmptyNote}>
-            No groupmate activity yet — it'll show up here once someone checks in.
-          </Text>
-        ) : (
-          <View style={styles.activityCard}>
-            <ScrollView
-              style={styles.activityScroll}
-              nestedScrollEnabled
-              showsVerticalScrollIndicator
-            >
-              {activity.map((item, index) => (
-                <DismissibleActivityRow
-                  key={item.checkInId}
-                  item={item}
-                  styles={styles}
-                  colors={colors}
-                  avatarColor={AVATAR_COLORS[index % AVATAR_COLORS.length]}
-                  onCheer={() => handleToggleCheer(item)}
-                  onDismiss={() => handleDismissActivity(item)}
-                />
-              ))}
-            </ScrollView>
-          </View>
-        )}
-
         <View style={styles.sectionHeader}>
           <Pressable
             hitSlop={8}
@@ -347,6 +295,31 @@ export default function CommunityScreen({ navigation, route }) {
             />
             );
           })
+        )}
+
+        <Text style={[styles.sectionTitle, styles.friendsTodayTitle]}>Friends today</Text>
+        {activityLoading && activity.length === 0 ? (
+          <View style={styles.loaderRow}>
+            <ActivityIndicator size="small" color={colors.accent} />
+          </View>
+        ) : activity.length === 0 ? (
+          <Text style={styles.activityEmptyNote}>
+            No groupmate activity yet — it'll show up here once someone checks in.
+          </Text>
+        ) : (
+          <ScrollView style={styles.activityScroll} nestedScrollEnabled>
+            {activity.map((item, index) => (
+              <DismissibleActivityRow
+                key={item.checkInId}
+                item={item}
+                styles={styles}
+                colors={colors}
+                avatarColor={AVATAR_COLORS[index % AVATAR_COLORS.length]}
+                onCheer={() => handleToggleCheer(item)}
+                onDismiss={() => handleDismissActivity(item)}
+              />
+            ))}
+          </ScrollView>
         )}
         </>
         )}
@@ -559,28 +532,9 @@ function makeStyles(colors, typography) {
     },
     avatarPhoto: { width: 48, height: 48, borderRadius: radii.pill },
     avatarText: { fontSize: 16, fontWeight: '700', color: colors.accent },
-    activitySectionHeader: { marginTop: spacing.sm },
-    activityCountBadge: {
-      minWidth: 20,
-      height: 20,
-      borderRadius: radii.pill,
-      backgroundColor: colors.accentSoft,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingHorizontal: 5,
-    },
-    activityCountBadgeText: { fontSize: 11, fontWeight: '700', color: colors.accent },
-    activityCard: {
-      backgroundColor: colors.surface,
-      borderRadius: radii.lg,
-      paddingHorizontal: spacing.lg,
-      marginBottom: spacing.md,
-    },
-    activityEmptyNote: { ...typography.meta, marginBottom: spacing.md },
-    // Caps the expanded card at roughly 5 rows tall and scrolls for the rest
-    // instead of either truncating the list or letting it grow unbounded
-    // inside the screen's own outer ScrollView.
+    friendsTodayTitle: { marginTop: spacing.lg },
     activityScroll: { maxHeight: 280 },
+    activityEmptyNote: { ...typography.meta, marginBottom: spacing.md },
     activityRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -604,16 +558,17 @@ function makeStyles(colors, typography) {
     cheerBtn: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 2,
-      width: 'auto',
+      gap: 4,
       height: 32,
-      minWidth: 32,
-      paddingHorizontal: spacing.xs,
+      paddingHorizontal: spacing.sm + 2,
       borderRadius: radii.pill,
       justifyContent: 'center',
       backgroundColor: colors.background,
     },
-    cheerCount: { ...typography.meta, fontSize: 11 },
+    cheerBtnActive: { backgroundColor: colors.accentSoft },
+    cheerBtnText: { fontSize: 12, fontWeight: '700', color: colors.textSecondary },
+    cheerBtnTextActive: { color: colors.accent },
+    cheerCount: { fontSize: 11, fontWeight: '700', color: colors.textSecondary },
     // Swipe-to-dismiss (DismissibleActivityRow) — rowWrapper clips the
     // sliding row so the dismiss panel behind it never bleeds into a
     // neighboring row; the panels themselves grow with the drag distance,

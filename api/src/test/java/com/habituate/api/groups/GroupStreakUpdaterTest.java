@@ -77,6 +77,14 @@ class GroupStreakUpdaterTest {
         return id;
     }
 
+    private Long createHabitWithDailyTarget(String userId, String name, int cadenceTarget) {
+        Long id = habitService.createHabit(userId, new CreateHabitRequest(
+                name, "General", "DAILY", cadenceTarget, null, null, "COUNT", null, null, null, null)).id();
+        habitIds.add(id);
+        habitOwners.put(id, userId);
+        return id;
+    }
+
     // COUNT, not BOOLEAN — lets the test log 2 check-ins the same calendar day
     // without DuplicateCheckInException, so the weekly-qualification test
     // doesn't depend on which day of the week it happens to run.
@@ -213,6 +221,34 @@ class GroupStreakUpdaterTest {
         assertThatThrownBy(() -> groupService.acceptInvite(userB, groupId, dailyHabitB))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("3x/week");
+    }
+
+    @Test
+    void acceptInvite_acceptsADailyGroup_regardlessOfTheJoinerHabitsDailyTarget() {
+        // Regression: a DAILY group never stores its own cadenceTarget (its
+        // qualification is "any check-in today", not a count), so this must
+        // NOT be rejected just because the joiner's own habit has a
+        // different "times per day" number than the creator's.
+        when(userLookupService.resolve(any())).thenAnswer(inv -> new UserProfile(inv.getArgument(0), "User", null, null));
+
+        String userA = "streak-test-dailytarget-a1";
+        String userB = "streak-test-dailytarget-b1";
+        when(userLookupService.findByEmail("dailytargetb1@example.com"))
+                .thenReturn(java.util.Optional.of(new UserProfile(userB, "User B", "dailytargetb1@example.com", null)));
+        var pending = friendshipService.sendRequest(userA, "dailytargetb1@example.com");
+        friendshipId = pending.id();
+        friendshipService.respond(userB, pending.id(), true);
+
+        Long habitA = createHabitWithDailyTarget(userA, "Habit A", 1);
+        GroupResponse group = groupService.createGroup(userA, new CreateGroupRequest("Daily Group", habitA, "ALL_MEMBERS"));
+        groupId = group.id();
+        assertThat(group.cadenceType()).isEqualTo("DAILY");
+
+        groupService.invite(userA, groupId, userB);
+        Long habitB = createHabitWithDailyTarget(userB, "Habit B", 3);
+
+        GroupResponse accepted = groupService.acceptInvite(userB, groupId, habitB);
+        assertThat(accepted.myHabitId()).isEqualTo(habitB);
     }
 
     @Test

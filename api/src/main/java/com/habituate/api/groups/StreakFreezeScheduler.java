@@ -65,8 +65,12 @@ public class StreakFreezeScheduler {
     }
 
     /** Public so it can be called directly from tests instead of waiting for the cron.
-     * @param skipDaysPerMonth how many group-grace freezes this group allows in a rolling
-     *                         30-day window (the "Missed Day Rules" setting) before the streak resets.
+     * @param skipDaysPerMonth how many group-grace freezes this group allows before the streak
+     *                         resets (the "Missed Day Rules" setting) — for DAILY, in a rolling
+     *                         30-day window; for WEEKLY/MONTHLY, in the last `skipDaysPerMonth`
+     *                         periods themselves (so skipDaysPerMonth=1 means "never two frozen
+     *                         periods in a row" — a day-denominated window doesn't map onto
+     *                         period boundaries, owner decision 2026-11-18).
      * @param periodToCheck the START of the just-closed period (a plain day for DAILY). */
     public void evaluateGroup(Long groupId, int skipDaysPerMonth, GroupCadence.Period period, LocalDate periodToCheck) {
         GroupStreak streak = groupStreakRepository.findById(groupId).orElse(null);
@@ -77,7 +81,14 @@ public class StreakFreezeScheduler {
             return; // already qualified for (or after) periodToCheck — nothing to close out
         }
 
-        LocalDate windowCutoff = periodToCheck.minusDays(FREEZE_WINDOW_DAYS);
+        // findByGroupIdAndUsedOnDateAfter is a strict ">" — for the period case the window has
+        // to reach one day past the Nth period's own start date, or a freeze landing exactly on
+        // that boundary (the common case, since a freeze's usedOnDate is always a period start)
+        // would be excluded by the inequality and the window would effectively cover only N-1
+        // periods instead of N.
+        LocalDate windowCutoff = period == GroupCadence.Period.DAILY
+                ? periodToCheck.minusDays(FREEZE_WINDOW_DAYS)
+                : GroupPeriod.minusPeriods(period, periodToCheck, Math.max(1, skipDaysPerMonth)).minusDays(1);
         List<StreakFreeze> recentFreezes = streakFreezeRepository.findByGroupIdAndUsedOnDateAfter(groupId, windowCutoff);
 
         if (recentFreezes.size() < skipDaysPerMonth) {

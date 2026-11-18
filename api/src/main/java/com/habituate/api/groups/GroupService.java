@@ -207,11 +207,18 @@ public class GroupService {
         Group groupForCadence = groupRepository.findById(groupId)
                 .orElseThrow(() -> new EntityNotFoundException("Group not found: " + groupId));
         if (Group.COOPERATIVE.equals(groupForCadence.getTrackingMode())) {
+            // Group never stores its own daily cadenceTarget — a DAILY group's qualification
+            // (existsByHabitIdAndOccurredAtBetween, "any check-in today") never consults a
+            // target at all, so only the PERIOD needs to match for DAILY; a mismatched WEEKLY/
+            // MONTHLY target is a real rejection (the group's shared count assumes everyone's
+            // period count means the same thing), but there's no daily number to compare.
             GroupCadence.Classification groupCadence = GroupCadence.classify(
                     groupForCadence.getCadenceType(), 1, groupForCadence.getWeeklyTarget(), groupForCadence.getMonthlyTarget());
             GroupCadence.Classification joinerCadence = GroupCadence.classify(
                     joinerHabit.getCadenceType(), joinerHabit.getCadenceTarget(), joinerHabit.getWeeklyTarget(), joinerHabit.getMonthlyTarget());
-            if (groupCadence.period() != joinerCadence.period() || groupCadence.target() != joinerCadence.target()) {
+            boolean periodMismatch = groupCadence.period() != joinerCadence.period();
+            boolean targetMismatch = groupCadence.period() != GroupCadence.Period.DAILY && groupCadence.target() != joinerCadence.target();
+            if (periodMismatch || targetMismatch) {
                 throw new IllegalArgumentException(
                         "This group tracks a " + cadenceLabel(groupCadence) + " goal — pick a habit with the same cadence to join it.");
             }

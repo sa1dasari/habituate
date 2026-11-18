@@ -134,4 +134,45 @@ class StreakFreezeSchedulerTest {
         assertThat(result.getStatus()).isEqualTo(GroupStreak.ACTIVE);
         assertThat(result.getCurrentStreak()).isEqualTo(0);
     }
+
+    // Period-native freeze budget (owner decision 2026-11-18): skipDaysPerMonth=1 for a
+    // WEEKLY/MONTHLY group means "never two frozen periods in a row" — the window is the
+    // last `skipDaysPerMonth` periods themselves, not a day count.
+
+    @Test
+    void weekly_freezesOncePerBudget_thenResetsOnTheNextMissedWeekInARow() {
+        LocalDate thisWeek = LocalDate.of(2026, 11, 16); // a Monday
+        LocalDate lastWeek = thisWeek.minusWeeks(1);
+        groupId = newGroupWithStreak(4, lastWeek);
+
+        // First missed week, budget 1: freezes.
+        scheduler.evaluateGroup(groupId, 1, GroupCadence.Period.WEEKLY, thisWeek);
+        GroupStreak afterFirst = groupStreakRepository.findById(groupId).orElseThrow();
+        assertThat(afterFirst.getStatus()).isEqualTo(GroupStreak.FROZEN);
+        assertThat(afterFirst.getCurrentStreak()).isEqualTo(4);
+
+        // The very next week also missed, same budget of 1: resets — two frozen weeks in a row
+        // isn't allowed.
+        LocalDate nextWeek = thisWeek.plusWeeks(1);
+        scheduler.evaluateGroup(groupId, 1, GroupCadence.Period.WEEKLY, nextWeek);
+        GroupStreak afterSecond = groupStreakRepository.findById(groupId).orElseThrow();
+        assertThat(afterSecond.getStatus()).isEqualTo(GroupStreak.ACTIVE);
+        assertThat(afterSecond.getCurrentStreak()).isEqualTo(0);
+    }
+
+    @Test
+    void monthly_higherBudget_toleratesTwoFrozenMonthsInARow() {
+        LocalDate february = LocalDate.of(2026, 2, 1); // the short month on purpose
+        LocalDate january = february.minusMonths(1);
+        groupId = newGroupWithStreak(6, january);
+
+        scheduler.evaluateGroup(groupId, 2, GroupCadence.Period.MONTHLY, february);
+        assertThat(groupStreakRepository.findById(groupId).orElseThrow().getStatus()).isEqualTo(GroupStreak.FROZEN);
+
+        LocalDate march = february.plusMonths(1);
+        scheduler.evaluateGroup(groupId, 2, GroupCadence.Period.MONTHLY, march);
+        GroupStreak result = groupStreakRepository.findById(groupId).orElseThrow();
+        assertThat(result.getStatus()).isEqualTo(GroupStreak.FROZEN); // still within budget of 2
+        assertThat(result.getCurrentStreak()).isEqualTo(6);
+    }
 }

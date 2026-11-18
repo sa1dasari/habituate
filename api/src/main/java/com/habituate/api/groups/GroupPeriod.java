@@ -56,4 +56,13 @@ public final class GroupPeriod {
             case MONTHLY -> periodStart.minusMonths(1);
         };
     }
+
+    /** `periodStart`, `count` whole periods earlier. */
+    public static LocalDate minusPeriods(GroupCadence.Period period, LocalDate periodStart, int count) {
+        return switch (period) {
+            case DAILY -> periodStart.minusDays(count);
+            case WEEKLY -> periodStart.minusWeeks(count);
+            case MONTHLY -> periodStart.minusMonths(count);
+        };
+    }
 }

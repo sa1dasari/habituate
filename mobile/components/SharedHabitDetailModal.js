@@ -3,19 +3,23 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import StreakIndicator from './StreakIndicator';
 import FlameIcon from './FlameIcon';
 import InviteFriendsSheet from './InviteFriendsSheet';
 import CreateGroupModal from './CreateGroupModal';
 import AvatarImage from './AvatarImage';
 import FriendProfileModal from './FriendProfileModal';
+import MemberTowerRow from './MemberTowerRow';
+import SkyBackdrop from './SkyBackdrop';
+import HoldToBuildBar from './HoldToBuildBar';
 import Toast from './Toast';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useAuth } from '../hooks/useAuth';
 import { useGroups } from '../hooks/useGroups';
 import { useHabits } from '../hooks/useHabits';
 import { useToast } from '../hooks/useToast';
-import { radii, shadow, spacing } from '../theme';
+import { radii, shadow, skyGradients, spacing } from '../theme';
+
+const SKY_STRIP_HEIGHT = 230;
 
 const RULE_LABEL = {
   all_members: 'All members',
@@ -44,6 +48,7 @@ export default function SharedHabitDetailModal({ visible, group, onClose }) {
   const [inviteVisible, setInviteVisible] = useState(false);
   const [editVisible, setEditVisible] = useState(false);
   const [profileUserId, setProfileUserId] = useState(null);
+  const [stripWidth, setStripWidth] = useState(0);
   const { toast, showToast, hideToast } = useToast();
 
   if (!group) return null;
@@ -112,6 +117,28 @@ export default function SharedHabitDetailModal({ visible, group, onClose }) {
     }
   };
 
+  // Board 10's "Today: 3 of 4 laid. Waiting on Dev." and its "Cheer Dev"
+  // button. Real check_in_cheers (api/client.js's cheerCheckIn) cheers one
+  // specific check-in and this screen has no check-in id for a groupmate's
+  // day, so this reuses the existing nudge mechanic instead — and is
+  // labeled "Nudge", not "Cheer", so the label matches what actually
+  // happens (a reminder push to the named person, per handleNudge's own
+  // toast) rather than promising encouragement it doesn't send. The
+  // activity feed's own Cheer button (DismissibleActivityRow) is the real
+  // thing, scoped to a specific check-in.
+  const waitingOn = (Array.isArray(group.participants) ? group.participants : [])
+    .filter((p) => typeof p === 'object' && p && !p.checkedInToday)
+    .filter((p) => !(user && p.userId === user.uid));
+  const checkedInCount = (Array.isArray(group.participants) ? group.participants : []).filter(
+    (p) => typeof p === 'object' && p && p.checkedInToday
+  ).length;
+  const totalParticipantCount = group.participantCount != null ? group.participantCount : people.length;
+  const todayText =
+    waitingOn.length === 0
+      ? `${checkedInCount} of ${totalParticipantCount} laid. Everyone's in today!`
+      : `${checkedInCount} of ${totalParticipantCount} laid. Waiting on ${waitingOn.map((p) => p.name).join(', ')}.`;
+  const cheerTarget = waitingOn[0] || null;
+
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <SafeAreaView style={styles.safeArea}>
@@ -119,9 +146,20 @@ export default function SharedHabitDetailModal({ visible, group, onClose }) {
           <Pressable onPress={onClose} hitSlop={12} style={styles.closeBtn}>
             <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
           </Pressable>
-          <Text style={styles.headerTitle} numberOfLines={1}>
-            {group.name}
-          </Text>
+          <View style={styles.headerTitleCol}>
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {group.name}
+            </Text>
+            {!isIndependent ? (
+              <Text style={styles.headerSubtitle} numberOfLines={1}>
+                Shared habit · {RULE_LABEL[group.rule] || RULE_LABEL.any_member} · Cooperative streak
+              </Text>
+            ) : (
+              <Text style={styles.headerSubtitle} numberOfLines={1}>
+                Shared habit · Independent streaks
+              </Text>
+            )}
+          </View>
           {group.canEdit ? (
             <Pressable onPress={() => setEditVisible(true)} hitSlop={12} style={styles.closeBtn}>
               <MaterialCommunityIcons name="pencil-outline" size={20} color={colors.accent} />
@@ -132,39 +170,88 @@ export default function SharedHabitDetailModal({ visible, group, onClose }) {
         </View>
 
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          {!isIndependent ? (
+            <>
+              <View style={styles.skyStrip} onLayout={(e) => setStripWidth(e.nativeEvent.layout.width)}>
+                <View style={StyleSheet.absoluteFill}>
+                  {stripWidth > 0 ? (
+                    <SkyBackdrop stops={skyGradients.dark.night} kind="night" width={stripWidth} height={SKY_STRIP_HEIGHT} />
+                  ) : null}
+                </View>
+                <MemberTowerRow
+                  members={people}
+                  connectorColor={state.color}
+                  showLabels
+                  isSelf={(p) => !!(user && p?.userId === user.uid)}
+                  towerWidth={70}
+                  height={SKY_STRIP_HEIGHT}
+                />
+              </View>
+
+              <View style={styles.tileRow}>
+                <View style={styles.tile}>
+                  <Text style={styles.tileLabel}>Group run</Text>
+                  <Text style={[styles.tileValue, { color: state.color }]}>
+                    {group.streak} {group.streak === 1 ? 'day' : 'days'}
+                  </Text>
+                </View>
+                <View style={styles.tile}>
+                  <Text style={styles.tileLabel}>Today</Text>
+                  <Text style={styles.tileBody}>{todayText}</Text>
+                </View>
+              </View>
+
+              <Text style={styles.sectionTitle}>Skybridge states</Text>
+              <View style={styles.legendRow}>
+                <LegendSwatch color={colors.safe} label="Safe" styles={styles} />
+                <LegendSwatch color={colors.atRisk} label="At risk" styles={styles} />
+                <LegendSwatch color={colors.frozen} label="Frozen" styles={styles} />
+              </View>
+
+              <Text style={styles.metaLine}>
+                {group.longestStreak != null ? `Longest streak: ${group.longestStreak}d · ` : ''}
+                {group.skipDaysPerMonth} skip day{group.skipDaysPerMonth === 1 ? '' : 's'} allowed a month ·{' '}
+                {group.visibilityLevel === 'STATUS_ONLY' ? 'Status only' : 'Full details'} visible to groupmates
+              </Text>
+
+              {group.myHabitId ? (
+                <View style={styles.actionRow}>
+                  <View style={{ flex: 1 }}>
+                    <HoldToBuildBar
+                      built={myCheckedInToday}
+                      canBuild={!!group.myHabitId && !myCheckedInToday}
+                      onBuild={handleToggleMyCheckIn}
+                      label="Hold to build"
+                      builtLabel="Built today"
+                      testID="shared-habit-hold-to-build"
+                    />
+                  </View>
+                  {cheerTarget && group.nudgesEnabled ? (
+                    <Pressable
+                      style={styles.cheerBtn}
+                      disabled={busy}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Nudge ${cheerTarget.name}`}
+                      onPress={() => handleNudge(cheerTarget.userId, cheerTarget.name)}
+                    >
+                      <Text style={styles.cheerBtnText}>Nudge {cheerTarget.name}</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              ) : null}
+            </>
+          ) : (
           <View style={styles.heroCard}>
-            {!isIndependent ? <StreakIndicator streak={group.streak} status={group.streakStatus} showLabel /> : null}
             <View style={styles.heroRow}>
-              {!isIndependent ? (
-                <View style={styles.ruleBadge}>
-                  <MaterialCommunityIcons name="shield-check-outline" size={13} color={colors.textSecondary} />
-                  <Text style={styles.ruleText}>{RULE_LABEL[group.rule] || RULE_LABEL.any_member}</Text>
-                </View>
-              ) : (
-                <View style={styles.ruleBadge}>
-                  <MaterialCommunityIcons name="account-multiple-outline" size={13} color={colors.textSecondary} />
-                  <Text style={styles.ruleText}>Independent streaks</Text>
-                </View>
-              )}
+              <View style={styles.ruleBadge}>
+                <MaterialCommunityIcons name="account-multiple-outline" size={13} color={colors.textSecondary} />
+                <Text style={styles.ruleText}>Independent streaks</Text>
+              </View>
               <View style={styles.ruleBadge}>
                 <MaterialCommunityIcons name="target" size={13} color={colors.textSecondary} />
                 <Text style={styles.ruleText}>{group.goalAlignment === 'SPLIT' ? 'Split goal' : 'Unified goal'}</Text>
               </View>
-              {!isIndependent ? (
-                <View style={[styles.statusBadge, { backgroundColor: state.background }]}>
-                  <MaterialCommunityIcons name={state.icon} size={13} color={state.color} />
-                  <Text style={[styles.statusText, { color: state.color }]}>{state.label}</Text>
-                </View>
-              ) : null}
             </View>
-            {!isIndependent && group.longestStreak != null ? (
-              <Text style={styles.longestStreak}>Longest streak: {group.longestStreak}d</Text>
-            ) : null}
-            {!isIndependent ? (
-              <Text style={styles.longestStreak}>
-                {group.skipDaysPerMonth} skip day{group.skipDaysPerMonth === 1 ? '' : 's'} allowed a month
-              </Text>
-            ) : null}
             <Text style={styles.longestStreak}>
               {group.visibilityLevel === 'STATUS_ONLY' ? 'Status only — amounts hidden from groupmates' : 'Full details visible to groupmates'}
             </Text>
@@ -188,6 +275,7 @@ export default function SharedHabitDetailModal({ visible, group, onClose }) {
               </Pressable>
             ) : null}
           </View>
+          )}
 
           <Text style={styles.sectionTitle}>
             {people.length} {people.length === 1 ? 'member' : 'members'}
@@ -282,6 +370,15 @@ export default function SharedHabitDetailModal({ visible, group, onClose }) {
   );
 }
 
+function LegendSwatch({ color, label, styles }) {
+  return (
+    <View style={styles.legendItem}>
+      <View style={[styles.legendBar, { backgroundColor: color }]} />
+      <Text style={styles.legendLabel}>{label}</Text>
+    </View>
+  );
+}
+
 function makeStyles(colors, typography) {
   return StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: colors.background },
@@ -295,9 +392,45 @@ function makeStyles(colors, typography) {
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
     },
-    headerTitle: { ...typography.sectionTitle, flex: 1, textAlign: 'center' },
+    headerTitleCol: { flex: 1, alignItems: 'center' },
+    headerTitle: { ...typography.sectionTitle, textAlign: 'center' },
+    headerSubtitle: { ...typography.meta, marginTop: 2, textAlign: 'center' },
     closeBtn: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
     scroll: { padding: spacing.lg, paddingBottom: spacing.xxl },
+    skyStrip: {
+      height: SKY_STRIP_HEIGHT,
+      borderRadius: radii.lg,
+      overflow: 'hidden',
+      marginBottom: spacing.lg,
+      ...shadow,
+    },
+    tileRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg },
+    tile: {
+      flex: 1,
+      backgroundColor: colors.surface,
+      borderRadius: radii.md,
+      padding: spacing.md,
+      ...shadow,
+    },
+    tileLabel: { ...typography.meta, marginBottom: 4 },
+    tileValue: { fontSize: 22, fontWeight: '800' },
+    tileBody: { fontSize: 14, fontWeight: '700', color: colors.textPrimary, lineHeight: 19 },
+    legendRow: { flexDirection: 'row', gap: spacing.lg, marginBottom: spacing.lg },
+    legendItem: { flex: 1, gap: 6 },
+    legendBar: { height: 4, borderRadius: 2 },
+    legendLabel: { ...typography.meta, fontWeight: '700', color: colors.textPrimary },
+    metaLine: { ...typography.meta, marginBottom: spacing.lg, lineHeight: 18 },
+    actionRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.xl },
+    cheerBtn: {
+      height: 52,
+      paddingHorizontal: spacing.lg,
+      borderRadius: radii.pill,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    cheerBtnText: { fontSize: 14, fontWeight: '700', color: colors.textPrimary },
     heroCard: {
       backgroundColor: colors.surface,
       borderRadius: radii.lg,
@@ -316,15 +449,6 @@ function makeStyles(colors, typography) {
       paddingVertical: spacing.xs,
     },
     ruleText: { fontSize: 11, fontWeight: '600', color: colors.textSecondary },
-    statusBadge: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.xs,
-      borderRadius: radii.pill,
-      paddingHorizontal: spacing.sm + 2,
-      paddingVertical: spacing.xs,
-    },
-    statusText: { fontSize: 11, fontWeight: '700' },
     longestStreak: { ...typography.meta, marginTop: spacing.md },
     logButton: {
       flexDirection: 'row',

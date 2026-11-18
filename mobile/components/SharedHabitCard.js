@@ -1,15 +1,21 @@
 import React, { useMemo } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import StreakIndicator from './StreakIndicator';
 import AvatarStack from './AvatarStack';
 import FlameIcon from './FlameIcon';
+import MemberTowerRow from './MemberTowerRow';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { fonts, radii, shadow, spacing } from '../theme';
 
-const RULE_LABEL = {
-  all_members: 'All members',
-  any_member: 'Any member',
+// Board 08's own wording for the group-streak pill — distinct from the
+// shared `streakStates` tokens (theme.js: "On track"/"Pending today"/
+// "Freeze used") that every other streak badge in the app uses, so this
+// stays a local map rather than renaming those shared labels and rippling
+// into every other screen that reads them.
+const BOARD_08_STATUS_LABEL = {
+  safe: 'Safe today',
+  at_risk: 'At risk today',
+  frozen: 'Frozen',
 };
 
 /**
@@ -47,20 +53,16 @@ export default function SharedHabitCard({
       accessibilityLabel={onPress ? `Manage ${name}` : undefined}
     >
       <View style={styles.topRow}>
-        <View style={styles.titleRow}>
-          <Text style={styles.name} numberOfLines={1}>
-            {name}
-          </Text>
-          <View style={styles.socialBadge} accessibilityElementsHidden importantForAccessibility="no">
-            <MaterialCommunityIcons name="account-multiple" size={11} color={colors.accent} />
+        <Text style={styles.name} numberOfLines={1}>
+          {name}
+        </Text>
+        {!isIndependent ? (
+          <View style={[styles.statusPill, { borderColor: state.color }]}>
+            <Text style={[styles.statusPillText, { color: state.color }]}>
+              {BOARD_08_STATUS_LABEL[streakStatus] || BOARD_08_STATUS_LABEL.safe}
+            </Text>
           </View>
-        </View>
-        <View style={styles.topRowRight}>
-          {!isIndependent ? <StreakIndicator streak={streak} status={streakStatus} compact /> : null}
-          {onPress ? (
-            <MaterialCommunityIcons name="chevron-right" size={18} color={colors.textMuted} />
-          ) : null}
-        </View>
+        ) : null}
       </View>
 
       {isIndependent ? (
@@ -79,33 +81,22 @@ export default function SharedHabitCard({
           })}
         </View>
       ) : (
-        <View style={styles.middleRow}>
-          <AvatarStack people={people} total={total} onPressPerson={onPressPerson} />
-
-          <Text style={styles.participantCount}>
-            {total} {total === 1 ? 'member' : 'members'}
-          </Text>
+        <View style={styles.towerRowWrap}>
+          <MemberTowerRow members={people} connectorColor={state.color} towerWidth={66} height={130} />
         </View>
       )}
 
       <View style={styles.bottomRow}>
-        <View style={styles.ruleBadge}>
-          <MaterialCommunityIcons
-            name={isIndependent ? 'account-multiple-outline' : 'shield-check-outline'}
-            size={13}
-            color={colors.textSecondary}
-          />
-          <Text style={styles.ruleText}>
-            {isIndependent ? 'Independent streaks' : RULE_LABEL[rule] || RULE_LABEL.any_member}
-          </Text>
-        </View>
-
         {!isIndependent ? (
-          <View style={[styles.statusBadge, { backgroundColor: state.background }]}>
-            <MaterialCommunityIcons name={state.icon} size={13} color={state.color} />
-            <Text style={[styles.statusText, { color: state.color }]}>{state.label}</Text>
-          </View>
-        ) : null}
+          <Text style={styles.groupRunText}>
+            Group run: {streak} {streak === 1 ? 'day' : 'days'}
+          </Text>
+        ) : (
+          <Text style={styles.groupRunText}>
+            {total} {total === 1 ? 'member' : 'members'}
+          </Text>
+        )}
+        <AvatarStack people={people} total={total} onPressPerson={onPressPerson} />
       </View>
 
       {myHabitId && onToggleCheckIn ? (
@@ -148,39 +139,20 @@ function makeStyles(colors, typography) {
     justifyContent: 'space-between',
     gap: spacing.sm,
   },
-  topRowRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    flexShrink: 1,
-  },
   name: {
     ...typography.cardTitle,
     flexShrink: 1,
   },
-  // Shared with ChallengeCard — the one consistent visual cue that marks a
-  // social card apart from a solo HabitCard by silhouette alone.
-  socialBadge: {
-    width: 18,
-    height: 18,
+  statusPill: {
+    borderWidth: 1.5,
     borderRadius: radii.pill,
-    backgroundColor: colors.accentSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: spacing.xs,
   },
-  middleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
+  statusPillText: { fontFamily: fonts.bold, fontSize: 12 },
+  towerRowWrap: {
     marginTop: spacing.md,
-  },
-  participantCount: {
-    ...typography.meta,
+    alignItems: 'center',
   },
   personalStreakRow: {
     flexDirection: 'row',
@@ -209,33 +181,11 @@ function makeStyles(colors, typography) {
     justifyContent: 'space-between',
     gap: spacing.sm,
     marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
-  ruleBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    backgroundColor: colors.background,
-    borderRadius: radii.pill,
-    paddingHorizontal: spacing.sm + 2,
-    paddingVertical: spacing.xs,
-  },
-  ruleText: {
-    fontFamily: fonts.semiBold,
-    fontSize: 11,
-    color: colors.textSecondary,
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    borderRadius: radii.pill,
-    paddingHorizontal: spacing.sm + 2,
-    paddingVertical: spacing.xs,
-  },
-    statusText: {
-      fontFamily: fonts.bold,
-      fontSize: 11,
-    },
+  groupRunText: { fontFamily: fonts.bold, fontSize: 12, color: colors.textSecondary },
     logButton: {
       flexDirection: 'row',
       alignItems: 'center',

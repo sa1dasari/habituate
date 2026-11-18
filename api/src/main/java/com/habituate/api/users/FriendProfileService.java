@@ -14,8 +14,11 @@ import com.habituate.api.groups.GroupStreakRepository;
 import com.habituate.api.groups.FriendshipService;
 import com.habituate.api.groups.UserLookupService;
 import com.habituate.api.groups.UserProfile;
+import com.habituate.api.groups.GroupCadence;
 import com.habituate.api.habits.Habit;
 import com.habituate.api.habits.HabitRepository;
+import com.habituate.api.habits.HabitTower;
+import com.habituate.api.habits.HabitTowerRepository;
 import com.habituate.api.habits.StreakCalculator;
 import org.springframework.stereotype.Service;
 
@@ -52,6 +55,13 @@ public class FriendProfileService {
     private final GroupStreakRepository groupStreakRepository;
     private final HabitRepository habitRepository;
     private final CheckInRepository checkInRepository;
+    private final HabitTowerRepository habitTowerRepository;
+
+    /** Fallback TOWER_COLOR_PALETTE key (mobile/constants/towerColors.js) for a habit that
+     * never got a custom colour — chosen server-side so a friend tower never falls back
+     * through the category-keyed chain the owner's own towers use, since category is
+     * deliberately withheld here (see FriendProfileResponse.FriendTower). */
+    private static final String NEUTRAL_TOWER_COLOR_KEY = "slate";
 
     public FriendProfileService(
             FriendshipService friendshipService,
@@ -61,7 +71,8 @@ public class FriendProfileService {
             GroupRepository groupRepository,
             GroupStreakRepository groupStreakRepository,
             HabitRepository habitRepository,
-            CheckInRepository checkInRepository) {
+            CheckInRepository checkInRepository,
+            HabitTowerRepository habitTowerRepository) {
         this.friendshipService = friendshipService;
         this.userRepository = userRepository;
         this.userLookupService = userLookupService;
@@ -70,6 +81,7 @@ public class FriendProfileService {
         this.groupStreakRepository = groupStreakRepository;
         this.habitRepository = habitRepository;
         this.checkInRepository = checkInRepository;
+        this.habitTowerRepository = habitTowerRepository;
     }
 
     /** Backs the Profile page's own "Hi {name}, you're doing great" hero card — the same
@@ -97,9 +109,9 @@ public class FriendProfileService {
 
         List<FriendProfileResponse.SharedGroupStreak> sharedGroupStreaks = mutualSharedGroupStreaks(viewerId, targetUserId);
 
-        FriendProfileResponse.PublicStats publicStats = User.VISIBILITY_PUBLIC.equals(visibility)
-                ? buildPublicStats(targetUserId)
-                : null;
+        boolean isPublic = User.VISIBILITY_PUBLIC.equals(visibility);
+        FriendProfileResponse.PublicStats publicStats = isPublic ? buildPublicStats(targetUserId) : null;
+        List<FriendProfileResponse.FriendTower> towers = isPublic ? buildTowers(targetUserId) : null;
 
         return new FriendProfileResponse(
                 targetUserId,
@@ -108,7 +120,8 @@ public class FriendProfileService {
                 firebaseProfile.photoUrl(),
                 visibility,
                 sharedGroupStreaks,
-                publicStats);
+                publicStats,
+                towers);
     }
 
     /** Groups where both the viewer and the target are currently ACTIVE members — "currently
@@ -118,30 +131,91 @@ public class FriendProfileService {
                 .map(GroupMember::getGroupId)
                 .collect(Collectors.toCollection(HashSet::new));
 
-        List<Long> mutualGroupIds = groupMemberRepository.findByUserIdAndStatus(targetUserId, GroupMember.ACTIVE).stream()
-                .map(GroupMember::getGroupId)
-                .filter(viewerGroupIds::contains)
-                .distinct()
+        List<GroupMember> targetMemberships = groupMemberRepository.findByUserIdAndStatus(targetUserId, GroupMember.ACTIVE).stream()
+                .filter(m -> viewerGroupIds.contains(m.getGroupId()))
                 .toList();
-        if (mutualGroupIds.isEmpty()) {
+        if (targetMemberships.isEmpty()) {
             return List.of();
         }
+        Map<Long, Long> targetHabitIdByGroupId = targetMemberships.stream()
+                .collect(Collectors.toMap(GroupMember::getGroupId, GroupMember::getHabitId, (a, b) -> a));
+        List<Long> mutualGroupIds = targetMemberships.stream().map(GroupMember::getGroupId).distinct().toList();
 
         Map<Long, Group> groupsById = groupRepository.findAllById(mutualGroupIds).stream()
                 .collect(Collectors.toMap(Group::getId, Function.identity()));
+        Map<Long, Habit> targetHabitsById = habitRepository.findAllById(targetHabitIdByGroupId.values()).stream()
+                .collect(Collectors.toMap(Habit::getId, Function.identity()));
 
         return groupStreakRepository.findAllById(mutualGroupIds).stream()
                 .map(streak -> {
                     Group group = groupsById.get(streak.getGroupId());
+                    Habit targetHabit = targetHabitsById.get(targetHabitIdByGroupId.get(streak.getGroupId()));
                     return new FriendProfileResponse.SharedGroupStreak(
                             streak.getGroupId(),
                             group != null ? group.getName() : "Shared habit",
                             streak.getCurrentStreak() == null ? 0 : streak.getCurrentStreak(),
                             streak.getLongestStreak() == null ? 0 : streak.getLongestStreak(),
-                            streak.getStatus());
+                            streak.getStatus(),
+                            targetHabit == null || Group.STATUS_ONLY.equals(groupVisibilityLevel(group))
+                                    ? null
+                                    : buildTower(targetHabit));
                 })
                 .sorted(Comparator.comparing(FriendProfileResponse.SharedGroupStreak::groupName))
                 .toList();
+    }
+
+    /** STATUS_ONLY groups withhold each other's exact logged amount — a tower's floorCount
+     * and currentRun ARE that amount, so theirTower is suppressed entirely for those groups
+     * rather than sent in some reduced shape nothing has designed yet. */
+    private String groupVisibilityLevel(Group group) {
+        return group == null ? Group.FULL_DETAILS : group.getVisibilityLevel();
+    }
+
+    /** Board 43's towers: every non-archived, daily-cadence habit (the same distinction
+     * utils/cadence.js's hasDailyTarget makes client-side, ported server-side as
+     * GroupCadence.classify — a weekly/monthly habit draws as a lot, not a tower, and friend
+     * skyline Phase 6 scope is towers only). Capped at nothing — all of them are shown, same
+     * as the owner's own skyline. */
+    private List<FriendProfileResponse.FriendTower> buildTowers(String targetUserId) {
+        return habitRepository.findByUserIdAndArchivedFalseOrderByCreatedAtDesc(targetUserId).stream()
+                .filter(h -> GroupCadence.classify(h.getCadenceType(), h.getCadenceTarget(), h.getWeeklyTarget(), h.getMonthlyTarget()).period()
+                        == GroupCadence.Period.DAILY)
+                .map(this::buildTower)
+                .toList();
+    }
+
+    /** One habit's tower: current segment's floor count (calendar days stood, same rule the
+     * owner's own skyline uses — not check-in count), current run, and up to the 2 most
+     * recently finished towers' own floor counts (board 43's faded-behind compositing). No
+     * dates, no name — just enough to draw the silhouette. */
+    private FriendProfileResponse.FriendTower buildTower(Habit habit) {
+        List<CheckIn> checkIns = checkInRepository.findByUserIdAndHabitIdOrderByOccurredAtAsc(habit.getUserId(), habit.getId());
+        StreakCalculator.Streaks streaks = StreakCalculator.compute(checkIns, ZoneOffset.UTC);
+
+        List<HabitTower> segments = habitTowerRepository.findByHabitIdOrderByStartedAtAsc(habit.getId());
+        Instant openSegmentStart = segments.stream()
+                .filter(s -> s.getToppedOutAt() == null)
+                .map(HabitTower::getStartedAt)
+                .findFirst()
+                .orElse(habit.getCreatedAt());
+        int floorCount = daysBetweenInclusive(openSegmentStart, Instant.now());
+
+        List<HabitTower> closedSegments = segments.stream().filter(s -> s.getToppedOutAt() != null).toList();
+        List<Integer> closedSegmentFloorCounts = closedSegments.stream()
+                .skip(Math.max(0, closedSegments.size() - 2))
+                .map(s -> daysBetweenInclusive(s.getStartedAt(), s.getToppedOutAt()))
+                .toList();
+
+        String color = habit.getColor() != null ? habit.getColor() : NEUTRAL_TOWER_COLOR_KEY;
+
+        return new FriendProfileResponse.FriendTower(
+                color, floorCount, streaks.current(), closedSegmentFloorCounts);
+    }
+
+    private int daysBetweenInclusive(Instant start, Instant end) {
+        LocalDate startDate = start.atZone(ZoneOffset.UTC).toLocalDate();
+        LocalDate endDate = end.atZone(ZoneOffset.UTC).toLocalDate();
+        return (int) java.time.temporal.ChronoUnit.DAYS.between(startDate, endDate) + 1;
     }
 
     /** Aggregate-only across the target's non-archived habits: best current streak, best

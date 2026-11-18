@@ -5,12 +5,19 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AvatarImage from './AvatarImage';
 import FlameIcon from './FlameIcon';
+import FriendTowerGraphic from './FriendTowerGraphic';
+import SkyBackdrop from './SkyBackdrop';
 import SharedHabitDetailModal from './SharedHabitDetailModal';
 import StreakIndicator from './StreakIndicator';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useGroups } from '../hooks/useGroups';
+import { useHabits } from '../hooks/useHabits';
+import { towerCapInfo } from '../utils/towerAge';
 import api from '../api/client';
-import { gradients, radii, shadow, shadowLg, spacing } from '../theme';
+import { gradients, radii, shadow, shadowLg, skyGradients, skylineTowerTheme, spacing } from '../theme';
+
+const SKY_STRIP_HEIGHT = 190;
+const TOWER_GRAPHIC_WIDTH = 70;
 
 /**
  * The tappable friend-profile viewer — opened by tapping a friend's name/avatar anywhere it
@@ -29,6 +36,18 @@ export default function FriendProfileModal({ visible, userId, onClose }) {
   const styles = React.useMemo(() => makeStyles(colors, typography), [colors, typography]);
 
   const { groups } = useGroups();
+  const { habits } = useHabits();
+  // Always the dark-mode night sky and dark-mode tower palette, regardless
+  // of the app's own light/dark setting — not just for the white skybridge
+  // line's contrast, but because constants/towerColors.js's "light" tower
+  // hexes are deliberately darkened to read against a light background
+  // (skylineUI.light.background); on this strip's always-dark sky they'd
+  // invert into dark towers on a dark sky. The strip is a fixed self-
+  // contained night scene either way, same reasoning SkyBackdrop already
+  // uses to hardcode its own stars as plain white.
+  const towerTheme = skylineTowerTheme.dark;
+  const skyStops = skyGradients.dark.night;
+  const [stripWidth, setStripWidth] = useState(0);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -66,6 +85,28 @@ export default function FriendProfileModal({ visible, userId, onClose }) {
   // the already-loaded groups list (this friend's shared group is one we're
   // also a member of, so it's guaranteed to be in our own `groups`).
   const selectedGroup = groups.find((g) => g.id === selectedGroupId) || null;
+
+  // Board 44's skybridge: the first mutual Shared Habit that carries a
+  // theirTower (STATUS_ONLY groups omit it server-side — see
+  // FriendProfileService). "My" side isn't in this API response at all (it's
+  // the viewer's own account, not the target's) — resolved from the
+  // viewer's own already-loaded habit for that same group
+  // (`group.myHabitId`). floorCount uses the same calendar-days-stood rule
+  // the server uses for theirTower (utils/towerAge.js's towerCapInfo,
+  // +1 for its 0-based daysStood vs the server's 1-based "day one is one
+  // floor") — currentRun must stay its own number, not floorCount, or every
+  // window renders lit regardless of how long the run actually is.
+  const skybridgeStreak = !isPublic ? sharedStreaks.find((g) => g.theirTower) : null;
+  const myGroup = skybridgeStreak ? groups.find((g) => g.id === skybridgeStreak.groupId) : null;
+  const myHabit = myGroup?.myHabitId ? habits.find((h) => h.id === myGroup.myHabitId) : null;
+  const myTower = myHabit
+    ? {
+        color: myHabit.color || 'slate',
+        floorCount: towerCapInfo(myHabit).daysStood + 1,
+        currentRun: myHabit.streak || 0,
+        closedSegmentFloorCounts: [],
+      }
+    : null;
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
@@ -109,6 +150,71 @@ export default function FriendProfileModal({ visible, userId, onClose }) {
                 </Text>
               </View>
             </View>
+
+            {isPublic && profile.towers && profile.towers.length > 0 ? (
+              <View style={styles.skyStrip} onLayout={(e) => setStripWidth(e.nativeEvent.layout.width)}>
+                <View style={StyleSheet.absoluteFill}>
+                  {stripWidth > 0 ? (
+                    <SkyBackdrop stops={skyStops} kind="night" width={stripWidth} height={SKY_STRIP_HEIGHT} />
+                  ) : null}
+                </View>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.towerRow}
+                  testID="friend-skyline-tower-row"
+                >
+                  {profile.towers.map((tower, i) => (
+                    <FriendTowerGraphic
+                      key={i}
+                      tower={tower}
+                      mode="dark"
+                      towerTheme={towerTheme}
+                      width={TOWER_GRAPHIC_WIDTH}
+                      height={SKY_STRIP_HEIGHT}
+                      testID={`friend-skyline-tower-${i}`}
+                    />
+                  ))}
+                </ScrollView>
+              </View>
+            ) : null}
+
+            {!isPublic && myTower && skybridgeStreak ? (
+              <View>
+                <View style={styles.skyStrip} onLayout={(e) => setStripWidth(e.nativeEvent.layout.width)}>
+                  <View style={StyleSheet.absoluteFill}>
+                    {stripWidth > 0 ? (
+                      <SkyBackdrop stops={skyStops} kind="night" width={stripWidth} height={SKY_STRIP_HEIGHT} />
+                    ) : null}
+                  </View>
+                  <View style={styles.skybridgeRow}>
+                    <FriendTowerGraphic
+                      tower={myTower}
+                      mode="dark"
+                      towerTheme={towerTheme}
+                      width={TOWER_GRAPHIC_WIDTH}
+                      height={SKY_STRIP_HEIGHT}
+                      testID="friend-skybridge-tower-you"
+                    />
+                    <View style={styles.skybridgeLine} />
+                    <FriendTowerGraphic
+                      tower={skybridgeStreak.theirTower}
+                      mode="dark"
+                      towerTheme={towerTheme}
+                      width={TOWER_GRAPHIC_WIDTH}
+                      height={SKY_STRIP_HEIGHT}
+                      testID="friend-skybridge-tower-them"
+                    />
+                  </View>
+                </View>
+                <View style={styles.skybridgeLabels}>
+                  <Text style={styles.skybridgeLabel}>You</Text>
+                  <Text style={styles.skybridgeLabel} numberOfLines={1}>
+                    {profile.displayName || 'Friend'}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
 
             {isPublic && profile.publicStats ? (
               <View style={styles.statsCard}>
@@ -273,6 +379,50 @@ function makeStyles(colors, typography) {
     },
     visibilityBadgePublic: { backgroundColor: colors.safeSoft },
     visibilityText: { fontSize: 12, fontWeight: '700' },
+    skyStrip: {
+      height: SKY_STRIP_HEIGHT,
+      borderRadius: radii.lg,
+      overflow: 'hidden',
+      marginBottom: spacing.sm,
+      ...shadow,
+    },
+    towerRow: {
+      flexGrow: 1,
+      alignItems: 'flex-end',
+      paddingHorizontal: spacing.sm,
+      minWidth: '100%',
+      justifyContent: 'space-around',
+    },
+    skybridgeRow: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      justifyContent: 'center',
+    },
+    skybridgeLine: {
+      // Always white, like SkyBackdrop's own sun/moon/star glyphs — the
+      // strip is a fixed dark night scene regardless of app theme mode.
+      // Negative margins pull the line into each tower's own silhouette
+      // (FriendTowerGraphic centers a TOWER_W=30 tower in a
+      // TOWER_GRAPHIC_WIDTH=70 box, so ~12px of empty sky trails the left
+      // tower's side face and ~20px leads the right tower's front face) so
+      // the bridge visibly connects both towers instead of floating between
+      // them with a gap on each side.
+      height: 3,
+      width: 60,
+      marginLeft: -12,
+      marginRight: -20,
+      backgroundColor: '#FFFFFF',
+      marginBottom: SKY_STRIP_HEIGHT * 0.22,
+      borderRadius: radii.pill,
+    },
+    skybridgeLabels: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      gap: TOWER_GRAPHIC_WIDTH + 60,
+      marginBottom: spacing.lg,
+    },
+    skybridgeLabel: { ...typography.meta, fontWeight: '700', color: colors.textPrimary },
     statsCard: {
       backgroundColor: colors.surface,
       borderRadius: radii.lg,

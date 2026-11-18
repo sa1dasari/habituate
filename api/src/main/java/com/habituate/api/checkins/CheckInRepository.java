@@ -19,6 +19,11 @@ public interface CheckInRepository extends JpaRepository<CheckIn, Long> {
 
     boolean existsByHabitIdAndOccurredAtBetween(Long habitId, Instant start, Instant end);
 
+    /** A WEEKLY/MONTHLY group member's period qualification: raw check-in event count
+     * (not summed COUNT-habit values) against their habit's weekly/monthlyTarget — same
+     * "log-event count, not the value" rule the personal lots view already follows. */
+    long countByHabitIdAndOccurredAtBetween(Long habitId, Instant start, Instant end);
+
     /** Who's actually been active — the nightly insights job only bothers with these users. */
     @Query("select distinct c.userId from CheckIn c where c.occurredAt >= :since")
     List<String> findDistinctUserIdsSince(Instant since);

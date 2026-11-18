@@ -68,6 +68,24 @@ public class Group {
     @Column(nullable = false, columnDefinition = "integer not null default 1")
     private int skipDaysPerMonth = 1;
 
+    /**
+     * A COOPERATIVE group's single shared cadence (SKYLINE.md decision #15),
+     * captured once from the creator's own linked habit at creation
+     * (GroupService.createGroup) via GroupCadence.classify — there is no
+     * separate cadence picker in the create form. DAILY by default so every
+     * existing group (and the common case) is unaffected. Not editable after
+     * creation. INDEPENDENT groups ignore these entirely (no shared streak to
+     * keep period-consistent).
+     */
+    @Column(nullable = false, columnDefinition = "varchar(255) not null default 'DAILY'")
+    private String cadenceType = "DAILY";
+
+    @Column
+    private Integer weeklyTarget;
+
+    @Column
+    private Integer monthlyTarget;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -82,6 +100,13 @@ public class Group {
 
     public Group(String name, String createdBy, String streakRule, String goalAlignment, String trackingMode,
                  String visibilityLevel, boolean nudgesEnabled, int skipDaysPerMonth) {
+        this(name, createdBy, streakRule, goalAlignment, trackingMode, visibilityLevel, nudgesEnabled,
+                skipDaysPerMonth, "DAILY", null, null);
+    }
+
+    public Group(String name, String createdBy, String streakRule, String goalAlignment, String trackingMode,
+                 String visibilityLevel, boolean nudgesEnabled, int skipDaysPerMonth,
+                 String cadenceType, Integer weeklyTarget, Integer monthlyTarget) {
         this.name = name;
         this.createdBy = createdBy;
         this.streakRule = streakRule;
@@ -90,6 +115,9 @@ public class Group {
         this.visibilityLevel = visibilityLevel == null ? FULL_DETAILS : visibilityLevel;
         this.nudgesEnabled = nudgesEnabled;
         this.skipDaysPerMonth = skipDaysPerMonth < 0 ? 0 : skipDaysPerMonth;
+        this.cadenceType = cadenceType == null ? "DAILY" : cadenceType;
+        this.weeklyTarget = weeklyTarget;
+        this.monthlyTarget = monthlyTarget;
     }
 
     @PrePersist
@@ -159,6 +187,35 @@ public class Group {
 
     public void setSkipDaysPerMonth(int skipDaysPerMonth) {
         this.skipDaysPerMonth = skipDaysPerMonth;
+    }
+
+    public String getCadenceType() {
+        return cadenceType;
+    }
+
+    public void setCadenceType(String cadenceType) {
+        this.cadenceType = cadenceType;
+    }
+
+    public Integer getWeeklyTarget() {
+        return weeklyTarget;
+    }
+
+    public void setWeeklyTarget(Integer weeklyTarget) {
+        this.weeklyTarget = weeklyTarget;
+    }
+
+    public Integer getMonthlyTarget() {
+        return monthlyTarget;
+    }
+
+    public void setMonthlyTarget(Integer monthlyTarget) {
+        this.monthlyTarget = monthlyTarget;
+    }
+
+    /** This group's effective period, GroupCadence.Period.DAILY unless weekly/monthlyTarget is set. */
+    public GroupCadence.Period cadencePeriod() {
+        return GroupCadence.classify(cadenceType, 1, weeklyTarget, monthlyTarget).period();
     }
 
     public Instant getCreatedAt() {

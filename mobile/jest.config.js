@@ -14,6 +14,8 @@ module.exports = {
     '<rootDir>/utils/insightsDetails.test.js',
     '<rootDir>/utils/towerAge.test.js',
     '<rootDir>/utils/monument.test.js',
+    '<rootDir>/utils/friendTowerGraphic.test.js',
+    '<rootDir>/utils/landmarkTowerGraphic.test.js',
     '<rootDir>/constants/towerColors.test.js',
     '<rootDir>/constants/onboardingTour.test.js',
   ],

@@ -1,13 +1,19 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { categoryIcon } from '../constants/habitCategories';
+import Svg from 'react-native-svg';
+import SkylineTower from './SkylineTower';
+import TowerInsideView from './TowerInsideView';
+import { useHabits } from '../hooks/useHabits';
+import { useShowFinishedTowers } from '../hooks/useShowFinishedTowers';
 import { resolveHabitColor } from '../constants/towerColors';
+import { toSceneHabit } from '../utils/skylineAdapter';
+import { finishedTowerIllustration, DX } from '../utils/skylineScene';
+import { toDateKey } from '../utils/date';
 import { fonts } from '../theme';
 
 function dateLabel(value) {
   if (!value) return '-';
-  return new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 /**
@@ -15,22 +21,46 @@ function dateLabel(value) {
  * still-active habit, as opposed to a retired one's monument (MonumentSheet).
  * `row` is a FinishedTowerResponse shape (segmentId, habitId, habitName,
  * category, color, floorCount, bestRunInSegment, startedAt, toppedOutAt,
- * autoToppedOut). Read-only — unlike a retired tower there's nothing to
- * restore here, the habit is already active.
+ * autoToppedOut). Opens only from the Retired and finished list (board 58) —
+ * a faded tower on the live skyline is not itself tappable (owner decision
+ * 2026-11-18, `skylineScene.js`'s closedSegmentShapes never adds a hit
+ * target), so this is the one entry point.
  */
-export default function FinishedTowerSheet({ visible, row, onClose, theme, mode, categoryColors }) {
+export default function FinishedTowerSheet({ visible, row, onClose, theme, towerTheme, mode, categoryColors, onAskAboutTower, onAskAboutDay }) {
+  const { habits } = useHabits();
+  const { isVisibleForHabit, setHabitOverride } = useShowFinishedTowers();
+  const [insideVisible, setInsideVisible] = useState(false);
+
+  const liveHabit = row ? habits.find((h) => h.id === row.habitId) : null;
+
+  const illustration = useMemo(
+    () => (row ? finishedTowerIllustration(row.floorCount, resolveHabitColor(row, mode, categoryColors), towerTheme) : null),
+    [row, mode, categoryColors, towerTheme],
+  );
+
+  const insideSceneHabit = useMemo(() => {
+    if (!liveHabit || !row?.startedAt) return null;
+    return { ...toSceneHabit(liveHabit, categoryColors, mode), startDate: toDateKey(row.startedAt), currentRun: 0, bestRun: null };
+  }, [liveHabit, row, categoryColors, mode]);
+  const insideToday = row?.toppedOutAt ? new Date(`${toDateKey(row.toppedOutAt)}T12:00:00`) : null;
+
   if (!row) return null;
 
-  const tint = resolveHabitColor(row, mode, categoryColors) || theme.muted;
   const bestRun = row.bestRunInSegment || 0;
+  const stood = row.startedAt && row.toppedOutAt
+    ? Math.max(1, Math.round((new Date(row.toppedOutAt) - new Date(row.startedAt)) / 86400000) + 1)
+    : row.floorCount || 0;
   const stats = [
-    { key: 'total', value: String(row.floorCount || 0), label: row.floorCount === 1 ? 'Floor built' : 'Floors built' },
-    { key: 'best', value: `${bestRun} ${bestRun === 1 ? 'day' : 'days'}`, label: 'Best run' },
+    { key: 'total', value: String(row.floorCount || 0), label: 'Total built' },
+    { key: 'best', value: `${bestRun} ${bestRun === 1 ? 'day' : 'days'}`, label: 'Best run here' },
     { key: 'started', value: dateLabel(row.startedAt), label: 'Started' },
-    { key: 'finished', value: dateLabel(row.toppedOutAt), label: 'Finished' },
   ];
 
+  const shown = isVisibleForHabit(row.habitId);
+  const toggleLabel = `${shown ? 'Hide' : 'Show'} finished towers for ${row.habitName}`;
+
   return (
+    <>
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose} testID="finished-tower-sheet-backdrop">
         <Pressable style={[styles.sheet, { backgroundColor: theme.surfaceHigh }]} onPress={() => {}} testID="finished-tower-sheet">
@@ -38,16 +68,23 @@ export default function FinishedTowerSheet({ visible, row, onClose, theme, mode,
           <Text style={[styles.eyebrow, { color: theme.muted }]}>FINISHED TOWER</Text>
 
           <View style={styles.hero}>
-            <View style={[styles.iconTile, { backgroundColor: tint }]}>
-              <MaterialCommunityIcons name={categoryIcon(row.category)} size={26} color="#1A1300" />
-            </View>
+            {illustration && (
+              <Svg width={illustration.width} height={illustration.height} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+                <SkylineTower shapes={illustration.shapes} />
+              </Svg>
+            )}
             <View style={styles.heroText}>
               <Text style={[styles.title, { color: theme.text }]} testID="finished-tower-sheet-title">
                 {row.habitName}
               </Text>
               <Text style={[styles.meta, { color: theme.muted }]}>
-                {row.autoToppedOut ? 'Topped out on its own at its cap' : 'Topped out'}
+                {`Topped out ${dateLabel(row.toppedOutAt)} · stood ${stood} ${stood === 1 ? 'day' : 'days'}`}
               </Text>
+              <View style={[styles.chip, { backgroundColor: theme.background }]}>
+                <Text style={[styles.chipText, { color: theme.amber }]}>
+                  {row.autoToppedOut ? 'Topped out on its own at the cap' : 'You topped it out'}
+                </Text>
+              </View>
             </View>
           </View>
 
@@ -69,11 +106,51 @@ export default function FinishedTowerSheet({ visible, row, onClose, theme, mode,
           </View>
 
           <Text style={[styles.note, { color: theme.muted }]}>
-            {row.habitName} is still an active tower — this is one of its earlier, finished segments.
+            This tower stays on your skyline behind the new one. Your run carried over to the new tower.
           </Text>
+
+          <Pressable
+            onPress={() => setInsideVisible(true)}
+            disabled={!insideSceneHabit}
+            style={[styles.seeInside, { backgroundColor: theme.amber, opacity: insideSceneHabit ? 1 : 0.5 }]}
+            testID="finished-tower-see-inside"
+            accessibilityRole="button"
+            accessibilityLabel={`See inside ${row.habitName}`}
+          >
+            <Text style={styles.seeInsideText}>See inside</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => setHabitOverride(row.habitId, !shown)}
+            style={styles.linkRow}
+            testID="finished-tower-toggle-habit"
+            accessibilityRole="button"
+            accessibilityLabel={toggleLabel}
+          >
+            <Text style={[styles.link, { color: theme.text }]}>{toggleLabel}</Text>
+          </Pressable>
+
+          <Pressable onPress={onClose} style={styles.linkRow} testID="finished-tower-sheet-close" accessibilityRole="button" accessibilityLabel="Close">
+            <Text style={[styles.link, { color: theme.muted }]}>Close</Text>
+          </Pressable>
         </Pressable>
       </Pressable>
     </Modal>
+    {insideSceneHabit && (
+      <TowerInsideView
+        visible={insideVisible}
+        onClose={() => setInsideVisible(false)}
+        habit={liveHabit}
+        sceneHabit={insideSceneHabit}
+        today={insideToday}
+        uiTheme={theme}
+        towerTheme={towerTheme}
+        tapToBuild={false}
+        onAskAboutTower={onAskAboutTower}
+        onAskAboutDay={onAskAboutDay}
+      />
+    )}
+    </>
   );
 }
 
@@ -83,13 +160,18 @@ const styles = StyleSheet.create({
   handle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, marginBottom: 18 },
   eyebrow: { fontFamily: fonts.bold, fontSize: 13, letterSpacing: 1.4 },
   hero: { flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 14, marginBottom: 18 },
-  iconTile: { width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   heroText: { flex: 1 },
   title: { fontFamily: fonts.extraBold, fontSize: 24, lineHeight: 30 },
   meta: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, marginTop: 4 },
-  stats: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 18 },
-  stat: { flexBasis: '47%', flexGrow: 1, minHeight: 68, borderRadius: 16, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, paddingVertical: 10 },
+  chip: { alignSelf: 'flex-start', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, marginTop: 10 },
+  chipText: { fontFamily: fonts.bold, fontSize: 13 },
+  stats: { flexDirection: 'row', gap: 10, marginBottom: 18 },
+  stat: { flex: 1, minHeight: 68, borderRadius: 16, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, paddingVertical: 10 },
   statValue: { fontFamily: fonts.extraBold, fontSize: 20 },
   statLabel: { fontFamily: fonts.regular, fontSize: 14, marginTop: 2 },
-  note: { fontFamily: fonts.regular, fontSize: 15, textAlign: 'center', marginTop: 4 },
+  note: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 21, marginBottom: 20 },
+  seeInside: { minHeight: 56, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
+  seeInsideText: { fontFamily: fonts.bold, fontSize: 18, color: '#1A1300' },
+  linkRow: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  link: { fontFamily: fonts.semiBold, fontSize: 15 },
 });

@@ -128,22 +128,24 @@ export default function DismissibleActivityRow({ item, styles, colors, avatarCol
                 <Text style={styles.activityName}>{item.userName}</Text>{' '}
                 {item.value != null && item.value > 1
                   ? `logged ${item.value} for ${item.habitName}`
-                  : `completed ${item.habitName}`}
+                  : `laid a floor on ${item.habitName}`}
               </Text>
               <Text style={styles.activityMeta}>{timeAgo(item.occurredAt)}</Text>
             </View>
             <Pressable
-              style={styles.cheerBtn}
+              style={[styles.cheerBtn, item.cheeredByMe && styles.cheerBtnActive]}
               accessibilityRole="button"
-              accessibilityLabel={item.cheeredByMe ? 'Remove cheer' : 'Cheer'}
+              accessibilityLabel={item.cheeredByMe ? 'Remove nudge' : `Nudge ${item.userName}`}
               onPress={onCheer}
             >
-              <MaterialCommunityIcons
-                name={item.cheeredByMe ? 'heart' : 'heart-outline'}
-                size={18}
-                color={item.cheeredByMe ? colors.atRisk : colors.textMuted}
-              />
-              {item.cheerCount > 0 ? <Text style={styles.cheerCount}>{item.cheerCount}</Text> : null}
+              <Text style={[styles.cheerBtnText, item.cheeredByMe && styles.cheerBtnTextActive]}>
+                {item.cheeredByMe ? 'Nudged' : 'Nudge'}
+              </Text>
+              {item.cheerCount > 0 ? (
+                <Text style={[styles.cheerCount, item.cheeredByMe && styles.cheerBtnTextActive]}>
+                  {item.cheerCount}
+                </Text>
+              ) : null}
             </Pressable>
           </View>
         </Animated.View>

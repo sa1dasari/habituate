@@ -2,22 +2,25 @@ import React, { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import CreateChallengeModal from './CreateChallengeModal';
 import InviteFriendsSheet from './InviteFriendsSheet';
 import ScrubberInput from './ScrubberInput';
 import AvatarImage from './AvatarImage';
 import FriendProfileModal from './FriendProfileModal';
+import LandmarkTowerGraphic from './LandmarkTowerGraphic';
+import SkyBackdrop from './SkyBackdrop';
+import HoldToBuildBar from './HoldToBuildBar';
 import Toast from './Toast';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useAuth } from '../hooks/useAuth';
 import { useChallenges } from '../hooks/useChallenges';
 import { useToast } from '../hooks/useToast';
-import { gradients, radii, shadow, spacing } from '../theme';
-import { formatDeadline, formatShortDate } from '../utils/date';
+import { radii, shadow, skyGradients, skylineTowerTheme, spacing } from '../theme';
+import { daysUntil, formatDeadline, formatShortDate } from '../utils/date';
 import { formatTime } from '../utils/time';
 
 const AVATAR_COLORS = ['#2563EB', '#7C3AED', '#0891B2', '#DB2777', '#EA580C'];
+const SKY_STRIP_HEIGHT = 230;
 
 function initials(name) {
   return String(name || '?')
@@ -52,11 +55,12 @@ export default function ChallengeDetailModal({ visible, challenge, onClose }) {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const { user } = useAuth();
-  const { toggleCheckIn, addChallengeEntry, inviteToChallenge, busy } = useChallenges();
+  const { toggleCheckIn, addChallengeEntry, inviteToChallenge, joinChallenge, busy } = useChallenges();
   const [inviteVisible, setInviteVisible] = useState(false);
   const [editVisible, setEditVisible] = useState(false);
   const [entryAmount, setEntryAmount] = useState(1);
   const [profileUserId, setProfileUserId] = useState(null);
+  const [stripWidth, setStripWidth] = useState(0);
   const { toast, showToast, hideToast } = useToast();
 
   if (!challenge) return null;
@@ -84,7 +88,16 @@ export default function ChallengeDetailModal({ visible, challenge, onClose }) {
     ])
   );
   const isCount = challenge.trackingMode === 'COUNT';
-  const accentColor = challenge.color || colors.accent;
+
+  // Board 11's landmark: contiguous per-contributor bands in the same
+  // progress-sorted order "Who built what" lists them in below, so a band's
+  // colour always matches its row's bar/avatar colour.
+  const built = people.reduce((sum, p) => sum + Math.max(0, (typeof p === 'object' && p?.progress) || 0), 0);
+  const contributors = people.map((p, i) => ({
+    color: colorByKey.get(colorKeyOf(p, i)),
+    floors: typeof p === 'object' && p ? Math.max(0, p.progress || 0) : 0,
+  }));
+  const daysLeft = challenge.periodEnd ? Math.max(0, daysUntil(challenge.periodEnd)) : null;
 
   const handleToggle = async () => {
     try {
@@ -96,6 +109,14 @@ export default function ChallengeDetailModal({ visible, challenge, onClose }) {
   };
 
   const handleInvite = (friendUserId) => inviteToChallenge(challenge.id, friendUserId);
+
+  const handleJoin = async () => {
+    try {
+      await joinChallenge(challenge.id);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Couldn't join this challenge", 'error');
+    }
+  };
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
@@ -120,90 +141,105 @@ export default function ChallengeDetailModal({ visible, challenge, onClose }) {
         </View>
 
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          <View style={styles.heroCard}>
-            <View style={styles.titleRow}>
-              <View style={[styles.iconBadge, { backgroundColor: `${accentColor}22` }]}>
-                <MaterialCommunityIcons name={challenge.icon || 'trophy-outline'} size={20} color={accentColor} />
-              </View>
-              {challenge.description ? <Text style={styles.description}>{challenge.description}</Text> : null}
-            </View>
+          {challenge.description ? <Text style={styles.description}>{challenge.description}</Text> : null}
 
-            <View style={styles.metaRow}>
-              <View style={styles.metaBadge}>
-                <MaterialCommunityIcons name="calendar-range" size={13} color={colors.textSecondary} />
-                <Text style={styles.metaText}>
-                  Started {formatShortDate(challenge.periodStart)} · {formatDeadline(challenge.periodEnd)}
-                </Text>
-              </View>
-              <View style={styles.metaBadge}>
-                <MaterialCommunityIcons
-                  name={challenge.visibility === 'PUBLIC' ? 'earth' : 'lock-outline'}
-                  size={13}
-                  color={colors.textSecondary}
-                />
-                <Text style={styles.metaText}>{VISIBILITY_LABEL[challenge.visibility] || 'Private'}</Text>
-              </View>
-              <View style={styles.metaBadge}>
-                <MaterialCommunityIcons name="repeat" size={13} color={colors.textSecondary} />
-                <Text style={styles.metaText}>{cadenceLabel(challenge)}</Text>
-              </View>
-              {challenge.reminderTime ? (
-                <View style={styles.metaBadge}>
-                  <MaterialCommunityIcons name="bell-outline" size={13} color={colors.textSecondary} />
-                  <Text style={styles.metaText}>{formatTime(challenge.reminderTime)}</Text>
-                </View>
+          <View style={styles.skyStrip} onLayout={(e) => setStripWidth(e.nativeEvent.layout.width)}>
+            <View style={StyleSheet.absoluteFill}>
+              {stripWidth > 0 ? (
+                <SkyBackdrop stops={skyGradients.dark.night} kind="night" width={stripWidth} height={SKY_STRIP_HEIGHT} />
               ) : null}
             </View>
-
-            {challenge.joined ? (
-              <>
-                <Text style={styles.progressLabel}>
-                  {challenge.myProgress}/{challenge.targetCount} {isCount ? '' : 'days'} · {challenge.progressPercent}%
-                </Text>
-                <View style={styles.progressTrack}>
-                  <LinearGradient
-                    colors={gradients.accent}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={[styles.progressFill, { width: `${Math.max(4, challenge.progressPercent)}%` }]}
-                  />
-                </View>
-
-                {isCount ? (
-                  <View style={styles.entryRow}>
-                    <ScrubberInput value={entryAmount} onChange={setEntryAmount} min={1} max={9999} label="amount" />
-                    <Pressable style={styles.logButton} disabled={busy} onPress={handleToggle}>
-                      <MaterialCommunityIcons name="plus" size={16} color={colors.accent} />
-                      <Text style={styles.logButtonText}>Log entry</Text>
-                    </Pressable>
-                  </View>
-                ) : (
-                  <Pressable
-                    style={[styles.logButton, challenge.checkedInToday && styles.logButtonActive]}
-                    disabled={busy}
-                    accessibilityRole="button"
-                    accessibilityLabel={challenge.checkedInToday ? 'Unlog today' : 'Log today'}
-                    onPress={handleToggle}
-                  >
-                    <MaterialCommunityIcons
-                      name={challenge.checkedInToday ? 'check' : 'plus'}
-                      size={16}
-                      color={challenge.checkedInToday ? '#FFFFFF' : colors.accent}
-                    />
-                    <Text style={[styles.logButtonText, challenge.checkedInToday && styles.logButtonTextActive]}>
-                      {challenge.checkedInToday ? 'Logged today' : 'Log today'}
-                    </Text>
-                  </Pressable>
-                )}
-              </>
-            ) : (
-              <Text style={styles.notJoinedNote}>You haven't joined this challenge.</Text>
-            )}
+            {built > 0 ? (
+              <View style={styles.floorCallout} pointerEvents="none">
+                <Text style={styles.floorCalloutText}>Floor {built}</Text>
+              </View>
+            ) : null}
+            <View style={styles.landmarkWrap}>
+              <LandmarkTowerGraphic
+                contributors={contributors}
+                towerTheme={skylineTowerTheme.dark}
+                width={110}
+                height={SKY_STRIP_HEIGHT}
+                testID="challenge-detail-landmark"
+              />
+            </View>
           </View>
 
-          <Text style={styles.sectionTitle}>
-            {people.length} {people.length === 1 ? 'participant' : 'participants'}
-          </Text>
+          <View style={styles.tileRow}>
+            <View style={styles.tile}>
+              <Text style={styles.tileLabel}>Built</Text>
+              <Text style={styles.tileValue}>
+                {built} of {challenge.targetCount}
+              </Text>
+            </View>
+            <View style={styles.tile}>
+              <Text style={styles.tileLabel}>Your part</Text>
+              <Text style={styles.tileValue}>
+                {challenge.myProgress}
+                {isCount ? '' : ' floors'}
+              </Text>
+            </View>
+            <View style={styles.tile}>
+              <Text style={styles.tileLabel}>Days left</Text>
+              <Text style={styles.tileValue}>{daysLeft != null ? daysLeft : '—'}</Text>
+            </View>
+          </View>
+
+          <View style={styles.metaRow}>
+            <View style={styles.metaBadge}>
+              <MaterialCommunityIcons name="calendar-range" size={13} color={colors.textSecondary} />
+              <Text style={styles.metaText}>
+                Started {formatShortDate(challenge.periodStart)} · {formatDeadline(challenge.periodEnd)}
+              </Text>
+            </View>
+            <View style={styles.metaBadge}>
+              <MaterialCommunityIcons
+                name={challenge.visibility === 'PUBLIC' ? 'earth' : 'lock-outline'}
+                size={13}
+                color={colors.textSecondary}
+              />
+              <Text style={styles.metaText}>{VISIBILITY_LABEL[challenge.visibility] || 'Private'}</Text>
+            </View>
+            <View style={styles.metaBadge}>
+              <MaterialCommunityIcons name="repeat" size={13} color={colors.textSecondary} />
+              <Text style={styles.metaText}>{cadenceLabel(challenge)}</Text>
+            </View>
+            {challenge.reminderTime ? (
+              <View style={styles.metaBadge}>
+                <MaterialCommunityIcons name="bell-outline" size={13} color={colors.textSecondary} />
+                <Text style={styles.metaText}>{formatTime(challenge.reminderTime)}</Text>
+              </View>
+            ) : null}
+          </View>
+
+          {challenge.joined ? (
+            isCount ? (
+              <View style={styles.entryRow}>
+                <ScrubberInput value={entryAmount} onChange={setEntryAmount} min={1} max={9999} label="amount" />
+                <Pressable style={styles.logButton} disabled={busy} onPress={handleToggle}>
+                  <MaterialCommunityIcons name="plus" size={16} color={colors.accent} />
+                  <Text style={styles.logButtonText}>Log entry</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <View style={styles.holdWrap}>
+                <HoldToBuildBar
+                  built={challenge.checkedInToday}
+                  canBuild={!challenge.checkedInToday}
+                  onBuild={handleToggle}
+                  label="Hold to add today's floor"
+                  builtLabel="Floor built today"
+                  testID="challenge-hold-to-build"
+                />
+              </View>
+            )
+          ) : (
+            <Pressable style={styles.joinButton} disabled={busy} onPress={handleJoin}>
+              <Text style={styles.joinButtonText}>Join this challenge</Text>
+            </Pressable>
+          )}
+
+          <Text style={styles.sectionTitle}>Who built what</Text>
           {people.map((person, index) => {
             const label = typeof person === 'string' ? person : person && person.name;
             const personUserId = typeof person === 'object' && person ? person.userId : null;
@@ -242,7 +278,15 @@ export default function ChallengeDetailModal({ visible, challenge, onClose }) {
                     </Text>
                     {progress != null ? (
                       <View style={styles.memberProgressTrack}>
-                        <View style={[styles.memberProgressFill, { width: `${Math.max(4, percent || 0)}%` }]} />
+                        <View
+                          style={[
+                            styles.memberProgressFill,
+                            {
+                              width: `${Math.max(4, percent || 0)}%`,
+                              backgroundColor: colorByKey.get(colorKeyOf(person, index)),
+                            },
+                          ]}
+                        />
                       </View>
                     ) : null}
                   </View>
@@ -300,23 +344,50 @@ function makeStyles(colors, typography) {
     headerActions: { flexDirection: 'row', alignItems: 'center' },
     closeBtn: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
     scroll: { padding: spacing.lg, paddingBottom: spacing.xxl },
-    heroCard: {
-      backgroundColor: colors.surface,
+    description: { ...typography.body, marginBottom: spacing.md },
+    skyStrip: {
+      height: SKY_STRIP_HEIGHT,
       borderRadius: radii.lg,
-      padding: spacing.lg,
-      marginBottom: spacing.xl,
+      overflow: 'hidden',
+      marginBottom: spacing.lg,
+      alignItems: 'center',
+      justifyContent: 'flex-end',
       ...shadow,
     },
-    titleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
-    iconBadge: {
-      width: 36,
-      height: 36,
-      borderRadius: radii.md,
-      alignItems: 'center',
-      justifyContent: 'center',
+    landmarkWrap: { paddingBottom: spacing.sm },
+    floorCallout: {
+      position: 'absolute',
+      top: spacing.lg,
+      alignSelf: 'center',
+      backgroundColor: 'rgba(0,0,0,0.35)',
+      borderRadius: radii.pill,
+      borderWidth: 1,
+      borderStyle: 'dashed',
+      borderColor: 'rgba(255,255,255,0.6)',
+      paddingHorizontal: spacing.sm + 2,
+      paddingVertical: spacing.xs,
     },
-    description: { ...typography.body, flex: 1 },
-    metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md },
+    floorCalloutText: { fontSize: 13, fontWeight: '700', color: '#FFFFFF' },
+    tileRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg },
+    tile: {
+      flex: 1,
+      backgroundColor: colors.surface,
+      borderRadius: radii.md,
+      padding: spacing.md,
+      ...shadow,
+    },
+    tileLabel: { ...typography.meta, marginBottom: 4 },
+    tileValue: { fontSize: 16, fontWeight: '800', color: colors.textPrimary },
+    holdWrap: { marginBottom: spacing.xl },
+    joinButton: {
+      backgroundColor: colors.accent,
+      borderRadius: radii.pill,
+      paddingVertical: spacing.md,
+      alignItems: 'center',
+      marginBottom: spacing.xl,
+    },
+    joinButtonText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+    metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.lg },
     metaBadge: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -327,17 +398,7 @@ function makeStyles(colors, typography) {
       paddingVertical: spacing.xs,
     },
     metaText: { fontSize: 11, fontWeight: '600', color: colors.textSecondary },
-    progressLabel: { fontSize: 13, fontWeight: '700', color: colors.textPrimary, marginBottom: spacing.sm },
-    progressTrack: {
-      height: 8,
-      borderRadius: radii.pill,
-      backgroundColor: colors.ringTrack,
-      overflow: 'hidden',
-      marginBottom: spacing.lg,
-    },
-    progressFill: { height: '100%', borderRadius: radii.pill },
-    notJoinedNote: { ...typography.meta },
-    entryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
+    entryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md, marginBottom: spacing.xl },
     logButton: {
       flexDirection: 'row',
       alignItems: 'center',

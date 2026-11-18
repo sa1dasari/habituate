@@ -6,6 +6,7 @@ import LoginSecurityScreen from '../screens/LoginSecurityScreen';
 import PrivacyScreen from '../screens/PrivacyScreen';
 import NotificationSettingsScreen from '../screens/NotificationSettingsScreen';
 import AccessibilityScreen from '../screens/AccessibilityScreen';
+import SkylineSettingsScreen from '../screens/SkylineSettingsScreen';
 import GetHelpScreen from '../screens/GetHelpScreen';
 import ReportBugScreen from '../screens/ReportBugScreen';
 
@@ -23,6 +24,7 @@ export default function ProfileStack() {
       <Stack.Screen name="Privacy" component={PrivacyScreen} />
       <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
       <Stack.Screen name="Accessibility" component={AccessibilityScreen} />
+      <Stack.Screen name="SkylineSettings" component={SkylineSettingsScreen} />
       <Stack.Screen name="GetHelp" component={GetHelpScreen} />
       <Stack.Screen name="ReportBug" component={ReportBugScreen} />
     </Stack.Navigator>

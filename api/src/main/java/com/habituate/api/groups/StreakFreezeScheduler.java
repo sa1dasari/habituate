@@ -12,12 +12,21 @@ import java.util.List;
 
 /**
  * GroupStreakUpdater only ever reacts to a check-in arriving (a positive
- * signal) — it never notices "a day closed without anyone checking in,"
+ * signal) — it never notices "a period closed without anyone qualifying,"
  * since no event fires for that. This daily sweep is what actually closes
- * out a day: for each group whose streak didn't qualify yesterday, either
- * auto-applies a group grace freeze (if one hasn't been used in the last 30
- * days) or resets the streak. Runs just after UTC midnight so "yesterday"
- * has fully closed — same UTC-bucketing caveat as GroupStreakEngine.
+ * out a period: for each group whose streak didn't qualify for its last
+ * closed period, either auto-applies a group grace freeze (if one hasn't
+ * been used in the last 30 days) or resets the streak. Runs just after UTC
+ * midnight so "yesterday" has fully closed — same UTC-bucketing caveat as
+ * GroupStreakEngine.
+ *
+ * Period-aware (SKYLINE.md #15): a DAILY group's period is literally
+ * yesterday, so every group is still evaluated every day, unchanged. A
+ * WEEKLY/MONTHLY group's period has usually NOT just closed on a given
+ * day — evaluateGroup only actually runs for one when `yesterday` was the
+ * last day of its own period (a Sunday for WEEKLY, the month's last day
+ * for MONTHLY); other days are a no-op for it, same as GroupStreakUpdater
+ * not advancing it mid-period.
  */
 @Component
 public class StreakFreezeScheduler {
@@ -46,31 +55,48 @@ public class StreakFreezeScheduler {
             if (Group.INDEPENDENT.equals(group.getTrackingMode())) {
                 continue; // no shared counter to protect
             }
-            evaluateGroup(group.getId(), group.getSkipDaysPerMonth(), yesterday);
+            GroupCadence.Period period = group.cadencePeriod();
+            if (!GroupPeriod.periodEnd(period, yesterday).equals(yesterday)) {
+                continue; // this group's current period hasn't closed yet — nothing to evaluate
+            }
+            LocalDate periodToCheck = GroupPeriod.periodStart(period, yesterday);
+            evaluateGroup(group.getId(), group.getSkipDaysPerMonth(), period, periodToCheck);
         }
     }
 
     /** Public so it can be called directly from tests instead of waiting for the cron.
-     * @param skipDaysPerMonth how many group-grace freezes this group allows in a rolling
-     *                         30-day window (the "Missed Day Rules" setting) before the streak resets. */
-    public void evaluateGroup(Long groupId, int skipDaysPerMonth, LocalDate dayToCheck) {
+     * @param skipDaysPerMonth how many group-grace freezes this group allows before the streak
+     *                         resets (the "Missed Day Rules" setting) — for DAILY, in a rolling
+     *                         30-day window; for WEEKLY/MONTHLY, in the last `skipDaysPerMonth`
+     *                         periods themselves (so skipDaysPerMonth=1 means "never two frozen
+     *                         periods in a row" — a day-denominated window doesn't map onto
+     *                         period boundaries, owner decision 2026-11-18).
+     * @param periodToCheck the START of the just-closed period (a plain day for DAILY). */
+    public void evaluateGroup(Long groupId, int skipDaysPerMonth, GroupCadence.Period period, LocalDate periodToCheck) {
         GroupStreak streak = groupStreakRepository.findById(groupId).orElse(null);
         if (streak == null || streak.getCurrentStreak() == 0) {
             return; // nothing to protect
         }
-        if (streak.getLastQualifyingDate() != null && !streak.getLastQualifyingDate().isBefore(dayToCheck)) {
-            return; // already qualified on (or after) dayToCheck — nothing to close out
+        if (streak.getLastQualifyingDate() != null && !streak.getLastQualifyingDate().isBefore(periodToCheck)) {
+            return; // already qualified for (or after) periodToCheck — nothing to close out
         }
 
-        LocalDate windowCutoff = dayToCheck.minusDays(FREEZE_WINDOW_DAYS);
+        // findByGroupIdAndUsedOnDateAfter is a strict ">" — for the period case the window has
+        // to reach one day past the Nth period's own start date, or a freeze landing exactly on
+        // that boundary (the common case, since a freeze's usedOnDate is always a period start)
+        // would be excluded by the inequality and the window would effectively cover only N-1
+        // periods instead of N.
+        LocalDate windowCutoff = period == GroupCadence.Period.DAILY
+                ? periodToCheck.minusDays(FREEZE_WINDOW_DAYS)
+                : GroupPeriod.minusPeriods(period, periodToCheck, Math.max(1, skipDaysPerMonth)).minusDays(1);
         List<StreakFreeze> recentFreezes = streakFreezeRepository.findByGroupIdAndUsedOnDateAfter(groupId, windowCutoff);
 
         if (recentFreezes.size() < skipDaysPerMonth) {
-            streakFreezeRepository.save(new StreakFreeze(groupId, dayToCheck, StreakFreeze.GROUP_GRACE));
-            // Treat the frozen day as if it qualified so the chain isn't
-            // broken once a real check-in resumes — only the status reads
+            streakFreezeRepository.save(new StreakFreeze(groupId, periodToCheck, StreakFreeze.GROUP_GRACE));
+            // Treat the frozen period as if it qualified so the chain isn't
+            // broken once real qualification resumes — only the status reads
             // as "frozen," the streak count itself doesn't reset.
-            streak.setLastQualifyingDate(dayToCheck);
+            streak.setLastQualifyingDate(periodToCheck);
             streak.setStatus(GroupStreak.FROZEN);
         } else {
             streak.setCurrentStreak(0);

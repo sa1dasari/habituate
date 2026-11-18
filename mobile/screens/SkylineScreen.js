@@ -627,6 +627,8 @@ export default function SkylineScreen({ navigation }) {
                 towerTheme={towerTheme}
                 effectiveMode={effectiveMode}
                 categoryColors={categoryColors}
+                onAskAboutTower={handleAskAboutTower}
+                onAskAboutDay={handleAskAboutDay}
               />
               <TowerForm
                 key={towerFormHabitId ?? 'new'}

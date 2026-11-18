@@ -314,6 +314,62 @@ const CLOSED_WINDOW_W = 5;
 const CLOSED_WINDOW_H = 4;
 
 /**
+ * A finished tower's standalone mini illustration (board 56's sheet, board
+ * 58's list row): the same solid, muted-brown, dark-window, gold cap + flag
+ * look `closedSegmentShapes` draws on the live skyline, just without any
+ * depth offset or extra fade — nothing sits in front of it here. Returns
+ * shapes in local 0,0-origin coordinates plus the natural width/height so a
+ * caller can size an SVG viewBox around them.
+ */
+const FINISHED_ILLUSTRATION_FLAG_CLEARANCE = 18;
+
+export function finishedTowerIllustration(floorCount, color, theme) {
+  const floors = Math.max(CLOSED_SEGMENT_MIN_FLOORS, Math.min(MAX_INDIVIDUAL_FLOORS, floorCount || 1));
+  const tier = (floorCount || 0) > MAX_INDIVIDUAL_FLOORS ? TIER_HEIGHT : 0;
+  const bodyHeight = floors * FLOOR_H + tier;
+  const yTop = FINISHED_ILLUSTRATION_FLAG_CLEARANCE;
+  const fill = color || theme.closedSegmentFill;
+  const faces = floorFaces(0, yTop, TOWER_W, bodyHeight);
+  const idBase = 'finished-illustration';
+
+  let lines = '';
+  let windows = '';
+  for (let f = 0; f < floors; f += 1) {
+    const fy = yTop + f * FLOOR_H;
+    if (f > 0) lines += `M0,${fy}L${TOWER_W},${fy}`;
+    for (let w = 0; w < DEFAULT_WINDOW_COUNT; w += 1) {
+      const wx = ((w + 0.5) * TOWER_W) / DEFAULT_WINDOW_COUNT - CLOSED_WINDOW_W / 2;
+      const wy = fy + (FLOOR_H - CLOSED_WINDOW_H) / 2;
+      windows += `M${wx},${wy}h${CLOSED_WINDOW_W}v${CLOSED_WINDOW_H}h${-CLOSED_WINDOW_W}Z`;
+    }
+  }
+  const cx = TOWER_W / 2;
+
+  const shapes = [
+    { id: `${idBase}-front`, kind: 'path', d: pointsToPath(faces.front), fill },
+    { id: `${idBase}-right`, kind: 'path', d: pointsToPath(faces.right), fill: shade(fill, -30) },
+    { id: `${idBase}-top`, kind: 'path', d: pointsToPath(faces.top), fill: theme.flagColor, opacity: CLOSED_CAP_ALPHA },
+  ];
+  if (lines) {
+    shapes.push({ id: `${idBase}-lines`, kind: 'path', d: lines, fill: 'none', stroke: shade(fill, -45), strokeWidth: 1 });
+  }
+  shapes.push(
+    { id: `${idBase}-windows`, kind: 'path', d: windows, fill: shade(fill, -45) },
+    {
+      id: `${idBase}-flag`,
+      kind: 'path',
+      d: `M${cx},${yTop - FINISHED_ILLUSTRATION_FLAG_CLEARANCE}L${cx},${yTop}M${cx},${yTop - FINISHED_ILLUSTRATION_FLAG_CLEARANCE}L${cx + 10},${yTop - FINISHED_ILLUSTRATION_FLAG_CLEARANCE + 4}L${cx},${yTop - FINISHED_ILLUSTRATION_FLAG_CLEARANCE + 8}Z`,
+      fill: theme.flagColor,
+      stroke: theme.flagColor,
+      strokeWidth: 1.5,
+      opacity: CLOSED_CAP_ALPHA,
+    },
+  );
+
+  return { shapes, width: TOWER_W + DX, height: bodyHeight + FINISHED_ILLUSTRATION_FLAG_CLEARANCE };
+}
+
+/**
  * Up to 2 faded closed segments stacked behind the active tower (SKYLINE.md
  * section 6, Phase 3d). Purely additive: `habit.closedSegments` is
  * absent/empty for every habit that's never topped out, so for them this

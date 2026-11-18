@@ -47,6 +47,16 @@ function TowerBody({ x, baseY, color, rowCount, litCount, foldHeight, towerTheme
   const sideColor = shade(frontColor, -30);
   const capColor = ghost ? towerTheme.flagColor : shade(frontColor, 30);
 
+  // Zero floors (a brand new habit/member, no run yet): skip the body/side/
+  // cap polygons entirely rather than let the cap's DX/DY skew draw on its
+  // own with nothing under it — that previously rendered as a stray
+  // diagonal sliver floating above the baseline instead of an empty lot.
+  // A short flat pad marks where the tower will start, same idea as an
+  // empty lot's foundation outline elsewhere in the app.
+  if (bodyH <= 0) {
+    return <Rect x={x} y={baseY - 2} width={TOWER_W} height={2} rx={1} fill={shade(frontColor, -60)} />;
+  }
+
   const sidePts = [
     [x + TOWER_W, topY],
     [x + TOWER_W + DX, topY + DY],

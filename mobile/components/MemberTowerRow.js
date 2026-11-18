@@ -39,6 +39,16 @@ export default function MemberTowerRow({ members = [], connectorColor, showLabel
   // full 6-member row doesn't overflow or clip; ScrollView below is the
   // fallback once even the floor width doesn't fit a narrow device.
   const effectiveWidth = shown.length > 4 ? Math.max(40, Math.round(towerWidth * (4 / shown.length))) : towerWidth;
+  // Anchor the connector to the towers' own ground line (FriendTowerGraphic's
+  // baseY = height - 4), not centered in the row's full cross-axis height —
+  // alignSelf:'center' previously centered it against the tallest sibling's
+  // total box (SVG height, plus the label block when showLabels is true),
+  // which floats the "skybridge" in empty space above anything shorter than
+  // a near-maximal tower instead of visibly joining the two towers. The
+  // label reserve mirrors styles.label's rendered block (fontSize 13 line
+  // height + marginTop).
+  const labelReserve = showLabels ? 22 : 0;
+  const connectorMarginBottom = labelReserve + 4;
 
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
@@ -51,7 +61,10 @@ export default function MemberTowerRow({ members = [], connectorColor, showLabel
         return (
           <React.Fragment key={member?.userId || `${label}-${index}`}>
             {index > 0 ? (
-              <View style={[styles.connector, { backgroundColor: connectorColor }]} testID="member-tower-connector" />
+              <View
+                style={[styles.connector, { backgroundColor: connectorColor, marginBottom: connectorMarginBottom }]}
+                testID="member-tower-connector"
+              />
             ) : null}
             <View style={styles.towerCol}>
               <FriendTowerGraphic
@@ -83,8 +96,7 @@ const styles = StyleSheet.create({
   connector: {
     height: 3,
     width: 16,
-    alignSelf: 'center',
-    marginBottom: spacing.lg,
+    alignSelf: 'flex-end',
     borderRadius: 2,
   },
   // Always white: `showLabels` is only ever true over a dark sky backdrop

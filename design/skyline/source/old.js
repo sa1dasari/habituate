@@ -1,7 +1,7 @@
 // Redraws of boards 02, 04, 05, 08, 09, 10, 11, 15 with the current floor art
 (function(){
 const Q3=new URLSearchParams(location.search);const S3=Q3.get('s');
-if(!/^(cm-|sh-|ch-|pf-|ho-|to-|sk-|ft-|fx-|ce-|ev-|nc-|np-)/.test(S3||''))return;
+if(!/^(cm-|sh-|ch-|pf-|ho-|to-|sk-|ft-|fx-|ce-|ev-|nc-|np-|ne-)/.test(S3||''))return;
 const R=document.getElementById('root');
 const tw=(col,o)=>{const old=C.front;C.front=col;const r=tower(o);C.front=old;return r};
 const grow=(n,lit,over={})=>Array.from({length:n},(_,i)=>over[i]||(i>=n-lit?'lit':'dark'));
@@ -266,6 +266,7 @@ if(S3==='nc-all'){
   ${nRow('friends','New friend request','Maya wants to build alongside you.','2m',true,['Accept','Decline'])}
   ${nRow('chal','Vote: end early?','Sawan proposed ending 30 days of reading. Closes in 18h.','1h',true,['Yes, end it','No'])}
   ${nRow('shared','Morning Run Crew','Alex built a floor today.','3h',true)}
+  ${nRow('shared','Maya cheered your floor','On Read 10 minutes.','3h',false)}
   ${nRow('rem','A nudge from Dev','Dev is waiting on you in Morning Run Crew.','4h',false)}
   ${dayH('EARLIER')}
   ${nRow('rem','Time to build','Write 300 words','Yesterday',false)}
@@ -278,6 +279,8 @@ if(S3==='nc-chal'){
   ${nRow('chal','Read 20 books ended early','3 of 4 voted yes. See the landmark.','5h',true)}
   ${dayH('EARLIER')}
   ${nRow('chal','The vote to end early didn\'t pass','2 of 4 said yes. 30 days of reading keeps going.','Yesterday',false)}
+  ${nRow('chal','Vote closed: the challenge ended','30 days of reading ended before the vote closed.','Yesterday',false)}
+  ${nRow('chal','Walk 100 miles was deleted','The creator deleted this challenge.','Nov 9',false)}
   ${nRow('chal','Walk 50 miles ended','62 of 80 floors built. See the landmark.','Nov 8',false)}
   ${nRow('chal','Read 10 books ended','You reached the target: 40 of 40 floors. See the landmark.','Nov 1',false)}</div></div>`;
 }
@@ -289,6 +292,27 @@ if(S3==='np-push'){
   ${banner(344,'Read 20 books ended early','3 of 4 voted yes. See the landmark.','5h ago')}
   ${banner(458,'Walk 50 miles ended','62 of 80 floors built. See the landmark.','Nov 8')}
   <div style="position:absolute;left:30px;right:30px;bottom:120px;text-align:center;color:#A3ADB8;font-size:13px;line-height:1.5">Push text for a vote and for an ended challenge. Tapping opens the challenge page.</div></div>`;
+}
+
+const SKD='file:///home/user/habituate/design/skyline/';
+if(S3==='ne-end'){
+  R.innerHTML=`<div style="position:absolute;inset:0;overflow:hidden"><img src="${SKD}10-sharedhabit.png" style="position:absolute;inset:0;width:390px;height:844px"><div style="position:absolute;inset:0;background:rgba(4,6,10,.66)"></div>
+  <div style="position:absolute;left:0;right:0;top:330px;bottom:0;background:#1B2128;border-radius:24px 24px 0 0;padding:12px 22px"><div style="width:40px;height:4px;border-radius:2px;background:#3A4552;margin:0 auto 16px"></div>
+  <div style="font-size:22px;font-weight:800;line-height:1.2">End Morning Run Crew?</div>
+  <div style="color:#C9CED4;font-size:15px;line-height:1.5;margin-top:8px">Its final group run, 12 days, stays on the page and the shared habit moves to Completed. Nobody can build on it any more, and every member sees it as ended.</div>
+  <div style="margin-top:12px;background:#161B21;border-radius:14px;padding:12px 14px;font-size:14px;color:#A3ADB8;line-height:1.45">Want to remove it for everyone instead? Use Delete. That erases it, including the group run.</div>
+  <div style="margin-top:18px;height:54px;border-radius:27px;background:#F2C14E;color:#1b1608;font-weight:800;font-size:16.5px;display:flex;align-items:center;justify-content:center">End shared habit</div>
+  <div style="margin-top:6px;height:46px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#C9CED4">Cancel</div></div></div>`;
+}
+if(S3==='ne-join'){
+  const habits=[['Run','#FF8A5C',true],['Read 10 minutes','#38BDF8',false],['Write 300 words','#F2C14E',false]];
+  R.innerHTML=`<div style="position:absolute;inset:0;overflow:hidden"><img src="${SKD}40-notification-center.png" style="position:absolute;inset:0;width:390px;height:844px"><div style="position:absolute;inset:0;background:rgba(4,6,10,.66)"></div>
+  <div style="position:absolute;left:0;right:0;top:300px;bottom:0;background:#1B2128;border-radius:24px 24px 0 0;padding:12px 22px"><div style="width:40px;height:4px;border-radius:2px;background:#3A4552;margin:0 auto 16px"></div>
+  <div style="font-size:22px;font-weight:800;line-height:1.2">Join Morning Run Crew</div>
+  <div style="color:#C9CED4;font-size:15px;line-height:1.5;margin-top:6px">Pick the habit you'll build with this group.</div>
+  <div style="margin-top:12px">${habits.map(([n,c,on])=>`<div style="display:flex;align-items:center;gap:12px;height:56px;border-bottom:1px solid #232b34"><i style="width:12px;height:12px;border-radius:4px;background:${c};display:block"></i><div style="flex:1;font-weight:700;font-size:16px">${n}</div><div style="width:24px;height:24px;border-radius:12px;border:2px solid ${on?'#F2C14E':'#3A4552'};display:flex;align-items:center;justify-content:center">${on?'<i style="width:12px;height:12px;border-radius:6px;background:#F2C14E;display:block"></i>':''}</div></div>`).join('')}</div>
+  <div style="margin-top:18px;height:54px;border-radius:27px;background:#F2C14E;color:#1b1608;font-weight:800;font-size:16.5px;display:flex;align-items:center;justify-content:center">Join</div>
+  <div style="margin-top:6px;height:46px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#C9CED4">Not now</div></div></div>`;
 }
 
 //END

@@ -75,6 +75,12 @@ public class HabitController {
         return Map.of("available", habitService.getShieldsAvailable(userId(req)));
     }
 
+    /** Every finished tower across the caller's own non-archived habits (design-review board 58). */
+    @GetMapping("/habits/finished-towers")
+    public List<FinishedTowerResponse> listFinishedTowers(HttpServletRequest req) {
+        return habitService.listFinishedTowers(userId(req));
+    }
+
     /** Manually protects this habit's streak for today — requires a 7+ day streak and a banked shield. */
     @PostMapping("/habits/{habitId}/shield")
     public HabitResponse activateShield(

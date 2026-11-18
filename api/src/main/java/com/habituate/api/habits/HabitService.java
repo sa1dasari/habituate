@@ -27,7 +27,10 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -138,6 +141,40 @@ public class HabitService {
         return (int) checkIns.stream()
                 .filter(c -> !c.getOccurredAt().isBefore(start) && c.getOccurredAt().isBefore(end))
                 .count();
+    }
+
+    /**
+     * Board 58's combined list: every closed tower segment across the
+     * caller's own non-archived habits, newest-finished-first. Unlike
+     * {@link HabitResponse#recentClosedSegments()} (capped at 2, for the
+     * skyline compositing budget) this is the complete history. Scoped to
+     * userId only — there is no habitId input, so a caller can only ever
+     * see their own rows; an archived habit's segments are excluded on
+     * purpose (its finished towers stay reachable through the existing
+     * Retired towers list instead).
+     */
+    public List<FinishedTowerResponse> listFinishedTowers(String userId) {
+        List<Habit> activeHabits = habitRepository.findByUserIdAndArchivedFalseOrderByCreatedAtDesc(userId);
+        if (activeHabits.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, Habit> habitById = activeHabits.stream()
+                .collect(Collectors.toMap(Habit::getId, h -> h));
+
+        List<HabitTower> segments = habitTowerRepository
+                .findByHabitIdInAndToppedOutAtIsNotNullOrderByToppedOutAtDesc(new ArrayList<>(habitById.keySet()));
+
+        Map<Long, List<CheckIn>> checkInsByHabit = new HashMap<>();
+        List<FinishedTowerResponse> out = new ArrayList<>(segments.size());
+        for (HabitTower segment : segments) {
+            Habit habit = habitById.get(segment.getHabitId());
+            List<CheckIn> checkIns = checkInsByHabit.computeIfAbsent(
+                    segment.getHabitId(),
+                    id -> checkInRepository.findByUserIdAndHabitIdOrderByOccurredAtAsc(userId, id));
+            int floorCount = countCheckInsInWindow(checkIns, segment.getStartedAt(), segment.getToppedOutAt());
+            out.add(FinishedTowerResponse.from(segment, habit, floorCount));
+        }
+        return out;
     }
 
     private HabitResponse toResponse(Habit habit) {

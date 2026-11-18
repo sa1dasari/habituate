@@ -10,5 +10,8 @@ public interface HabitTowerRepository extends JpaRepository<HabitTower, Long> {
 
     Optional<HabitTower> findByHabitIdAndToppedOutAtIsNull(Long habitId);
 
+    /** Board 58's combined list: every closed segment across a set of (the caller's own, non-archived) habit ids. */
+    List<HabitTower> findByHabitIdInAndToppedOutAtIsNotNullOrderByToppedOutAtDesc(List<Long> habitIds);
+
     void deleteByHabitId(Long habitId);
 }

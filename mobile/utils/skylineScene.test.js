@@ -293,3 +293,41 @@ describe('buildScene — Phase 3d closed-segment compositing', () => {
     });
   });
 });
+
+describe('classifyDays day-range', () => {
+  const { classifyDays } = require('./skylineScene');
+  const habit = (overrides = {}) => ({
+    id: 'r',
+    cadenceType: 'DAILY',
+    cadenceTarget: 1,
+    startDate: '2026-10-01',
+    checkInDays: ['2026-10-02', '2026-10-05', '2026-10-20'],
+    shieldDays: [],
+    ...overrides,
+  });
+
+  test('no range behaves the same as calling without one', () => {
+    const withRange = classifyDays(habit(), '2026-10-10', undefined);
+    const noArg = classifyDays(habit(), '2026-10-10');
+    expect(withRange).toEqual(noArg);
+    expect(withRange[0].day).toBe('2026-10-01');
+    expect(withRange[withRange.length - 1].day).toBe('2026-10-10');
+  });
+
+  test('a range inside the history returns only those days', () => {
+    const days = classifyDays(habit(), '2026-10-31', { fromKey: '2026-10-03', toKey: '2026-10-06' });
+    expect(days.map((d) => d.day)).toEqual(['2026-10-03', '2026-10-04', '2026-10-05', '2026-10-06']);
+    expect(days.find((d) => d.day === '2026-10-05').state).toBe('set');
+  });
+
+  test('a range starting before the habit existed clips to its own startDate', () => {
+    const days = classifyDays(habit(), '2026-10-31', { fromKey: '2026-09-01', toKey: '2026-10-03' });
+    expect(days[0].day).toBe('2026-10-01');
+    expect(days[days.length - 1].day).toBe('2026-10-03');
+  });
+
+  test('a range ending after today clips to todayKey', () => {
+    const days = classifyDays(habit(), '2026-10-10', { fromKey: '2026-10-08', toKey: '2026-12-31' });
+    expect(days[days.length - 1].day).toBe('2026-10-10');
+  });
+});

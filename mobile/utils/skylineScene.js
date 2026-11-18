@@ -81,7 +81,7 @@ function toKeySet(value) {
  * draws from, instead of reimplementing it — the two must never disagree
  * about what a given day's floor looks like.
  */
-export function classifyDays(habit, todayKey) {
+export function classifyDays(habit, todayKey, range) {
   const checkInDays = toKeySet(habit.checkInDays);
   const shieldDays = toKeySet(habit.shieldDays);
   // habit.startDate is already a 'YYYY-MM-DD' day string per the section 8
@@ -92,12 +92,20 @@ export function classifyDays(habit, todayKey) {
   const startKey = habit.startDate ? String(habit.startDate).slice(0, 10) : todayKey;
   const dailyHabit = hasDailyTarget(habit);
 
+  // Optional inclusive day-range narrowing a habit's full history down to
+  // one finished tower segment (board 56's "see inside" for a past tower) —
+  // clipped to the habit's own real bounds either way, so a range before
+  // startDate or after todayKey behaves exactly like having no range at
+  // all. Absent, this is a no-op: every existing caller is unaffected.
+  const fromKey = range?.fromKey && range.fromKey > startKey ? range.fromKey : startKey;
+  const toKey = range?.toKey && range.toKey < todayKey ? range.toKey : todayKey;
+
   const candidateDays = dailyHabit
-    ? dateRange(startKey > todayKey ? todayKey : startKey, todayKey)
+    ? dateRange(fromKey > toKey ? toKey : fromKey, toKey)
     : [...checkInDays].sort();
 
   return candidateDays
-    .filter((day) => day >= startKey && day <= todayKey)
+    .filter((day) => day >= fromKey && day <= toKey)
     .map((day) => {
       let state = 'open';
       if (checkInDays.has(day)) state = 'set';

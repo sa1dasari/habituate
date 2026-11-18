@@ -13,6 +13,7 @@ import { useAppTheme } from '../hooks/useAppTheme';
 import { useAuth } from '../hooks/useAuth';
 import { useConfirm } from '../hooks/useConfirm';
 import { useHabits } from '../hooks/useHabits';
+import { useShowFinishedTowers } from '../hooks/useShowFinishedTowers';
 import { useChallenges } from '../hooks/useChallenges';
 import { unregisterPushToken } from '../hooks/usePushToken';
 import { useRegisterScrollToTop } from '../hooks/useRegisterScrollToTop';
@@ -47,6 +48,7 @@ function Card({ title, actionLabel, onAction, children, styles }) {
 export default function ProfileScreen() {
   const navigation = useNavigation();
   const { colors, typography } = useAppTheme();
+  const { showFinishedTowers } = useShowFinishedTowers();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const scrollRef = useRegisterScrollToTop('Profile');
   const { user, signOut } = useAuth();
@@ -193,6 +195,17 @@ export default function ProfileScreen() {
           )}
         </Card>
 
+        <Pressable style={styles.settingsRow} onPress={() => navigation.navigate('SkylineSettings')} testID="profile-skyline-row">
+          <View style={styles.settingsRowIcon}>
+            <MaterialCommunityIcons name="office-building-outline" size={18} color={colors.accent} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.settingsRowLabel}>Skyline</Text>
+            <Text style={styles.settingsRowSublabel}>Finished towers: {showFinishedTowers ? 'Shown' : 'Hidden'}</Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textMuted} />
+        </Pressable>
+
         <Pressable style={styles.settingsRow} onPress={() => navigation.navigate('AccountSettings')}>
           <View style={styles.settingsRowIcon}>
             <MaterialCommunityIcons name="cog-outline" size={18} color={colors.accent} />
@@ -324,6 +337,7 @@ function makeStyles(colors, typography) {
       justifyContent: 'center',
     },
     settingsRowLabel: { flex: 1, fontSize: 14, fontWeight: '600', color: colors.textPrimary },
+    settingsRowSublabel: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
     signOutBtn: {
       flexDirection: 'row',
       alignItems: 'center',

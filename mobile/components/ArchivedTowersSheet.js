@@ -11,8 +11,14 @@ import { useHabits } from '../hooks/useHabits';
 import MonumentSheet from './MonumentSheet';
 import { restorePayload } from '../utils/monument';
 import { categoryIcon } from '../constants/habitCategories';
+import { resolveHabitColor } from '../constants/towerColors';
 import api from '../api/client';
 import { fonts } from '../theme';
+
+function dateLabel(value) {
+  if (!value) return '-';
+  return new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
 
 /**
  * Phase 4 Part I, extended for board 58: the Skyline-reachable combined list
@@ -33,7 +39,7 @@ import { fonts } from '../theme';
  * fresh each time the sheet opens — the same pattern MonumentSheet already
  * uses for a retired habit's check-ins.
  */
-export default function ArchivedTowersSheet({ visible, onClose, theme, towerTheme, effectiveMode, categoryColors }) {
+export default function ArchivedTowersSheet({ visible, onClose, theme, towerTheme, effectiveMode, categoryColors, onAskAboutTower, onAskAboutDay }) {
   const { archivedHabits, updateHabit, deleteHabit } = useHabits();
   const [monumentHabitId, setMonumentHabitId] = useState(null);
   const monumentHabit = monumentHabitId ? archivedHabits.find((h) => h.id === monumentHabitId) || null : null;
@@ -127,6 +133,13 @@ export default function ArchivedTowersSheet({ visible, onClose, theme, towerThem
                 </Text>
               );
             }
+            if (section.key === 'finished' && finishedTowers && finishedTowers.length > 0) {
+              return (
+                <Text style={[styles.footnote, { color: theme.muted }]}>
+                  Finished towers can be hidden from your skyline in Profile, Skyline. They stay here either way.
+                </Text>
+              );
+            }
             if (section.key === 'retired' && archivedHabits.length === 0) {
               return (
                 <Text style={[styles.empty, { color: theme.muted }]}>
@@ -145,12 +158,17 @@ export default function ArchivedTowersSheet({ visible, onClose, theme, towerThem
                 accessibilityRole="button"
                 accessibilityLabel={`${item.habitName}, finished tower. Open details`}
               >
-                <View style={[styles.iconTile, { backgroundColor: theme.surfaceHigh }]}>
-                  <MaterialCommunityIcons name={categoryIcon(item.category)} size={22} color={theme.muted} />
+                <View style={[styles.towerSwatch, { backgroundColor: towerTheme.closedSegmentFill }]}>
+                  <View style={[styles.towerSwatchStripe, { backgroundColor: resolveHabitColor(item, effectiveMode, categoryColors) }]} />
                 </View>
-                <Text style={[styles.rowName, { color: theme.text }]} numberOfLines={1}>
-                  {item.habitName}
-                </Text>
+                <View style={styles.finishedRowText}>
+                  <Text style={[styles.rowName, { color: theme.text }]} numberOfLines={1}>
+                    {item.habitName}
+                  </Text>
+                  <Text style={[styles.rowSubtitle, { color: theme.muted }]} numberOfLines={1}>
+                    {`${item.autoToppedOut ? 'Topped out' : 'You topped it out'} ${dateLabel(item.toppedOutAt)} · ${item.floorCount || 0} ${item.floorCount === 1 ? 'day' : 'days'}`}
+                  </Text>
+                </View>
                 <MaterialCommunityIcons name="chevron-right" size={20} color={theme.muted} />
               </Pressable>
             ) : (
@@ -214,8 +232,11 @@ export default function ArchivedTowersSheet({ visible, onClose, theme, towerThem
           row={finishedRow}
           onClose={() => setFinishedRow(null)}
           theme={theme}
+          towerTheme={towerTheme}
           mode={effectiveMode}
           categoryColors={categoryColors}
+          onAskAboutTower={onAskAboutTower}
+          onAskAboutDay={onAskAboutDay}
         />
         <Toast toast={toast} onHide={hideToast} />
         <ConfirmModal request={request} onRespond={respond} />
@@ -235,8 +256,12 @@ const styles = StyleSheet.create({
   empty: { fontFamily: fonts.regular, fontSize: 14, textAlign: 'center', paddingVertical: 16 },
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, gap: 12 },
   iconTile: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  towerSwatch: { width: 44, height: 44, borderRadius: 8, overflow: 'hidden' },
+  towerSwatchStripe: { height: 6, width: '100%' },
   rowMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44 },
+  finishedRowText: { flex: 1, justifyContent: 'center', minHeight: 44 },
   rowName: { flex: 1, fontFamily: fonts.semiBold, fontSize: 18 },
+  rowSubtitle: { fontFamily: fonts.regular, fontSize: 13, marginTop: 2 },
   rowAction: { minHeight: 44, minWidth: 44, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center' },
   rowActionText: { fontFamily: fonts.bold, fontSize: 17 },
   footnote: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, marginTop: 18 },

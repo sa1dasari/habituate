@@ -331,3 +331,33 @@ describe('classifyDays day-range', () => {
     expect(days[days.length - 1].day).toBe('2026-10-10');
   });
 });
+
+describe('finishedTowerIllustration', () => {
+  const { finishedTowerIllustration } = require('./skylineScene');
+
+  test('reports a positive width/height and a non-empty path for every shape', () => {
+    const { shapes, width, height } = finishedTowerIllustration(26, '#8a5', theme);
+    expect(width).toBeGreaterThan(0);
+    expect(height).toBeGreaterThan(0);
+    expect(shapes.length).toBeGreaterThan(0);
+    shapes.forEach((s) => expect(s.d.length).toBeGreaterThan(0));
+  });
+
+  test('windows are always dark (shaded fill), never the lit color — a finished tower is past its run', () => {
+    const { shapes } = finishedTowerIllustration(10, '#8a5', theme);
+    const windows = shapes.find((s) => s.id.endsWith('-windows'));
+    expect(windows.fill).not.toBe('#8a5');
+  });
+
+  test('a short run still draws the minimum floor count, not zero', () => {
+    const short = finishedTowerIllustration(1, '#8a5', theme);
+    const zero = finishedTowerIllustration(0, '#8a5', theme);
+    expect(short.height).toBe(zero.height);
+  });
+
+  test('falls back to the theme closed-segment fill when no color is given', () => {
+    const { shapes } = finishedTowerIllustration(5, null, theme);
+    const front = shapes.find((s) => s.id.endsWith('-front'));
+    expect(front.fill).toBe(theme.closedSegmentFill);
+  });
+});

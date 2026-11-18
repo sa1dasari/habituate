@@ -217,7 +217,6 @@ if(S3==='ce-ended')endedChallenge(false);
 if(S3==='ce-shared'){
   const xs=[22,112,202,292],cnt=[19,25,16,21];
   let sc='';cnt.forEach((n,i)=>{sc+=`<g opacity=".78">${tw('#FF8A5C',{x:xs[i],base:190,w:50,fh:5.4,dx:16,dy:9,floors:rep('dark',n),windows:2,today:false,wW:2.6,wH:1.6})}${flagCap(xs[i],190-n*5.4,50,16,9)}</g>`});
-  [0,1,2].forEach(i=>{sc+=`<g opacity=".6">${bridge(xs[i]+66,xs[i+1],190-cnt[i]*5.4*.55,'safe')}</g>`});
   const lab=['You','Maya','Alex','Dev'].map((n,i)=>`<text x="${xs[i]+33}" y="214" text-anchor="middle" font-size="14" font-weight="700" fill="#F2F4F6" font-family="Nunito">${n}</text>`).join('');
   R.innerHTML=`<div style="position:absolute;inset:0;overflow:hidden"><div style="padding:30px 20px 0"><div style="font-size:17px;font-weight:700">‹&nbsp; Community</div><h1 style="font-size:30px;margin-top:12px">Morning Run Crew</h1><div style="display:flex;align-items:center;gap:10px;margin-top:4px"><span style="color:#A3ADB8;font-size:14px;flex:1">Shared habit · Ended by Sawan · Oct 30</span>${endedChip('Ended')}</div></div>
    <svg width="390" height="236" style="position:absolute;top:150px;left:0">${dusk(390,236,'d4')}${sc}${lab}</svg>

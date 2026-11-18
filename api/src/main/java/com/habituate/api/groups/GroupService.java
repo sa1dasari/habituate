@@ -80,7 +80,7 @@ public class GroupService {
         if (name.isBlank()) {
             throw new IllegalArgumentException("Group name is required");
         }
-        requireOwnedHabit(userId, request.habitId());
+        Habit ownHabit = requireOwnedHabit(userId, request.habitId());
 
         String streakRule = normalizeStreakRule(request.streakRule());
         String goalAlignment = normalizeOneOf(request.goalAlignment(), Group.UNIFIED, Group.UNIFIED, Group.SPLIT);
@@ -89,8 +89,19 @@ public class GroupService {
         boolean nudgesEnabled = request.nudgesEnabled() == null || request.nudgesEnabled();
         int skipDaysPerMonth = request.skipDaysPerMonth() == null ? 1 : Math.max(0, Math.min(3, request.skipDaysPerMonth()));
 
+        // A COOPERATIVE group's single shared cadence (SKYLINE.md decision #15) is captured
+        // once from the creator's own habit, not a separate form field — see Group.cadenceType's
+        // javadoc. INDEPENDENT groups have no shared streak, so their cadence is left DAILY/unset.
+        GroupCadence.Classification cadence = Group.COOPERATIVE.equals(trackingMode)
+                ? GroupCadence.classify(ownHabit.getCadenceType(), ownHabit.getCadenceTarget(), ownHabit.getWeeklyTarget(), ownHabit.getMonthlyTarget())
+                : new GroupCadence.Classification(GroupCadence.Period.DAILY, 1);
+        String cadenceType = cadence.period().name();
+        Integer weeklyTarget = cadence.period() == GroupCadence.Period.WEEKLY ? cadence.target() : null;
+        Integer monthlyTarget = cadence.period() == GroupCadence.Period.MONTHLY ? cadence.target() : null;
+
         Group group = groupRepository.save(new Group(
-                name, userId, streakRule, goalAlignment, trackingMode, visibilityLevel, nudgesEnabled, skipDaysPerMonth));
+                name, userId, streakRule, goalAlignment, trackingMode, visibilityLevel, nudgesEnabled, skipDaysPerMonth,
+                cadenceType, weeklyTarget, monthlyTarget));
         groupMemberRepository.save(new GroupMember(group.getId(), userId, request.habitId(), GroupMember.ACTIVE));
         groupStreakRepository.save(new GroupStreak(group.getId()));
 
@@ -191,7 +202,20 @@ public class GroupService {
             throw new IllegalArgumentException("This invite was already responded to");
         }
 
-        requireOwnedHabit(userId, habitId);
+        Habit joinerHabit = requireOwnedHabit(userId, habitId);
+
+        Group groupForCadence = groupRepository.findById(groupId)
+                .orElseThrow(() -> new EntityNotFoundException("Group not found: " + groupId));
+        if (Group.COOPERATIVE.equals(groupForCadence.getTrackingMode())) {
+            GroupCadence.Classification groupCadence = GroupCadence.classify(
+                    groupForCadence.getCadenceType(), 1, groupForCadence.getWeeklyTarget(), groupForCadence.getMonthlyTarget());
+            GroupCadence.Classification joinerCadence = GroupCadence.classify(
+                    joinerHabit.getCadenceType(), joinerHabit.getCadenceTarget(), joinerHabit.getWeeklyTarget(), joinerHabit.getMonthlyTarget());
+            if (groupCadence.period() != joinerCadence.period() || groupCadence.target() != joinerCadence.target()) {
+                throw new IllegalArgumentException(
+                        "This group tracks a " + cadenceLabel(groupCadence) + " goal — pick a habit with the same cadence to join it.");
+            }
+        }
 
         member.setHabitId(habitId);
         member.setStatus(GroupMember.ACTIVE);
@@ -281,6 +305,14 @@ public class GroupService {
             throw new ForbiddenException("Habit does not belong to user: " + userId);
         }
         return habit;
+    }
+
+    private String cadenceLabel(GroupCadence.Classification cadence) {
+        return switch (cadence.period()) {
+            case DAILY -> "daily";
+            case WEEKLY -> cadence.target() + "x/week";
+            case MONTHLY -> cadence.target() + "x/month";
+        };
     }
 
     private String normalizeStreakRule(String value) {

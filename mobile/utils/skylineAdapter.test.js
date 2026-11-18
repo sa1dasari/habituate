@@ -1,4 +1,4 @@
-const { toSceneHabit, deriveBestRunWindow } = require('./skylineAdapter');
+const { toSceneHabit, toLotHabit, deriveBestRunWindow } = require('./skylineAdapter');
 
 function ci(day, value = 1) {
   return { occurredAt: `${day}T12:00:00`, value };
@@ -85,6 +85,17 @@ describe('toSceneHabit', () => {
     expect(toSceneHabit(habit, categoryColors).color).toBe('#6b7280');
   });
 
+  test('a picked habit.color wins over the category colour, per mode', () => {
+    const habit = {
+      id: 9, name: 'Picked', category: 'Fitness', color: 'teal', cadenceType: 'DAILY', cadenceTarget: 1,
+      trackingMode: 'BOOLEAN', createdAt: '2026-11-01T00:00:00', checkIns: [], streak: 0, longestStreak: 0,
+    };
+    expect(toSceneHabit(habit, categoryColors).color).toBe('#14B8A6');
+    expect(toSceneHabit(habit, categoryColors, 'light').color).toBe('#009A88');
+    expect(toLotHabit(habit, categoryColors, 'light').color).toBe('#009A88');
+    expect(toLotHabit({ ...habit, color: null }, categoryColors).color).toBe('#f97316');
+  });
+
   test('shieldDays is always empty (not yet solved, not a bug)', () => {
     const habit = {
       id: 4,
@@ -99,5 +110,45 @@ describe('toSceneHabit', () => {
       longestStreak: 0,
     };
     expect(toSceneHabit(habit, categoryColors).shieldDays).toEqual([]);
+  });
+
+  describe('after a top-out', () => {
+    const topped = {
+      id: 9,
+      name: 'Read',
+      category: 'Fitness',
+      cadenceType: 'DAILY',
+      cadenceTarget: 1,
+      trackingMode: 'BOOLEAN',
+      createdAt: '2026-09-01T00:00:00',
+      checkIns: [ci('2026-09-03'), ci('2026-09-04'), ci('2026-11-15')],
+      streak: 1,
+      longestStreak: 2,
+      recentClosedSegments: [{ floorCount: 40, bestRunInSegment: 2, toppedOutAt: '2026-11-14T10:00:00' }],
+    };
+
+    test('the active tower starts at the last top-out, not createdAt', () => {
+      expect(toSceneHabit(topped, categoryColors).startDate).toBe('2026-11-14');
+    });
+
+    test('a finished tower is as tall as the calendar days it stood, not its check-in count', () => {
+      const habit = {
+        ...topped,
+        recentClosedSegments: [
+          { startedAt: '2026-09-01T00:00:00', toppedOutAt: '2026-11-14T10:00:00', floorCount: 3, bestRunInSegment: 2 },
+        ],
+      };
+      // Sep 1 .. Nov 14 inclusive = 75 days, though only 3 check-ins landed in it.
+      expect(toSceneHabit(habit, categoryColors).closedSegments[0].floorCount).toBe(75);
+    });
+
+    test('a habit that never topped out still starts at createdAt', () => {
+      expect(toSceneHabit({ ...topped, recentClosedSegments: [] }, categoryColors).startDate).toBe('2026-09-01');
+    });
+
+    test('a best run that ended inside the finished tower gets no ledge on the new one', () => {
+      // longestStreak 2 matches Sep 3-4, which ended before 2026-11-14.
+      expect(toSceneHabit(topped, categoryColors).bestRun).toBeNull();
+    });
   });
 });

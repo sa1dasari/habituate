@@ -133,18 +133,20 @@ class HabitServiceTopOutTest {
     }
 
     @Test
-    void topOutHabit_rejectsATowerYoungerThanItsThreshold() {
-        createDailyHabit("topout-test-user-2", 30);
-        backdateHabitCreation(habitId, 10); // younger than the 30-day default threshold
+    void topOutHabit_isAllowedOnAnyDay_evenForABrandNewTower() {
+        createDailyHabit("topout-test-user-2", 30); // far younger than its 30-day cap
 
-        assertThatThrownBy(() -> habitService.topOutHabit(userId, habitId, "UTC"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("30");
+        habitService.topOutHabit(userId, habitId, "UTC");
+
+        var segments = habitTowerRepository.findByHabitIdOrderByStartedAtAsc(habitId);
+        assertThat(segments).hasSize(2);
+        assertThat(segments.get(0).getToppedOutAt()).isNotNull();
+        assertThat(segments.get(0).isAutoToppedOut()).isFalse();
     }
 
     @Test
-    void topOutHabit_succeedsOnceTheTowerMeetsItsOwnThreshold() {
-        createDailyHabit("topout-test-user-3", 10); // per-habit threshold, lower than the 30-day default
+    void topOutHabit_closesTheOpenSegmentAndOpensANewOne() {
+        createDailyHabit("topout-test-user-3", 10);
         backdateHabitCreation(habitId, 15);
 
         habitService.topOutHabit(userId, habitId, "UTC");
@@ -152,16 +154,17 @@ class HabitServiceTopOutTest {
         var segments = habitTowerRepository.findByHabitIdOrderByStartedAtAsc(habitId);
         assertThat(segments).hasSize(2);
         assertThat(segments.get(0).getToppedOutAt()).isNotNull();
+        assertThat(segments.get(1).getToppedOutAt()).isNull();
     }
 
     @Test
-    void topOutHabit_aSecondAttemptRightAfterIsRejected_newSegmentIsTooYoung() {
+    void topOutHabit_aSecondManualTopOutRightAfterIsAlsoAllowed() {
         createDailyHabit("topout-test-user-4", 10);
-        backdateHabitCreation(habitId, 15);
         habitService.topOutHabit(userId, habitId, "UTC");
 
-        assertThatThrownBy(() -> habitService.topOutHabit(userId, habitId, "UTC"))
-                .isInstanceOf(IllegalArgumentException.class);
+        habitService.topOutHabit(userId, habitId, "UTC");
+
+        assertThat(habitTowerRepository.findByHabitIdOrderByStartedAtAsc(habitId)).hasSize(3);
     }
 
     @Test
@@ -241,5 +244,147 @@ class HabitServiceTopOutTest {
 
         assertThat(response.closedSegmentCount()).isEqualTo(3);
         assertThat(response.recentClosedSegments()).hasSize(2);
+    }
+
+    // ---- the cap: validation
+
+    @Test
+    void createHabit_defaultsTheCapToThirtyAndAcceptsOneOfTheirOwn() {
+        userId = "topout-test-user-12";
+        HabitResponse defaulted = habitService.createHabit(userId, new CreateHabitRequest(
+                "Default Cap", "General", "DAILY", 1, null, null, "BOOLEAN", null, null, null, null));
+        assertThat(defaulted.topOutThresholdDays()).isEqualTo(30);
+        habitService.deleteHabit(userId, defaulted.id());
+
+        HabitResponse custom = habitService.createHabit(userId, new CreateHabitRequest(
+                "Custom Cap", "General", "DAILY", 1, null, null, "BOOLEAN", null, null, null, null, 21));
+        habitId = custom.id();
+
+        assertThat(custom.topOutThresholdDays()).isEqualTo(21);
+    }
+
+    @Test
+    void createHabit_rejectsACapAboveThirtyFiveWithASpecificMessage() {
+        userId = "topout-test-user-13";
+
+        assertThatThrownBy(() -> habitService.createHabit(userId, new CreateHabitRequest(
+                "Too High", "General", "DAILY", 1, null, null, "BOOLEAN", null, null, null, null, 36)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Top out after must be between 1 and 35 days");
+    }
+
+    @Test
+    void updateHabit_acceptsThirtyFiveButRejectsThirtySixAndZero() {
+        createDailyHabit("topout-test-user-14", null);
+
+        habitService.updateHabit(userId, habitId, new UpdateHabitRequest(
+                null, null, null, null, null, null, null, null, null, null, null, null, 35));
+        assertThat(habitRepository.findById(habitId).orElseThrow().getTopOutThresholdDays()).isEqualTo(35);
+
+        assertThatThrownBy(() -> habitService.updateHabit(userId, habitId, new UpdateHabitRequest(
+                null, null, null, null, null, null, null, null, null, null, null, null, 36)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Top out after must be between 1 and 35 days");
+        assertThatThrownBy(() -> habitService.updateHabit(userId, habitId, new UpdateHabitRequest(
+                null, null, null, null, null, null, null, null, null, null, null, null, 0)))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    // ---- automatic top-out
+
+    private Habit loadHabit() {
+        return habitRepository.findById(habitId).orElseThrow();
+    }
+
+    @Test
+    void autoTopOut_closesATowerThatHasStoodItsCap_atTheCapBoundary_andFlagsItAutomatic() {
+        createDailyHabit("topout-test-user-15", 30);
+        backdateHabitCreation(habitId, 40);
+
+        boolean toppedOut = habitService.autoTopOutIfDue(loadHabit(), java.time.ZoneOffset.UTC, Instant.now());
+
+        assertThat(toppedOut).isTrue();
+        var segments = habitTowerRepository.findByHabitIdOrderByStartedAtAsc(habitId);
+        assertThat(segments).hasSize(2);
+        assertThat(segments.get(0).isAutoToppedOut()).isTrue();
+        assertThat(segments.get(0).getToppedOutAt()).isEqualTo(segments.get(1).getStartedAt());
+        assertThat(segments.get(1).getToppedOutAt()).isNull();
+        assertThat(segments.get(1).isAutoToppedOut()).isFalse();
+    }
+
+    @Test
+    void autoTopOut_doesNothingBeforeTheCap_andIsIdempotentAfterIt() {
+        createDailyHabit("topout-test-user-16", 30);
+        backdateHabitCreation(habitId, 10);
+        assertThat(habitService.autoTopOutIfDue(loadHabit(), java.time.ZoneOffset.UTC, Instant.now())).isFalse();
+
+        backdateCurrentSegment(habitId, 40);
+        assertThat(habitService.autoTopOutIfDue(loadHabit(), java.time.ZoneOffset.UTC, Instant.now())).isTrue();
+        assertThat(habitService.autoTopOutIfDue(loadHabit(), java.time.ZoneOffset.UTC, Instant.now())).isFalse();
+
+        assertThat(habitTowerRepository.findByHabitIdOrderByStartedAtAsc(habitId)).hasSize(2);
+    }
+
+    @Test
+    void autoTopOut_closesOnlyOnceEvenWhenSeveralCapsAreOverdue() {
+        createDailyHabit("topout-test-user-17", 10);
+        backdateHabitCreation(habitId, 95); // nine and a half caps overdue
+
+        habitService.autoTopOutIfDue(loadHabit(), java.time.ZoneOffset.UTC, Instant.now());
+
+        assertThat(habitTowerRepository.findByHabitIdOrderByStartedAtAsc(habitId)).hasSize(2);
+    }
+
+    @Test
+    void autoTopOut_neverTouchesWeeklyOrMonthlyHabits() {
+        userId = "topout-test-user-18";
+        HabitResponse lot = habitService.createHabit(userId, new CreateHabitRequest(
+                "Gym", "General", "DAILY", 1, 3, null, "BOOLEAN", null, null, null, null));
+        habitId = lot.id();
+        backdateHabitCreation(habitId, 90);
+
+        assertThat(habitService.autoTopOutIfDue(loadHabit(), java.time.ZoneOffset.UTC, Instant.now())).isFalse();
+        assertThat(habitTowerRepository.findByHabitIdOrderByStartedAtAsc(habitId)).isEmpty();
+    }
+
+    @Test
+    void autoTopOut_leavesARetiredHabitAlone() {
+        createDailyHabit("topout-test-user-19", 10);
+        backdateHabitCreation(habitId, 40);
+        habitService.updateHabit(userId, habitId, new UpdateHabitRequest(
+                null, null, null, null, null, null, null, null, null, null, true, null, null));
+
+        assertThat(habitService.autoTopOutIfDue(loadHabit(), java.time.ZoneOffset.UTC, Instant.now())).isFalse();
+    }
+
+    @Test
+    void autoTopOut_keepsTheRunAndCheckIns() {
+        createDailyHabit("topout-test-user-20", 10);
+        backdateHabitCreation(habitId, 30);
+        Instant yesterday = Instant.now().minus(1, ChronoUnit.DAYS);
+        checkInRepository.save(new CheckIn(habitId, userId, yesterday, 1, "manual"));
+
+        habitService.autoTopOutIfDue(loadHabit(), java.time.ZoneOffset.UTC, Instant.now());
+
+        assertThat(checkInRepository.findByUserIdAndHabitIdOrderByOccurredAtAsc(userId, habitId)).hasSize(1);
+    }
+
+    // ---- the one-time clamp
+
+    @Test
+    void clampTopOutCaps_bringsCapsAboveThirtyFiveDownToThirtyFive_andIsIdempotent() {
+        createDailyHabit("topout-test-user-21", null);
+        new TransactionTemplate(transactionManager).executeWithoutResult(status ->
+                entityManager.createNativeQuery("UPDATE habits SET top_out_threshold_days = 3650 WHERE id = ?1")
+                        .setParameter(1, habitId)
+                        .executeUpdate());
+        entityManager.clear();
+
+        int first = habitService.clampTopOutCaps();
+        entityManager.clear();
+
+        assertThat(first).isGreaterThanOrEqualTo(1);
+        assertThat(habitRepository.findById(habitId).orElseThrow().getTopOutThresholdDays()).isEqualTo(35);
+        assertThat(habitService.clampTopOutCaps()).isZero();
     }
 }

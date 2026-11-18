@@ -1,18 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import ConfirmModal from './ConfirmModal';
 import ScrubberInput from './ScrubberInput';
 import TimePicker from './TimePicker';
 import Toast from './Toast';
-import TourHighlight from './TourHighlight';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useChallenges } from '../hooks/useChallenges';
 import { useConfirm } from '../hooks/useConfirm';
 import { useToast } from '../hooks/useToast';
-import { useTourTarget } from '../hooks/useTourTarget';
-import { TOUR_SCOPES, TOUR_TARGETS } from '../constants/onboardingTour';
 import { toDateKey } from '../utils/date';
 import { radii, spacing } from '../theme';
 
@@ -73,7 +70,6 @@ export default function CreateChallengeModal({ visible, onClose, onDeleted, chal
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const { busy, createChallenge: createChallengeAction, updateChallenge, deleteChallenge } = useChallenges();
   const isEditing = !!challenge;
-  const tourHeaderRef = useTourTarget(TOUR_TARGETS.MODAL_CREATE_CHALLENGE_HEADER);
   const { toast, showToast, hideToast } = useToast();
   const { request, confirm, respond } = useConfirm();
 
@@ -201,7 +197,7 @@ export default function CreateChallengeModal({ visible, onClose, onDeleted, chal
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={handleClose}>
       <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header} ref={tourHeaderRef}>
+        <View style={styles.header}>
           <Pressable onPress={handleClose} hitSlop={12} style={styles.closeBtn}>
             <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
           </Pressable>
@@ -209,7 +205,9 @@ export default function CreateChallengeModal({ visible, onClose, onDeleted, chal
           <View style={{ width: 34 }} />
         </View>
 
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          <Text style={styles.subtitle}>A goal with an end date. Everyone adds floors until it is done.</Text>
           <TextInput
             style={styles.input}
             placeholder="Challenge name"
@@ -406,20 +404,21 @@ export default function CreateChallengeModal({ visible, onClose, onDeleted, chal
               </Pressable>
             ))}
           </View>
-
-          <Pressable style={styles.primaryButton} disabled={busy} onPress={handleCreate}>
-            <Text style={styles.primaryButtonText}>{isEditing ? 'Save changes' : 'Create & join'}</Text>
-          </Pressable>
-
-          {isEditing ? (
-            <Pressable style={styles.deleteButton} disabled={busy} onPress={handleDelete}>
-              <MaterialCommunityIcons name="trash-can-outline" size={16} color={colors.atRisk} />
-              <Text style={styles.deleteButtonText}>Delete challenge</Text>
-            </Pressable>
-          ) : null}
         </ScrollView>
+        <View style={styles.footer}>
+            <Pressable style={styles.primaryButton} disabled={busy} onPress={handleCreate} accessibilityRole="button" accessibilityLabel={isEditing ? 'Save changes' : 'Create and join challenge'} testID="challenge-form-submit">
+              <Text style={styles.primaryButtonText}>{isEditing ? 'Save changes' : 'Create & join'}</Text>
+            </Pressable>
+
+            {isEditing ? (
+              <Pressable style={styles.deleteButton} disabled={busy} onPress={handleDelete} accessibilityRole="button" accessibilityLabel="Delete challenge" testID="challenge-form-delete">
+                <MaterialCommunityIcons name="trash-can-outline" size={16} color={colors.atRisk} />
+                <Text style={styles.deleteButtonText}>Delete challenge</Text>
+              </Pressable>
+            ) : null}
+        </View>
+        </KeyboardAvoidingView>
       </SafeAreaView>
-      <TourHighlight scope={TOUR_SCOPES.CREATE_CHALLENGE_MODAL} />
       <Toast toast={toast} onHide={hideToast} />
       <ConfirmModal request={request} onRespond={respond} />
     </Modal>
@@ -429,6 +428,9 @@ export default function CreateChallengeModal({ visible, onClose, onDeleted, chal
 function makeStyles(colors, typography) {
   return StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: colors.background },
+    flex: { flex: 1 },
+    footer: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.sm, backgroundColor: colors.background, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+    subtitle: { ...typography.meta, marginBottom: spacing.md },
     header: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -441,7 +443,7 @@ function makeStyles(colors, typography) {
     },
     headerTitle: { ...typography.sectionTitle },
     closeBtn: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
-    scroll: { padding: spacing.lg, paddingBottom: spacing.xxl },
+    scroll: { padding: spacing.lg, paddingBottom: spacing.xl },
     input: {
       backgroundColor: colors.background,
       borderRadius: radii.md,
@@ -476,7 +478,9 @@ function makeStyles(colors, typography) {
     colorSwatchActive: { borderColor: colors.textPrimary },
     presetRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md },
     presetChip: {
-      paddingHorizontal: spacing.md,
+      paddingHorizontal: spacing.sm + 2,
+      minHeight: 36,
+      justifyContent: 'center',
       paddingVertical: spacing.sm,
       borderRadius: radii.pill,
       backgroundColor: colors.background,
@@ -521,7 +525,8 @@ function makeStyles(colors, typography) {
     primaryButton: {
       backgroundColor: colors.accent,
       borderRadius: radii.pill,
-      paddingVertical: spacing.sm + 2,
+      minHeight: 48,
+      justifyContent: 'center',
       alignItems: 'center',
     },
     primaryButtonText: { fontSize: 13, fontWeight: '700', color: '#FFFFFF' },
@@ -530,7 +535,7 @@ function makeStyles(colors, typography) {
       alignItems: 'center',
       justifyContent: 'center',
       gap: spacing.xs,
-      marginTop: spacing.lg,
+      minHeight: 44,
       paddingVertical: spacing.sm,
     },
     deleteButtonText: { fontSize: 13, fontWeight: '700', color: colors.atRisk },

@@ -94,6 +94,10 @@ public class Habit {
     @Column(columnDefinition = "text")
     private String motivation;
 
+    /** Optional tower colour palette key (TowerColors); null = category colour. */
+    @Column(length = 20)
+    private String color;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -237,6 +241,14 @@ public class Habit {
 
     public void setMotivation(String motivation) {
         this.motivation = motivation;
+    }
+
+    public String getColor() {
+        return color;
+    }
+
+    public void setColor(String color) {
+        this.color = color;
     }
 
     public Instant getCreatedAt() {

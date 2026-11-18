@@ -192,6 +192,10 @@ export const api = {
   // Closes the habit's current tower segment and starts a new one — daily-cadence only.
   topOutHabit: (habitId) => request(`/api/habits/${habitId}/top-out`, { method: 'POST' }),
 
+  // Every closed tower segment of the caller's own non-archived habits, flat
+  // and uncapped (board 58's combined Finished + Retired towers list).
+  listFinishedTowers: () => request('/api/habits/finished-towers'),
+
   listFriends: () => request('/api/friendships'),
 
   listPendingFriendRequests: () => request('/api/friendships/pending'),

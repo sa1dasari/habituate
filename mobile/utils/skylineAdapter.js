@@ -1,6 +1,8 @@
 import { toDateKey } from './date';
 import { sumValueForDay } from './dayStats';
 import { cadenceTarget, hasDailyTarget, isCountMode } from './cadence';
+import { currentSegmentStart } from './towerAge';
+import { resolveHabitColor } from '../constants/towerColors';
 
 /**
  * Converts a hydrated habit (useHabits.js's shape: id, name, category,
@@ -78,12 +80,12 @@ export function deriveBestRunWindow(habit, setDays) {
   return matches.reduce((best, r) => (r.endDate > best.endDate ? r : best));
 }
 
-const FALLBACK_CATEGORY = 'Other';
-
 /**
  * @param {object} habit - one hydrated habit from useHabits.js.
  * @param {Record<string, string>} categoryColors - resolved per-mode tower
  *   colors (theme.js's buildCategoryTowerColors()[mode]).
+ * @param {'dark'|'light'} [mode] - which mode categoryColors is for; a
+ *   habit's own picked colour (habit.color) is resolved in this mode.
  */
 /**
  * Converts a hydrated habit into utils/lots.js's input shape (SKYLINE.md
@@ -93,11 +95,11 @@ const FALLBACK_CATEGORY = 'Other';
  * deliberate-gap reasoning as toSceneHabit's `shieldDays` — per-period
  * Shield Day storage is still open decision SKYLINE.md section 14 #1.
  */
-export function toLotHabit(habit, categoryColors) {
+export function toLotHabit(habit, categoryColors, mode = 'dark') {
   return {
     id: habit.id,
     name: habit.name,
-    color: categoryColors[habit.category] || categoryColors[FALLBACK_CATEGORY],
+    color: resolveHabitColor(habit, mode, categoryColors),
     trackingMode: habit.trackingMode,
     weeklyTarget: habit.weeklyTarget,
     monthlyTarget: habit.monthlyTarget,
@@ -110,27 +112,38 @@ export function toLotHabit(habit, categoryColors) {
   };
 }
 
-export function toSceneHabit(habit, categoryColors) {
+export function toSceneHabit(habit, categoryColors, mode = 'dark', showFinishedTowers = true) {
   const setDays = checkInDaySet(habit);
+  // The active tower is the *current segment* (SKYLINE.md section 6): after
+  // a top-out the old tower is finished (drawn faded behind) and a new one
+  // starts in front, short again. So it starts when the last segment closed,
+  // not at createdAt — otherwise topping out would never shrink anything.
+  const segStart = currentSegmentStart(habit);
+  const startDate = segStart ? toDateKey(segStart) : null;
+  // A best run that ended before this segment began belongs to a finished
+  // tower; the ledge would have nothing to sit on here.
+  const bestRunRaw = deriveBestRunWindow(habit, setDays);
+  const bestRun =
+    bestRunRaw && startDate && String(bestRunRaw.endDate).slice(0, 10) < startDate ? null : bestRunRaw;
   return {
     id: habit.id,
     name: habit.name,
     category: habit.category,
-    color: categoryColors[habit.category] || categoryColors[FALLBACK_CATEGORY],
+    color: resolveHabitColor(habit, mode, categoryColors),
     cadenceType: habit.cadenceType,
     cadenceTarget: habit.cadenceTarget,
     weeklyTarget: habit.weeklyTarget,
     monthlyTarget: habit.monthlyTarget,
     trackingMode: habit.trackingMode,
     dailyTargetExplicit: habit.dailyTargetExplicit,
-    startDate: habit.createdAt ? toDateKey(habit.createdAt) : null,
+    startDate,
     checkInDays: setDays,
     // Per-date Shield Day storage is an open decision (SKYLINE.md section 14
     // #1), not yet solved — glass floors aren't rendered for real habits
     // until that lands. Deliberately empty, not a bug.
     shieldDays: [],
     currentRun: habit.streak || 0,
-    bestRun: deriveBestRunWindow(habit, setDays),
+    bestRun,
     // Archived/topped-out towers are Phase 3 (tower sheet, monument state) —
     // every habit reaching this adapter is rendered as 'active' for now.
     state: 'active',
@@ -140,9 +153,23 @@ export function toSceneHabit(habit, categoryColors) {
     // Absent/empty for the overwhelming common case (a habit that's never
     // topped out), which keeps buildScene's additive-only guard exact: no
     // closedSegments means byte-identical output to before this phase.
-    closedSegments: (habit.recentClosedSegments || []).map((s) => ({
-      floorCount: s.floorCount || 0,
-      bestRun: s.bestRunInSegment || 0,
-    })),
+    // floorCount is the tower's drawn height: one floor per calendar day it
+    // stood (start to top-out), the same rule the live tower follows — not
+    // the number of check-ins, which would shrink a tower with open days.
+    // Board 57/15's global switch (overridable per habit on board 45) hides
+    // this entirely rather than drawing it lighter — a display preference,
+    // not a new visual state.
+    closedSegments: !showFinishedTowers
+      ? []
+      : (habit.recentClosedSegments || []).map((s) => {
+          const days =
+            s.startedAt && s.toppedOutAt
+              ? daysBetweenInclusive(toDateKey(s.startedAt), toDateKey(s.toppedOutAt))
+              : 0;
+          return {
+            floorCount: days > 0 ? days : s.floorCount || 0,
+            bestRun: s.bestRunInSegment || 0,
+          };
+        }),
   };
 }

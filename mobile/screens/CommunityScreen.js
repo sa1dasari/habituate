@@ -18,7 +18,6 @@ import NotificationCenterModal from '../components/NotificationCenterModal';
 import ProtectionInfoModal from '../components/ProtectionInfoModal';
 import FriendProfileModal from '../components/FriendProfileModal';
 import Toast from '../components/Toast';
-import TourHighlight from '../components/TourHighlight';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useAuth } from '../hooks/useAuth';
 import { useGroups } from '../hooks/useGroups';
@@ -28,10 +27,7 @@ import { useGroupActivity } from '../hooks/useGroupActivity';
 import { useFriends } from '../hooks/useFriends';
 import { useNotifications } from '../hooks/useNotifications';
 import { useRegisterScrollToTop } from '../hooks/useRegisterScrollToTop';
-import { useOnboardingTour } from '../hooks/useOnboardingTour';
 import { useToast } from '../hooks/useToast';
-import { useTourTarget } from '../hooks/useTourTarget';
-import { TOUR_SCOPES, TOUR_TARGETS } from '../constants/onboardingTour';
 import { radii, spacing } from '../theme';
 
 const AVATAR_COLORS = ['#2563EB', '#7C3AED', '#0891B2', '#DB2777', '#EA580C'];
@@ -76,27 +72,6 @@ export default function CommunityScreen({ navigation, route }) {
     if (!userId || (user && userId === user.uid)) return;
     setProfileUserId(userId);
   };
-
-  const { active: tourActive, currentStep: tourStep } = useOnboardingTour();
-  const tourHeaderActionsRef = useTourTarget(TOUR_TARGETS.COMMUNITY_HEADER_ACTIONS);
-  const tourCreateGroupRef = useTourTarget(TOUR_TARGETS.COMMUNITY_CREATE_GROUP);
-  const tourCreateChallengeRef = useTourTarget(TOUR_TARGETS.COMMUNITY_CREATE_CHALLENGE);
-
-  // Real-screen tour steps: opens the actual Create Shared Habit / Create
-  // Challenge / streak-freeze-info modals in step with the walkthrough, and
-  // reverts all three the moment the tour ends so it never leaves one open
-  // behind the tour's back.
-  useEffect(() => {
-    if (!tourActive) {
-      setCreateGroupVisible(false);
-      setCreateChallengeVisible(false);
-      setFreezeInfoVisible(false);
-      return;
-    }
-    setCreateGroupVisible(tourStep?.id === 'shared-habit-form');
-    setCreateChallengeVisible(tourStep?.id === 'challenge-form');
-    setFreezeInfoVisible(tourStep?.id === 'streak-freeze-info');
-  }, [tourActive, tourStep]);
 
   // Coming from Profile's Challenges card "See all" — jump straight to the
   // Challenges section instead of landing at the top of a long scroll.
@@ -189,7 +164,7 @@ export default function CommunityScreen({ navigation, route }) {
             <Text style={styles.subtitle}>Shared habits, group streaks, and challenges</Text>
           </View>
 
-          <View style={styles.headerActions} ref={tourHeaderActionsRef}>
+          <View style={styles.headerActions}>
             <Pressable
               style={styles.iconButton}
               accessibilityRole="button"
@@ -286,7 +261,6 @@ export default function CommunityScreen({ navigation, route }) {
           </View>
           <View style={styles.sectionActions}>
             <Pressable
-              ref={tourCreateGroupRef}
               style={styles.createBtn}
               accessibilityRole="button"
               accessibilityLabel="Create a shared habit"
@@ -359,7 +333,6 @@ export default function CommunityScreen({ navigation, route }) {
           <Text style={styles.sectionTitle}>Challenges</Text>
           <View style={styles.sectionActions}>
             <Pressable
-              ref={tourCreateChallengeRef}
               style={styles.createBtn}
               accessibilityRole="button"
               accessibilityLabel="Create a challenge"
@@ -437,7 +410,10 @@ export default function CommunityScreen({ navigation, route }) {
         onOpenGroup={setSelectedGroupId}
         onOpenChallenge={setSelectedChallengeId}
         onOpenInsightsPeriod={(period, periodStart) => {
-          navigation.navigate('Insights', { periodNav: { period, anchorDate: periodStart || null } });
+          navigation.navigate('Insights', {
+            screen: 'InsightsMain',
+            params: { periodNav: { period, anchorDate: periodStart || null } },
+          });
         }}
         onOpenFriends={() => setFriendsVisible(true)}
       />
@@ -449,7 +425,6 @@ export default function CommunityScreen({ navigation, route }) {
       <FriendProfileModal visible={!!profileUserId} userId={profileUserId} onClose={() => setProfileUserId(null)} />
       <Toast toast={toast} onHide={hideToast} />
     </SafeAreaView>
-    <TourHighlight scope={TOUR_SCOPES.COMMUNITY} />
     </>
   );
 }

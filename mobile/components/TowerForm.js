@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg from 'react-native-svg';
@@ -8,16 +8,16 @@ import TimePicker from './TimePicker';
 import SkylineTower from './SkylineTower';
 import Toast from './Toast';
 import ConfirmModal from './ConfirmModal';
-import TourHighlight from './TourHighlight';
 import { useToast } from '../hooks/useToast';
 import { useConfirm } from '../hooks/useConfirm';
 import { useHabits } from '../hooks/useHabits';
-import { useOnboardingTour } from '../hooks/useOnboardingTour';
-import { useTourTarget } from '../hooks/useTourTarget';
-import { TOUR_SCOPES, TOUR_TARGETS } from '../constants/onboardingTour';
 import { HABIT_CATEGORIES, HABIT_CATEGORY_OPTIONS, DEFAULT_HABIT_CATEGORY, categoryColor } from '../constants/habitCategories';
 import { effectiveWeeklyTarget, effectiveMonthlyTarget } from '../utils/cadence';
 import { buildScene, X0, TOWER_W, DX, CRANE_HEIGHT, FLOOR_H, BASE_Y } from '../utils/skylineScene';
+import TowerColorPicker from './TowerColorPicker';
+import { useAppTheme } from '../hooks/useAppTheme';
+import { useShowFinishedTowers } from '../hooks/useShowFinishedTowers';
+import { resolveHabitColor } from '../constants/towerColors';
 import { fonts } from '../theme';
 
 const DEFAULT_TOP_OUT_THRESHOLD_DAYS = 30;
@@ -43,6 +43,7 @@ function emptyForm() {
     reminderEnabled: false,
     motivation: '',
     topOutThresholdDays: null,
+    color: null,
   };
 }
 
@@ -75,7 +76,8 @@ function formFromHabit(habit) {
     scheduledTime: habit.scheduledTime || '',
     reminderEnabled: Boolean(habit.reminderEnabled),
     motivation: habit.motivation || '',
-    topOutThresholdDays: habit.topOutThresholdDays ?? null,
+    topOutThresholdDays: habit.topOutThresholdDays != null ? Math.min(35, habit.topOutThresholdDays) : null,
+    color: habit.color || null,
   };
 }
 
@@ -114,16 +116,13 @@ function formFromHabit(habit) {
  */
 export default function TowerForm({ visible, onClose, habit, theme, towerTheme, categoryColors }) {
   const { createHabit, updateHabit, deleteHabit } = useHabits();
+  const { effectiveMode } = useAppTheme();
+  const { showFinishedTowers: globalShowFinishedTowers, habitOverrides, setHabitOverride } = useShowFinishedTowers();
   const { toast, showToast, hideToast } = useToast();
   const { request, confirm, respond } = useConfirm();
   const [form, setForm] = useState(() => (habit ? formFromHabit(habit) : emptyForm()));
   const [busy, setBusy] = useState(false);
   const isEditing = form.id != null;
-
-  const { active: tourActive, currentStep: tourStep } = useOnboardingTour();
-  const tourFormCardRef = useTourTarget(
-    tourActive && tourStep?.id === 'habits-create-form' ? TOUR_TARGETS.TOWER_FORM_CARD : null
-  );
 
   const setField = (key, value) => setForm((f) => ({ ...f, [key]: value }));
 
@@ -145,7 +144,7 @@ export default function TowerForm({ visible, onClose, habit, theme, towerTheme, 
     return {
       id: 'preview',
       name: form.name.trim() || 'New tower',
-      color: categoryColors[form.category] || categoryColor(form.category),
+      color: resolveHabitColor({ color: form.color, category: form.category }, effectiveMode, categoryColors) || categoryColor(form.category),
       cadenceType: 'DAILY',
       cadenceTarget: 1,
       startDate: todayKey,
@@ -155,7 +154,7 @@ export default function TowerForm({ visible, onClose, habit, theme, towerTheme, 
       bestRun: null,
       state: 'active',
     };
-  }, [form.name, form.category, categoryColors]);
+  }, [form.name, form.category, form.color, effectiveMode, categoryColors]);
 
   const previewScene = useMemo(
     () => buildScene([previewHabit], { today: new Date(), theme: towerTheme }),
@@ -199,6 +198,8 @@ export default function TowerForm({ visible, onClose, habit, theme, towerTheme, 
       reminderEnabled: Boolean(filled.scheduledTime) && filled.reminderEnabled,
       motivation: filled.motivation.trim(),
       topOutThresholdDays: filled.topOutThresholdDays ?? null,
+      // A palette key, or null (create: no pick; update: leave as is).
+      color: filled.color ?? null,
     };
 
     setBusy(true);
@@ -244,7 +245,7 @@ export default function TowerForm({ visible, onClose, habit, theme, towerTheme, 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
-        <View style={styles.header} ref={tourFormCardRef}>
+        <View style={styles.header}>
           <Pressable
             onPress={() => {
               // Same reasoning as the post-submit reset — create mode is
@@ -260,12 +261,16 @@ export default function TowerForm({ visible, onClose, habit, theme, towerTheme, 
           </Pressable>
         </View>
 
+        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <Text style={[styles.title, { color: theme.text }]}>{isEditing ? 'Edit tower' : 'Lay a foundation'}</Text>
           <Text style={[styles.subtitle, { color: theme.muted }]}>
-            Your new tower grows one floor each time you check in.
+            {isEditing
+              ? 'Changes apply from today. Your floors and run stay as they are.'
+              : 'Your new tower grows one floor each time you build.'}
           </Text>
 
+          {!isEditing && (
           <View style={[styles.previewCard, { backgroundColor: theme.surfaceHigh }]}>
             <Svg
               width={140}
@@ -279,6 +284,7 @@ export default function TowerForm({ visible, onClose, habit, theme, towerTheme, 
               Lives in your {CADENCE_OPTIONS.find((c) => c.value === form.cadence)?.noun}
             </Text>
           </View>
+          )}
 
           <Field label="Name your tower" theme={theme}>
             <TextInput
@@ -291,7 +297,7 @@ export default function TowerForm({ visible, onClose, habit, theme, towerTheme, 
             />
           </Field>
 
-          <Field label="Category (sets the tower color)" theme={theme}>
+          <Field label="Category" theme={theme}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
               {HABIT_CATEGORIES.map((cat) => {
                 const selected = form.category === cat;
@@ -314,6 +320,13 @@ export default function TowerForm({ visible, onClose, habit, theme, towerTheme, 
               })}
             </ScrollView>
           </Field>
+
+          <TowerColorPicker
+            value={form.color}
+            onChange={(key) => setField('color', key)}
+            theme={theme}
+            mode={effectiveMode}
+          />
 
           <Field label="How often do you build a floor?" theme={theme}>
             <View style={styles.pillRow}>
@@ -454,31 +467,70 @@ export default function TowerForm({ visible, onClose, habit, theme, towerTheme, 
             />
           </Field>
 
-          {/* Edit mode only: CreateHabitRequest has no topOutThresholdDays
-              field (a deliberate Part B scope decision — 13 positional
-              call sites in the backend test suite use that record), so
-              showing this control during create would silently do nothing
-              on submit. A brand-new tower gets the entity's own 30-day
-              default and the owner can raise/lower it here once it exists. */}
+          {/* The tower's cap (SKYLINE.md section 6, revised 2026-11-17): it
+              tops out on its own after this many days, and you can top it
+              out any day before. 1-35, default 30; set at creation or edit. */}
+          <Field
+            label="Top out after (days)"
+            theme={theme}
+            sublabel="Your tower tops out on its own after this many days, 35 at most. You can also top it out any time from the tower sheet."
+          >
+            <ScrubberInput
+              value={form.topOutThresholdDays ?? DEFAULT_TOP_OUT_THRESHOLD_DAYS}
+              onChange={(v) => setField('topOutThresholdDays', v)}
+              min={1}
+              max={35}
+              label="days"
+            />
+          </Field>
+
+          {/* Board 45: overrides the Accessibility "Show finished towers"
+              default for just this tower. Only meaningful once the tower
+              exists (a brand-new one has no finished segments yet). */}
           {isEditing && (
             <Field
-              label="Top out after (days)"
+              label="Show this tower when finished"
               theme={theme}
-              sublabel="How old this tower must be before you can top it out and start a new one"
+              sublabel={
+                habitOverrides[String(form.id)] === undefined
+                  ? `Following your Accessibility setting (currently ${globalShowFinishedTowers ? 'on' : 'off'}).`
+                  : 'Overriding your Accessibility setting for this tower only.'
+              }
             >
-              <ScrubberInput
-                value={form.topOutThresholdDays ?? DEFAULT_TOP_OUT_THRESHOLD_DAYS}
-                onChange={(v) => setField('topOutThresholdDays', v)}
-                min={1}
-                max={3650}
-                label="days"
-              />
+              <View style={styles.finishedTowerRow}>
+                <Switch
+                  value={
+                    habitOverrides[String(form.id)] === undefined
+                      ? globalShowFinishedTowers
+                      : habitOverrides[String(form.id)]
+                  }
+                  onValueChange={(v) => setHabitOverride(form.id, v)}
+                  accessibilityLabel="Show this tower when finished"
+                  accessibilityRole="switch"
+                  testID="tower-form-show-finished"
+                />
+                {habitOverrides[String(form.id)] !== undefined && (
+                  <Pressable
+                    onPress={() => setHabitOverride(form.id, null)}
+                    testID="tower-form-show-finished-reset"
+                    accessibilityRole="button"
+                    accessibilityLabel="Use the default setting"
+                  >
+                    <Text style={[styles.resetLink, { color: theme.amber }]}>Use default</Text>
+                  </Pressable>
+                )}
+              </View>
             </Field>
           )}
 
+        </ScrollView>
+
+        <View style={[styles.footer, { backgroundColor: theme.background, borderTopColor: theme.border || 'rgba(128,128,128,0.3)' }]}>
           <Pressable
             onPress={submit}
             disabled={busy}
+            accessibilityRole="button"
+            accessibilityLabel={isEditing ? 'Save changes' : 'Lay foundation'}
             style={[styles.submitBtn, { backgroundColor: theme.amber, opacity: busy ? 0.6 : 1 }]}
             testID="tower-form-submit"
           >
@@ -486,17 +538,23 @@ export default function TowerForm({ visible, onClose, habit, theme, towerTheme, 
           </Pressable>
 
           {isEditing && (
-            <Pressable onPress={handleDelete} style={styles.deleteBtn} testID="tower-form-delete">
+            <Pressable
+              onPress={handleDelete}
+              style={styles.deleteBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Delete tower"
+              testID="tower-form-delete"
+            >
               <MaterialCommunityIcons name="trash-can-outline" size={18} color={theme.muted} />
               <Text style={[styles.deleteLabel, { color: theme.muted }]}>Delete tower</Text>
             </Pressable>
           )}
-        </ScrollView>
+        </View>
+        </KeyboardAvoidingView>
 
         <Toast toast={toast} onHide={hideToast} />
         <ConfirmModal request={request} onRespond={respond} />
       </SafeAreaView>
-      <TourHighlight scope={TOUR_SCOPES.TOWER_FORM_MODAL} />
     </Modal>
   );
 }
@@ -520,9 +578,11 @@ function Field({ label, sublabel, theme, row, children }) {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
+  flex: { flex: 1 },
+  footer: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8, borderTopWidth: StyleSheet.hairlineWidth },
   header: { paddingHorizontal: 20, paddingTop: 12 },
   cancel: { fontFamily: fonts.semiBold, fontSize: 15 },
-  scroll: { paddingHorizontal: 20, paddingBottom: 48 },
+  scroll: { paddingHorizontal: 20, paddingBottom: 32 },
   title: { fontFamily: fonts.extraBold, fontSize: 26, marginTop: 8 },
   subtitle: { fontFamily: fonts.regular, fontSize: 14, marginTop: 4, marginBottom: 16 },
   previewCard: { borderRadius: 20, alignItems: 'center', paddingVertical: 16, marginBottom: 20 },
@@ -542,8 +602,10 @@ const styles = StyleSheet.create({
   pillRow: { flexDirection: 'row', gap: 8 },
   pill: { flex: 1, alignItems: 'center', borderWidth: 1.5, borderRadius: 14, paddingVertical: 12 },
   pillText: { fontFamily: fonts.semiBold, fontSize: 14 },
-  submitBtn: { borderRadius: 16, alignItems: 'center', paddingVertical: 16, marginTop: 8 },
+  submitBtn: { borderRadius: 28, alignItems: 'center', justifyContent: 'center', minHeight: 54, paddingVertical: 14 },
   submitLabel: { fontFamily: fonts.bold, fontSize: 16, color: '#15202B' },
-  deleteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 16 },
+  deleteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, paddingVertical: 10 },
   deleteLabel: { fontFamily: fonts.semiBold, fontSize: 14 },
+  finishedTowerRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  resetLink: { fontFamily: fonts.semiBold, fontSize: 13 },
 });

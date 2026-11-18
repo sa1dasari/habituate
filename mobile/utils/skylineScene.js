@@ -81,7 +81,7 @@ function toKeySet(value) {
  * draws from, instead of reimplementing it — the two must never disagree
  * about what a given day's floor looks like.
  */
-export function classifyDays(habit, todayKey) {
+export function classifyDays(habit, todayKey, range) {
   const checkInDays = toKeySet(habit.checkInDays);
   const shieldDays = toKeySet(habit.shieldDays);
   // habit.startDate is already a 'YYYY-MM-DD' day string per the section 8
@@ -92,12 +92,20 @@ export function classifyDays(habit, todayKey) {
   const startKey = habit.startDate ? String(habit.startDate).slice(0, 10) : todayKey;
   const dailyHabit = hasDailyTarget(habit);
 
+  // Optional inclusive day-range narrowing a habit's full history down to
+  // one finished tower segment (board 56's "see inside" for a past tower) —
+  // clipped to the habit's own real bounds either way, so a range before
+  // startDate or after todayKey behaves exactly like having no range at
+  // all. Absent, this is a no-op: every existing caller is unaffected.
+  const fromKey = range?.fromKey && range.fromKey > startKey ? range.fromKey : startKey;
+  const toKey = range?.toKey && range.toKey < todayKey ? range.toKey : todayKey;
+
   const candidateDays = dailyHabit
-    ? dateRange(startKey > todayKey ? todayKey : startKey, todayKey)
+    ? dateRange(fromKey > toKey ? toKey : fromKey, toKey)
     : [...checkInDays].sort();
 
   return candidateDays
-    .filter((day) => day >= startKey && day <= todayKey)
+    .filter((day) => day >= fromKey && day <= toKey)
     .map((day) => {
       let state = 'open';
       if (checkInDays.has(day)) state = 'set';
@@ -114,8 +122,10 @@ function shade(hex, amount) {
   return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
 }
 
-function floorFaces(x, yTop, width = TOWER_W) {
-  const yBot = yTop + FLOOR_H;
+// `height` defaults to one floor; a finished tower passes its whole height so
+// its front and right faces fill the full body, not just the top floor.
+function floorFaces(x, yTop, width = TOWER_W, height = FLOOR_H) {
+  const yBot = yTop + height;
   return {
     front: [
       [x, yTop],
@@ -280,29 +290,36 @@ function towerBodyShapes(habit, x, days, theme, windowCount) {
   return { shapes, topY: yCursor, visible, hidden };
 }
 
-const CLOSED_SEGMENT_OPACITY = 0.4;
-const CLOSED_SEGMENT_MIN_H = FLOOR_H * 2;
-const CLOSED_SEGMENT_MAX_H = FLOOR_H * 10;
+// Board 21 draws the finished tower solid and clearly readable behind the new
+// one (not a ghost); only older ones behind it fall back a little.
+const CLOSED_SEGMENT_OPACITY = 0.85;
+const CLOSED_SEGMENT_DEPTH_FADE = 0.2;
+// The cap and flag are a muted gold on the board, not the bright live-tower gold.
+const CLOSED_CAP_ALPHA = 0.6;
+// A finished tower keeps the height it actually reached (design-review
+// boards 20/21: it stands tall behind the new one, muted brown with all-dark
+// windows and a gold cap + flag) — capped the same way the live tower is
+// (MAX_INDIVIDUAL_FLOORS drawn floors, plus one tier past that) so it never
+// outgrows the scene. Its floors/windows are each ONE multi-part path rather
+// than one shape per floor, so a tall finished tower costs a handful of
+// shapes, not hundreds (the ~600-shape budget).
+const CLOSED_SEGMENT_MIN_FLOORS = 2;
 // Towers sit STEP (52) apart and a tower's own footprint (TOWER_W + DX)
 // is 46 wide, leaving only ~6px of clear slot margin on each side before
 // touching a neighboring tower. 2px per depth level (max depth 2 -> 4px)
 // stays safely inside that margin on both the leftmost tower (extra room
 // before x=0) and every other one (the 6px gap to the previous tower).
 const CLOSED_SEGMENT_STEP_BACK = 2;
+const CLOSED_WINDOW_W = 5;
+const CLOSED_WINDOW_H = 4;
 
 /**
  * Up to 2 faded closed segments stacked behind the active tower (SKYLINE.md
  * section 6, Phase 3d). Purely additive: `habit.closedSegments` is
- * absent/empty for every habit that's never topped out — the overwhelming
- * common case today, since top-out didn't exist before this phase — so for
- * them this returns `[]` and the scene is byte-identical to before this
- * function existed. Never added to hitTargets by the caller: a hold must
- * only ever land on the live segment.
- *
- * Collapsed hard on purpose (no individual floors, no windows) — closed
- * segments are already desaturated and faded, so floor-level detail
- * wouldn't read at that opacity anyway, and this keeps the ~600-shape
- * budget far from being a concern even for a habit topped out many times.
+ * absent/empty for every habit that's never topped out, so for them this
+ * returns `[]` and the scene is byte-identical to before this function
+ * existed. Never added to hitTargets by the caller: a hold must only ever
+ * land on the live segment.
  */
 function closedSegmentShapes(habit, x, theme) {
   const segments = habit.closedSegments || [];
@@ -313,23 +330,52 @@ function closedSegmentShapes(habit, x, theme) {
     // closest to (and reads less faded than) the active tower in front.
     const depth = segments.length - i;
     const offsetX = x - depth * CLOSED_SEGMENT_STEP_BACK;
-    const opacity = Math.max(0.2, CLOSED_SEGMENT_OPACITY - (depth - 1) * 0.08);
-    const height = Math.max(
-      CLOSED_SEGMENT_MIN_H,
-      Math.min(CLOSED_SEGMENT_MAX_H, (segment.floorCount || 1) * 2),
+    const opacity = Math.max(0.5, CLOSED_SEGMENT_OPACITY - (depth - 1) * CLOSED_SEGMENT_DEPTH_FADE);
+    const floors = Math.max(
+      CLOSED_SEGMENT_MIN_FLOORS,
+      Math.min(MAX_INDIVIDUAL_FLOORS, segment.floorCount || 1),
     );
+    const tier = (segment.floorCount || 0) > MAX_INDIVIDUAL_FLOORS ? TIER_HEIGHT : 0;
+    const height = floors * FLOOR_H + tier;
     const yTop = BASE_Y - height;
-    const faces = floorFaces(offsetX, yTop, TOWER_W);
+    const faces = floorFaces(offsetX, yTop, TOWER_W, height);
     const fill = theme.closedSegmentFill;
+    const idBase = `${habit.id}-closed${i}`;
+
+    let lines = '';
+    let windows = '';
+    for (let f = 0; f < floors; f += 1) {
+      const fy = yTop + f * FLOOR_H;
+      if (f > 0) lines += `M${offsetX},${fy}L${offsetX + TOWER_W},${fy}`;
+      for (let w = 0; w < DEFAULT_WINDOW_COUNT; w += 1) {
+        const wx = offsetX + ((w + 0.5) * TOWER_W) / DEFAULT_WINDOW_COUNT - CLOSED_WINDOW_W / 2;
+        const wy = fy + (FLOOR_H - CLOSED_WINDOW_H) / 2;
+        windows += `M${wx},${wy}h${CLOSED_WINDOW_W}v${CLOSED_WINDOW_H}h${-CLOSED_WINDOW_W}Z`;
+      }
+    }
+    const cx = offsetX + TOWER_W / 2;
+
     shapes.push(
-      { id: `${habit.id}-closed${i}-front`, kind: 'path', d: pointsToPath(faces.front), fill, opacity },
-      { id: `${habit.id}-closed${i}-right`, kind: 'path', d: pointsToPath(faces.right), fill: shade(fill, -30), opacity },
-      // The top face doubles as the "gold cap" SKYLINE.md's gate calls for
-      // — filled gold instead of the muted block color, rather than a
-      // second floating shape stacked a few px above its own top face.
-      // Neither the active tower's crane nor the monument's flag applies
-      // here (Part E's plan: faded segments get no crane/flag).
-      { id: `${habit.id}-closed${i}-top`, kind: 'path', d: pointsToPath(faces.top), fill: theme.flagColor, opacity },
+      { id: `${idBase}-front`, kind: 'path', d: pointsToPath(faces.front), fill, opacity },
+      { id: `${idBase}-right`, kind: 'path', d: pointsToPath(faces.right), fill: shade(fill, -30), opacity },
+      // The top face doubles as the gold cap.
+      { id: `${idBase}-top`, kind: 'path', d: pointsToPath(faces.top), fill: theme.flagColor, opacity: opacity * CLOSED_CAP_ALPHA },
+    );
+    if (lines) {
+      shapes.push({ id: `${idBase}-lines`, kind: 'path', d: lines, fill: 'none', stroke: shade(fill, -45), strokeWidth: 1, opacity });
+    }
+    shapes.push(
+      // All windows dark: a finished tower is past its lit run (section 4).
+      { id: `${idBase}-windows`, kind: 'path', d: windows, fill: shade(fill, -45), opacity },
+      {
+        id: `${idBase}-flag`,
+        kind: 'path',
+        d: `M${cx},${yTop - 18}L${cx},${yTop}M${cx},${yTop - 18}L${cx + 10},${yTop - 14}L${cx},${yTop - 10}Z`,
+        fill: theme.flagColor,
+        stroke: theme.flagColor,
+        strokeWidth: 1.5,
+        opacity: opacity * CLOSED_CAP_ALPHA,
+      },
     );
   });
   return shapes;

@@ -16,8 +16,8 @@ appId: com.habituate.mobile
 - assertVisible: "Today"
 # A fresh/never-toured account auto-starts the onboarding tour on first
 # login (useAutoStartTour) — most flows aren't testing the tour itself, so
-# skip it via the fast-path if it's showing. `optional: true` means this is
-# a no-op when the tour isn't present (an already-toured account).
+# skip it via the card's "Skip" if it's showing. `optional: true` means this
+# is a no-op when the tour isn't present (an already-toured account).
 - tapOn:
-    text: "Just add my first habit"
+    id: "tour-skip"
     optional: true

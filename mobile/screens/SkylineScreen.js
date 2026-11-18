@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { AppState, Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { AppState, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,13 +7,20 @@ import { useHabits } from '../hooks/useHabits';
 import { useAuth } from '../hooks/useAuth';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useTapToBuild } from '../hooks/useTapToBuild';
+import { useShowFinishedTowers } from '../hooks/useShowFinishedTowers';
 import { useWindowCount } from '../hooks/useWindowCount';
 import { useWeatherSky } from '../hooks/useWeatherSky';
 import { useToast } from '../hooks/useToast';
 import Toast from '../components/Toast';
 import LocationPermissionModal from '../components/LocationPermissionModal';
 import AskHabituateModal from '../components/AskHabituateModal';
-import TemplateHabitsPicker from '../components/TemplateHabitsPicker';
+import FoundationTemplates from '../components/FoundationTemplates';
+import FirstRunEmptyState from '../components/FirstRunEmptyState';
+import FirstHoldHint from '../components/FirstHoldHint';
+import TopOutNoticeSheet from '../components/TopOutNoticeSheet';
+import { useTopOutNotices } from '../hooks/useTopOutNotices';
+import { towerCapDays } from '../utils/towerAge';
+import { usePushPromptDone } from '../hooks/PushPromptContext';
 import AvatarImage from '../components/AvatarImage';
 import { HABIT_CATEGORY_COLORS } from '../constants/habitCategories';
 import { buildCategoryTowerColors, fonts, skyGradients, skylineTowerTheme, skylineUI } from '../theme';
@@ -33,6 +40,9 @@ import TowerForm from '../components/TowerForm';
 import ArchivedTowersSheet from '../components/ArchivedTowersSheet';
 import LotsView from '../components/LotsView';
 import LotSheet from '../components/LotSheet';
+import TourHighlight from '../components/TourHighlight';
+import { useTourTarget } from '../hooks/useTourTarget';
+import { TOUR_SCOPES, TOUR_TARGETS } from '../constants/onboardingTour';
 
 function hexToRgba(hex, alpha) {
   const n = parseInt(hex.replace('#', ''), 16);
@@ -63,7 +73,7 @@ function formatHeaderDate(date) {
 export default function SkylineScreen({ navigation }) {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const { habits, loading, toggleCheckIn, addCheckIn, removeCheckIn, createHabit } = useHabits();
+  const { habits, loading, toggleCheckIn, addCheckIn, removeCheckIn, createHabit, topOutHabit } = useHabits();
   const { user } = useAuth();
   const { effectiveMode } = useAppTheme();
   const { tapToBuild } = useTapToBuild();
@@ -77,6 +87,11 @@ export default function SkylineScreen({ navigation }) {
   // about this tower" (SKYLINE.md section 14 #5) — full `habits` context
   // still goes to the coach either way, this just seeds the question.
   const [chatInitialQuestion, setChatInitialQuestion] = useState(null);
+  // Onboarding tour targets (constants/onboardingTour.js): the scene, the first
+  // tower's hold zone, and the collapsed bottom sheet.
+  const tourSceneRef = useTourTarget(TOUR_TARGETS.SKYLINE_SCENE);
+  const tourHoldTowerRef = useTourTarget(TOUR_TARGETS.SKYLINE_HOLD_TOWER);
+  const tourSheetRef = useTourTarget(TOUR_TARGETS.SKYLINE_SHEET);
   const [towerSheetHabitId, setTowerSheetHabitId] = useState(null);
   const [insideViewHabitId, setInsideViewHabitId] = useState(null);
   // null habitId + visible = create mode; a real id = edit mode.
@@ -96,6 +111,8 @@ export default function SkylineScreen({ navigation }) {
   // to the screen; the actual "only once ever" guarantee is
   // needsLocationPrompt's own AsyncStorage flag.
   const [hasBuiltOnce, setHasBuiltOnce] = useState(false);
+  // The notification explainer goes first (SKYLINE.md section 5); location waits.
+  const pushPromptDone = usePushPromptDone();
 
   const recomputeToday = useCallback(() => setToday(new Date()), []);
 
@@ -135,9 +152,10 @@ export default function SkylineScreen({ navigation }) {
     [habits],
   );
 
+  const { isVisibleForHabit } = useShowFinishedTowers();
   const sceneHabits = useMemo(
-    () => towerHabits.map((h) => toSceneHabit(h, categoryColors)),
-    [towerHabits, categoryColors],
+    () => towerHabits.map((h) => toSceneHabit(h, categoryColors, effectiveMode, isVisibleForHabit(h.id))),
+    [towerHabits, categoryColors, effectiveMode, isVisibleForHabit],
   );
 
   const scene = useMemo(
@@ -146,8 +164,8 @@ export default function SkylineScreen({ navigation }) {
   );
 
   const lots = useMemo(
-    () => buildLots(lotHabits.map((h) => toLotHabit(h, categoryColors)), { today }),
-    [lotHabits, categoryColors, today],
+    () => buildLots(lotHabits.map((h) => toLotHabit(h, categoryColors, effectiveMode)), { today }),
+    [lotHabits, categoryColors, today, effectiveMode],
   );
 
   const habitsById = useMemo(() => {
@@ -242,6 +260,11 @@ export default function SkylineScreen({ navigation }) {
     setChatInitialQuestion(`Tell me about my progress on "${habit.name}"`);
     setChatVisible(true);
   }, []);
+  const handleAskAboutDay = useCallback((habit, dayKey) => {
+    const label = new Date(`${dayKey}T00:00:00`).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+    setChatInitialQuestion(`Tell me about my "${habit.name}" check-in on ${label}`);
+    setChatVisible(true);
+  }, []);
   const closeChat = useCallback(() => {
     setChatVisible(false);
     setChatInitialQuestion(null);
@@ -306,6 +329,40 @@ export default function SkylineScreen({ navigation }) {
     [createHabit, showToast],
   );
 
+  // First run (board 34): no habits at all. Not while the very first load is
+  // still in flight, or a returning user would flash the empty state.
+  const isEmpty = !loading && habits.length === 0;
+  // Tower-cap notices (boards 52/55): an announcement for an automatic
+  // top-out, or a pop-up in the last three days before a tower's cap. Held
+  // back while another form/sheet is open so two layers never stack.
+  const notices = useTopOutNotices(habits, !loading && !isEmpty && !towerFormVisible && !addHabitVisible);
+  const [noticeBusy, setNoticeBusy] = useState(false);
+  const handleWarningTopOut = async () => {
+    const w = notices.warning;
+    if (!w) return;
+    setNoticeBusy(true);
+    try {
+      await topOutHabit(w.habit.id);
+    } catch (err) {
+      // The sheet is a Modal, so a toast would sit behind it; close it first.
+      showToast(`Could not top out — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+    } finally {
+      notices.markWarned(w.habit);
+      setNoticeBusy(false);
+    }
+  };
+  const handleAnnouncementChangeCap = () => {
+    const a = notices.announcement;
+    if (!a) return;
+    notices.markAnnounced(a.segment);
+    handleOpenTowerForm(a.habit);
+  };
+
+  // Has a tower but has never built a floor (board 36). Derived from data, so
+  // there is nothing to persist and it can't come back.
+  const showFirstHoldHint =
+    !loading && habits.length > 0 && view === 'daily' && !habits.some((h) => (h.checkIns || []).length > 0);
+
   return (
     <View style={styles.pageRoot}>
       <View style={StyleSheet.absoluteFill}>
@@ -323,10 +380,28 @@ export default function SkylineScreen({ navigation }) {
         <View style={[styles.header, { backgroundColor: hexToRgba(ui.background, 0.55) }]}>
           <View style={styles.headerText}>
             <Text style={[styles.title, { color: ui.text }]} numberOfLines={1}>Skyline</Text>
+            {/* Boards 01/16: two lines on Daily (date, then the built count),
+                one line (date only) on Weekly & monthly. */}
             <Text style={[styles.subtitle, { color: ui.muted }]} numberOfLines={1}>
-              {formatHeaderDate(today)} · {dueTodayCount.done} of {dueTodayCount.total} built today
+              {isEmpty ? 'Your skyline starts here' : formatHeaderDate(today)}
             </Text>
+            {view === 'daily' && !isEmpty && (
+              <Text style={[styles.subtitleLine2, { color: ui.muted }]} numberOfLines={1}>
+                {dueTodayCount.done} of {dueTodayCount.total} built today
+              </Text>
+            )}
           </View>
+          {!isEmpty && (
+          <Pressable
+            style={styles.iconBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Finished and retired towers"
+            onPress={() => setArchivedTowersVisible(true)}
+            testID="skyline-archived-towers-icon"
+          >
+            <MaterialCommunityIcons name="archive-outline" size={20} color={ui.text} />
+          </Pressable>
+          )}
           <Pressable
             style={styles.iconBtn}
             accessibilityRole="button"
@@ -345,15 +420,6 @@ export default function SkylineScreen({ navigation }) {
           <Pressable
             style={styles.iconBtn}
             accessibilityRole="button"
-            accessibilityLabel="Retired towers"
-            onPress={() => setArchivedTowersVisible(true)}
-            testID="skyline-archived-towers-icon"
-          >
-            <MaterialCommunityIcons name="archive-outline" size={20} color={ui.text} />
-          </Pressable>
-          <Pressable
-            style={styles.iconBtn}
-            accessibilityRole="button"
             accessibilityLabel="Open profile"
             onPress={() => navigation.navigate('Profile')}
           >
@@ -361,6 +427,7 @@ export default function SkylineScreen({ navigation }) {
           </Pressable>
         </View>
 
+        {!isEmpty && (
         <View style={styles.viewSwitch}>
           <Pressable
             testID="skyline-view-daily"
@@ -399,6 +466,7 @@ export default function SkylineScreen({ navigation }) {
             )}
           </Pressable>
         </View>
+        )}
         </View>
 
         {loading && habits.length === 0 ? (
@@ -409,6 +477,8 @@ export default function SkylineScreen({ navigation }) {
           // entire skyline on every single floor build, flashing blank each
           // time.
           <Text style={[styles.loading, { color: ui.muted }]}>Loading your skyline…</Text>
+        ) : isEmpty ? (
+          <FirstRunEmptyState onLayFoundation={() => setAddHabitVisible(true)} theme={ui} />
         ) : (
           // Both tabs stay mounted at once, toggled with `display` instead
           // of a `view === 'lots' ? A : B` ternary — the ternary used to
@@ -455,6 +525,8 @@ export default function SkylineScreen({ navigation }) {
                   shows less sky above the towers, not a tower's base/labels
                   clipped off behind the collapsed sheet (see SHEET_PEEK_HEIGHT). */}
               <View
+                ref={tourSceneRef}
+                collapsable={false}
                 style={[
                   styles.sceneWrap,
                   stageHeight > 0 && { height: Math.min(560, stageHeight - SHEET_PEEK_HEIGHT) },
@@ -469,15 +541,33 @@ export default function SkylineScreen({ navigation }) {
                     theme={ui}
                     onAddHabit={() => setAddHabitVisible(true)}
                     interactiveOverlay={
-                      <SkylineHoldLayer
-                        hitTargets={scene.hitTargets}
-                        labels={scene.accessibilityLabels}
-                        getCanBuild={getCanBuild}
-                        onBuild={handleBuild}
-                        onOpenSheet={handleOpenTowerSheet}
-                        tapToBuild={tapToBuild}
-                        theme={ui}
-                      />
+                      <>
+                        <SkylineHoldLayer
+                          hitTargets={scene.hitTargets}
+                          labels={scene.accessibilityLabels}
+                          getCanBuild={getCanBuild}
+                          onBuild={handleBuild}
+                          onOpenSheet={handleOpenTowerSheet}
+                          tapToBuild={tapToBuild}
+                          theme={ui}
+                        />
+                        {/* Invisible tour-target marker over the first tower's
+                            hold zone (same rect as its hit target). */}
+                        {scene.hitTargets[0] ? (
+                          <View
+                            ref={tourHoldTowerRef}
+                            collapsable={false}
+                            pointerEvents="none"
+                            style={{
+                              position: 'absolute',
+                              left: scene.hitTargets[0].x,
+                              top: scene.hitTargets[0].y,
+                              width: scene.hitTargets[0].width,
+                              height: scene.hitTargets[0].height,
+                            }}
+                          />
+                        ) : null}
+                      </>
                     }
                   />
                 </View>
@@ -490,20 +580,30 @@ export default function SkylineScreen({ navigation }) {
                 theme={ui}
                 stageHeight={stageHeight}
               />
+              {/* Invisible tour-target marker over the collapsed sheet peek. */}
+              <View
+                ref={tourSheetRef}
+                collapsable={false}
+                pointerEvents="none"
+                style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: SHEET_PEEK_HEIGHT }}
+              />
+              {showFirstHoldHint && <FirstHoldHint theme={ui} />}
               <TowerSheet
-                // Forces a fresh mount per habit — same reasoning as
-                // LotSheet.js's own key: without it, TowerSheet's local
-                // backdate-picker state (selectedDateKey, showBackdate)
-                // would carry over from whichever tower was open last,
-                // and a Hold could silently build into the wrong habit's
-                // selected day.
-                key={towerSheetHabitId ?? 'none'}
+                // No key here on purpose, unlike LotSheet.js — this is now a
+                // permanent bottom sheet (design-review board 03), not a
+                // Modal that can remount for free; forcing a remount per
+                // habit would skip the slide-down close animation entirely.
+                // TowerSheet.js resets its own local backdate-picker state
+                // (selectedDateKey, showBackdate) via an effect keyed off
+                // habit.id instead.
                 visible={!!towerSheetHabitId}
                 onClose={closeTowerSheet}
                 habit={towerSheetHabit}
                 theme={ui}
+                towerTheme={towerTheme}
                 tapToBuild={tapToBuild}
                 categoryColors={categoryColors}
+                stageHeight={stageHeight}
                 onAskAboutTower={handleAskAboutTower}
                 onOpenInsideView={handleOpenInsideView}
                 onEdit={handleOpenTowerForm}
@@ -516,12 +616,17 @@ export default function SkylineScreen({ navigation }) {
                 today={today}
                 uiTheme={ui}
                 towerTheme={towerTheme}
+                tapToBuild={tapToBuild}
                 onAskAboutTower={handleAskAboutTower}
+                onAskAboutDay={handleAskAboutDay}
               />
               <ArchivedTowersSheet
                 visible={archivedTowersVisible}
                 onClose={() => setArchivedTowersVisible(false)}
                 theme={ui}
+                towerTheme={towerTheme}
+                effectiveMode={effectiveMode}
+                categoryColors={categoryColors}
               />
               <TowerForm
                 key={towerFormHabitId ?? 'new'}
@@ -538,7 +643,7 @@ export default function SkylineScreen({ navigation }) {
 
       <Toast toast={toast} onHide={hideToast} />
       <LocationPermissionModal
-        visible={hasBuiltOnce && needsLocationPrompt}
+        visible={hasBuiltOnce && needsLocationPrompt && pushPromptDone}
         onAllow={requestLocation}
         onDismiss={skipLocationPrompt}
       />
@@ -548,25 +653,46 @@ export default function SkylineScreen({ navigation }) {
         habits={habits}
         initialQuestion={chatInitialQuestion}
       />
-      <Modal visible={addHabitVisible} transparent animationType="fade" onRequestClose={() => setAddHabitVisible(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setAddHabitVisible(false)}>
-          <Pressable style={[styles.addHabitCard, { backgroundColor: ui.surfaceLow }]} onPress={() => {}}>
-            <Text style={[styles.title, { color: ui.text, marginBottom: 12 }]}>Lay a foundation</Text>
-            <TemplateHabitsPicker onSelect={handleAddTemplateHabit} />
-            <Pressable
-              onPress={() => {
-                setAddHabitVisible(false);
-                handleOpenTowerForm(null);
-              }}
-              style={styles.customTowerLink}
-              testID="skyline-custom-tower-link"
-            >
-              <Text style={[styles.customTowerLinkText, { color: ui.amber }]}>Create your own tower ›</Text>
-            </Pressable>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      {notices.announcement ? (
+        <TopOutNoticeSheet
+          visible
+          testID="top-out-announcement"
+          theme={ui}
+          title={`${notices.announcement.habit.name} topped out`}
+          body={`It reached ${towerCapDays(notices.announcement.habit)} days, the cap you set when you created this habit. A fresh tower is ready${
+            notices.announcement.habit.streak > 0 ? ` and your ${notices.announcement.habit.streak} day run carries over` : ''
+          }. You can change the cap any time in Edit.`}
+          primaryLabel="Got it"
+          secondaryLabel="Change cap"
+          onPrimary={() => notices.markAnnounced(notices.announcement.segment)}
+          onSecondary={handleAnnouncementChangeCap}
+        />
+      ) : notices.warning ? (
+        <TopOutNoticeSheet
+          visible
+          testID="top-out-warning"
+          theme={ui}
+          busy={noticeBusy}
+          title={`${notices.warning.habit.name} tops out in ${notices.warning.daysToGo} ${notices.warning.daysToGo === 1 ? 'day' : 'days'}`}
+          body={`It finishes on its own at ${notices.warning.capDays} days, the cap you set when you created it. Top it out now, or change the cap in Edit. Your run carries over and nothing is lost.`}
+          primaryLabel="Top out now"
+          secondaryLabel="Not now"
+          onPrimary={handleWarningTopOut}
+          onSecondary={() => notices.markWarned(notices.warning.habit)}
+        />
+      ) : null}
+      <FoundationTemplates
+        visible={addHabitVisible}
+        onClose={() => setAddHabitVisible(false)}
+        onSelectTemplate={handleAddTemplateHabit}
+        onCustom={() => {
+          setAddHabitVisible(false);
+          handleOpenTowerForm(null);
+        }}
+        theme={ui}
+      />
       </SafeAreaView>
+      <TourHighlight scope={TOUR_SCOPES.SKYLINE} />
     </View>
   );
 }
@@ -586,7 +712,17 @@ const styles = StyleSheet.create({
   headerText: { flex: 1 },
   title: { fontFamily: fonts.extraBold, fontSize: 28 },
   subtitle: { fontFamily: fonts.regular, fontSize: 14, marginTop: 2 },
-  iconBtn: { marginLeft: 10 },
+  subtitleLine2: { fontFamily: fonts.regular, fontSize: 14 },
+  // 44dp circles, 8dp gaps (boards 01/16).
+  iconBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    marginLeft: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(128,140,155,0.22)',
+  },
   viewSwitch: { flexDirection: 'row', paddingHorizontal: 12, marginTop: 14, marginBottom: 8, gap: 8 },
   viewSwitchSeg: {
     flex: 1,
@@ -614,8 +750,4 @@ const styles = StyleSheet.create({
   hidden: { display: 'none' },
   sceneWrap: { height: 560, overflow: 'hidden' },
   sceneAnchorBottom: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 560 },
-  backdrop: { flex: 1, backgroundColor: 'rgba(8,10,16,0.5)', alignItems: 'center', justifyContent: 'center', padding: 20 },
-  addHabitCard: { width: '100%', maxWidth: 420, borderRadius: 20, padding: 20 },
-  customTowerLink: { alignItems: 'center', paddingTop: 16 },
-  customTowerLinkText: { fontFamily: fonts.semiBold, fontSize: 14 },
 });

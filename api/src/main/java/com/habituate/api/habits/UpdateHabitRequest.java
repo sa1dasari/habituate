@@ -19,6 +19,16 @@ public record UpdateHabitRequest(
         Boolean reminderEnabled,
         Boolean archived,
         @Size(max = 500) String motivation,
-        @Min(1) @Max(3650) Integer topOutThresholdDays
+        @Min(value = 1, message = "Top out after must be between 1 and 35 days") @Max(value = 35, message = "Top out after must be between 1 and 35 days") Integer topOutThresholdDays,
+        // Tower colour palette key: null = leave unchanged, "" = clear back to the category colour.
+        @Size(max = 20) String color
 ) {
+    /** Shape before per-habit colour — keeps existing call sites compiling. */
+    public UpdateHabitRequest(
+            String name, String category, String cadenceType, Integer cadenceTarget, Integer weeklyTarget,
+            Integer monthlyTarget, String trackingMode, Boolean featuredGoal, String scheduledTime,
+            Boolean reminderEnabled, Boolean archived, String motivation, Integer topOutThresholdDays) {
+        this(name, category, cadenceType, cadenceTarget, weeklyTarget, monthlyTarget, trackingMode,
+                featuredGoal, scheduledTime, reminderEnabled, archived, motivation, topOutThresholdDays, null);
+    }
 }

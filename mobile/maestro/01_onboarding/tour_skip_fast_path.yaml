@@ -1,6 +1,5 @@
 appId: com.habituate.mobile
-# Covers the fast-path fix from this session: the welcome step's explicit
-# "Just add my first habit" action should leave the user on Today
+# Skipping the tour from step 1 should leave the user on the Skyline screen
 # with the one-tap template picker immediately usable, not a blank screen.
 ---
 - launchApp:
@@ -15,8 +14,9 @@ appId: com.habituate.mobile
 - tapOn: "Create account"
 - runFlow: ../_shared/dismiss_samsung_pass.yaml
 - runFlow: ../_shared/choose_username.yaml
-- assertVisible: "Welcome to Habituate"
-- tapOn: "Just add my first habit"
+- assertVisible: "This is your skyline"
+- tapOn:
+    id: "tour-skip"
 - assertVisible: "Today"
 - assertVisible: "Add your first habit"
 # One-tap template picker should be immediately usable, not another tap away.

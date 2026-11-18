@@ -16,15 +16,12 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import api from '../api/client';
 import ConfirmModal from './ConfirmModal';
 import Toast from './Toast';
-import TourHighlight from './TourHighlight';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useConfirm } from '../hooks/useConfirm';
 import { useHabits } from '../hooks/useHabits';
 import { useToast } from '../hooks/useToast';
-import { useTourTarget } from '../hooks/useTourTarget';
-import { TOUR_SCOPES, TOUR_TARGETS } from '../constants/onboardingTour';
 import { generateCoachStarterQuestions } from '../utils/consistency';
-import { fonts, radii, shadow, spacing } from '../theme';
+import { fonts, radii, skylineUI, spacing } from '../theme';
 
 // Small, fixed, Gen-Z-punchy reaction set — long-press any bubble (yours or
 // the AI's) to pick one. Same set the AI's own server-side heuristic picks
@@ -45,12 +42,15 @@ const REACTION_EMOJIS = ['🔥', '❤️', '😂', '😮', '👍', '💯'];
  * navigator wrapping the tab screens.
  */
 export default function AskHabituateModal({ visible, onClose, initialQuestion, habits = [] }) {
-  const { colors, typography } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
+  const { typography, effectiveMode } = useAppTheme();
+  // Skyline look (design-review boards 41/42): the chat uses the skyline UI
+  // palette with amber accents instead of the app's blue/green pair.
+  const ui = skylineUI[effectiveMode];
+  const colors = useMemo(() => ({ ...ui, accent: ui.amber, safe: ui.amber, textMuted: ui.muted }), [ui]);
+  const styles = useMemo(() => makeStyles(ui, typography), [ui, typography]);
   const starterQuestions = useMemo(() => generateCoachStarterQuestions(habits), [habits]);
 
   const { refresh: refreshHabits } = useHabits();
-  const tourHeaderRef = useTourTarget(TOUR_TARGETS.MODAL_ASK_HABITUATE_HEADER);
   const { toast, showToast, hideToast } = useToast();
   const { request, confirm, respond } = useConfirm();
 
@@ -201,32 +201,30 @@ export default function AskHabituateModal({ visible, onClose, initialQuestion, h
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
         >
-          <View style={styles.topRow}>
-            <Pressable onPress={onClose} hitSlop={12} style={styles.backLink}>
-              <MaterialCommunityIcons name="chevron-left" size={20} color={colors.textSecondary} />
-              <Text style={styles.backLinkText}>Back</Text>
+          <View style={styles.header}>
+            <Pressable
+              onPress={onClose}
+              style={styles.circleBtn}
+              testID="ask-habituate-close"
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+            >
+              <MaterialCommunityIcons name="close" size={22} color={ui.text} />
             </Pressable>
+            <Text style={styles.title}>Ask Habituate</Text>
             {messages.length > 0 ? (
               <Pressable
                 onPress={clearConversation}
-                hitSlop={12}
-                style={styles.clearBtn}
+                style={styles.circleBtn}
+                testID="ask-habituate-clear"
                 accessibilityRole="button"
                 accessibilityLabel="Clear conversation"
               >
-                <MaterialCommunityIcons name="trash-can-outline" size={18} color={colors.textMuted} />
+                <MaterialCommunityIcons name="trash-can-outline" size={20} color={ui.text} />
               </Pressable>
-            ) : null}
-          </View>
-
-          <View style={styles.titleRow} ref={tourHeaderRef}>
-            <View style={styles.titleIcon}>
-              <MaterialCommunityIcons name="chat-processing-outline" size={20} color={colors.accent} />
-            </View>
-            <View>
-              <Text style={styles.title}>Ask Habituate</Text>
-              <Text style={styles.subtitle}>Your AI habit coach</Text>
-            </View>
+            ) : (
+              <View style={styles.circleBtn} />
+            )}
           </View>
 
           <ScrollView
@@ -237,7 +235,7 @@ export default function AskHabituateModal({ visible, onClose, initialQuestion, h
             onScrollBeginDrag={() => setPickerFor(null)}
           >
             {loading ? (
-              <ActivityIndicator style={{ marginTop: spacing.xl }} color={colors.accent} />
+              <ActivityIndicator style={{ marginTop: spacing.xl }} color={ui.amber} />
             ) : null}
 
             {messages.map((message) =>
@@ -285,19 +283,27 @@ export default function AskHabituateModal({ visible, onClose, initialQuestion, h
 
             {sending ? (
               <View style={styles.coachLabelRow}>
-                <Text style={styles.coachLabel}>Habituate · AI coach</Text>
-                <ActivityIndicator size="small" color={colors.textMuted} style={{ marginTop: spacing.xs }} />
+                <ActivityIndicator size="small" color={ui.muted} style={{ marginTop: spacing.xs }} />
               </View>
             ) : null}
 
             {showStarters ? (
               <View style={styles.startersWrap}>
-                <Text style={styles.startersLabel}>Suggested questions</Text>
-                {starterQuestions.map((q, i) => (
-                  <Pressable key={q} style={styles.starterChip} onPress={() => send(q)}>
-                    <View style={styles.starterNumber}>
-                      <Text style={styles.starterNumberText}>{i + 1}</Text>
-                    </View>
+                <View style={styles.emptyIcon}>
+                  <MaterialCommunityIcons name="weather-partly-cloudy" size={26} color={ui.amber} />
+                </View>
+                <Text style={styles.emptyTitle}>Ask about your own days</Text>
+                <Text style={styles.emptyBody}>
+                  Answers come from your real check-ins. Nothing changes unless you confirm it.
+                </Text>
+                {starterQuestions.map((q) => (
+                  <Pressable
+                    key={q}
+                    style={styles.starterChip}
+                    onPress={() => send(q)}
+                    accessibilityRole="button"
+                    accessibilityLabel={q}
+                  >
                     <Text style={styles.starterText}>{q}</Text>
                   </Pressable>
                 ))}
@@ -309,7 +315,7 @@ export default function AskHabituateModal({ visible, onClose, initialQuestion, h
             <TextInput
               style={styles.input}
               placeholder="Ask about your routine..."
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={ui.muted}
               value={input}
               onChangeText={setInput}
               onFocus={() => setPickerFor(null)}
@@ -324,13 +330,12 @@ export default function AskHabituateModal({ visible, onClose, initialQuestion, h
               accessibilityRole="button"
               accessibilityLabel="Send"
             >
-              <MaterialCommunityIcons name="arrow-up" size={20} color="#FFFFFF" />
+              <MaterialCommunityIcons name="send-outline" size={22} color="#1A1300" />
             </Pressable>
           </View>
           <Text style={styles.disclaimer}>AI suggestions can be imperfect. You're in control.</Text>
         </KeyboardAvoidingView>
       </SafeAreaView>
-      <TourHighlight scope={TOUR_SCOPES.ASK_HABITUATE_MODAL} />
       <Toast toast={toast} onHide={hideToast} />
       <ConfirmModal request={request} onRespond={respond} />
     </Modal>
@@ -418,9 +423,12 @@ function AssistantTurn({
 
   return (
     <View style={styles.assistantTurn}>
-      <Text style={styles.coachLabel}>Habituate · AI coach</Text>
-
-      <Pressable onLongPress={onLongPress} delayLongPress={300} style={styles.replyCard}>
+      <Pressable
+        onLongPress={onLongPress}
+        delayLongPress={300}
+        style={styles.replyCard}
+        accessibilityLabel={`Habituate, AI coach: ${message.content}`}
+      >
         <Text style={styles.replyText}>{message.content}</Text>
         {message.groundingLabel ? (
           <View style={styles.citationRow}>
@@ -436,10 +444,6 @@ function AssistantTurn({
 
       {hasProposal ? (
         <View style={styles.adjustmentCard}>
-          <View style={styles.adjustmentEyebrowRow}>
-            <MaterialCommunityIcons name={eyebrowIcon} size={16} color={colors.safe} />
-            <Text style={styles.adjustmentEyebrow}>{eyebrowText}</Text>
-          </View>
           <Text style={styles.adjustmentTitle}>{message.adjustmentTitle}</Text>
           <Text style={styles.adjustmentDescription}>{message.adjustmentDescription}</Text>
           {isCreation && creationMetaLabel(message.creationHabit) ? (
@@ -451,17 +455,27 @@ function AssistantTurn({
               <Text style={styles.adjustmentCaption}>
                 {isCreation ? 'Nothing is created until you confirm.' : 'Nothing changes until you confirm.'}
               </Text>
-              <Pressable style={styles.confirmBtn} onPress={onConfirm} disabled={busy}>
-                {busy ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.confirmBtnText}>{confirmText}</Text>}
+              <Pressable
+                style={styles.confirmBtn}
+                onPress={onConfirm}
+                disabled={busy}
+                testID="coach-proposal-confirm"
+                accessibilityRole="button"
+              >
+                {busy ? <ActivityIndicator color="#1A1300" /> : <Text style={styles.confirmBtnText}>{confirmText}</Text>}
               </Pressable>
-              <View style={styles.secondaryRow}>
-                <Pressable style={styles.secondaryBtn} onPress={onTryAnotherIdea} disabled={busy}>
-                  <Text style={styles.secondaryBtnText}>Try another idea</Text>
-                </Pressable>
-                <Pressable style={styles.secondaryBtn} onPress={onReject} disabled={busy}>
-                  <Text style={styles.secondaryBtnText}>{rejectText}</Text>
-                </Pressable>
-              </View>
+              <Pressable
+                style={styles.secondaryBtn}
+                onPress={onReject}
+                disabled={busy}
+                testID="coach-proposal-reject"
+                accessibilityRole="button"
+              >
+                <Text style={styles.secondaryBtnText}>{rejectText}</Text>
+              </Pressable>
+              <Pressable style={styles.tryAnother} onPress={onTryAnotherIdea} disabled={busy} accessibilityRole="button">
+                <Text style={styles.tryAnotherText}>Try another idea</Text>
+              </Pressable>
             </>
           ) : (
             <View style={styles.adjustmentStatusRow}>
@@ -481,200 +495,186 @@ function AssistantTurn({
   );
 }
 
-function makeStyles(colors, typography) {
+function makeStyles(ui, typography) {
+  const line = 'rgba(128,140,155,0.28)';
+  const amberSoft = `${ui.amber}1F`;
+  const amberLine = `${ui.amber}59`;
   return StyleSheet.create({
-    safeArea: { flex: 1, backgroundColor: colors.background },
+    safeArea: { flex: 1, backgroundColor: ui.background },
     flex: { flex: 1 },
-    topRow: {
+    header: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: spacing.lg,
-      paddingTop: spacing.sm,
+      paddingHorizontal: 20,
+      paddingVertical: 12,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: line,
     },
-    backLink: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    backLinkText: { fontFamily: fonts.semiBold, fontSize: 14, color: colors.textSecondary },
-    clearBtn: {
-      width: 30,
-      height: 30,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    titleRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-      paddingHorizontal: spacing.lg,
-      paddingTop: spacing.sm,
-      paddingBottom: spacing.md,
-    },
-    // Matches InsightsScreen's entry-card identity for the coach specifically
-    // (accent, not the safe/safeSoft streak-safety pair used elsewhere here).
-    titleIcon: {
-      width: 40,
-      height: 40,
-      borderRadius: radii.md,
-      backgroundColor: colors.accentSoft,
+    circleBtn: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: ui.surfaceHigh,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    title: { ...typography.sectionTitle, fontSize: 20 },
-    subtitle: { ...typography.meta, marginTop: 2 },
-    scroll: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl },
-    userBubbleRow: { alignItems: 'flex-end', marginBottom: spacing.lg },
+    title: { fontFamily: fonts.bold, fontSize: 20, color: ui.text },
+    scroll: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: spacing.xl },
+    userBubbleRow: { alignItems: 'flex-end', marginBottom: 18 },
     userBubble: {
-      backgroundColor: colors.accentSoft,
-      borderRadius: radii.lg,
-      borderBottomRightRadius: radii.sm,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm + 2,
+      backgroundColor: amberSoft,
+      borderWidth: 1,
+      borderColor: amberLine,
+      borderRadius: 22,
+      borderBottomRightRadius: 6,
+      paddingHorizontal: 18,
+      paddingVertical: 14,
       maxWidth: '85%',
     },
-    userBubbleText: { ...typography.body, lineHeight: 20 },
-    reactionBadgeRow: {
-      flexDirection: 'row',
-      gap: 4,
-      marginTop: 4,
-    },
+    userBubbleText: { fontFamily: fonts.regular, fontSize: 17, lineHeight: 25, color: ui.text },
+    reactionBadgeRow: { flexDirection: 'row', gap: 4, marginTop: 4 },
     reactionBadgeUser: {
-      backgroundColor: colors.surface,
+      backgroundColor: ui.surfaceHigh,
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: line,
       borderRadius: radii.pill,
-      paddingHorizontal: 7,
+      paddingHorizontal: 8,
       paddingVertical: 3,
-      ...shadow,
     },
     reactionBadgeAi: {
-      backgroundColor: colors.accentSoft,
+      backgroundColor: ui.surfaceHigh,
       borderRadius: radii.pill,
-      paddingHorizontal: 7,
+      paddingHorizontal: 8,
       paddingVertical: 3,
     },
-    reactionBadgeEmoji: { fontSize: 13 },
+    reactionBadgeEmoji: { fontSize: 14 },
     reactionPickerRow: {
       flexDirection: 'row',
       gap: 2,
-      backgroundColor: colors.surface,
+      backgroundColor: ui.surfaceHigh,
       borderRadius: radii.pill,
       padding: 4,
       marginTop: spacing.xs,
       borderWidth: 1,
-      borderColor: colors.border,
-      ...shadow,
+      borderColor: line,
     },
     reactionPickerOption: {
-      width: 32,
-      height: 32,
+      width: 40,
+      height: 40,
       alignItems: 'center',
       justifyContent: 'center',
       borderRadius: radii.pill,
     },
-    reactionPickerOptionActive: { backgroundColor: colors.accentSoft },
-    reactionPickerEmoji: { fontSize: 18 },
-    assistantTurn: { marginBottom: spacing.lg },
+    reactionPickerOptionActive: { backgroundColor: amberSoft },
+    reactionPickerEmoji: { fontSize: 20 },
+    assistantTurn: { marginBottom: 18 },
     coachLabelRow: { marginBottom: spacing.sm },
-    coachLabel: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.textMuted, marginBottom: spacing.sm },
+    coachLabel: { fontFamily: fonts.semiBold, fontSize: 12, color: ui.muted, marginBottom: spacing.sm },
     replyCard: {
-      backgroundColor: colors.surface,
-      borderRadius: radii.lg,
-      padding: spacing.md,
-      ...shadow,
+      backgroundColor: ui.surfaceHigh,
+      borderRadius: 22,
+      borderBottomLeftRadius: 6,
+      paddingHorizontal: 18,
+      paddingVertical: 16,
+      maxWidth: '88%',
     },
-    replyText: { ...typography.body, lineHeight: 20 },
+    replyText: { fontFamily: fonts.regular, fontSize: 17, lineHeight: 26, color: ui.text },
     citationRow: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 5,
       marginTop: spacing.sm,
       paddingTop: spacing.sm,
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: line,
     },
-    citationText: { fontFamily: fonts.regular, fontSize: 11, color: colors.textMuted },
+    citationText: { fontFamily: fonts.regular, fontSize: 12, color: ui.muted },
     adjustmentCard: {
-      backgroundColor: colors.surface,
-      borderRadius: radii.lg,
-      padding: spacing.md,
-      marginTop: spacing.sm,
-      ...shadow,
-    },
-    adjustmentEyebrowRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 4 },
-    adjustmentEyebrow: { fontFamily: fonts.bold, fontSize: 12, color: colors.safe },
-    adjustmentTitle: { fontFamily: fonts.extraBold, fontSize: 16, color: colors.textPrimary, marginBottom: 4 },
-    adjustmentDescription: { ...typography.body, color: colors.textSecondary, marginBottom: 4 },
-    creationMeta: { fontFamily: fonts.semiBold, fontSize: 12, color: colors.textMuted, marginBottom: 4 },
-    adjustmentCaption: { ...typography.meta, color: colors.textMuted, marginBottom: spacing.md },
-    confirmBtn: {
-      backgroundColor: colors.safe,
-      borderRadius: radii.pill,
-      paddingVertical: spacing.sm + 2,
-      alignItems: 'center',
-    },
-    confirmBtnText: { fontFamily: fonts.bold, fontSize: 14, color: '#FFFFFF' },
-    secondaryRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
-    secondaryBtn: {
-      flex: 1,
       borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: radii.pill,
-      paddingVertical: spacing.sm,
-      alignItems: 'center',
+      borderColor: line,
+      backgroundColor: ui.surfaceLow,
+      borderRadius: 22,
+      padding: 18,
+      marginTop: spacing.md,
+      maxWidth: '88%',
     },
-    secondaryBtnText: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textSecondary },
-    adjustmentStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    adjustmentStatusText: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.textSecondary },
-    startersWrap: { marginTop: spacing.md },
-    startersLabel: { fontFamily: fonts.bold, fontSize: 12, color: colors.textMuted, marginBottom: spacing.sm },
-    starterChip: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-      backgroundColor: colors.surface,
-      borderRadius: radii.md,
-      padding: spacing.md,
-      marginBottom: spacing.sm,
-    },
-    starterNumber: {
-      width: 22,
-      height: 22,
-      borderRadius: radii.pill,
-      backgroundColor: colors.safeSoft,
+    adjustmentTitle: { fontFamily: fonts.bold, fontSize: 18, color: ui.text, marginBottom: 6 },
+    adjustmentDescription: { fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: ui.text, marginBottom: 6 },
+    creationMeta: { fontFamily: fonts.semiBold, fontSize: 13, color: ui.muted, marginBottom: 6 },
+    adjustmentCaption: { fontFamily: fonts.regular, fontSize: 14, color: ui.muted, marginBottom: spacing.md },
+    confirmBtn: {
+      backgroundColor: ui.amber,
+      borderRadius: 999,
+      minHeight: 52,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    starterNumberText: { fontFamily: fonts.bold, fontSize: 12, color: colors.safe },
-    starterText: { ...typography.body, flex: 1 },
+    confirmBtnText: { fontFamily: fonts.bold, fontSize: 17, color: '#1A1300' },
+    secondaryBtn: {
+      borderWidth: 1,
+      borderColor: line,
+      borderRadius: 999,
+      minHeight: 52,
+      marginTop: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    secondaryBtnText: { fontFamily: fonts.bold, fontSize: 16, color: ui.text },
+    tryAnother: { minHeight: 44, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
+    tryAnotherText: { fontFamily: fonts.semiBold, fontSize: 14, color: ui.amber },
+    adjustmentStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    adjustmentStatusText: { fontFamily: fonts.semiBold, fontSize: 14, color: ui.muted },
+    startersWrap: { marginTop: 4 },
+    emptyIcon: {
+      width: 48,
+      height: 48,
+      borderRadius: 14,
+      backgroundColor: amberSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 16,
+    },
+    emptyTitle: { fontFamily: fonts.extraBold, fontSize: 28, color: ui.text },
+    emptyBody: { fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: ui.muted, marginTop: 8, marginBottom: 22 },
+    starterChip: {
+      borderWidth: 1,
+      borderColor: line,
+      backgroundColor: ui.surfaceLow,
+      borderRadius: 26,
+      minHeight: 56,
+      paddingHorizontal: 18,
+      paddingVertical: 14,
+      marginBottom: 12,
+      justifyContent: 'center',
+    },
+    starterText: { fontFamily: fonts.regular, fontSize: 16, color: ui.text },
     inputBar: {
       flexDirection: 'row',
       alignItems: 'flex-end',
-      gap: spacing.sm,
-      paddingHorizontal: spacing.lg,
-      paddingTop: spacing.sm,
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
+      gap: 10,
+      paddingHorizontal: 16,
+      paddingTop: 12,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: line,
     },
     input: {
       flex: 1,
-      backgroundColor: colors.surface,
-      borderRadius: radii.lg,
+      borderRadius: 28,
       borderWidth: 1,
-      borderColor: colors.border,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm + 2,
+      borderColor: line,
+      paddingHorizontal: 20,
+      paddingVertical: 14,
       fontFamily: fonts.regular,
-      fontSize: 14,
-      color: colors.textPrimary,
-      maxHeight: 100,
+      fontSize: 16,
+      color: ui.text,
+      maxHeight: 110,
     },
     sendBtn: {
-      width: 40,
-      height: 40,
-      borderRadius: radii.pill,
-      backgroundColor: colors.safe,
+      width: 52,
+      height: 52,
+      borderRadius: 26,
+      backgroundColor: ui.amber,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -682,9 +682,9 @@ function makeStyles(colors, typography) {
     disclaimer: {
       textAlign: 'center',
       fontFamily: fonts.regular,
-      fontSize: 11,
-      color: colors.textMuted,
-      paddingVertical: spacing.sm,
+      fontSize: 13,
+      color: ui.muted,
+      paddingVertical: 10,
     },
   });
 }

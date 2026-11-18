@@ -15,7 +15,7 @@ import { useNotifications } from '../hooks/useNotifications';
 import { useNotificationSwipePrefs } from '../hooks/useNotificationSwipePrefs';
 import { timeAgo } from '../utils/date';
 import { navigateToTab } from '../utils/navigationRef';
-import { radii, shadow, spacing } from '../theme';
+import { fonts, radii, skylineUI, spacing } from '../theme';
 
 const DELETE_ACTION_WIDTH = 76;
 const READ_ACTION_WIDTH = 92;
@@ -38,12 +38,12 @@ const TYPE_ICON = {
   CHALLENGE_INVITE: 'trophy-outline',
   CHALLENGE_JOINED: 'trophy-outline',
   CHALLENGE_CHECKIN: 'trophy-outline',
-  NUDGE: 'hand-wave-outline',
-  HABIT_REMINDER: 'bell-ring-outline',
-  CHALLENGE_REMINDER: 'bell-ring-outline',
-  WEEKLY_SUMMARY: 'calendar-week',
+  NUDGE: 'hand-back-right-outline',
+  HABIT_REMINDER: 'bell-outline',
+  CHALLENGE_REMINDER: 'bell-outline',
+  WEEKLY_SUMMARY: 'calendar-month-outline',
   MONTHLY_SUMMARY: 'calendar-month-outline',
-  YEARLY_SUMMARY: 'calendar-star',
+  YEARLY_SUMMARY: 'calendar-month-outline',
 };
 
 function triggerHaptic(kind) {
@@ -68,8 +68,9 @@ export default function NotificationCenterModal({
   onOpenInsightsPeriod,
   onOpenFriends,
 }) {
-  const { colors, typography } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
+  const { colors, effectiveMode } = useAppTheme();
+  const ui = skylineUI[effectiveMode];
+  const styles = useMemo(() => makeStyles(ui), [ui]);
   const { notifications, unreadCount, loading, refresh, markRead, markUnread, markAllRead, deleteNotification } =
     useNotifications();
   const { deleteOnLeft } = useNotificationSwipePrefs();
@@ -118,21 +119,28 @@ export default function NotificationCenterModal({
       <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
-          <Pressable onPress={onClose} hitSlop={12} style={styles.closeBtn}>
-            <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
+          <Pressable
+            onPress={onClose}
+            style={[styles.headerBtn, styles.closeBtn]}
+            accessibilityRole="button"
+            accessibilityLabel="Close notifications"
+            testID="notification-center-close"
+          >
+            <MaterialCommunityIcons name="close" size={22} color={ui.text} />
           </Pressable>
           <Text style={styles.headerTitle}>Notifications</Text>
           <Pressable
             onPress={markAllRead}
-            hitSlop={12}
-            style={styles.closeBtn}
+            style={styles.headerBtn}
             disabled={unreadCount === 0}
+            accessibilityRole="button"
             accessibilityLabel="Mark all read"
+            testID="notification-center-mark-all-read"
           >
             <MaterialCommunityIcons
               name="check-all"
               size={22}
-              color={unreadCount === 0 ? colors.textMuted : colors.accent}
+              color={unreadCount === 0 ? ui.muted : ui.amber}
             />
           </Pressable>
         </View>
@@ -143,9 +151,14 @@ export default function NotificationCenterModal({
           contentContainerStyle={styles.list}
           refreshing={loading}
           onRefresh={refresh}
+          ListFooterComponent={
+            notifications.length > 0 ? (
+              <Text style={styles.footerHint}>Swipe a row to mark it read or delete it.</Text>
+            ) : null
+          }
           ListEmptyComponent={
             <View style={styles.emptyState}>
-              <MaterialCommunityIcons name="bell-outline" size={28} color={colors.textMuted} />
+              <MaterialCommunityIcons name="bell-outline" size={28} color={ui.muted} />
               <Text style={styles.emptyText}>Nothing yet — notifications show up here as friends and groupmates do things.</Text>
             </View>
           }
@@ -154,6 +167,7 @@ export default function NotificationCenterModal({
               item={item}
               styles={styles}
               colors={colors}
+              ui={ui}
               deleteOnLeft={deleteOnLeft}
               onPress={() => handlePress(item)}
               onMarkRead={() => markRead(item.id)}
@@ -182,7 +196,7 @@ export default function NotificationCenterModal({
  * swipe-left-to-read / swipe-right-to-delete, `deleteOnLeft` flips both at
  * once so the two actions never collide on the same side.
  */
-function NotificationRow({ item, styles, colors, deleteOnLeft, onPress, onMarkRead, onMarkUnread, onDelete }) {
+function NotificationRow({ item, styles, colors, ui, deleteOnLeft, onPress, onMarkRead, onMarkUnread, onDelete }) {
   // The non-delete side always has an action — never null — so swiping it on
   // an already-read notification undoes that instead of doing nothing.
   const toggleReadAction = item.read ? 'unread' : 'read';
@@ -290,7 +304,7 @@ function NotificationRow({ item, styles, colors, deleteOnLeft, onPress, onMarkRe
           style={[
             styles.sidePanel,
             styles.leftPanel,
-            { backgroundColor: panelColor(leftPanelAction, colors) },
+            { backgroundColor: panelColor(leftPanelAction, colors, ui) },
             leftPanelStyle,
           ]}
         >
@@ -305,7 +319,7 @@ function NotificationRow({ item, styles, colors, deleteOnLeft, onPress, onMarkRe
           style={[
             styles.sidePanel,
             styles.rightPanel,
-            { backgroundColor: panelColor(rightPanelAction, colors) },
+            { backgroundColor: panelColor(rightPanelAction, colors, ui) },
             rightPanelStyle,
           ]}
         >
@@ -320,21 +334,24 @@ function NotificationRow({ item, styles, colors, deleteOnLeft, onPress, onMarkRe
           <View
             style={[styles.row, !item.read && styles.rowUnread]}
             accessibilityRole="button"
-            accessibilityLabel={item.title}
+            accessibilityLabel={`${item.title}. ${item.body}`}
+            testID={`notification-row-${item.id}`}
           >
             <View style={[styles.iconBadge, !item.read && styles.iconBadgeUnread]}>
               <MaterialCommunityIcons
                 name={TYPE_ICON[item.type] || 'bell-outline'}
-                size={18}
-                color={item.read ? colors.textSecondary : colors.accent}
+                size={22}
+                color={item.read ? ui.muted : ui.amber}
               />
             </View>
             <View style={styles.rowText}>
               <Text style={styles.rowTitle} numberOfLines={1}>{item.title}</Text>
-              <Text style={styles.rowBody} numberOfLines={2}>{item.body}</Text>
-              <Text style={styles.rowMeta}>{timeAgo(item.createdAt)}</Text>
+              <Text style={styles.rowBody} numberOfLines={1}>{item.body}</Text>
             </View>
-            {!item.read ? <View style={styles.unreadDot} /> : null}
+            <View style={styles.rowTrailing}>
+              <Text style={styles.rowTime}>{timeAgo(item.createdAt)}</Text>
+              {!item.read ? <View style={styles.unreadDot} /> : null}
+            </View>
           </View>
         </Animated.View>
       </GestureDetector>
@@ -342,8 +359,11 @@ function NotificationRow({ item, styles, colors, deleteOnLeft, onPress, onMarkRe
   );
 }
 
-function panelColor(action, colors) {
-  return action === 'delete' ? colors.atRisk : colors.accent;
+// Delete keeps the app's semantic danger red (skylineUI has no equivalent
+// token); everything else moves to the amber accent used by the rest of
+// this restyle, instead of the old blue app accent.
+function panelColor(action, colors, ui) {
+  return action === 'delete' ? colors.atRisk : ui.amber;
 }
 
 function ActionGlyph({ action }) {
@@ -372,26 +392,30 @@ function ActionGlyph({ action }) {
 }
 
 const glyphStyles = StyleSheet.create({
-  text: { fontSize: 11, fontWeight: '700', color: '#FFFFFF' },
+  text: { fontSize: 11, fontFamily: fonts.bold, color: '#FFFFFF' },
 });
 
-function makeStyles(colors, typography) {
+function makeStyles(ui) {
   return StyleSheet.create({
-    safeArea: { flex: 1, backgroundColor: colors.background },
+    safeArea: { flex: 1, backgroundColor: ui.background },
     header: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       paddingHorizontal: spacing.lg,
       paddingVertical: spacing.md,
-      backgroundColor: colors.surface,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
+      backgroundColor: ui.background,
     },
-    headerTitle: { ...typography.sectionTitle },
-    closeBtn: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
-    list: { padding: spacing.lg, paddingBottom: spacing.xxl },
-    rowWrapper: { marginBottom: spacing.sm, borderRadius: radii.lg, overflow: 'hidden' },
+    headerTitle: { fontFamily: fonts.extraBold, fontSize: 18, color: ui.text },
+    headerBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+    closeBtn: { backgroundColor: ui.surfaceLow },
+    list: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl },
+    rowWrapper: {
+      overflow: 'hidden',
+      backgroundColor: ui.background,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: ui.surfaceHigh,
+    },
     sidePanel: {
       position: 'absolute',
       top: 0,
@@ -410,29 +434,36 @@ function makeStyles(colors, typography) {
     },
     row: {
       flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: spacing.sm,
-      backgroundColor: colors.surface,
-      borderRadius: radii.lg,
-      padding: spacing.md,
-      ...shadow,
+      alignItems: 'center',
+      gap: spacing.md,
+      backgroundColor: ui.background,
+      paddingVertical: spacing.md,
+      minHeight: 64,
     },
-    rowUnread: { backgroundColor: colors.accentSoft },
+    rowUnread: {},
     iconBadge: {
-      width: 34,
-      height: 34,
+      width: 40,
+      height: 40,
       borderRadius: radii.md,
-      backgroundColor: colors.background,
+      backgroundColor: ui.surfaceHigh,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    iconBadgeUnread: { backgroundColor: '#FFFFFF' },
+    iconBadgeUnread: { backgroundColor: ui.amber + '26' },
     rowText: { flex: 1 },
-    rowTitle: { fontSize: 13, fontWeight: '700', color: colors.textPrimary },
-    rowBody: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
-    rowMeta: { ...typography.meta, marginTop: 4 },
-    unreadDot: { width: 8, height: 8, borderRadius: radii.pill, backgroundColor: colors.accent, marginTop: 4 },
+    rowTitle: { fontFamily: fonts.bold, fontSize: 15, color: ui.text },
+    rowBody: { fontFamily: fonts.regular, fontSize: 13, color: ui.muted, marginTop: 2 },
+    rowTrailing: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingTop: 2 },
+    rowTime: { fontFamily: fonts.regular, fontSize: 12, color: ui.muted },
+    unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: ui.amber },
+    footerHint: {
+      fontFamily: fonts.regular,
+      fontSize: 13,
+      color: ui.muted,
+      textAlign: 'center',
+      paddingVertical: spacing.lg,
+    },
     emptyState: { alignItems: 'center', paddingVertical: spacing.xl, gap: spacing.sm },
-    emptyText: { ...typography.body, color: colors.textSecondary, textAlign: 'center' },
+    emptyText: { fontFamily: fonts.regular, fontSize: 14, color: ui.muted, textAlign: 'center' },
   });
 }

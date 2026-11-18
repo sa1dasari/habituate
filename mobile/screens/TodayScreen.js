@@ -24,11 +24,9 @@ import Toast from '../components/Toast';
 import TowerForm from '../components/TowerForm';
 import ProtectionInfoModal from '../components/ProtectionInfoModal';
 import { useToast } from '../hooks/useToast';
-import { TOUR_SCOPES, TOUR_TARGETS } from '../constants/onboardingTour';
+import { TOUR_SCOPES } from '../constants/onboardingTour';
 import { useAuth } from '../hooks/useAuth';
 import { useCelebration } from '../hooks/useCelebration';
-import { useOnboardingTour } from '../hooks/useOnboardingTour';
-import { useTourTarget } from '../hooks/useTourTarget';
 import { useRegisterScrollToTop } from '../hooks/useRegisterScrollToTop';
 import { useFeaturedGoalReviews } from '../hooks/useFeaturedGoalReviews';
 import { summarizeHabits, useHabits } from '../hooks/useHabits';
@@ -122,39 +120,8 @@ export default function TodayScreen() {
   const [coachVisible, setCoachVisible] = useState(false);
   const [coachInitialQuestion, setCoachInitialQuestion] = useState(null);
 
-  const { active: tourActive, currentStep: tourStep } = useOnboardingTour();
-  const tourCoachButtonRef = useTourTarget(TOUR_TARGETS.TODAY_COACH_BUTTON);
-  const tourAddHabitButtonRef = useTourTarget(TOUR_TARGETS.TODAY_ADD_HABIT_BUTTON);
-  const tourShieldIconRef = useTourTarget(TOUR_TARGETS.TODAY_SHIELD_ICON);
   const [towerFormVisible, setTowerFormVisible] = useState(false);
   const [showShieldInfo, setShowShieldInfo] = useState(false);
-
-  // Real-screen tour step: opens the actual Ask Habituate chat in step with
-  // the walkthrough, and closes it the moment the tour ends.
-  useEffect(() => {
-    if (!tourActive) {
-      setCoachVisible(false);
-      return;
-    }
-    if (tourStep?.id === 'ask-habituate-chat') {
-      setCoachInitialQuestion(null);
-      setCoachVisible(true);
-    } else {
-      setCoachVisible(false);
-    }
-  }, [tourActive, tourStep]);
-
-  // Same real-screen pattern, formerly on HabitsScreen.js: opens the actual
-  // create-tower form / Shield Days info modal in step with the walkthrough.
-  useEffect(() => {
-    if (!tourActive) {
-      setTowerFormVisible(false);
-      setShowShieldInfo(false);
-      return;
-    }
-    setTowerFormVisible(tourStep?.id === 'habits-create-form');
-    setShowShieldInfo(tourStep?.id === 'shield-days-info');
-  }, [tourActive, tourStep]);
 
   const featuredHabits = useMemo(() => habits.filter((h) => h.featuredGoal), [habits]);
   const { reviews: habitGoalReviews } = useFeaturedGoalReviews(featuredHabits);
@@ -533,6 +500,7 @@ export default function TodayScreen() {
         highlighted={highlightedId === habit.id}
         name={habit.name}
         category={habit.category}
+        towerColor={habit.color}
         cadenceType={habit.cadenceType}
         trackingMode={habit.trackingMode}
         todayCount={habit.todayCount}
@@ -577,9 +545,8 @@ export default function TodayScreen() {
             <Text style={styles.name}>{displayName}</Text>
           </View>
 
-          {shieldsAvailable > 0 || (tourActive && tourStep?.id === 'habits-shield') ? (
+          {shieldsAvailable > 0 ? (
             <Pressable
-              ref={tourShieldIconRef}
               style={styles.shieldBadge}
               accessibilityRole="button"
               accessibilityLabel={`${shieldsAvailable} Shield Days banked`}
@@ -591,7 +558,6 @@ export default function TodayScreen() {
           ) : null}
 
           <Pressable
-            ref={tourCoachButtonRef}
             style={styles.coachIconBtn}
             accessibilityRole="button"
             accessibilityLabel="Open AI coach chat"
@@ -669,23 +635,6 @@ export default function TodayScreen() {
           <Text style={styles.sectionTitle}>Due Today</Text>
         </View>
 
-        {/* Replaying the tour (Account Settings → "Replay tour") can land here
-            with habits already on the account — 'habits-intro' still needs a
-            real button to spotlight, so render just the CTA standalone rather
-            than the whole empty-state illustration below. */}
-        {tourActive && tourStep?.id === 'habits-intro' && habits.length > 0 ? (
-          <Pressable
-            ref={tourAddHabitButtonRef}
-            style={styles.emptyCta}
-            accessibilityRole="button"
-            accessibilityLabel="Lay a foundation"
-            onPress={() => setTowerFormVisible(true)}
-          >
-            <Text style={styles.emptyCtaText}>Lay a foundation</Text>
-            <MaterialCommunityIcons name="arrow-right" size={16} color={colors.accent} />
-          </Pressable>
-        ) : null}
-
         {loading && habits.length === 0 ? (
           <View style={styles.loaderRow}>
             <ActivityIndicator size="small" color={colors.accent} />
@@ -699,7 +648,6 @@ export default function TodayScreen() {
             </Text>
             <TemplateHabitsPicker onSelect={handleAddTemplateHabit} disabled={busy} />
             <Pressable
-              ref={tourAddHabitButtonRef}
               style={styles.emptyCta}
               accessibilityRole="button"
               accessibilityLabel="Lay a foundation"
@@ -752,7 +700,11 @@ export default function TodayScreen() {
       onClose={() => setShowShieldInfo(false)}
     />
 
-    <TourHighlight scope={TOUR_SCOPES.TODAY} />
+    {/* Interim host: until the Skyline tab replaces this screen (SKYLINE.md
+        phase 8), release builds land on this screen for tour steps 1-3. In
+        __DEV__ SkylineScreen (route 'SkylineReal') hosts them instead, so
+        only one overlay mounts. Remove with this screen. */}
+    {!__DEV__ && <TourHighlight scope={TOUR_SCOPES.SKYLINE} />}
     <Toast toast={toast} onHide={hideToast} />
     </>
   );

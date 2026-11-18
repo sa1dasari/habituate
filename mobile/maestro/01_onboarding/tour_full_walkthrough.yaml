@@ -1,8 +1,7 @@
 appId: com.habituate.mobile
-# Taps through all 15 steps of TOUR_STEPS (constants/onboardingTour.js) via
-# "Next"/"Let's go", confirming each real screen/modal it's supposed to
-# spotlight actually opens and closes in step with the walkthrough —
-# not a static slideshow, per its own design.
+# Taps through all 5 steps of TOUR_STEPS (constants/onboardingTour.js) via
+# "Next"/"Done", checking each step's exact title. Steps 1-3 spotlight the
+# Skyline screen, steps 4-5 the Community and Profile tab buttons.
 ---
 - launchApp:
     clearState: true
@@ -17,52 +16,27 @@ appId: com.habituate.mobile
 - runFlow: ../_shared/dismiss_samsung_pass.yaml
 - runFlow: ../_shared/choose_username.yaml
 
-# 1. welcome (Today)
-- assertVisible: "Welcome to Habituate"
-- tapOn: "Next"
-# 2. habits-intro (Today tab, TODAY_ADD_HABIT_BUTTON spotlighted)
-- assertVisible: "Habits start right here"
-- tapOn: "Next"
-# 3. habits-create-form (real TowerForm modal opens, over Today)
-- assertVisible: "You're looking at the real form"
-- assertVisible: "Lay a foundation"
-- tapOn: "Next"
-# 4. habits-shield (Today tab's shield icon spotlighted)
-- assertVisible: "Shield Days have your back"
-- tapOn: "Next"
-# 5. shield-days-info (real Shield Days info modal, opened from Today)
-- assertVisible: "Here's exactly how it works"
-- tapOn: "Next"
-# 6. community-intro (Community tab)
-- assertVisible: "Community is where it gets social"
-- tapOn: "Next"
-# 7. community-create-group
-- assertVisible: "Shared Habits = one streak, two people"
-- tapOn: "Next"
-# 8. shared-habit-form (real create-shared-habit screen)
-- assertVisible: "The actual create screen"
-- tapOn: "Next"
-# 9. community-create-challenge
-- assertVisible: "Challenges play by different rules"
-- tapOn: "Next"
-# 10. challenge-form (real create-challenge screen)
-- assertVisible: "Build your own Challenge"
-- tapOn: "Next"
-# 11. streak-freeze-info
-- assertVisible: "Streak Freezes protect the group"
-- tapOn: "Next"
-# 12. insights-consistency (Insights tab)
-- assertVisible: "Your consistency, at a glance"
-- tapOn: "Next"
-# 13. insights-coach (back on Today tab, chat icon spotlighted)
-- assertVisible: "Meet Ask Habituate"
-- tapOn: "Next"
-# 14. ask-habituate-chat (real chat modal)
-- assertVisible: "You're in the real coach right now"
-- tapOn: "Next"
-# 15. finish (Today)
-- assertVisible: "You're set. Go build something."
-- tapOn: "Let's go"
-- assertVisible: "Today"
-# Nothing from the tour should be left open behind it.
-- assertNotVisible: "Skip tour"
+# 1. the skyline
+- assertVisible: "1 OF 5"
+- assertVisible: "This is your skyline"
+- tapOn:
+    id: "tour-next"
+# 2. hold to build
+- assertVisible: "Hold to build"
+- tapOn:
+    id: "tour-next"
+# 3. tap a tower
+- assertVisible: "Tap a tower for more"
+- tapOn:
+    id: "tour-next"
+# 4. Community tab
+- assertVisible: "Build with friends"
+- tapOn:
+    id: "tour-next"
+# 5. Profile tab (last step: no Skip, Next reads Done)
+- assertVisible: "Your settings"
+- assertNotVisible:
+    id: "tour-skip"
+- tapOn: "Done"
+- assertNotVisible:
+    id: "tour-card"

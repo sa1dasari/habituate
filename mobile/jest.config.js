@@ -11,6 +11,11 @@ module.exports = {
     '<rootDir>/utils/moonPhase.test.js',
     '<rootDir>/utils/lots.test.js',
     '<rootDir>/utils/consistency.test.js',
+    '<rootDir>/utils/insightsDetails.test.js',
+    '<rootDir>/utils/towerAge.test.js',
+    '<rootDir>/utils/monument.test.js',
+    '<rootDir>/constants/towerColors.test.js',
+    '<rootDir>/constants/onboardingTour.test.js',
   ],
   transform: {
     // <rootDir> isn't interpolated inside transform option objects (only in

@@ -187,10 +187,6 @@ export function TourProvider({ children }) {
     });
   }, [finish]);
 
-  const back = useCallback(() => {
-    setStepIndex((i) => Math.max(0, i - 1));
-  }, []);
-
   const resolvedDisplayStep = displayStep ?? currentStep;
 
   const value = useMemo(
@@ -209,11 +205,10 @@ export function TourProvider({ children }) {
       targetRect,
       start,
       next,
-      back,
       skip: finish,
       finish,
     }),
-    [active, currentStep, resolvedDisplayStep, displayStep, displayTargetRect, stepIndex, targetRect, start, next, back, finish]
+    [active, currentStep, resolvedDisplayStep, displayStep, displayTargetRect, stepIndex, targetRect, start, next, finish]
   );
 
   return createElement(TourContext.Provider, { value }, children);

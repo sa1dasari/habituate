@@ -1,18 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import ConfirmModal from './ConfirmModal';
 import ScrubberInput from './ScrubberInput';
 import Toast from './Toast';
-import TourHighlight from './TourHighlight';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useConfirm } from '../hooks/useConfirm';
 import { useGroups } from '../hooks/useGroups';
 import { useHabits } from '../hooks/useHabits';
 import { useToast } from '../hooks/useToast';
-import { useTourTarget } from '../hooks/useTourTarget';
-import { TOUR_SCOPES, TOUR_TARGETS } from '../constants/onboardingTour';
 import { radii, spacing } from '../theme';
 
 const RULE_OPTIONS = [
@@ -43,7 +40,6 @@ export default function CreateGroupModal({ visible, onClose, onDeleted, group = 
   const { busy, createGroup, updateGroup, deleteGroup } = useGroups();
   const { habits } = useHabits();
   const isEditing = !!group;
-  const tourHeaderRef = useTourTarget(TOUR_TARGETS.MODAL_CREATE_GROUP_HEADER);
   const { toast, showToast, hideToast } = useToast();
   const { request, confirm, respond } = useConfirm();
 
@@ -157,7 +153,7 @@ export default function CreateGroupModal({ visible, onClose, onDeleted, group = 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={handleClose}>
       <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header} ref={tourHeaderRef}>
+        <View style={styles.header}>
           <Pressable onPress={handleClose} hitSlop={12} style={styles.closeBtn}>
             <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
           </Pressable>
@@ -165,7 +161,9 @@ export default function CreateGroupModal({ visible, onClose, onDeleted, group = 
           <View style={{ width: 34 }} />
         </View>
 
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          <Text style={styles.subtitle}>A habit you and friends build side by side.</Text>
           {isEditing ? null : (
             <>
               <Text style={styles.helperText}>
@@ -254,6 +252,25 @@ export default function CreateGroupModal({ visible, onClose, onDeleted, group = 
             </>
           ) : null}
 
+          <Text style={styles.fieldLabel}>What friends see</Text>
+          {VISIBILITY_OPTIONS.map((option) => (
+            <Pressable
+              key={option.value}
+              style={[styles.optionRow, visibilityLevel === option.value && styles.optionRowActive]}
+              onPress={() => setVisibilityLevel(option.value)}
+            >
+              <MaterialCommunityIcons
+                name={visibilityLevel === option.value ? 'radiobox-marked' : 'radiobox-blank'}
+                size={18}
+                color={visibilityLevel === option.value ? colors.accent : colors.textMuted}
+              />
+              <View style={styles.optionText}>
+                <Text style={styles.optionLabel}>{option.label}</Text>
+                <Text style={styles.optionHint}>{option.hint}</Text>
+              </View>
+            </Pressable>
+          ))}
+
           <View style={styles.switchRow}>
             <View style={styles.optionText}>
               <Text style={styles.optionLabel}>Allow nudges</Text>
@@ -267,16 +284,18 @@ export default function CreateGroupModal({ visible, onClose, onDeleted, group = 
             />
           </View>
 
-          <Pressable style={styles.advancedToggle} onPress={() => setAdvancedOpen((v) => !v)}>
-            <Text style={styles.advancedToggleText}>Advanced settings</Text>
-            <MaterialCommunityIcons
-              name={advancedOpen ? 'chevron-up' : 'chevron-down'}
-              size={18}
-              color={colors.textSecondary}
-            />
-          </Pressable>
+          {trackingMode === 'COOPERATIVE' ? (
+            <Pressable style={styles.advancedToggle} onPress={() => setAdvancedOpen((v) => !v)}>
+              <Text style={styles.advancedToggleText}>Advanced settings</Text>
+              <MaterialCommunityIcons
+                name={advancedOpen ? 'chevron-up' : 'chevron-down'}
+                size={18}
+                color={colors.textSecondary}
+              />
+            </Pressable>
+          ) : null}
 
-          {advancedOpen ? (
+          {advancedOpen && trackingMode === 'COOPERATIVE' ? (
             <View style={styles.advancedBody}>
               {trackingMode === 'COOPERATIVE' ? (
                 <View style={styles.row}>
@@ -284,45 +303,30 @@ export default function CreateGroupModal({ visible, onClose, onDeleted, group = 
                   <ScrubberInput value={skipDaysPerMonth} onChange={setSkipDaysPerMonth} min={0} max={3} label="skip days" />
                 </View>
               ) : null}
-
-              <Text style={styles.fieldLabel}>Privacy & transparency</Text>
-              {VISIBILITY_OPTIONS.map((option) => (
-                <Pressable
-                  key={option.value}
-                  style={[styles.optionRow, visibilityLevel === option.value && styles.optionRowActive]}
-                  onPress={() => setVisibilityLevel(option.value)}
-                >
-                  <MaterialCommunityIcons
-                    name={visibilityLevel === option.value ? 'radiobox-marked' : 'radiobox-blank'}
-                    size={18}
-                    color={visibilityLevel === option.value ? colors.accent : colors.textMuted}
-                  />
-                  <View style={styles.optionText}>
-                    <Text style={styles.optionLabel}>{option.label}</Text>
-                    <Text style={styles.optionHint}>{option.hint}</Text>
-                  </View>
-                </Pressable>
-              ))}
             </View>
           ) : null}
-
-          <Pressable
-            style={[styles.primaryButton, styles.fullWidthButton]}
-            disabled={busy || (!isEditing && !selectedHabitId)}
-            onPress={handleCreate}
-          >
-            <Text style={styles.primaryButtonText}>{isEditing ? 'Save changes' : 'Create'}</Text>
-          </Pressable>
-
-          {isEditing ? (
-            <Pressable style={styles.deleteButton} disabled={busy} onPress={handleDelete}>
-              <MaterialCommunityIcons name="trash-can-outline" size={16} color={colors.atRisk} />
-              <Text style={styles.deleteButtonText}>Delete shared habit</Text>
-            </Pressable>
-          ) : null}
         </ScrollView>
+        <View style={styles.footer}>
+            <Pressable
+              style={[styles.primaryButton, styles.fullWidthButton, (busy || (!isEditing && !selectedHabitId)) && styles.primaryButtonDisabled]}
+              disabled={busy || (!isEditing && !selectedHabitId)}
+              onPress={handleCreate}
+              accessibilityRole="button"
+              accessibilityLabel={isEditing ? 'Save changes' : 'Create shared habit'}
+              testID="group-form-submit"
+            >
+              <Text style={styles.primaryButtonText}>{isEditing ? 'Save changes' : 'Create'}</Text>
+            </Pressable>
+
+            {isEditing ? (
+              <Pressable style={styles.deleteButton} disabled={busy} onPress={handleDelete} accessibilityRole="button" accessibilityLabel="Delete shared habit" testID="group-form-delete">
+                <MaterialCommunityIcons name="trash-can-outline" size={16} color={colors.atRisk} />
+                <Text style={styles.deleteButtonText}>Delete shared habit</Text>
+              </Pressable>
+            ) : null}
+        </View>
+        </KeyboardAvoidingView>
       </SafeAreaView>
-      <TourHighlight scope={TOUR_SCOPES.CREATE_GROUP_MODAL} />
       <Toast toast={toast} onHide={hideToast} />
       <ConfirmModal request={request} onRespond={respond} />
     </Modal>
@@ -332,6 +336,10 @@ export default function CreateGroupModal({ visible, onClose, onDeleted, group = 
 function makeStyles(colors, typography) {
   return StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: colors.background },
+    flex: { flex: 1 },
+    footer: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.sm, backgroundColor: colors.background, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+    subtitle: { ...typography.meta, marginBottom: spacing.md },
+    primaryButtonDisabled: { opacity: 0.5 },
     header: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -344,7 +352,7 @@ function makeStyles(colors, typography) {
     },
     headerTitle: { ...typography.sectionTitle },
     closeBtn: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
-    scroll: { padding: spacing.lg, paddingBottom: spacing.xxl },
+    scroll: { padding: spacing.lg, paddingBottom: spacing.xl },
     helperText: { ...typography.meta, marginBottom: spacing.md },
     emptyNote: { ...typography.meta, marginBottom: spacing.sm },
     habitRow: {
@@ -408,13 +416,13 @@ function makeStyles(colors, typography) {
     },
     advancedToggleText: { fontSize: 13, fontWeight: '700', color: colors.textSecondary },
     advancedBody: { marginTop: spacing.xs },
-    fullWidthButton: { marginTop: spacing.lg, alignSelf: 'stretch', alignItems: 'center' },
+    fullWidthButton: { alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center', minHeight: 48 },
     deleteButton: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
       gap: spacing.xs,
-      marginTop: spacing.lg,
+      minHeight: 44,
       paddingVertical: spacing.sm,
     },
     deleteButtonText: { fontSize: 13, fontWeight: '700', color: colors.atRisk },

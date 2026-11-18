@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import {
@@ -24,23 +24,28 @@ import { NotificationsProvider } from './hooks/useNotifications';
 import { CelebrationProvider } from './hooks/useCelebration';
 import { ThemeProvider, useAppTheme } from './hooks/useAppTheme';
 import { TapToBuildProvider } from './hooks/useTapToBuild';
+import { ShowFinishedTowersProvider } from './hooks/useShowFinishedTowers';
 import { WindowCountProvider } from './hooks/useWindowCount';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { isExpoGo, usePushToken, usePushPermissionPrompt } from './hooks/usePushToken';
 import PushPermissionModal from './components/PushPermissionModal';
+import { PushPromptContext } from './hooks/PushPromptContext';
 import { TourProvider, useAutoStartTour } from './hooks/useOnboardingTour';
+import { useTourTarget } from './hooks/useTourTarget';
+import TourHighlight from './components/TourHighlight';
+import { TOUR_SCOPES, TOUR_TARGETS } from './constants/onboardingTour';
 import api from './api/client';
 import { scrollToTop } from './utils/scrollToTopRegistry';
 import { navigateToTab, navigationRef } from './utils/navigationRef';
 import {
   ChooseUsernameScreen,
   CommunityScreen,
-  InsightsScreen,
   LoginScreen,
   SignupScreen,
   TodayScreen,
 } from './screens';
 import ProfileStack from './navigation/ProfileStack';
+import InsightsStack from './navigation/InsightsStack';
 // Skyline rebuild dev screens only (SKYLINE.md section 11) — __DEV__-gated
 // below, never shown in a release build. SkylineEngineScreen is the Phase 1
 // fixture-only render check; SkylineScreen is Phase 2's real-data screen,
@@ -69,6 +74,7 @@ function Tabs() {
   const { user } = useAuth();
 
   return (
+    <>
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
@@ -105,18 +111,22 @@ function Tabs() {
       />
       <Tab.Screen
         name="Insights"
-        component={InsightsScreen}
+        component={InsightsStack}
         listeners={{ tabPress: () => scrollToTop('Insights') }}
       />
       <Tab.Screen
         name="Community"
         component={CommunityScreen}
+        options={{
+          tabBarButton: (props) => <TourTabButton {...props} targetKey={TOUR_TARGETS.TAB_COMMUNITY} />,
+        }}
         listeners={{ tabPress: () => scrollToTop('Community') }}
       />
       <Tab.Screen
         name="Profile"
         component={ProfileStack}
         options={{
+          tabBarButton: (props) => <TourTabButton {...props} targetKey={TOUR_TARGETS.TAB_PROFILE} />,
           tabBarIcon: ({ color, size, focused }) =>
             user?.photoURL ? (
               <AvatarImage
@@ -150,6 +160,33 @@ function Tabs() {
         />
       )}
     </Tab.Navigator>
+    {/* Hosts tour steps 4-5, which spotlight the tab bar buttons. */}
+    <TourHighlight scope={TOUR_SCOPES.TABS} />
+    </>
+  );
+}
+
+/**
+ * Default tab bar button, plus a ref registered as a tour target (tour steps
+ * 4-5). A plain RN Pressable with the navigator's own props; the navigator
+ * passes onPress/onLongPress/style/children/accessibility props through.
+ */
+function TourTabButton({ targetKey, children, style, onPress, onLongPress, testID, accessibilityLabel, accessibilityState }) {
+  const ref = useTourTarget(targetKey);
+  return (
+    <Pressable
+      ref={ref}
+      collapsable={false}
+      onPress={onPress}
+      onLongPress={onLongPress}
+      style={style}
+      testID={testID}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityState={accessibilityState}
+    >
+      {children}
+    </Pressable>
   );
 }
 
@@ -190,7 +227,7 @@ function WidgetDeepLinkBridge() {
         const match = url.match(/habitId=(\d+)/);
         const habitId = match ? Number(match[1]) : null;
         if (!habitId) return;
-        navigateToTab('Insights', { openHabitId: habitId });
+        navigateToTab('Insights', { screen: 'InsightsMain', params: { openHabitId: habitId } });
       }
     };
 
@@ -269,6 +306,21 @@ function TourAutoStart() {
   return null;
 }
 
+// Hosts the notification explainer (design-review board 37): shown after the
+// user's first floor, not at launch, and tells the location explainer
+// (board 38) when it has been answered so the two never stack.
+function PushPromptHost({ enabled, children }) {
+  const { habits } = useHabits();
+  const hasBuiltFloor = habits.some((h) => (h.checkIns || []).length > 0);
+  const prompt = usePushPermissionPrompt(enabled && hasBuiltFloor);
+  return (
+    <PushPromptContext.Provider value={prompt.decided && !prompt.visible}>
+      <PushPermissionModal visible={prompt.visible} onAllow={prompt.onAllow} onDismiss={prompt.onDismiss} />
+      {children}
+    </PushPromptContext.Provider>
+  );
+}
+
 function AppGate() {
   const { user } = useAuth();
   const { colors, effectiveMode } = useAppTheme();
@@ -277,7 +329,6 @@ function AppGate() {
   const [username, setUsername] = useState(undefined);
 
   usePushToken(!!user);
-  const pushPrompt = usePushPermissionPrompt(!!user);
 
   useEffect(() => {
     if (!user) {
@@ -348,21 +399,20 @@ function AppGate() {
               <NotificationsProvider>
                 <CelebrationProvider>
                   <TapToBuildProvider>
-                    <WindowCountProvider>
-                      <TourProvider>
-                        <WidgetDeepLinkBridge />
-                        <PushNotificationTapBridge />
-                        <PushPermissionModal
-                          visible={pushPrompt.visible}
-                          onAllow={pushPrompt.onAllow}
-                          onDismiss={pushPrompt.onDismiss}
-                        />
-                        <NavigationContainer ref={navigationRef} theme={navigationTheme}>
-                          <Tabs />
-                        </NavigationContainer>
-                        <TourAutoStart />
-                      </TourProvider>
-                    </WindowCountProvider>
+                    <ShowFinishedTowersProvider>
+                      <WindowCountProvider>
+                        <TourProvider>
+                          <WidgetDeepLinkBridge />
+                          <PushNotificationTapBridge />
+                          <PushPromptHost enabled={!!user}>
+                            <NavigationContainer ref={navigationRef} theme={navigationTheme}>
+                              <Tabs />
+                            </NavigationContainer>
+                          </PushPromptHost>
+                          <TourAutoStart />
+                        </TourProvider>
+                      </WindowCountProvider>
+                    </ShowFinishedTowersProvider>
                   </TapToBuildProvider>
                 </CelebrationProvider>
               </NotificationsProvider>

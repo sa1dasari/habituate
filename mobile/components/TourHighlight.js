@@ -1,14 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Dimensions, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useOnboardingTour } from '../hooks/useOnboardingTour';
-import { fonts, radii, shadowLg, spacing } from '../theme';
+import { fonts, radii, shadowLg, skylineUI, spacing } from '../theme';
 
 const PAD = 10;
-const CALLOUT_HEIGHT_ESTIMATE = 230;
+const CARD_HEIGHT_ESTIMATE = 200;
 
 /**
  * The tour's spotlight + callout, mounted once inside EVERY screen/modal
@@ -31,9 +29,14 @@ const CALLOUT_HEIGHT_ESTIMATE = 230;
  * `useOnboardingTour` measures via `measureInWindow`.
  */
 export default function TourHighlight({ scope }) {
-  const { colors, typography, gradients } = useAppTheme();
+  const { typography, effectiveMode } = useAppTheme();
+  // Skyline look (boards 46-50): amber accents and a dark-on-amber Next button.
+  const colors = useMemo(() => {
+    const ui = skylineUI[effectiveMode];
+    return { accent: ui.amber, surface: ui.surfaceHigh, textMuted: ui.muted, textSecondary: ui.muted, border: 'rgba(128,140,155,0.45)', text: ui.text };
+  }, [effectiveMode]);
   const insets = useSafeAreaInsets();
-  const { active, displayStep, displayTargetRect, displayStepIndex, totalSteps, next, back, skip } =
+  const { active, displayStep, displayTargetRect, displayStepIndex, totalSteps, next, skip } =
     useOnboardingTour();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
 
@@ -51,6 +54,7 @@ export default function TourHighlight({ scope }) {
   // `visible` by one tick lets the host's window land first, so this one is
   // guaranteed to be the most-recently-added (topmost) window when it opens.
   const [modalVisible, setModalVisible] = useState(false);
+  const [cardHeight, setCardHeight] = useState(CARD_HEIGHT_ESTIMATE);
   useEffect(() => {
     if (!isLive) {
       setModalVisible(false);
@@ -69,7 +73,7 @@ export default function TourHighlight({ scope }) {
   // one is ready to take its place.
   if (!isLive || !modalVisible) return null;
 
-  const { height: winH } = Dimensions.get('window');
+  const { height: winH, width: winW } = Dimensions.get('window');
   // A target that sits close to the top of its screen (a header icon row,
   // say) can have less than PAD of real gap above it — padding out by PAD
   // unconditionally then pushed the ring/cutout's top edge above the status
@@ -82,23 +86,31 @@ export default function TourHighlight({ scope }) {
         const rawTop = displayTargetRect.y - PAD;
         const rawBottom = displayTargetRect.y + displayTargetRect.height + PAD;
         const top = Math.max(insets.top, rawTop);
+        const x = Math.max(0, displayTargetRect.x - PAD);
         return {
-          x: Math.max(0, displayTargetRect.x - PAD),
+          x,
           y: top,
-          width: displayTargetRect.width + PAD * 2,
-          height: Math.max(0, rawBottom - top),
+          // Clamped to the window: the last tab button's padded rect would
+          // otherwise run past the right edge.
+          width: Math.min(winW - x, displayTargetRect.width + PAD * 2),
+          height: Math.min(winH - top, Math.max(0, rawBottom - top)),
         };
       })()
     : null;
 
+  // Card goes below the spotlight when it fits, else above (anchored by its
+  // bottom edge so the measured card height never matters), else centered.
   const spaceBelow = rect ? winH - (rect.y + rect.height) : 0;
-  const calloutTop = rect
-    ? spaceBelow > CALLOUT_HEIGHT_ESTIMATE + spacing.xl
-      ? rect.y + rect.height + spacing.lg
-      : Math.max(spacing.xxl, rect.y - CALLOUT_HEIGHT_ESTIMATE)
-    : null;
+  const spaceAbove = rect ? rect.y : 0;
+  let calloutPos = null;
+  if (rect) {
+    if (spaceBelow >= cardHeight + spacing.lg * 2) {
+      calloutPos = { top: rect.y + rect.height + spacing.lg };
+    } else if (spaceAbove >= cardHeight + spacing.lg * 2) {
+      calloutPos = { bottom: winH - rect.y + spacing.lg };
+    }
+  }
 
-  const isFirst = displayStepIndex === 0;
   const isLast = displayStepIndex === totalSteps - 1;
 
   // A plain absolutely-positioned View here was invisible on Android: bare
@@ -143,74 +155,59 @@ export default function TourHighlight({ scope }) {
             onPress={next}
             hitSlop={8}
             style={{ position: 'absolute', top: rect.y, left: rect.x, width: rect.width, height: rect.height }}
-            accessibilityRole="button"
-            accessibilityLabel={isLast ? 'Finish tour' : 'Next'}
+            accessible={false}
           />
         </>
       ) : (
         <View style={[styles.backdrop, StyleSheet.absoluteFillObject]} />
       )}
 
-      <View style={[styles.calloutWrap, calloutTop != null ? { top: calloutTop } : styles.calloutCentered]}>
-        <View style={styles.calloutCard}>
-          <LinearGradient colors={gradients.accent} style={styles.accentBar} />
+      <View style={[styles.calloutWrap, calloutPos || styles.calloutCentered]}>
+        <View
+          style={styles.calloutCard}
+          testID="tour-card"
+          onLayout={(e) => setCardHeight(e.nativeEvent.layout.height)}
+        >
           <View style={styles.calloutBody}>
-            <View style={styles.headerRow}>
-              <Text style={styles.eyebrow}>{displayStep.eyebrow}</Text>
-              <Pressable
-                onPress={skip}
-                hitSlop={10}
-                accessibilityRole="button"
-                accessibilityLabel="Skip tour"
-              >
-                <Text style={styles.skipText}>Skip</Text>
-              </Pressable>
-            </View>
-
-            <Text style={styles.title}>{displayStep.title}</Text>
+            <Text style={styles.eyebrow}>{displayStep.eyebrow}</Text>
+            <Text style={styles.title} accessibilityRole="header">{displayStep.title}</Text>
             <Text style={styles.body}>{displayStep.body}</Text>
 
-            {displayStep.fastPathLabel ? (
-              <Pressable
-                onPress={skip}
-                style={styles.fastPathBtn}
-                hitSlop={8}
-                accessibilityRole="button"
-                accessibilityLabel={displayStep.fastPathLabel}
-              >
-                <Text style={styles.fastPathText}>{displayStep.fastPathLabel}</Text>
-              </Pressable>
-            ) : null}
-
             <View style={styles.footerRow}>
-              <View style={styles.dotsRow}>
+              {/* Fixed-width slot so the dots stay put on the last step,
+                  where Skip is hidden. */}
+              <View style={styles.skipSlot}>
+                {!isLast ? (
+                  <Pressable
+                    onPress={skip}
+                    hitSlop={10}
+                    style={styles.skipBtn}
+                    testID="tour-skip"
+                    accessibilityRole="button"
+                    accessibilityLabel="Skip tour"
+                  >
+                    <Text style={styles.skipText}>Skip</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+
+              <View style={styles.dotsRow} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
                 {Array.from({ length: totalSteps }).map((_, i) => (
                   <View key={i} style={[styles.dot, i === displayStepIndex && styles.dotActive]} />
                 ))}
               </View>
 
-              <View style={styles.buttonsRow}>
-                {!isFirst ? (
-                  <Pressable onPress={back} style={styles.backBtn} hitSlop={8} accessibilityRole="button" accessibilityLabel="Back">
-                    <Text style={styles.backBtnText}>Back</Text>
-                  </Pressable>
-                ) : null}
-                <Pressable
-                  onPress={next}
-                  hitSlop={8}
-                  accessibilityRole="button"
-                  accessibilityLabel={isLast ? 'Finish tour' : 'Next'}
-                >
-                  <LinearGradient colors={gradients.accent} style={styles.nextBtn}>
-                    <Text style={styles.nextBtnText}>{isLast ? "Let's go" : 'Next'}</Text>
-                    <MaterialCommunityIcons
-                      name={isLast ? 'rocket-launch-outline' : 'arrow-right'}
-                      size={15}
-                      color="#FFFFFF"
-                    />
-                  </LinearGradient>
-                </Pressable>
-              </View>
+              <Pressable
+                onPress={next}
+                hitSlop={8}
+                testID="tour-next"
+                accessibilityRole="button"
+                accessibilityLabel={isLast ? 'Done' : 'Next'}
+              >
+                <View style={[styles.nextBtn, { backgroundColor: colors.accent }]}>
+                  <Text style={styles.nextBtnText}>{isLast ? 'Done' : 'Next'}</Text>
+                </View>
+              </Pressable>
             </View>
           </View>
         </View>
@@ -246,14 +243,7 @@ function makeStyles(colors, typography) {
       overflow: 'hidden',
       ...shadowLg,
     },
-    accentBar: { height: 5, width: '100%' },
     calloutBody: { padding: spacing.lg },
-    headerRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginBottom: spacing.sm,
-    },
     eyebrow: {
       fontFamily: fonts.extraBold,
       fontSize: 11,
@@ -265,20 +255,13 @@ function makeStyles(colors, typography) {
       fontSize: 13,
       color: colors.textMuted,
     },
-    fastPathBtn: {
-      marginTop: spacing.md,
-      alignSelf: 'flex-start',
-      minHeight: 44,
-      justifyContent: 'center',
-    },
-    fastPathText: {
-      fontFamily: fonts.semiBold,
-      fontSize: 13,
-      color: colors.accent,
-    },
+    skipSlot: { width: 64 },
+    skipBtn: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' },
     title: {
       ...typography.sectionTitle,
+      color: colors.text,
       fontSize: 19,
+      marginTop: spacing.sm,
       marginBottom: spacing.xs,
     },
     body: {
@@ -303,17 +286,12 @@ function makeStyles(colors, typography) {
       backgroundColor: colors.accent,
       width: 16,
     },
-    buttonsRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-    backBtn: { paddingHorizontal: spacing.sm, paddingVertical: spacing.sm },
-    backBtnText: { fontSize: 13, fontWeight: '700', color: colors.textSecondary },
     nextBtn: {
-      flexDirection: 'row',
       alignItems: 'center',
-      gap: 6,
       borderRadius: radii.pill,
-      paddingHorizontal: spacing.lg,
+      paddingHorizontal: spacing.xl,
       paddingVertical: spacing.sm + 2,
     },
-    nextBtnText: { fontSize: 14, fontWeight: '800', color: '#FFFFFF' },
+    nextBtnText: { fontFamily: fonts.extraBold, fontSize: 14, color: '#1A1300' },
   });
 }

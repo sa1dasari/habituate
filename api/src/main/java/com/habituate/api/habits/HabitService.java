@@ -27,7 +27,10 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -127,15 +130,51 @@ public class HabitService {
                 .map(s -> HabitTowerResponse.from(s, countCheckInsInWindow(checkIns, s.getStartedAt(), s.getToppedOutAt())))
                 .toList();
 
+        boolean shared = groupMemberRepository.findByHabitIdAndStatus(habit.getId(), GroupMember.ACTIVE).isPresent();
+
         return HabitResponse.from(
                 habit, streaks.current(), streaks.longest(), shieldedToday, shieldEligible,
-                closedSegments.size(), recentClosedSegments);
+                closedSegments.size(), recentClosedSegments, shared, habit.getColor());
     }
 
     private int countCheckInsInWindow(List<CheckIn> checkIns, Instant start, Instant end) {
         return (int) checkIns.stream()
                 .filter(c -> !c.getOccurredAt().isBefore(start) && c.getOccurredAt().isBefore(end))
                 .count();
+    }
+
+    /**
+     * Board 58's combined list: every closed tower segment across the
+     * caller's own non-archived habits, newest-finished-first. Unlike
+     * {@link HabitResponse#recentClosedSegments()} (capped at 2, for the
+     * skyline compositing budget) this is the complete history. Scoped to
+     * userId only — there is no habitId input, so a caller can only ever
+     * see their own rows; an archived habit's segments are excluded on
+     * purpose (its finished towers stay reachable through the existing
+     * Retired towers list instead).
+     */
+    public List<FinishedTowerResponse> listFinishedTowers(String userId) {
+        List<Habit> activeHabits = habitRepository.findByUserIdAndArchivedFalseOrderByCreatedAtDesc(userId);
+        if (activeHabits.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, Habit> habitById = activeHabits.stream()
+                .collect(Collectors.toMap(Habit::getId, h -> h));
+
+        List<HabitTower> segments = habitTowerRepository
+                .findByHabitIdInAndToppedOutAtIsNotNullOrderByToppedOutAtDesc(new ArrayList<>(habitById.keySet()));
+
+        Map<Long, List<CheckIn>> checkInsByHabit = new HashMap<>();
+        List<FinishedTowerResponse> out = new ArrayList<>(segments.size());
+        for (HabitTower segment : segments) {
+            Habit habit = habitById.get(segment.getHabitId());
+            List<CheckIn> checkIns = checkInsByHabit.computeIfAbsent(
+                    segment.getHabitId(),
+                    id -> checkInRepository.findByUserIdAndHabitIdOrderByOccurredAtAsc(userId, id));
+            int floorCount = countCheckInsInWindow(checkIns, segment.getStartedAt(), segment.getToppedOutAt());
+            out.add(FinishedTowerResponse.from(segment, habit, floorCount));
+        }
+        return out;
     }
 
     private HabitResponse toResponse(Habit habit) {
@@ -158,7 +197,32 @@ public class HabitService {
                 Boolean.TRUE.equals(request.reminderEnabled()) && habit.getScheduledTime() != null
         );
         habit.setMotivation(blankToNull(request.motivation()));
+        if (request.topOutThresholdDays() != null) {
+            habit.setTopOutThresholdDays(requireValidCap(request.topOutThresholdDays()));
+        }
+        habit.setColor(normalizeColor(request.color()));
         return toResponse(habitRepository.save(habit));
+    }
+
+    /** The cap is 1..35 days; anything else is a specific, user-facing 400. */
+    private static int requireValidCap(int capDays) {
+        if (!TowerCap.isValidCap(capDays)) {
+            throw new IllegalArgumentException("Top out after must be between 1 and 35 days");
+        }
+        return capDays;
+    }
+
+    /** Blank clears to null (category fallback); anything else must be a palette key. */
+    private static String normalizeColor(String value) {
+        String trimmed = blankToNull(value);
+        if (trimmed == null) {
+            return null;
+        }
+        String key = trimmed.toLowerCase();
+        if (!TowerColors.isValid(key)) {
+            throw new IllegalArgumentException("Pick one of the tower colours");
+        }
+        return key;
     }
 
     private static String blankToNull(String value) {
@@ -212,7 +276,11 @@ public class HabitService {
             habit.setArchived(request.archived());
         }
         if (request.topOutThresholdDays() != null) {
-            habit.setTopOutThresholdDays(request.topOutThresholdDays());
+            habit.setTopOutThresholdDays(requireValidCap(request.topOutThresholdDays()));
+        }
+        // null leaves the colour unchanged; "" clears it back to the category colour.
+        if (request.color() != null) {
+            habit.setColor(normalizeColor(request.color()));
         }
 
         return toResponse(habitRepository.save(habit));
@@ -515,16 +583,38 @@ public class HabitService {
         }
 
         ZoneId zone = resolveZone(timezone);
-        HabitTower current = habitTowerService.currentSegment(habit);
-        long ageDays = Duration.between(current.getStartedAt(), Instant.now()).toDays();
-        int threshold = habit.getTopOutThresholdDays();
-        if (ageDays < threshold) {
-            throw new IllegalArgumentException(
-                    "This tower needs to be at least " + threshold + " days old to top out (currently " + ageDays + ")");
-        }
-
+        // Manual top-out is allowed on any day, until the tower tops out on
+        // its own at its cap — there is no minimum age.
         habitTowerService.topOut(habit, zone);
         return toResponse(habit, zone);
+    }
+
+    /**
+     * Automatic top-out (SKYLINE.md section 6): if the habit's open tower has
+     * stood its cap in local calendar days, closes it once at the most recent
+     * cap boundary and starts a new tower there. Returns whether it topped
+     * out. Idempotent (a second call finds a fresh tower and does nothing);
+     * called by TowerAutoTopOutScheduler, not by a request. Daily-cadence
+     * habits only; retired habits are left alone.
+     */
+    @Transactional
+    public boolean autoTopOutIfDue(Habit habit, ZoneId zone, Instant now) {
+        if (habit.isArchived() || !hasDailyTarget(habit)) {
+            return false;
+        }
+        HabitTower open = habitTowerService.currentSegment(habit);
+        var boundary = TowerCap.latestDueBoundary(open.getStartedAt(), habit.getTopOutThresholdDays(), zone, now);
+        if (boundary.isEmpty()) {
+            return false;
+        }
+        habitTowerService.topOutAt(habit, zone, boundary.get(), true);
+        return true;
+    }
+
+    /** One-time, idempotent clamp of caps above the new maximum (35). Returns rows changed. */
+    @Transactional
+    public int clampTopOutCaps() {
+        return habitRepository.clampTopOutThresholds(TowerCap.MAX_CAP_DAYS);
     }
 
     /**

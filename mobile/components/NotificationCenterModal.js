@@ -304,7 +304,7 @@ function NotificationRow({ item, styles, colors, ui, deleteOnLeft, onPress, onMa
           style={[
             styles.sidePanel,
             styles.leftPanel,
-            { backgroundColor: panelColor(leftPanelAction, colors) },
+            { backgroundColor: panelColor(leftPanelAction, colors, ui) },
             leftPanelStyle,
           ]}
         >
@@ -319,7 +319,7 @@ function NotificationRow({ item, styles, colors, ui, deleteOnLeft, onPress, onMa
           style={[
             styles.sidePanel,
             styles.rightPanel,
-            { backgroundColor: panelColor(rightPanelAction, colors) },
+            { backgroundColor: panelColor(rightPanelAction, colors, ui) },
             rightPanelStyle,
           ]}
         >
@@ -359,8 +359,11 @@ function NotificationRow({ item, styles, colors, ui, deleteOnLeft, onPress, onMa
   );
 }
 
-function panelColor(action, colors) {
-  return action === 'delete' ? colors.atRisk : colors.accent;
+// Delete keeps the app's semantic danger red (skylineUI has no equivalent
+// token); everything else moves to the amber accent used by the rest of
+// this restyle, instead of the old blue app accent.
+function panelColor(action, colors, ui) {
+  return action === 'delete' ? colors.atRisk : ui.amber;
 }
 
 function ActionGlyph({ action }) {

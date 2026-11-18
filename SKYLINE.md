@@ -270,8 +270,9 @@ Revised 2026-11-10 (`SKYLINE-ADDENDUM.md` section 8) — not yet applied to the 
 - Gate: parity checklist ticked for `InsightsScreen`.
 
 ### Phase 6: Community
-- [ ] Draw friend skyline first.
-- [ ] Friends, friend skylines (friendship-gated endpoint), shared habits with skybridge, challenges as landmarks, activity feed, cheers.
+- [x] Draw friend skyline first — boards 43/44, owner-reviewed and approved 2026-11-18 ("Review looks good").
+- [x] Friend skylines: `FriendProfileResponse`/`FriendProfileService` extended with a PUBLIC-only, no-name/no-category `towers` list and a `theirTower` on each mutual Shared Habit streak (suppressed for STATUS_ONLY groups). Mobile: `FriendProfileModal.js` draws them with a new bespoke `FriendTowerGraphic`/`utils/friendTowerGraphic.js` (not `skylineScene.js`'s `buildScene`, which needs real per-day data this API deliberately withholds) — a tower row for PUBLIC (board 43), a skybridge pair ("You" vs the friend, board 44) for PRIVATE when a mutual Shared Habit exists. The "You" side's floorCount is approximated client-side via `utils/towerAge.js`'s `towerCapInfo` (no exact open-segment day count is available client-side without another endpoint). Not yet done: shared habits with skybridge detail beyond this comparison view, challenges as landmarks, activity feed, cheers.
+- [ ] Challenges as landmarks, activity feed, cheers.
 - [ ] Notification center entry point per section 14.
 - [x] Weekly/monthly shared-habit backend gap — 2026-11-18, see section 14 decision #15: `GroupStreakEngine`/`GroupPeriod`/`GroupCadence`/`StreakFreezeScheduler` are now period-aware. Still open: `CreateGroupModal.js` has no cadence picker yet, so this isn't reachable from the UI — the form work is separate scope, not done as part of this.
 - Gate: another user's data is reachable only through friendship-gated endpoints, with a test for the denied case.

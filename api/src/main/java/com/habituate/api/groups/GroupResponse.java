@@ -29,7 +29,13 @@ public record GroupResponse(
         String visibilityLevel,
         boolean nudgesEnabled,
         int skipDaysPerMonth,
-        boolean canEdit
+        boolean canEdit,
+        // A COOPERATIVE group's single cadence (SKYLINE.md #15) — "DAILY"/"WEEKLY"/"MONTHLY",
+        // with weeklyTarget/monthlyTarget set only for the matching period. Always DAILY/null
+        // for an INDEPENDENT group (no shared period to track).
+        String cadenceType,
+        Integer weeklyTarget,
+        Integer monthlyTarget
 ) {
     /** currentStreak is null for a COOPERATIVE group (not computed — the shared counter above is authoritative);
      * populated per-member only when trackingMode is INDEPENDENT. checkedInToday is always

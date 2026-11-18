@@ -38,4 +38,22 @@ public final class GroupPeriod {
     public static boolean isPeriodComplete(GroupCadence.Period period, LocalDate date, LocalDate today) {
         return periodEnd(period, date).isBefore(today);
     }
+
+    /** The start of the period immediately following the one that starts on `periodStart`. */
+    public static LocalDate nextPeriodStart(GroupCadence.Period period, LocalDate periodStart) {
+        return switch (period) {
+            case DAILY -> periodStart.plusDays(1);
+            case WEEKLY -> periodStart.plusWeeks(1);
+            case MONTHLY -> periodStart.plusMonths(1);
+        };
+    }
+
+    /** The start of the period immediately before the one that starts on `periodStart`. */
+    public static LocalDate previousPeriodStart(GroupCadence.Period period, LocalDate periodStart) {
+        return switch (period) {
+            case DAILY -> periodStart.minusDays(1);
+            case WEEKLY -> periodStart.minusWeeks(1);
+            case MONTHLY -> periodStart.minusMonths(1);
+        };
+    }
 }

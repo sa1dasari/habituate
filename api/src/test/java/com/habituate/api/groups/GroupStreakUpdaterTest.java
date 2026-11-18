@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
@@ -71,6 +72,17 @@ class GroupStreakUpdaterTest {
     private Long createHabit(String userId, String name) {
         Long id = habitService.createHabit(userId, new CreateHabitRequest(
                 name, "General", "DAILY", 1, null, null, "BOOLEAN", null, null, null, null)).id();
+        habitIds.add(id);
+        habitOwners.put(id, userId);
+        return id;
+    }
+
+    // COUNT, not BOOLEAN — lets the test log 2 check-ins the same calendar day
+    // without DuplicateCheckInException, so the weekly-qualification test
+    // doesn't depend on which day of the week it happens to run.
+    private Long createWeeklyHabit(String userId, String name, int weeklyTarget) {
+        Long id = habitService.createHabit(userId, new CreateHabitRequest(
+                name, "General", "DAILY", 1, weeklyTarget, null, "COUNT", null, null, null, null)).id();
         habitIds.add(id);
         habitOwners.put(id, userId);
         return id;
@@ -140,6 +152,67 @@ class GroupStreakUpdaterTest {
         GroupStreak streak = groupStreakRepository.findById(groupId).orElseThrow();
         assertThat(streak.getCurrentStreak()).isEqualTo(1);
         assertThat(streak.getStatus()).isEqualTo(GroupStreak.ACTIVE);
+    }
+
+    @Test
+    void weeklyGroup_streakUpdates_onlyOnceBothMembersHitTheirWeeklyTarget() {
+        when(userLookupService.resolve(any())).thenAnswer(inv -> new UserProfile(inv.getArgument(0), "User", null, null));
+
+        String userA = "streak-test-week-a1";
+        String userB = "streak-test-week-b1";
+        when(userLookupService.findByEmail("weekb1@example.com"))
+                .thenReturn(java.util.Optional.of(new UserProfile(userB, "User B", "weekb1@example.com", null)));
+        var pending = friendshipService.sendRequest(userA, "weekb1@example.com");
+        friendshipId = pending.id();
+        friendshipService.respond(userB, pending.id(), true);
+
+        Long habitA = createWeeklyHabit(userA, "Habit A", 2);
+        GroupResponse group = groupService.createGroup(userA, new CreateGroupRequest("Weekly Group", habitA, "ALL_MEMBERS"));
+        groupId = group.id();
+        assertThat(group.cadenceType()).isEqualTo("WEEKLY");
+
+        groupService.invite(userA, groupId, userB);
+        Long habitB = createWeeklyHabit(userB, "Habit B", 2);
+        groupService.acceptInvite(userB, groupId, habitB);
+
+        // A hits their weekly target of 2; B hasn't checked in at all yet.
+        checkInToday(userA, habitA);
+        checkInToday(userA, habitA);
+        assertThat(groupStreakRepository.findById(groupId).orElseThrow().getCurrentStreak()).isEqualTo(0);
+
+        // B's first check-in isn't enough yet (target is 2).
+        checkInToday(userB, habitB);
+        assertThat(groupStreakRepository.findById(groupId).orElseThrow().getCurrentStreak()).isEqualTo(0);
+
+        // B's second check-in this week crosses their target — now both qualify.
+        checkInToday(userB, habitB);
+        GroupStreak streak = groupStreakRepository.findById(groupId).orElseThrow();
+        assertThat(streak.getCurrentStreak()).isEqualTo(1);
+        assertThat(streak.getStatus()).isEqualTo(GroupStreak.ACTIVE);
+    }
+
+    @Test
+    void acceptInvite_rejectsAMismatchedCadenceHabit() {
+        when(userLookupService.resolve(any())).thenAnswer(inv -> new UserProfile(inv.getArgument(0), "User", null, null));
+
+        String userA = "streak-test-mismatch-a1";
+        String userB = "streak-test-mismatch-b1";
+        when(userLookupService.findByEmail("mismatchb1@example.com"))
+                .thenReturn(java.util.Optional.of(new UserProfile(userB, "User B", "mismatchb1@example.com", null)));
+        var pending = friendshipService.sendRequest(userA, "mismatchb1@example.com");
+        friendshipId = pending.id();
+        friendshipService.respond(userB, pending.id(), true);
+
+        Long habitA = createWeeklyHabit(userA, "Habit A", 3);
+        GroupResponse group = groupService.createGroup(userA, new CreateGroupRequest("Weekly Group", habitA, "ALL_MEMBERS"));
+        groupId = group.id();
+
+        groupService.invite(userA, groupId, userB);
+        Long dailyHabitB = createHabit(userB, "Habit B");
+
+        assertThatThrownBy(() -> groupService.acceptInvite(userB, groupId, dailyHabitB))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("3x/week");
     }
 
     @Test

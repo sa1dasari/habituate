@@ -53,19 +53,29 @@ public class GroupStreakUpdater {
         }
 
         LocalDate today = LocalDate.now(ZoneOffset.UTC);
-        Instant dayStart = today.atStartOfDay(ZoneOffset.UTC).toInstant();
-        Instant dayEnd = today.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
+        GroupCadence.Period period = group.cadencePeriod();
+        LocalDate periodStart = GroupPeriod.periodStart(period, today);
+        Instant periodStartInstant = periodStart.atStartOfDay(ZoneOffset.UTC).toInstant();
+        // The period's own end, not "now" — a member's check-in made today still counts toward
+        // an in-progress week/month even though the period hasn't closed yet.
+        Instant periodEndInstant = GroupPeriod.periodEnd(period, today).plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
 
-        List<Boolean> completedToday = new ArrayList<>();
+        List<Boolean> qualifiedThisPeriod = new ArrayList<>();
         for (GroupMember member : activeMembers) {
-            completedToday.add(checkInRepository.existsByHabitIdAndOccurredAtBetween(member.getHabitId(), dayStart, dayEnd));
+            if (period == GroupCadence.Period.DAILY) {
+                qualifiedThisPeriod.add(checkInRepository.existsByHabitIdAndOccurredAtBetween(member.getHabitId(), periodStartInstant, periodEndInstant));
+            } else {
+                int target = period == GroupCadence.Period.WEEKLY ? safeTarget(group.getWeeklyTarget()) : safeTarget(group.getMonthlyTarget());
+                long count = checkInRepository.countByHabitIdAndOccurredAtBetween(member.getHabitId(), periodStartInstant, periodEndInstant);
+                qualifiedThisPeriod.add(count >= target);
+            }
         }
 
-        boolean qualifies = GroupStreakEngine.qualifies(group.getStreakRule(), completedToday);
+        boolean qualifies = GroupStreakEngine.qualifies(group.getStreakRule(), qualifiedThisPeriod);
 
         GroupStreak streak = groupStreakRepository.findById(groupId).orElseGet(() -> new GroupStreak(groupId));
         GroupStreakEngine.Result result = GroupStreakEngine.recompute(
-                qualifies, streak.getCurrentStreak(), streak.getLongestStreak(), streak.getLastQualifyingDate(), today);
+                period, qualifies, streak.getCurrentStreak(), streak.getLongestStreak(), streak.getLastQualifyingDate(), periodStart);
 
         streak.setCurrentStreak(result.currentStreak());
         streak.setLongestStreak(result.longestStreak());
@@ -73,5 +83,9 @@ public class GroupStreakUpdater {
         streak.setStatus(result.status());
         streak.setUpdatedAt(Instant.now());
         groupStreakRepository.save(streak);
+    }
+
+    private int safeTarget(Integer target) {
+        return target == null || target < 1 ? 1 : target;
     }
 }

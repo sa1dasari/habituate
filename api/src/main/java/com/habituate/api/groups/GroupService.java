@@ -396,7 +396,10 @@ public class GroupService {
                 group.getVisibilityLevel(),
                 group.isNudgesEnabled(),
                 group.getSkipDaysPerMonth(),
-                viewingUserId.equals(group.getCreatedBy())
+                viewingUserId.equals(group.getCreatedBy()),
+                group.getCadenceType(),
+                group.getWeeklyTarget(),
+                group.getMonthlyTarget()
         );
     }
 }

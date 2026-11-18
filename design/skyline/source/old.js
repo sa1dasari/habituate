@@ -19,7 +19,6 @@ const chip=(t,c,bg)=>`<div style="height:34px;border-radius:17px;padding:0 14px;
 function memberScene(col,counts,bridges,topToday){ // 4 towers
   const xs=[12,94,176,258];let o='';
   counts.forEach(([n,lit],i)=>{o+=tw(col,{x:xs[i],base:92,w:42,fh:4.4,dx:13,dy:7,floors:grow(n,lit),windows:2,today:i===topToday});});
-  bridges.forEach((b,i)=>{o+=bridge(xs[i]+42+13,xs[i+1],92-(counts[i][0]*4.4*0.55),b)});
   o+=`<rect x="0" y="93" width="326" height="2" fill="#2A333D"/>`;
   return `<svg width="326" height="100" style="display:block">${o}</svg>`;
 }
@@ -49,12 +48,11 @@ const flagCap=(x,y,w,dx,dy)=>`<path d="M${x},${y}l${dx},${-dy}h${w}l${-dx},${dy}
 if(S3==='sh-detail'){
   const xs=[22,112,202,292],cnt=[[11,11],[17,12],[9,9],[12,12]];
   let sc='';cnt.forEach(([n,l],i)=>{sc+=tw('#FF8A5C',{x:xs[i],base:190,w:50,fh:7,dx:16,dy:9,floors:grow(n,l),windows:2,today:i===3})});
-  [0,1,2].forEach(i=>{sc+=bridge(xs[i]+66,xs[i+1],190-cnt[i][0]*7*.55,'safe')});
   const lab=['You','Maya','Alex','Dev'].map((n,i)=>`<text x="${xs[i]+33}" y="214" text-anchor="middle" font-size="14" font-weight="700" fill="#F2F4F6" font-family="Nunito">${n}</text>`).join('');
-  R.innerHTML=`<div style="position:absolute;inset:0;overflow:hidden"><div style="padding:30px 20px 0"><div style="font-size:17px;font-weight:700">‹&nbsp; Community</div><h1 style="font-size:30px;margin-top:14px">Morning Run Crew</h1><div style="color:#A3ADB8;font-size:14px;margin-top:2px">Shared habit · All members · Cooperative streak</div></div>
-   <svg width="390" height="236" style="position:absolute;top:130px;left:0">${dusk(390,236,'d1')}${sc}${lab}</svg>
-   <div style="position:absolute;top:386px;left:20px;right:20px"><div style="display:flex;gap:10px"><div style="flex:1;background:#161B21;border-radius:18px;padding:14px"><div style="color:#A3ADB8;font-size:13px;font-weight:700">Group run</div><div style="font-size:30px;font-weight:800;color:#F2C14E;margin-top:4px">12 days</div></div><div style="flex:1.2;background:#161B21;border-radius:18px;padding:14px"><div style="color:#A3ADB8;font-size:13px;font-weight:700">Today</div><div style="font-size:16px;font-weight:800;margin-top:6px;line-height:1.3">3 of 4 laid. Waiting on Dev.</div></div></div>
-   <div style="color:#A3ADB8;font-size:15px;font-weight:700;margin:16px 0 10px">Skybridge states</div><div style="display:flex;justify-content:space-between"><div><svg width="76" height="12">${bridge(0,76,2,'safe')}</svg><div style="font-weight:700;font-size:14px;margin-top:6px">Safe</div></div><div><svg width="76" height="12">${bridge(0,76,2,'risk')}</svg><div style="font-weight:700;font-size:14px;margin-top:6px">At risk</div></div><div><svg width="76" height="12">${bridge(0,76,2,'frozen')}</svg><div style="font-weight:700;font-size:14px;margin-top:6px">Frozen</div></div></div></div>
+  R.innerHTML=`<div style="position:absolute;inset:0;overflow:hidden"><div style="padding:30px 20px 0"><div style="font-size:17px;font-weight:700">‹&nbsp; Community</div><h1 style="font-size:30px;margin-top:14px">Morning Run Crew</h1><div style="color:#A3ADB8;font-size:14px;margin-top:2px">Shared habit · All members · Cooperative streak</div><div style="margin-top:8px;display:inline-block">${chip('Safe today','#7BD88F','#17301f')}</div></div>
+   <svg width="390" height="236" style="position:absolute;top:176px;left:0">${dusk(390,236,'d1')}${sc}${lab}</svg>
+   <div style="position:absolute;top:430px;left:20px;right:20px"><div style="display:flex;gap:10px"><div style="flex:1;background:#161B21;border-radius:18px;padding:14px"><div style="color:#A3ADB8;font-size:13px;font-weight:700">Group run</div><div style="font-size:30px;font-weight:800;color:#F2C14E;margin-top:4px">12 days</div></div><div style="flex:1.2;background:#161B21;border-radius:18px;padding:14px"><div style="color:#A3ADB8;font-size:13px;font-weight:700">Today</div><div style="font-size:16px;font-weight:800;margin-top:6px;line-height:1.3">3 of 4 laid. Waiting on Dev.</div></div></div>
+   </div></div>
    <div style="position:absolute;left:20px;right:20px;bottom:92px;display:flex;gap:10px"><div style="flex:1.4;height:54px;border-radius:27px;background:#F2C14E;color:#1b1608;font-weight:800;font-size:17px;display:flex;align-items:center;justify-content:center">Hold to build</div><div style="flex:1;height:54px;border-radius:27px;border:1.5px solid #2F3944;font-weight:800;font-size:16px;display:flex;align-items:center;justify-content:center">Cheer Dev</div></div></div>${tabBar(2)}`;
 }
 if(S3==='ch-detail'){

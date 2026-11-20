@@ -101,6 +101,16 @@ public class Challenge {
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
+    /** Set once, either by the (not-yet-built) periodEnd scheduled job or by
+     * an end-early vote passing (ChallengeEndVoteService) — endedAt != null
+     * is "this challenge is over," independent of periodEnd, which may be
+     * null (open-ended) or in the future (ended early). */
+    @Column
+    private Instant endedAt;
+
+    @Column(nullable = false, columnDefinition = "boolean not null default false")
+    private boolean endedEarlyByVote = false;
+
     public Challenge() {
     }
 
@@ -241,5 +251,21 @@ public class Challenge {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public Instant getEndedAt() {
+        return endedAt;
+    }
+
+    public void setEndedAt(Instant endedAt) {
+        this.endedAt = endedAt;
+    }
+
+    public boolean isEndedEarlyByVote() {
+        return endedEarlyByVote;
+    }
+
+    public void setEndedEarlyByVote(boolean endedEarlyByVote) {
+        this.endedEarlyByVote = endedEarlyByVote;
     }
 }

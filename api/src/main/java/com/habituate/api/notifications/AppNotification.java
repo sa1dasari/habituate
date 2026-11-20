@@ -55,6 +55,16 @@ public class AppNotification {
     public static final String MONTHLY_SUMMARY = "MONTHLY_SUMMARY";
     public static final String YEARLY_SUMMARY = "YEARLY_SUMMARY";
 
+    /** ChallengeEndVoteService/ChallengeEndVoteCloseScheduler — the end-early
+     * vote lifecycle. All carry challengeId as the deep-link target. Does not
+     * include a "moot" type for a vote closed out by the challenge reaching
+     * its periodEnd first — that depends on the periodEnd scheduled job,
+     * which is separate, not-yet-built scope (see ChallengeEndVoteService's
+     * class javadoc). */
+    public static final String CHALLENGE_VOTE_OPENED = "CHALLENGE_VOTE_OPENED";
+    public static final String CHALLENGE_VOTE_ENDED_EARLY = "CHALLENGE_VOTE_ENDED_EARLY";
+    public static final String CHALLENGE_VOTE_FAILED = "CHALLENGE_VOTE_FAILED";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

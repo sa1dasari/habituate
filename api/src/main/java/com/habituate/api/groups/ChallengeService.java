@@ -242,6 +242,12 @@ public class ChallengeService {
         Challenge challenge = requireParticipant(userId, challengeId);
         ZoneId zone = resolveZone(timezone);
         LocalDate today = LocalDate.now(zone);
+        if (challenge.getEndedAt() != null) {
+            throw new IllegalArgumentException(
+                    (challenge.isEndedEarlyByVote()
+                            ? "This challenge ended early by vote — new entries are no longer accepted."
+                            : "This challenge has ended — new entries are no longer accepted."));
+        }
         if (challenge.getPeriodEnd() != null && today.isAfter(challenge.getPeriodEnd())) {
             throw new IllegalArgumentException(
                     "This challenge ended on " + challenge.getPeriodEnd() + " — new entries are no longer accepted.");
@@ -292,12 +298,32 @@ public class ChallengeService {
         return toResponse(challenge, userId, zone);
     }
 
-    private Challenge requireParticipant(String userId, Long challengeId) {
+    /** Package-private so ChallengeEndVoteService (same package) can reuse the same
+     * ownership check rather than duplicating it. */
+    Challenge requireParticipant(String userId, Long challengeId) {
         Challenge challenge = challengeRepository.findById(challengeId)
                 .orElseThrow(() -> new EntityNotFoundException("Challenge not found: " + challengeId));
         participantRepository.findByChallengeIdAndUserId(challengeId, userId)
                 .orElseThrow(() -> new ForbiddenException("Join this challenge before logging progress"));
         return challenge;
+    }
+
+    /** Sum of every participant's own progress — BOOLEAN: day count, COUNT: value sum,
+     * same rule toResponse uses per-participant. Package-private: ChallengeEndVoteService
+     * needs this to check "has the challenge's target been reached" before allowing a
+     * vote to open. */
+    int totalBuilt(Challenge challenge) {
+        boolean isCount = Challenge.COUNT.equals(challenge.getTrackingMode());
+        int total = 0;
+        for (ChallengeParticipant p : participantRepository.findByChallengeId(challenge.getId())) {
+            if (isCount) {
+                total += checkInRepository.findByChallengeIdAndUserId(challenge.getId(), p.getUserId())
+                        .stream().mapToInt(ChallengeCheckIn::getValue).sum();
+            } else {
+                total += (int) checkInRepository.countByChallengeIdAndUserId(challenge.getId(), p.getUserId());
+            }
+        }
+        return total;
     }
 
     public List<ChallengeResponse> listMine(String userId, String timezone) {

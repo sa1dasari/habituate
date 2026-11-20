@@ -149,8 +149,8 @@ export default function FriendTowerGraphic({ tower, mode, towerTheme, width = 70
   const ghostRowCount = Math.min(Math.max(0, lastGhostFloors), GHOST_MAX_FLOORS);
 
   // Centered, not right-aligned: a ghost tower folds back-left of it, and
-  // (board 44) a skybridge line needs to land on this tower's center from
-  // either side of the pair.
+  // (board 44) this keeps the tower visually centered in its slot so a pair
+  // of towers reads as evenly paired, even with no line drawn between them.
   const mainX = (width - TOWER_W) / 2;
 
   const floorCount = Math.max(0, Math.floor(tower?.floorCount || 0));

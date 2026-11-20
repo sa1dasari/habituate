@@ -38,9 +38,9 @@ export default function FriendProfileModal({ visible, userId, onClose }) {
   const { groups } = useGroups();
   const { habits } = useHabits();
   // Always the dark-mode night sky and dark-mode tower palette, regardless
-  // of the app's own light/dark setting — not just for the white skybridge
-  // line's contrast, but because constants/towerColors.js's "light" tower
-  // hexes are deliberately darkened to read against a light background
+  // of the app's own light/dark setting — not just so a pair of towers
+  // reads consistently next to each other, but because constants/towerColors.js's
+  // "light" tower hexes are deliberately darkened to read against a light background
   // (skylineUI.light.background); on this strip's always-dark sky they'd
   // invert into dark towers on a dark sky. The strip is a fixed self-
   // contained night scene either way, same reasoning SkyBackdrop already
@@ -86,8 +86,9 @@ export default function FriendProfileModal({ visible, userId, onClose }) {
   // also a member of, so it's guaranteed to be in our own `groups`).
   const selectedGroup = groups.find((g) => g.id === selectedGroupId) || null;
 
-  // Board 44's skybridge: the first mutual Shared Habit that carries a
-  // theirTower (STATUS_ONLY groups omit it server-side — see
+  // Board 44's "You" vs the friend pair (no connecting line, owner decision
+  // 2026-11-20 — "no skybridges anywhere"): the first mutual Shared Habit
+  // that carries a theirTower (STATUS_ONLY groups omit it server-side — see
   // FriendProfileService). "My" side isn't in this API response at all (it's
   // the viewer's own account, not the target's) — resolved from the
   // viewer's own already-loaded habit for that same group
@@ -187,29 +188,28 @@ export default function FriendProfileModal({ visible, userId, onClose }) {
                       <SkyBackdrop stops={skyStops} kind="night" width={stripWidth} height={SKY_STRIP_HEIGHT} />
                     ) : null}
                   </View>
-                  <View style={styles.skybridgeRow}>
+                  <View style={styles.towerPairRow}>
                     <FriendTowerGraphic
                       tower={myTower}
                       mode="dark"
                       towerTheme={towerTheme}
                       width={TOWER_GRAPHIC_WIDTH}
                       height={SKY_STRIP_HEIGHT}
-                      testID="friend-skybridge-tower-you"
+                      testID="friend-tower-pair-you"
                     />
-                    <View style={styles.skybridgeLine} />
                     <FriendTowerGraphic
                       tower={skybridgeStreak.theirTower}
                       mode="dark"
                       towerTheme={towerTheme}
                       width={TOWER_GRAPHIC_WIDTH}
                       height={SKY_STRIP_HEIGHT}
-                      testID="friend-skybridge-tower-them"
+                      testID="friend-tower-pair-them"
                     />
                   </View>
                 </View>
-                <View style={styles.skybridgeLabels}>
-                  <Text style={styles.skybridgeLabel}>You</Text>
-                  <Text style={styles.skybridgeLabel} numberOfLines={1}>
+                <View style={styles.towerPairLabels}>
+                  <Text style={styles.towerPairLabel}>You</Text>
+                  <Text style={styles.towerPairLabel} numberOfLines={1}>
                     {profile.displayName || 'Friend'}
                   </Text>
                 </View>
@@ -393,36 +393,22 @@ function makeStyles(colors, typography) {
       minWidth: '100%',
       justifyContent: 'space-around',
     },
-    skybridgeRow: {
+    // No connecting line between the two towers (owner decision 2026-11-20,
+    // "no skybridges anywhere") — just the pair, spaced apart.
+    towerPairRow: {
       flex: 1,
       flexDirection: 'row',
       alignItems: 'flex-end',
       justifyContent: 'center',
+      gap: spacing.xxl,
     },
-    skybridgeLine: {
-      // Always white, like SkyBackdrop's own sun/moon/star glyphs — the
-      // strip is a fixed dark night scene regardless of app theme mode.
-      // Negative margins pull the line into each tower's own silhouette
-      // (FriendTowerGraphic centers a TOWER_W=30 tower in a
-      // TOWER_GRAPHIC_WIDTH=70 box, so ~12px of empty sky trails the left
-      // tower's side face and ~20px leads the right tower's front face) so
-      // the bridge visibly connects both towers instead of floating between
-      // them with a gap on each side.
-      height: 3,
-      width: 60,
-      marginLeft: -12,
-      marginRight: -20,
-      backgroundColor: '#FFFFFF',
-      marginBottom: SKY_STRIP_HEIGHT * 0.22,
-      borderRadius: radii.pill,
-    },
-    skybridgeLabels: {
+    towerPairLabels: {
       flexDirection: 'row',
       justifyContent: 'center',
-      gap: TOWER_GRAPHIC_WIDTH + 60,
+      gap: TOWER_GRAPHIC_WIDTH + spacing.xxl,
       marginBottom: spacing.lg,
     },
-    skybridgeLabel: { ...typography.meta, fontWeight: '700', color: colors.textPrimary },
+    towerPairLabel: { ...typography.meta, fontWeight: '700', color: colors.textPrimary },
     statsCard: {
       backgroundColor: colors.surface,
       borderRadius: radii.lg,

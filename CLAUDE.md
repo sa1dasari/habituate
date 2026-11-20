@@ -11,7 +11,7 @@ The app is being rebuilt from the old list-and-ring UI to the new skyline UI. Th
 Three things set it apart from generic trackers:
 1. A skyline UI where progress is physical and visible: daily habits as towers with floors and a lit current run, weekly/monthly-target habits as lots (houses-on-pads or rings — see `SKYLINE.md` section 4a), solid-block Shield Days.
 2. An AI coach grounded in real check-in data, not a generic chatbot.
-3. Shared Habits (towers joined by a skybridge) with an explicit streak rule, plus Challenges (a landmark built together).
+3. Shared Habits (member towers shown together, group-run status shown as a chip — Safe today, At risk today, Frozen, never red) with an explicit streak rule, plus Challenges (a landmark built together).
 
 Core goals, in priority order:
 1. Ship the active phase in `SKYLINE.md`. Do not add features outside it without updating that file first. This is a solo build and scope creep is the main risk.

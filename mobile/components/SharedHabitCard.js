@@ -82,7 +82,7 @@ export default function SharedHabitCard({
         </View>
       ) : (
         <View style={styles.towerRowWrap}>
-          <MemberTowerRow members={people} connectorColor={state.color} towerWidth={66} height={130} />
+          <MemberTowerRow members={people} towerWidth={66} height={130} />
         </View>
       )}
 

@@ -12,8 +12,10 @@ const MEMBER_COLORS = ['#2563EB', '#7C3AED', '#0891B2', '#DB2777', '#EA580C'];
 const MAX_TOWERS = 6;
 
 /**
- * Boards 08/10: a row of member towers joined by dashed skybridges — one
- * tower per cooperative-group member, each a solid per-member colour (no
+ * Boards 08/10: a row of member towers shown side by side, no connecting
+ * line (owner decision 2026-11-20, "no skybridges anywhere" — see
+ * SKYLINE.md's Phase 6 skybridge-removal note) — one tower per
+ * cooperative-group member, each a solid per-member colour (no
  * TOWER_COLOR_PALETTE key exists per participant; GroupResponse.Participant
  * only carries currentStreak/checkedInToday, not a floor count the way
  * FriendProfileResponse.FriendTower does for a friend's own tower).
@@ -30,7 +32,7 @@ const MAX_TOWERS = 6;
  * as FriendTowerGraphic's own callers: these are saturated, board-matching
  * hues picked to read clearly, not the light-mode contrast-adjusted set.
  */
-export default function MemberTowerRow({ members = [], connectorColor, showLabels = false, isSelf, towerWidth = 70, height = 150 }) {
+export default function MemberTowerRow({ members = [], showLabels = false, isSelf, towerWidth = 70, height = 150 }) {
   const towerTheme = skylineTowerTheme.dark;
   const shown = Array.isArray(members) ? members.slice(0, MAX_TOWERS) : [];
   // 4 towers at the caller's requested width is what the boards show fitting
@@ -39,16 +41,6 @@ export default function MemberTowerRow({ members = [], connectorColor, showLabel
   // full 6-member row doesn't overflow or clip; ScrollView below is the
   // fallback once even the floor width doesn't fit a narrow device.
   const effectiveWidth = shown.length > 4 ? Math.max(40, Math.round(towerWidth * (4 / shown.length))) : towerWidth;
-  // Anchor the connector to the towers' own ground line (FriendTowerGraphic's
-  // baseY = height - 4), not centered in the row's full cross-axis height —
-  // alignSelf:'center' previously centered it against the tallest sibling's
-  // total box (SVG height, plus the label block when showLabels is true),
-  // which floats the "skybridge" in empty space above anything shorter than
-  // a near-maximal tower instead of visibly joining the two towers. The
-  // label reserve mirrors styles.label's rendered block (fontSize 13 line
-  // height + marginTop).
-  const labelReserve = showLabels ? 22 : 0;
-  const connectorMarginBottom = labelReserve + 4;
 
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
@@ -60,12 +52,6 @@ export default function MemberTowerRow({ members = [], connectorColor, showLabel
         const runWord = streak === 1 ? 'day' : 'days';
         return (
           <React.Fragment key={member?.userId || `${label}-${index}`}>
-            {index > 0 ? (
-              <View
-                style={[styles.connector, { backgroundColor: connectorColor, marginBottom: connectorMarginBottom }]}
-                testID="member-tower-connector"
-              />
-            ) : null}
             <View style={styles.towerCol}>
               <FriendTowerGraphic
                 tower={tower}
@@ -91,14 +77,10 @@ export default function MemberTowerRow({ members = [], connectorColor, showLabel
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'flex-end' },
+  // Replaces the gap the connector element used to provide between towers
+  // now that there's no line to space them apart.
+  row: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.md },
   towerCol: { alignItems: 'center' },
-  connector: {
-    height: 3,
-    width: 16,
-    alignSelf: 'flex-end',
-    borderRadius: 2,
-  },
   // Always white: `showLabels` is only ever true over a dark sky backdrop
   // (SharedHabitDetailModal's board-10 hero), never the plain card surface
   // (board 08's thumbnail row passes showLabels=false), so this never needs

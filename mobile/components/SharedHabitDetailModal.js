@@ -29,6 +29,17 @@ const RULE_LABEL = {
 
 const AVATAR_COLORS = ['#2563EB', '#7C3AED', '#0891B2', '#DB2777', '#EA580C'];
 
+// Same board-08 wording SharedHabitCard.js uses for the list card's pill —
+// kept as a local copy there for the same reason (distinct from the shared
+// `streakStates` tokens every other streak badge in the app reads). This is
+// the detail screen's only At-risk/Frozen signal now that the skybridge
+// legend is gone (owner decision 2026-11-20, "no skybridges anywhere").
+const BOARD_08_STATUS_LABEL = {
+  safe: 'Safe today',
+  at_risk: 'At risk today',
+  frozen: 'Frozen',
+};
+
 function initials(name) {
   return String(name || '?')
     .trim()
@@ -153,9 +164,18 @@ export default function SharedHabitDetailModal({ visible, group, onClose }) {
             <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
           </Pressable>
           <View style={styles.headerTitleCol}>
-            <Text style={styles.headerTitle} numberOfLines={1}>
-              {group.name}
-            </Text>
+            <View style={styles.headerTitleRow}>
+              <Text style={styles.headerTitle} numberOfLines={1}>
+                {group.name}
+              </Text>
+              {!isIndependent ? (
+                <View style={[styles.statusPill, { borderColor: state.color }]}>
+                  <Text style={[styles.statusPillText, { color: state.color }]}>
+                    {BOARD_08_STATUS_LABEL[group.streakStatus] || BOARD_08_STATUS_LABEL.safe}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
             {!isIndependent ? (
               <Text style={styles.headerSubtitle} numberOfLines={1}>
                 Shared habit · {RULE_LABEL[group.rule] || RULE_LABEL.any_member} · Cooperative streak
@@ -186,7 +206,6 @@ export default function SharedHabitDetailModal({ visible, group, onClose }) {
                 </View>
                 <MemberTowerRow
                   members={people}
-                  connectorColor={state.color}
                   showLabels
                   isSelf={(p) => !!(user && p?.userId === user.uid)}
                   towerWidth={70}
@@ -205,13 +224,6 @@ export default function SharedHabitDetailModal({ visible, group, onClose }) {
                   <Text style={styles.tileLabel}>Today</Text>
                   <Text style={styles.tileBody}>{todayText}</Text>
                 </View>
-              </View>
-
-              <Text style={styles.sectionTitle}>Skybridge states</Text>
-              <View style={styles.legendRow}>
-                <LegendSwatch color={colors.safe} label="Safe" styles={styles} />
-                <LegendSwatch color={colors.atRisk} label="At risk" styles={styles} />
-                <LegendSwatch color={colors.frozen} label="Frozen" styles={styles} />
               </View>
 
               <Text style={styles.metaLine}>
@@ -377,15 +389,6 @@ export default function SharedHabitDetailModal({ visible, group, onClose }) {
   );
 }
 
-function LegendSwatch({ color, label, styles }) {
-  return (
-    <View style={styles.legendItem}>
-      <View style={[styles.legendBar, { backgroundColor: color }]} />
-      <Text style={styles.legendLabel}>{label}</Text>
-    </View>
-  );
-}
-
 function makeStyles(colors, typography) {
   return StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: colors.background },
@@ -400,8 +403,16 @@ function makeStyles(colors, typography) {
       borderBottomColor: colors.border,
     },
     headerTitleCol: { flex: 1, alignItems: 'center' },
-    headerTitle: { ...typography.sectionTitle, textAlign: 'center' },
+    headerTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs },
+    headerTitle: { ...typography.sectionTitle, textAlign: 'center', flexShrink: 1 },
     headerSubtitle: { ...typography.meta, marginTop: 2, textAlign: 'center' },
+    statusPill: {
+      borderWidth: 1.5,
+      borderRadius: radii.pill,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 2,
+    },
+    statusPillText: { fontSize: 11, fontWeight: '700' },
     closeBtn: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
     scroll: { padding: spacing.lg, paddingBottom: spacing.xxl },
     skyStrip: {
@@ -422,10 +433,6 @@ function makeStyles(colors, typography) {
     tileLabel: { ...typography.meta, marginBottom: 4 },
     tileValue: { fontSize: 22, fontWeight: '800' },
     tileBody: { fontSize: 14, fontWeight: '700', color: colors.textPrimary, lineHeight: 19 },
-    legendRow: { flexDirection: 'row', gap: spacing.lg, marginBottom: spacing.lg },
-    legendItem: { flex: 1, gap: 6 },
-    legendBar: { height: 4, borderRadius: 2 },
-    legendLabel: { ...typography.meta, fontWeight: '700', color: colors.textPrimary },
     metaLine: { ...typography.meta, marginBottom: spacing.lg, lineHeight: 18 },
     actionRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.xl },
     cheerBtn: {

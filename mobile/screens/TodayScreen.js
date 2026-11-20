@@ -18,6 +18,7 @@ import HabitCard from '../components/HabitCard';
 import FeaturedTargetsSummaryCard from '../components/FeaturedTargetsSummaryCard';
 import AvatarImage from '../components/AvatarImage';
 import TemplateHabitsPicker from '../components/TemplateHabitsPicker';
+import FoundationTemplates from '../components/FoundationTemplates';
 import AskHabituateModal from '../components/AskHabituateModal';
 import TourHighlight from '../components/TourHighlight';
 import Toast from '../components/Toast';
@@ -121,6 +122,22 @@ export default function TodayScreen() {
   const [coachInitialQuestion, setCoachInitialQuestion] = useState(null);
 
   const [towerFormVisible, setTowerFormVisible] = useState(false);
+  // Which habit TowerForm edits, or null for create — TowerForm itself was
+  // always hardcoded to habit={null} here (create-only), so editing an
+  // existing habit, and adding a second one once any habit already exists,
+  // had no entry point anywhere in this screen. Fixed 2026-11-20.
+  const [towerFormHabit, setTowerFormHabit] = useState(null);
+  // Templates-first, same flow SkylineScreen.js uses for its own "+" —
+  // the empty state's own TemplateHabitsPicker was likewise only reachable
+  // at zero habits, so quick-add had the identical gap as create/edit.
+  const [foundationTemplatesVisible, setFoundationTemplatesVisible] = useState(false);
+  const handleOpenCreateHabit = useCallback(() => {
+    setFoundationTemplatesVisible(true);
+  }, []);
+  const handleOpenEditHabit = useCallback((habit) => {
+    setTowerFormHabit(habit);
+    setTowerFormVisible(true);
+  }, []);
   const [showShieldInfo, setShowShieldInfo] = useState(false);
 
   const featuredHabits = useMemo(() => habits.filter((h) => h.featuredGoal), [habits]);
@@ -523,6 +540,7 @@ export default function TodayScreen() {
         onToggle={() => handleToggle(habit)}
         onToggleShield={() => handleToggleShield(habit)}
         onRepairStreak={() => handleRepairStreak(habit)}
+        onEdit={() => handleOpenEditHabit(habit)}
         onAdd={() => handleAdd(habit)}
         onRemoveLast={() => handleRemoveLast(habit.id)}
         onLogAmount={(amount) => handleLogAmount(habit, amount)}
@@ -554,6 +572,18 @@ export default function TodayScreen() {
             >
               <MaterialCommunityIcons name="shield-check" size={14} color={colors.safe} />
               <Text style={styles.shieldBadgeText}>{shieldsAvailable}</Text>
+            </Pressable>
+          ) : null}
+
+          {habits.length > 0 ? (
+            <Pressable
+              style={styles.coachIconBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Lay a foundation for a new habit"
+              testID="today-add-habit"
+              onPress={handleOpenCreateHabit}
+            >
+              <MaterialCommunityIcons name="plus" size={20} color={colors.accent} />
             </Pressable>
           ) : null}
 
@@ -651,7 +681,10 @@ export default function TodayScreen() {
               style={styles.emptyCta}
               accessibilityRole="button"
               accessibilityLabel="Lay a foundation"
-              onPress={() => setTowerFormVisible(true)}
+              onPress={() => {
+                setTowerFormHabit(null);
+                setTowerFormVisible(true);
+              }}
             >
               <Text style={styles.emptyCtaText}>Lay a foundation</Text>
               <MaterialCommunityIcons name="arrow-right" size={16} color={colors.accent} />
@@ -685,10 +718,13 @@ export default function TodayScreen() {
     />
 
     <TowerForm
-      key="new"
+      key={towerFormHabit?.id ?? 'new'}
       visible={towerFormVisible}
-      onClose={() => setTowerFormVisible(false)}
-      habit={null}
+      onClose={() => {
+        setTowerFormVisible(false);
+        setTowerFormHabit(null);
+      }}
+      habit={towerFormHabit}
       theme={towerFormTheme}
       towerTheme={towerFormTowerTheme}
       categoryColors={towerFormCategoryColors}
@@ -698,6 +734,21 @@ export default function TodayScreen() {
       visible={showShieldInfo}
       initialTab="shield"
       onClose={() => setShowShieldInfo(false)}
+    />
+
+    <FoundationTemplates
+      visible={foundationTemplatesVisible}
+      onClose={() => setFoundationTemplatesVisible(false)}
+      onSelectTemplate={(template) => {
+        setFoundationTemplatesVisible(false);
+        handleAddTemplateHabit(template);
+      }}
+      onCustom={() => {
+        setFoundationTemplatesVisible(false);
+        setTowerFormHabit(null);
+        setTowerFormVisible(true);
+      }}
+      theme={towerFormTheme}
     />
 
     {/* Interim host: until the Skyline tab replaces this screen (SKYLINE.md

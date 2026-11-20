@@ -1,7 +1,7 @@
 // Redraws of boards 02, 04, 05, 08, 09, 10, 11, 15 with the current floor art
 (function(){
 const Q3=new URLSearchParams(location.search);const S3=Q3.get('s');
-if(!/^(cm-|sh-|ch-|pf-|ho-|to-|sk-|ft-|fx-|ce-|ev-|nc-|np-|ne-|ts-)/.test(S3||''))return;
+if(!/^(cm-|sh-|ch-|pf-|ho-|to-|sk-|ft-|fx-|ce-|ev-|nc-|np-|ne-|ts-|ds-)/.test(S3||''))return;
 const R=document.getElementById('root');
 const tw=(col,o)=>{const old=C.front;C.front=col;const r=tower(o);C.front=old;return r};
 const grow=(n,lit,over={})=>Array.from({length:n},(_,i)=>over[i]||(i>=n-lit?'lit':'dark'));
@@ -354,6 +354,26 @@ if(S3==='ts-count-unit'){
    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px"><div style="display:flex;align-items:center;gap:12px"><div style="width:44px;height:44px;border-radius:22px;border:1.5px solid #2F3944;display:flex;align-items:center;justify-content:center;font-size:22px">−</div><b style="font-size:22px;min-width:28px;text-align:center">3</b><div style="width:44px;height:44px;border-radius:22px;background:#F2C14E;color:#1b1608;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800">+</div></div><span style="color:#A3ADB8;font-size:12.5px;max-width:130px;text-align:right;line-height:1.3">Holding the tower adds 1 glass.</span></div>
    <div style="display:flex;gap:8px;margin-top:12px"><div style="flex:1;height:44px;border-radius:14px;background:#161B21;border:1px solid #2A333D;display:flex;align-items:center;justify-content:space-between;padding:0 14px"><span style="color:#7C8794;font-size:14px">Add an amount</span><span style="color:#A3ADB8;font-size:13px">glasses</span></div><div style="height:44px;padding:0 20px;border-radius:22px;background:#F2C14E;color:#1b1608;font-weight:800;font-size:14.5px;display:flex;align-items:center">Add</div></div></div>
   ${capRow}${gridBtns}`);
+}
+
+if(S3==='ds-spec'){
+  const TYPE=[['Hero number','30','800','9 day run'],['Page title','28','800','Community'],['Sheet title','22','800','End this challenge early?'],['Section title','18','700','Friends today'],['Card title','16','700','Morning Run Crew'],['Message','15','400','You reached the target. Everyone building gets 24 hours to vote.'],['Body','14','400','Maya wants to build alongside you.'],['Label','13','600','Last week at this point: 20'],['Meta','12','400','2m ago · Private'],['Eyebrow','11','800','TOWER DETAILS']];
+  const wt={'800':'800','700':'700','600':'600','400':'400'};
+  const row=(n,sz,w,s)=>`<div style="display:flex;align-items:baseline;gap:10px;padding:7px 0;border-bottom:1px solid #1F262E"><div style="width:96px;flex:0 0 96px;color:#A3ADB8;font-size:11px;font-weight:700">${n}<br>${sz} · ${w}</div><div style="flex:1;font-size:${sz}px;font-weight:${w};line-height:1.2;${n==='Eyebrow'?'letter-spacing:.8px;color:#A3ADB8':(n==='Message'||n==='Body'||n==='Label'||n==='Meta')?'color:#C9CED4':''}">${s}</div></div>`;
+  const spec=(t,d)=>`<div style="font-size:11px;color:#A3ADB8;margin-top:4px">${t}${d?` · ${d}`:''}</div>`;
+  R.innerHTML=`<div style="position:absolute;inset:0;overflow:hidden;padding:26px 20px 0"><div style="font-size:11px;font-weight:800;letter-spacing:.8px;color:#F2C14E">DESIGN SYSTEM · 2026-11-21 PROPOSAL</div><div style="font-size:28px;font-weight:800;margin-top:2px">Type and components</div><div style="color:#A3ADB8;font-size:13px;margin-top:2px">Nunito only. Weights 400, 600, 700, 800. 20 page padding, 8-point spacing.</div>
+  <div style="margin-top:12px">${TYPE.map(t=>row(...t)).join('')}</div>
+  <div style="font-size:18px;font-weight:700;margin:18px 0 8px">Buttons</div>
+  <div style="height:54px;border-radius:27px;background:#F2C14E;color:#1b1608;font-weight:800;font-size:16px;display:flex;align-items:center;justify-content:center">Primary · 54 · 16 / 800</div>${spec('Main action of a screen or sheet','one per screen')}
+  <div style="height:48px;border-radius:24px;border:1.5px solid #2F3944;font-weight:700;font-size:15px;display:flex;align-items:center;justify-content:center;margin-top:10px">Secondary · 48 · 15 / 700</div>${spec('Outlined, next to or under a primary')}
+  <div style="display:flex;gap:8px;margin-top:10px;align-items:center"><div style="height:44px;padding:0 18px;border-radius:22px;background:#F2C14E;color:#1b1608;font-weight:700;font-size:14px;display:flex;align-items:center">Compact · 44</div><div style="height:44px;width:44px;border-radius:22px;background:#1E252D;display:flex;align-items:center;justify-content:center">${ico('bell',20)}</div><div style="position:relative;height:32px;padding:0 13px;border-radius:16px;background:#38BDF8;color:#0b0f14;font-weight:700;font-size:13px;display:flex;align-items:center;outline:1px dashed #7C8794;outline-offset:6px;margin-left:8px">Inline · 32</div></div>${spec('Compact 44 · icon 44 round · inline 32 with a 44 tap area (dashed)')}
+  <div style="font-size:18px;font-weight:700;margin:18px 0 8px">Chips, inputs, rows</div>
+  <div style="display:flex;gap:8px"><div style="height:36px;border-radius:18px;padding:0 14px;display:flex;align-items:center;background:#2B2717;border:1.5px solid #F2C14E;font-weight:700;font-size:14px">Selected</div><div style="height:36px;border-radius:18px;padding:0 14px;display:flex;align-items:center;background:#1E252D;font-weight:700;font-size:14px;color:#C9CED4">Chip · 36</div></div>
+  <div style="height:52px;border-radius:16px;background:#161B21;border:1px solid #232b34;display:flex;align-items:center;padding:0 16px;font-size:15px;font-weight:600;margin-top:10px">Input · 52 · radius 16</div>
+  <div style="height:56px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #1F262E;margin-top:6px"><i style="width:12px;height:12px;border-radius:4px;background:#FF8A5C;display:block"></i><b style="font-size:16px;flex:1">List row · min 56 (64 with a second line)</b></div>
+  <div style="font-size:18px;font-weight:700;margin:18px 0 8px">Cards and sheets</div>
+  <div style="display:flex;gap:10px"><div style="flex:1.4;background:#161B21;border-radius:20px;padding:16px"><b style="font-size:16px">Card</b><div style="font-size:14px;color:#C9CED4;margin-top:2px">radius 20 · padding 16 · gap 12</div></div><div style="flex:1;background:#1B2128;border-radius:14px;padding:12px"><b style="font-size:16px">Tile</b><div style="font-size:13px;color:#A3ADB8;margin-top:2px">radius 14 · pad 12</div></div></div>
+  <div style="background:#1B2128;border-radius:24px 24px 0 0;padding:14px 20px;margin-top:10px;font-size:14px;color:#C9CED4"><b style="font-size:16px;color:#F2F4F6">Sheet</b> · top radius 24 · side padding 20 · 4×40 handle</div></div>`;
 }
 
 //END

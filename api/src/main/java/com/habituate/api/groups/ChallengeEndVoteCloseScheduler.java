@@ -36,7 +36,7 @@ public class ChallengeEndVoteCloseScheduler {
     public void closeExpired(Instant now) {
         List<ChallengeEndVote> expired = voteRepository.findByOutcomeIsNullAndClosesAtLessThanEqual(now);
         for (ChallengeEndVote vote : expired) {
-            voteService.closeAsFailed(vote);
+            voteService.closeAsFailed(vote, now);
         }
         if (!expired.isEmpty()) {
             log.info("Closed {} expired challenge end-vote(s) as failed", expired.size());

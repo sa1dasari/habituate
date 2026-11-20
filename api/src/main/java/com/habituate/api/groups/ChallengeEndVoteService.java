@@ -45,7 +45,7 @@ public class ChallengeEndVoteService {
     private final ChallengeParticipantRepository participantRepository;
     private final ChallengeEndVoteRepository voteRepository;
     private final ChallengeEndVoteVoterRepository voterRepository;
-    private final ChallengeEndVoteResponseRepository responseRepository;
+    private final ChallengeEndVoteBallotRepository responseRepository;
     private final UserLookupService userLookupService;
     private final PushTokenRepository pushTokenRepository;
     private final ExpoPushService expoPushService;
@@ -57,7 +57,7 @@ public class ChallengeEndVoteService {
             ChallengeParticipantRepository participantRepository,
             ChallengeEndVoteRepository voteRepository,
             ChallengeEndVoteVoterRepository voterRepository,
-            ChallengeEndVoteResponseRepository responseRepository,
+            ChallengeEndVoteBallotRepository responseRepository,
             UserLookupService userLookupService,
             PushTokenRepository pushTokenRepository,
             ExpoPushService expoPushService,
@@ -90,7 +90,11 @@ public class ChallengeEndVoteService {
             if (previous.getOutcome() == null) {
                 throw new IllegalArgumentException("A vote is already open for this challenge.");
             }
-            Instant cooldownEnds = previous.getResolvedAt().plus(COOLDOWN);
+            // resolvedAt is set by every path this service writes (maybeResolveByMajority,
+            // closeAsFailed) whenever outcome is set, but ddl-auto=update gives no DB-level
+            // guarantee of that pairing — fall back to closesAt rather than NPE on a legacy row.
+            Instant resolvedAt = previous.getResolvedAt() != null ? previous.getResolvedAt() : previous.getClosesAt();
+            Instant cooldownEnds = resolvedAt.plus(COOLDOWN);
             if (Instant.now().isBefore(cooldownEnds)) {
                 throw new IllegalArgumentException(
                         "A new vote can't start until 24 hours after the last one closed.");
@@ -106,22 +110,28 @@ public class ChallengeEndVoteService {
         }
         // "Starting the vote is their yes" (owner decision) — the proposer's
         // own response is recorded immediately, same as anyone else's.
-        responseRepository.save(new ChallengeEndVoteResponse(vote.getId(), userId, ChallengeEndVoteResponse.YES));
+        responseRepository.save(new ChallengeEndVoteBallot(vote.getId(), userId, ChallengeEndVoteBallot.YES));
 
-        maybeResolveByMajority(vote, challenge, participants.size());
+        maybeResolveByMajority(vote, challenge);
 
-        String actorName = userLookupService.resolve(userId).displayName();
-        List<String> others = participants.stream().map(ChallengeParticipant::getUserId)
-                .filter(id -> !id.equals(userId)).toList();
-        notifyAll(others, AppNotification.CHALLENGE_VOTE_OPENED, "Vote: end early?",
-                actorName + " proposed ending \"" + challenge.getName() + "\" early.", challenge.getId());
+        // If the proposer's own yes already cleared the majority (solo challenge, or a
+        // 2-member one), the vote never existed as an "open" thing from anyone else's
+        // perspective — skip the opened notification so members don't see "vote opened"
+        // followed immediately by "vote ended early" for a vote they never got to see.
+        if (vote.getOutcome() == null) {
+            String actorName = userLookupService.resolve(userId).displayName();
+            List<String> others = participants.stream().map(ChallengeParticipant::getUserId)
+                    .filter(id -> !id.equals(userId)).toList();
+            notifyAll(others, AppNotification.CHALLENGE_VOTE_OPENED, "Vote: end early?",
+                    actorName + " proposed ending \"" + challenge.getName() + "\" early.", challenge.getId());
+        }
 
         return toResponse(voteRepository.findById(vote.getId()).orElseThrow(), userId);
     }
 
     @Transactional
     public ChallengeVoteResponse respond(String userId, Long challengeId, Long voteId, String response) {
-        if (!ChallengeEndVoteResponse.YES.equals(response) && !ChallengeEndVoteResponse.NO.equals(response)) {
+        if (!ChallengeEndVoteBallot.YES.equals(response) && !ChallengeEndVoteBallot.NO.equals(response)) {
             throw new IllegalArgumentException("response must be YES or NO");
         }
         Challenge challenge = challengeRepository.findById(challengeId)
@@ -139,9 +149,8 @@ public class ChallengeEndVoteService {
             throw new IllegalArgumentException("You already voted on this.");
         }
 
-        responseRepository.save(new ChallengeEndVoteResponse(voteId, userId, response));
-        int totalEligible = voterRepository.findByVoteId(voteId).size();
-        maybeResolveByMajority(vote, challenge, totalEligible);
+        responseRepository.save(new ChallengeEndVoteBallot(voteId, userId, response));
+        maybeResolveByMajority(vote, challenge);
 
         return toResponse(voteRepository.findById(voteId).orElseThrow(), userId);
     }
@@ -155,12 +164,15 @@ public class ChallengeEndVoteService {
 
     /** Closes the vote PASSED the moment more than half of every snapshotted eligible
      * voter has said yes — a missing vote counts as no simply by not contributing to
-     * the numerator while still counting toward the denominator. */
-    private void maybeResolveByMajority(ChallengeEndVote vote, Challenge challenge, int totalEligible) {
+     * the numerator while still counting toward the denominator. totalEligible is always
+     * derived here from the voter snapshot itself, never passed in, so a future caller
+     * can't accidentally substitute a live participant count and break that rule. */
+    private void maybeResolveByMajority(ChallengeEndVote vote, Challenge challenge) {
+        int totalEligible = voterRepository.findByVoteId(vote.getId()).size();
         if (totalEligible <= 0) {
             return;
         }
-        long yesCount = responseRepository.countByVoteIdAndResponse(vote.getId(), ChallengeEndVoteResponse.YES);
+        long yesCount = responseRepository.countByVoteIdAndResponse(vote.getId(), ChallengeEndVoteBallot.YES);
         if (yesCount * 2 > totalEligible) {
             vote.setOutcome(ChallengeEndVote.PASSED);
             vote.setResolvedAt(Instant.now());
@@ -179,15 +191,19 @@ public class ChallengeEndVoteService {
     }
 
     /** ChallengeEndVoteCloseScheduler calls this once closesAt has passed with no
-     * majority reached — the vote fails and the challenge keeps going. */
+     * majority reached — the vote fails and the challenge keeps going. Takes the
+     * scheduler's own clock reading for resolvedAt rather than reading Instant.now()
+     * itself, so a test driving the scheduler with a fixed Instant actually controls
+     * the cooldown window it produces instead of that window silently following the
+     * real wall clock. */
     @Transactional
-    public void closeAsFailed(ChallengeEndVote vote) {
+    public void closeAsFailed(ChallengeEndVote vote, Instant now) {
         Challenge challenge = challengeRepository.findById(vote.getChallengeId()).orElse(null);
-        long yesCount = responseRepository.countByVoteIdAndResponse(vote.getId(), ChallengeEndVoteResponse.YES);
+        long yesCount = responseRepository.countByVoteIdAndResponse(vote.getId(), ChallengeEndVoteBallot.YES);
         int totalEligible = voterRepository.findByVoteId(vote.getId()).size();
 
         vote.setOutcome(ChallengeEndVote.FAILED);
-        vote.setResolvedAt(Instant.now());
+        vote.setResolvedAt(now);
         voteRepository.save(vote);
 
         if (challenge == null) {
@@ -217,11 +233,11 @@ public class ChallengeEndVoteService {
     }
 
     private ChallengeVoteResponse toResponse(ChallengeEndVote vote, String viewingUserId) {
-        long yesCount = responseRepository.countByVoteIdAndResponse(vote.getId(), ChallengeEndVoteResponse.YES);
+        long yesCount = responseRepository.countByVoteIdAndResponse(vote.getId(), ChallengeEndVoteBallot.YES);
         int totalEligible = voterRepository.findByVoteId(vote.getId()).size();
         boolean eligible = voterRepository.existsByVoteIdAndUserId(vote.getId(), viewingUserId);
         String myResponse = responseRepository.findByVoteIdAndUserId(vote.getId(), viewingUserId)
-                .map(ChallengeEndVoteResponse::getResponse).orElse(null);
+                .map(ChallengeEndVoteBallot::getResponse).orElse(null);
         boolean canVote = eligible && vote.getOutcome() == null && myResponse == null;
         return new ChallengeVoteResponse(
                 vote.getId(), vote.getChallengeId(), vote.getProposedBy(),

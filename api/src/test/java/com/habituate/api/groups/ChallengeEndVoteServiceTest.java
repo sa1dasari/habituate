@@ -42,7 +42,7 @@ class ChallengeEndVoteServiceTest {
     private ChallengeEndVoteVoterRepository voterRepository;
 
     @Autowired
-    private ChallengeEndVoteResponseRepository responseRepository;
+    private ChallengeEndVoteBallotRepository responseRepository;
 
     @MockBean
     private UserLookupService userLookupService;
@@ -110,8 +110,8 @@ class ChallengeEndVoteServiceTest {
         assertThat(vote.yesCount()).isEqualTo(1);
         assertThat(vote.totalEligible()).isEqualTo(4);
 
-        voteService.respond("vote-user-1b", challengeId, vote.id(), ChallengeEndVoteResponse.YES);
-        ChallengeVoteResponse afterSecond = voteService.respond("vote-user-1c", challengeId, vote.id(), ChallengeEndVoteResponse.YES);
+        voteService.respond("vote-user-1b", challengeId, vote.id(), ChallengeEndVoteBallot.YES);
+        ChallengeVoteResponse afterSecond = voteService.respond("vote-user-1c", challengeId, vote.id(), ChallengeEndVoteBallot.YES);
 
         assertThat(afterSecond.outcome()).isEqualTo(ChallengeEndVote.PASSED);
         assertThat(afterSecond.yesCount()).isEqualTo(3);
@@ -126,7 +126,7 @@ class ChallengeEndVoteServiceTest {
         setUpReadyChallenge("vote-user-2a", 2, "vote-user-2b", "vote-user-2c", "vote-user-2d");
 
         ChallengeVoteResponse vote = voteService.openVote("vote-user-2a", challengeId);
-        ChallengeVoteResponse afterSecond = voteService.respond("vote-user-2b", challengeId, vote.id(), ChallengeEndVoteResponse.YES);
+        ChallengeVoteResponse afterSecond = voteService.respond("vote-user-2b", challengeId, vote.id(), ChallengeEndVoteBallot.YES);
 
         assertThat(afterSecond.outcome()).isNull();
         assertThat(afterSecond.yesCount()).isEqualTo(2);
@@ -141,7 +141,7 @@ class ChallengeEndVoteServiceTest {
         setUpReadyChallenge("vote-user-3a", 2, "vote-user-3b", "vote-user-3c", "vote-user-3d");
 
         ChallengeVoteResponse vote = voteService.openVote("vote-user-3a", challengeId);
-        voteService.respond("vote-user-3b", challengeId, vote.id(), ChallengeEndVoteResponse.NO);
+        voteService.respond("vote-user-3b", challengeId, vote.id(), ChallengeEndVoteBallot.NO);
         // vote-user-3c and vote-user-3d never vote at all — 1 yes of 4, no majority.
 
         closeScheduler.closeExpired(Instant.now().plusSeconds(25 * 3600));
@@ -160,7 +160,7 @@ class ChallengeEndVoteServiceTest {
         ChallengeVoteResponse vote = voteService.openVote("vote-user-4a", challengeId);
         challengeService.join("vote-user-4c", challengeId, "UTC");
 
-        assertThatThrownBy(() -> voteService.respond("vote-user-4c", challengeId, vote.id(), ChallengeEndVoteResponse.YES))
+        assertThatThrownBy(() -> voteService.respond("vote-user-4c", challengeId, vote.id(), ChallengeEndVoteBallot.YES))
                 .isInstanceOf(ForbiddenException.class);
     }
 
@@ -171,7 +171,7 @@ class ChallengeEndVoteServiceTest {
 
         ChallengeVoteResponse vote = voteService.openVote("vote-user-5a", challengeId);
 
-        assertThatThrownBy(() -> voteService.respond("vote-user-5-never-joined", challengeId, vote.id(), ChallengeEndVoteResponse.YES))
+        assertThatThrownBy(() -> voteService.respond("vote-user-5-never-joined", challengeId, vote.id(), ChallengeEndVoteBallot.YES))
                 .isInstanceOf(ForbiddenException.class);
     }
 
@@ -181,7 +181,7 @@ class ChallengeEndVoteServiceTest {
         setUpReadyChallenge("vote-user-6a", 2, "vote-user-6b", "vote-user-6c", "vote-user-6d");
 
         ChallengeVoteResponse vote = voteService.openVote("vote-user-6a", challengeId);
-        voteService.respond("vote-user-6b", challengeId, vote.id(), ChallengeEndVoteResponse.NO);
+        voteService.respond("vote-user-6b", challengeId, vote.id(), ChallengeEndVoteBallot.NO);
         closeScheduler.closeExpired(Instant.now().plusSeconds(25 * 3600));
 
         assertThatThrownBy(() -> voteService.openVote("vote-user-6a", challengeId))

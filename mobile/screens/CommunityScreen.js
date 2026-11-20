@@ -364,6 +364,7 @@ export default function CommunityScreen({ navigation, route }) {
               participantCount={challenge.participantCount}
               joined={challenge.joined}
               checkedInToday={challenge.checkedInToday}
+              periodEnd={challenge.periodEnd}
               busy={challengesBusy}
               onToggleCheckIn={() => handleToggleCheckIn(challenge)}
               onPress={() => setSelectedChallengeId(challenge.id)}

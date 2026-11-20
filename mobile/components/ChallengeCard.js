@@ -1,10 +1,15 @@
 import React, { useMemo } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { GestureDetector } from 'react-native-gesture-handler';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AvatarStack from './AvatarStack';
 import LandmarkTowerGraphic from './LandmarkTowerGraphic';
 import { useAppTheme } from '../hooks/useAppTheme';
+import { useHoldGesture } from '../hooks/useHoldGesture';
+import { useTapToBuild } from '../hooks/useTapToBuild';
 import { fonts, radii, shadow, skylineTowerTheme, spacing } from '../theme';
+import { daysUntil } from '../utils/date';
 
 const MEMBER_COLORS = ['#2563EB', '#7C3AED', '#0891B2', '#DB2777', '#EA580C'];
 
@@ -28,6 +33,7 @@ export default function ChallengeCard({
   participantCount,
   joined = false,
   checkedInToday = false,
+  periodEnd = null,
   onJoin,
   onToggleCheckIn,
   onPress,
@@ -36,9 +42,18 @@ export default function ChallengeCard({
 }) {
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
+  const { tapToBuild } = useTapToBuild();
   const Container = onPress ? Pressable : View;
   const isCount = trackingMode === 'COUNT';
   const built = totalBuilt(participants);
+  const hasEnded = !!periodEnd && daysUntil(periodEnd) < 0;
+  const { gesture, progress, lift } = useHoldGesture({
+    canBuild: joined && !isCount && !checkedInToday && !hasEnded && !busy,
+    tapToBuild,
+    onBuild: onToggleCheckIn,
+  });
+  const animatedLift = useAnimatedStyle(() => ({ transform: [{ translateY: lift.value }] }));
+  const animatedFill = useAnimatedStyle(() => ({ width: `${progress.value * 100}%` }));
   const contributors = (Array.isArray(participants) ? participants : []).map((p, i) => ({
     color: MEMBER_COLORS[i % MEMBER_COLORS.length],
     floors: Math.max(0, p?.progress || 0),
@@ -99,31 +114,32 @@ export default function ChallengeCard({
           isCount ? (
             <Pressable
               style={styles.logButton}
-              disabled={busy}
+              disabled={busy || hasEnded}
               accessibilityRole="button"
-              accessibilityLabel={`Add an entry for ${name}`}
+              accessibilityLabel={hasEnded ? `${name} has ended` : `Add an entry for ${name}`}
               onPress={onToggleCheckIn}
             >
               <MaterialCommunityIcons name="plus" size={16} color={colors.accent} />
-              <Text style={styles.logButtonText}>Log entry</Text>
+              <Text style={styles.logButtonText}>{hasEnded ? 'Ended' : 'Log entry'}</Text>
             </Pressable>
+          ) : checkedInToday ? (
+            <View style={[styles.logButton, styles.logButtonActive]}>
+              <MaterialCommunityIcons name="check" size={16} color="#FFFFFF" />
+              <Text style={[styles.logButtonText, styles.logButtonTextActive]}>Logged today</Text>
+            </View>
           ) : (
-            <Pressable
-              style={[styles.logButton, checkedInToday && styles.logButtonActive]}
-              disabled={busy}
-              accessibilityRole="button"
-              accessibilityLabel={checkedInToday ? `Unlog today for ${name}` : `Log today for ${name}`}
-              onPress={onToggleCheckIn}
-            >
-              <MaterialCommunityIcons
-                name={checkedInToday ? 'check' : 'plus'}
-                size={16}
-                color={checkedInToday ? '#FFFFFF' : colors.accent}
-              />
-              <Text style={[styles.logButtonText, checkedInToday && styles.logButtonTextActive]}>
-                {checkedInToday ? 'Logged today' : 'Log today'}
-              </Text>
-            </Pressable>
+            <GestureDetector gesture={gesture}>
+              <Animated.View
+                testID={`challenge-card-hold-${name}`}
+                accessibilityRole="button"
+                accessibilityLabel={hasEnded ? `${name} has ended` : `Hold to log today for ${name}`}
+                style={[styles.logButton, hasEnded && styles.logButtonDisabled, animatedLift]}
+              >
+                <Animated.View style={[styles.logButtonFill, animatedFill]} />
+                <MaterialCommunityIcons name="plus" size={16} color={colors.accent} />
+                <Text style={styles.logButtonText}>{hasEnded ? 'Ended' : 'Hold to log'}</Text>
+              </Animated.View>
+            </GestureDetector>
           )
         ) : (
           <Pressable
@@ -205,6 +221,18 @@ function makeStyles(colors, typography) {
       borderRadius: radii.pill,
       paddingHorizontal: spacing.sm + 2,
       paddingVertical: spacing.xs,
+      overflow: 'hidden',
+    },
+    logButtonFill: {
+      position: 'absolute',
+      left: 0,
+      top: 0,
+      bottom: 0,
+      backgroundColor: colors.accent,
+      opacity: 0.35,
+    },
+    logButtonDisabled: {
+      opacity: 0.5,
     },
     logButtonText: {
       fontFamily: fonts.bold,

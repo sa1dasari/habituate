@@ -242,6 +242,10 @@ public class ChallengeService {
         Challenge challenge = requireParticipant(userId, challengeId);
         ZoneId zone = resolveZone(timezone);
         LocalDate today = LocalDate.now(zone);
+        if (challenge.getPeriodEnd() != null && today.isAfter(challenge.getPeriodEnd())) {
+            throw new IllegalArgumentException(
+                    "This challenge ended on " + challenge.getPeriodEnd() + " — new entries are no longer accepted.");
+        }
         Instant dayStart = today.atStartOfDay(zone).toInstant();
         Instant dayEnd = today.plusDays(1).atStartOfDay(zone).toInstant();
 

@@ -180,6 +180,18 @@ class ChallengeServiceTest {
     }
 
     @Test
+    void logCheckIn_rejectsAfterPeriodEnd() {
+        stubResolve();
+        ChallengeResponse created = challengeService.create("challenge-test-user-3e",
+                basicRequest("Already Over", 5, "2020-01-01", "2020-01-07", null), "UTC");
+        challengeId = created.id();
+
+        assertThatThrownBy(() -> challengeService.logCheckIn("challenge-test-user-3e", challengeId, null, "UTC"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("2020-01-07");
+    }
+
+    @Test
     void unlogCheckIn_withNothingLoggedToday_notFound() {
         stubResolve();
         ChallengeResponse created = challengeService.create("challenge-test-user-3d",

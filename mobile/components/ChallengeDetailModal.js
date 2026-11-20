@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import CreateChallengeModal from './CreateChallengeModal';
@@ -98,6 +99,7 @@ export default function ChallengeDetailModal({ visible, challenge, onClose }) {
     floors: typeof p === 'object' && p ? Math.max(0, p.progress || 0) : 0,
   }));
   const daysLeft = challenge.periodEnd ? Math.max(0, daysUntil(challenge.periodEnd)) : null;
+  const hasEnded = !!challenge.periodEnd && daysUntil(challenge.periodEnd) < 0;
 
   const handleToggle = async () => {
     try {
@@ -120,6 +122,11 @@ export default function ChallengeDetailModal({ visible, challenge, onClose }) {
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      {/* RN's Modal renders in its own native surface, separate from the app's root
+          view — the GestureHandlerRootView wrapping App.js doesn't extend into it, so
+          HoldToBuildBar's GestureDetector had nowhere to attach its native handlers
+          and silently did nothing. See NotificationCenterModal.js for the same fix. */}
+      <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
           <Pressable onPress={onClose} hitSlop={12} style={styles.closeBtn}>
@@ -216,18 +223,18 @@ export default function ChallengeDetailModal({ visible, challenge, onClose }) {
             isCount ? (
               <View style={styles.entryRow}>
                 <ScrubberInput value={entryAmount} onChange={setEntryAmount} min={1} max={9999} label="amount" />
-                <Pressable style={styles.logButton} disabled={busy} onPress={handleToggle}>
+                <Pressable style={styles.logButton} disabled={busy || hasEnded} onPress={handleToggle}>
                   <MaterialCommunityIcons name="plus" size={16} color={colors.accent} />
-                  <Text style={styles.logButtonText}>Log entry</Text>
+                  <Text style={styles.logButtonText}>{hasEnded ? 'Ended' : 'Log entry'}</Text>
                 </Pressable>
               </View>
             ) : (
               <View style={styles.holdWrap}>
                 <HoldToBuildBar
                   built={challenge.checkedInToday}
-                  canBuild={!challenge.checkedInToday}
+                  canBuild={!challenge.checkedInToday && !hasEnded}
                   onBuild={handleToggle}
-                  label="Hold to add today's floor"
+                  label={hasEnded ? 'This challenge has ended' : 'Hold to add today\'s floor'}
                   builtLabel="Floor built today"
                   testID="challenge-hold-to-build"
                 />
@@ -304,6 +311,7 @@ export default function ChallengeDetailModal({ visible, challenge, onClose }) {
           })}
         </ScrollView>
       </SafeAreaView>
+      </GestureHandlerRootView>
       <FriendProfileModal visible={!!profileUserId} userId={profileUserId} onClose={() => setProfileUserId(null)} />
 
       <InviteFriendsSheet

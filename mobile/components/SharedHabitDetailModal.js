@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -141,6 +142,11 @@ export default function SharedHabitDetailModal({ visible, group, onClose }) {
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      {/* RN's Modal renders in its own native surface, separate from the app's root
+          view — the GestureHandlerRootView wrapping App.js doesn't extend into it, so
+          HoldToBuildBar's GestureDetector had nowhere to attach its native handlers
+          and silently did nothing. See NotificationCenterModal.js for the same fix. */}
+      <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
           <Pressable onPress={onClose} hitSlop={12} style={styles.closeBtn}>
@@ -347,6 +353,7 @@ export default function SharedHabitDetailModal({ visible, group, onClose }) {
           </View>
         </ScrollView>
       </SafeAreaView>
+      </GestureHandlerRootView>
 
       <InviteFriendsSheet
         visible={inviteVisible}

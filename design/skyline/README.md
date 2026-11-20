@@ -104,3 +104,7 @@ This is the only folder of Skyline mockups. The old `concept _screens/` folder w
 
 ## Regenerating 03 and 07
 `source/screens.html` draws 03, 07, 22 and two comparison views. From `design/skyline/source/`, run `node shot.js towersheet crosssection floorstates`. It uses the Playwright that is preinstalled in the cloud sessions, and writes `<screen>.png` next to the script. Copy each over its board.
+
+
+## Design system (APPROVED by the owner 2026-11-21)
+`DESIGN-SYSTEM.md` and `79-design-system.png` set the type scale, button, card and sheet sizes. All boards drawn from `source/` (every board except those listed below) were re-rendered to the standard on 2026-11-21: no half-point sizes, scale of 12/13/14/16/18/22/28/36. Not yet redrawn to the standard (owner-supplied image art with another font, text baked in): 01, 06 (superseded by 28 to 30), 16 to 21. 79 itself follows the standard. Known gap: the older button heights 54/56/36/34 and card radii 14 to 24 were left as drawn where they were already close to the standard; a full component pass is still to do.

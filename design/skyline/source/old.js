@@ -1,7 +1,7 @@
 // Redraws of boards 02, 04, 05, 08, 09, 10, 11, 15 with the current floor art
 (function(){
 const Q3=new URLSearchParams(location.search);const S3=Q3.get('s');
-if(!/^(cm-|sh-|ch-|pf-|ho-|to-|sk-|ft-|fx-|ce-|ev-|nc-|np-|ne-)/.test(S3||''))return;
+if(!/^(cm-|sh-|ch-|pf-|ho-|to-|sk-|ft-|fx-|ce-|ev-|nc-|np-|ne-|ts-)/.test(S3||''))return;
 const R=document.getElementById('root');
 const tw=(col,o)=>{const old=C.front;C.front=col;const r=tower(o);C.front=old;return r};
 const grow=(n,lit,over={})=>Array.from({length:n},(_,i)=>over[i]||(i>=n-lit?'lit':'dark'));
@@ -313,6 +313,38 @@ if(S3==='ne-join'){
   <div style="margin-top:12px">${habits.map(([n,c,on])=>`<div style="display:flex;align-items:center;gap:12px;height:56px;border-bottom:1px solid #232b34"><i style="width:12px;height:12px;border-radius:4px;background:${c};display:block"></i><div style="flex:1;font-weight:700;font-size:16px">${n}</div><div style="width:24px;height:24px;border-radius:12px;border:2px solid ${on?'#F2C14E':'#3A4552'};display:flex;align-items:center;justify-content:center">${on?'<i style="width:12px;height:12px;border-radius:6px;background:#F2C14E;display:block"></i>':''}</div></div>`).join('')}</div>
   <div style="margin-top:18px;height:54px;border-radius:27px;background:#F2C14E;color:#1b1608;font-weight:800;font-size:16.5px;display:flex;align-items:center;justify-content:center">Join</div>
   <div style="margin-top:6px;height:46px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#C9CED4">Not now</div></div></div>`;
+}
+
+function sheetBase(head,body){
+  return `<div style="position:absolute;inset:0;overflow:hidden"><div style="position:absolute;top:0;left:0;right:0;height:80px;background:linear-gradient(#0B1030,#1A2148)"></div>
+  <div style="position:absolute;top:56px;left:0;right:0;bottom:76px;background:#161B21;border-radius:24px 24px 0 0;padding:0 20px;overflow:hidden"><div style="width:40px;height:4px;border-radius:2px;background:#3A4552;margin:10px auto 8px"></div>${head}${body}</div></div>${tabBar(0)}`;
+}
+const tsHead=(name,meta,why)=>`<div style="display:flex;gap:10px;align-items:center"><div style="width:12px;height:30px;border-radius:5px;background:#F2C14E"></div><div><div style="color:#A3ADB8;font-size:11px;font-weight:800;letter-spacing:.8px">TOWER DETAILS</div><div style="font-size:22px;font-weight:800;line-height:1.15">${name}</div><div style="color:#A3ADB8;font-size:12.5px">${meta}</div></div></div>`;
+const capRow=`<div style="border:1.5px solid #F2C14E;background:#2B2717;border-radius:16px;padding:10px 12px;display:flex;gap:10px;align-items:center;margin-top:10px"><div style="flex:1"><div style="font-weight:800;font-size:14.5px">Tops out at 30 days</div><div style="color:#A3ADB8;font-size:12px;line-height:1.3;margin-top:2px">12 days to go. It tops out on its own, or you can top it out now.</div></div><div style="background:#F2C14E;color:#1b1608;font-weight:800;border-radius:20px;height:36px;padding:0 14px;display:flex;align-items:center;font-size:13.5px;white-space:nowrap">Top out now</div></div>`;
+const gridBtns=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">${['Shield Day · 2','Add another day','See inside','Ask about tower','Edit','Retire'].map((t,i)=>`<div class="btn" style="height:44px;font-size:14px;${i===5?'color:#C9CED4':''}">${t}</div>`).join('')}</div>`;
+if(S3==='ts-repair'){
+  const fl=[...rep('dark',9),'shield',...rep('dark',0)];
+  const pic=`<svg width="64" height="104" style="flex:0 0 64px">${tw('#F2C14E',{x:8,base:100,w:30,fh:6.2,dx:11,dy:6,floors:[...rep('dark',7),'shield','open'],windows:2,today:false,wW:2,wH:1.3})}</svg>`;
+  R.innerHTML=sheetBase(tsHead('Write 300 words','Daily · Floor 24 · Under construction'),`
+  <div style="display:flex;gap:14px;margin-top:10px;align-items:center">${pic}<div style="flex:1"><div style="font-size:26px;font-weight:800;color:#F2C14E;line-height:1.1">Run paused</div><div style="color:#A3ADB8;font-size:13px;margin-top:3px;line-height:1.35">Your last run was 9 days. Best run: 12 days. Build today's floor to start a new run.</div></div></div>
+  <div style="margin-top:12px;background:#1B2128;border:1.5px solid #3A4552;border-radius:18px;padding:12px 14px"><div style="display:flex;gap:10px;align-items:center"><div style="width:44px;height:30px;flex:0 0 44px"><svg width="44" height="30" viewBox="0 0 44 30"><rect x=".8" y=".8" width="42" height="28" rx="8" fill="#8FB8D8" fill-opacity=".45" stroke="#DDF2FF" stroke-width="1.4"/><path d="M22,6l7,3v6c0,5-3.4,7.6-7,9.2c-3.6-1.6-7-4.2-7-9.2V9Z" fill="#fff"/></svg></div><div style="flex:1"><div style="font-weight:800;font-size:15.5px">Pick your run back up</div><div style="color:#A3ADB8;font-size:12.5px;line-height:1.4;margin-top:2px">Restore the day you missed (Nov 18). It shows as a glass Shield Day floor. Once a month for each tower.</div></div></div>
+  <div style="margin-top:10px;height:44px;border-radius:22px;background:#F2C14E;color:#1b1608;font-weight:800;font-size:15px;display:flex;align-items:center;justify-content:center">Pick it back up</div></div>
+  ${capRow}${gridBtns}`);
+}
+if(S3==='ts-repaired'){
+  R.innerHTML=sheetBase(tsHead('Write 300 words','Daily · Floor 24 · Under construction'),`
+  <div style="margin-top:12px;font-size:26px;font-weight:800;color:#F2C14E;line-height:1.1">9 day run</div><div style="color:#A3ADB8;font-size:13px;margin-top:3px">Your run is back. Today's floor will make it 10.</div>
+  <div style="margin-top:12px;background:#1B2128;border-radius:18px;padding:12px 14px;display:flex;gap:10px;align-items:center;opacity:.9"><div style="width:44px;height:30px;flex:0 0 44px"><svg width="44" height="30" viewBox="0 0 44 30"><rect x=".8" y=".8" width="42" height="28" rx="8" fill="#8FB8D8" fill-opacity=".45" stroke="#DDF2FF" stroke-width="1.4"/><path d="M22,6l7,3v6c0,5-3.4,7.6-7,9.2c-3.6-1.6-7-4.2-7-9.2V9Z" fill="#fff"/></svg></div><div style="flex:1"><div style="font-weight:800;font-size:15px">Run picked back up</div><div style="color:#A3ADB8;font-size:12.5px;line-height:1.4;margin-top:2px">Nov 18 is now a Shield Day. You can pick up this tower's run again from Dec 1.</div></div></div>
+  ${capRow}${gridBtns}`)+`<div style="position:absolute;left:20px;right:20px;top:72px;background:#2A323C;border-radius:14px;padding:12px 14px;font-weight:700;font-size:14px;box-shadow:0 8px 20px rgba(0,0,0,.5)">Your run is back at 9 days.</div>`;
+}
+if(S3==='ts-count'){
+  R.innerHTML=sheetBase(tsHead('Drink water','Daily · An amount · Floor 18'),`
+  <div style="margin-top:10px;font-size:26px;font-weight:800;color:#F2C14E;line-height:1.1">6 day run</div><div style="color:#A3ADB8;font-size:13px;margin-top:2px">A floor counts at 8 glasses.</div>
+  <div style="margin-top:12px;background:#1B2128;border-radius:18px;padding:14px"><div style="display:flex;justify-content:space-between;align-items:baseline"><b style="font-size:16px">Today</b><span style="font-size:15px;font-weight:800">3 of 8 glasses</span></div>
+   <div style="margin-top:10px;height:22px;border-radius:7px;background:#232b34;overflow:hidden;position:relative"><div style="width:37.5%;height:100%;background:#38BDF8"></div></div>
+   <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px"><div style="display:flex;align-items:center;gap:12px"><div style="width:44px;height:44px;border-radius:22px;border:1.5px solid #2F3944;display:flex;align-items:center;justify-content:center;font-size:22px">−</div><b style="font-size:22px;min-width:28px;text-align:center">3</b><div style="width:44px;height:44px;border-radius:22px;background:#F2C14E;color:#1b1608;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800">+</div></div><span style="color:#A3ADB8;font-size:12.5px;max-width:130px;text-align:right;line-height:1.3">Holding the tower adds 1 glass.</span></div>
+   <div style="display:flex;gap:8px;margin-top:12px"><div style="flex:1;height:44px;border-radius:14px;background:#161B21;border:1px solid #2A333D;display:flex;align-items:center;justify-content:space-between;padding:0 14px"><span style="color:#7C8794;font-size:14px">Add an amount</span><span style="color:#A3ADB8;font-size:13px">glasses</span></div><div style="height:44px;padding:0 20px;border-radius:22px;background:#F2C14E;color:#1b1608;font-weight:800;font-size:14.5px;display:flex;align-items:center">Add</div></div></div>
+  ${capRow}${gridBtns}`);
 }
 
 //END

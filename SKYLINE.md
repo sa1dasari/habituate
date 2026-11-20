@@ -346,9 +346,9 @@ Checklist: (written Phase 0, from grepping each file's interactive elements — 
 - [ ] Empty-state CTA
 
 `ProfileScreen.js`:
-- [ ] Edit profile, view my stats
-- [x] Navigate to Habits / Insights(habit) / Community(challenge) from empty states and lists — 2026-11-12: the Habits-tab legs ("View all" on the habit summary card, `MyStatsModal.js`'s "Active habits" tile) now redirect to Today instead (Habits tab removed). Insights/Community legs unaffected.
-- [ ] Navigate to AccountSettings, sign out
+- [x] Edit profile, view my stats — unaffected by the board-15 restyle (2026-11-20): Edit opens `EditProfileModal` from the new top-right "Edit" pill instead of the old pencil icon; the hero card still opens `MyStatsModal`.
+- [~] Navigate to Habits / Insights(habit) / Community(challenge) from empty states and lists — 2026-11-12: the Habits-tab leg ("View all" on the habit summary card) redirected to Today (Habits tab removed). **Changed again 2026-11-20 (board 15 restyle, confirmed intentional with the owner)**: the "Personal habit summary"/"Challenges" preview cards that carried the Insights(habit)/Community(challenge) per-item deep-links (`openHabitId`/`openChallengeId`) are gone — board 15 has no equivalent. The destinations are still reachable (Skyline tab lists every habit, Community tab lists every challenge), just not as a direct deep-link from Profile. `MyStatsModal.js`'s own "Active habits" tile still redirects to Today, unaffected.
+- [x] Navigate to AccountSettings, sign out — unaffected; AccountSettings is now one of several flat settings rows (also reachable via the new Friends/Sky and weather/Skyline/Accessibility/Notifications/Privacy rows), sign out unchanged at the bottom.
 
 `CreateGroupModal.js`:
 - [ ] Close, select habit to share, name input

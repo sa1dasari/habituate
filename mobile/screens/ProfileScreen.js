@@ -1,68 +1,114 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AvatarImage from '../components/AvatarImage';
 import EditProfileModal from '../components/EditProfileModal';
 import MyStatsModal from '../components/MyStatsModal';
+import AddFriendModal from '../components/AddFriendModal';
 import ConfirmModal from '../components/ConfirmModal';
 import Toast from '../components/Toast';
-import { categoryIcon } from '../constants/habitCategories';
+import { HABIT_CATEGORY_COLORS } from '../constants/habitCategories';
+import { resolveHabitColor } from '../constants/towerColors';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useAuth } from '../hooks/useAuth';
 import { useConfirm } from '../hooks/useConfirm';
+import { useFriends } from '../hooks/useFriends';
 import { useHabits } from '../hooks/useHabits';
 import { useShowFinishedTowers } from '../hooks/useShowFinishedTowers';
-import { useChallenges } from '../hooks/useChallenges';
+import { useTapToBuild } from '../hooks/useTapToBuild';
 import { unregisterPushToken } from '../hooks/usePushToken';
 import { useRegisterScrollToTop } from '../hooks/useRegisterScrollToTop';
 import { useToast } from '../hooks/useToast';
-import { computeConsistency } from '../utils/consistency';
-import { radii, shadow, spacing } from '../theme';
+import api from '../api/client';
+import { buildCategoryTowerColors, fonts, radii, shadow, spacing } from '../theme';
 
-const HABIT_SUMMARY_LIMIT = 3;
-const CHALLENGE_SUMMARY_LIMIT = 3;
+const PREVIEW_TOWER_LIMIT = 6;
+const towerColorsByMode = buildCategoryTowerColors(HABIT_CATEGORY_COLORS);
 
-function Card({ title, actionLabel, onAction, children, styles }) {
-  return (
-    <View style={styles.card}>
-      <View style={styles.cardHeader}>
-        <Text style={styles.cardTitle}>{title}</Text>
-        {actionLabel ? (
-          <Pressable
-            onPress={onAction}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel={actionLabel}
-          >
-            <Text style={styles.cardAction}>{actionLabel}</Text>
-          </Pressable>
-        ) : null}
-      </View>
-      {children}
-    </View>
-  );
-}
-
+/**
+ * Restyled per design-review board 15 (owner-approved, confirmed 2026-11-20):
+ * a "Your skyline so far" hero (a flat-color tower-count preview, not a real
+ * buildScene render — these bars only need to convey relative current run
+ * and which tower holds the best run, not the full window/floor detail a
+ * real tower scene carries) replacing the old "Hi {name}, you're doing
+ * great" habit-list card, then flat settings rows instead of the old nested
+ * "Account Settings" single entry point. Friends/Accessibility/Notifications/
+ * Privacy/Skyline are now direct top-level rows; AccountSettingsScreen itself
+ * is untouched and still reachable via the new "Account" row, so nothing
+ * that deep-links into it elsewhere breaks.
+ */
 export default function ProfileScreen() {
   const navigation = useNavigation();
-  const { colors, typography } = useAppTheme();
+  const { colors, typography, effectiveMode } = useAppTheme();
   const { showFinishedTowers } = useShowFinishedTowers();
+  const { tapToBuild } = useTapToBuild();
+  const { friends, pendingRequests } = useFriends();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const scrollRef = useRegisterScrollToTop('Profile');
   const { user, signOut } = useAuth();
-  const { habits } = useHabits();
-  const { challenges } = useChallenges();
+  const { habits, archivedHabits } = useHabits();
 
   const [editVisible, setEditVisible] = useState(false);
   const [myStatsVisible, setMyStatsVisible] = useState(false);
+  const [friendsVisible, setFriendsVisible] = useState(false);
   const { toast, hideToast } = useToast();
   const { request, confirm, respond } = useConfirm();
 
   const displayName = user?.displayName || 'there';
-  const firstName = displayName.split(' ')[0];
-  const weeklyConsistency = useMemo(() => computeConsistency(habits, 'weekly').percent, [habits]);
+
+  // username/profileVisibility aren't on the auth user object — same fetch
+  // EditProfileModal/PrivacyScreen already make for the same two fields.
+  const [username, setUsername] = useState(null);
+  const [profileVisibility, setProfileVisibility] = useState('PRIVATE');
+  const [finishedCount, setFinishedCount] = useState(null);
+  const [bestRun, setBestRun] = useState(null);
+
+  // Re-fetch on every focus, not just mount — this is a tab screen React
+  // Navigation keeps mounted, so a mount-only effect would never notice a
+  // tower retired/topped-out or a visibility change made in the Privacy
+  // screen until the app restarted. showFinishedTowers/tapToBuild don't need
+  // this (context-backed, already live); these three plain fetches do.
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      api
+        .getUserProfile()
+        .then((profile) => {
+          if (cancelled) return;
+          setUsername(profile?.username || null);
+          if (profile?.profileVisibility) setProfileVisibility(profile.profileVisibility);
+        })
+        .catch(() => {});
+      api
+        .listFinishedTowers()
+        .then((list) => {
+          if (!cancelled) setFinishedCount((list || []).length);
+        })
+        .catch(() => {
+          if (!cancelled) setFinishedCount(0);
+        });
+      api
+        .getMyStats()
+        .then((stats) => {
+          if (!cancelled) setBestRun(stats?.bestLongestStreak ?? 0);
+        })
+        .catch(() => {
+          if (!cancelled) setBestRun(0);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }, []),
+  );
+
+  const categoryColors = towerColorsByMode[effectiveMode];
+  const previewHabits = habits.slice(0, PREVIEW_TOWER_LIMIT);
+  const maxRun = Math.max(1, ...previewHabits.map((h) => h.currentRun || 0));
+  const flagHabitId = previewHabits.length
+    ? previewHabits.reduce((best, h) => ((h.bestRun || 0) > (best.bestRun || 0) ? h : best), previewHabits[0]).id
+    : null;
 
   const handleSignOut = async () => {
     const ok = await confirm({
@@ -80,19 +126,25 @@ export default function ProfileScreen() {
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView ref={scrollRef} contentContainerStyle={styles.container}>
         <View style={styles.header}>
-          <View style={styles.headerText}>
-            <Text style={styles.title}>Profile</Text>
-            <Text style={styles.subtitle}>Your rhythm, your way.</Text>
-          </View>
+          <Text style={styles.title}>Profile</Text>
           <Pressable
             style={styles.editBtn}
-            hitSlop={4}
+            onPress={() => setEditVisible(true)}
             accessibilityRole="button"
             accessibilityLabel="Edit profile"
-            onPress={() => setEditVisible(true)}
           >
-            <MaterialCommunityIcons name="pencil-outline" size={18} color={colors.accent} />
+            <Text style={styles.editBtnText}>Edit</Text>
           </Pressable>
+        </View>
+
+        <View style={styles.identityRow}>
+          <AvatarImage uri={user?.photoURL} name={displayName} size={52} fontSize={18} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.identityName} numberOfLines={1}>{displayName}</Text>
+            <Text style={styles.identityMeta} numberOfLines={1}>
+              {username ? `@${username} · ` : ''}Profile: {profileVisibility === 'PUBLIC' ? 'Public' : 'Private'}
+            </Text>
+          </View>
         </View>
 
         <Pressable
@@ -101,118 +153,96 @@ export default function ProfileScreen() {
           accessibilityRole="button"
           accessibilityLabel="View my stats"
         >
-          <View style={styles.avatarLg}>
-            <AvatarImage uri={user?.photoURL} name={displayName} size={52} fontSize={18} />
+          <Text style={styles.heroTitle}>Your skyline so far</Text>
+          {previewHabits.length > 0 ? (
+            <View style={styles.previewRow}>
+              {previewHabits.map((h) => {
+                const run = h.currentRun || 0;
+                const heightPct = Math.max(0.18, run / maxRun);
+                return (
+                  <View key={h.id} style={styles.previewTowerWrap}>
+                    {h.id === flagHabitId ? (
+                      <MaterialCommunityIcons name="flag-variant" size={14} color={colors.amber || '#F2C14E'} style={styles.previewFlag} />
+                    ) : null}
+                    <View
+                      style={[
+                        styles.previewTower,
+                        {
+                          height: Math.round(70 * heightPct),
+                          backgroundColor: resolveHabitColor(h, effectiveMode, categoryColors),
+                        },
+                      ]}
+                    />
+                  </View>
+                );
+              })}
+            </View>
+          ) : null}
+          <View style={styles.statsRow}>
+            <StatChip value={habits.length} label="building" styles={styles} />
+            <StatChip value={finishedCount ?? 0} label="finished" styles={styles} />
+            <StatChip value={archivedHabits.length} label="monument" styles={styles} />
+            <StatChip value={bestRun ?? 0} label="best run" styles={styles} />
           </View>
-          <View style={styles.heroText}>
-            <Text style={styles.heroTitle}>Hi {firstName}, you're doing great.</Text>
-            <Text style={styles.heroSubtitle}>
-              {habits.length} {habits.length === 1 ? 'habit' : 'habits'} tracked · {weeklyConsistency}% weekly
-              consistency
-            </Text>
-          </View>
-          <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textMuted} />
         </Pressable>
 
-        <Card
-          title="Personal habit summary"
-          actionLabel="View all"
-          onAction={() => navigation.navigate('Today')}
+        <SettingsRow
+          icon="account-group-outline"
+          label="Friends"
+          sublabel={`${friends.length} ${friends.length === 1 ? 'friend' : 'friends'}${pendingRequests.length > 0 ? ` · ${pendingRequests.length} requests` : ''}`}
+          onPress={() => setFriendsVisible(true)}
           styles={styles}
-        >
-          {habits.length === 0 ? (
-            <Text style={styles.emptyNote}>Add a habit on the Today tab to see it here.</Text>
-          ) : (
-            habits.slice(0, HABIT_SUMMARY_LIMIT).map((habit) => {
-              const target = habit.periodTarget || 0;
-              const done = habit.periodDone || 0;
-              const percent = target > 0 ? Math.min(100, Math.round((done / target) * 100)) : 0;
-              return (
-                <Pressable
-                  key={habit.id}
-                  style={styles.habitRow}
-                  onPress={() => navigation.navigate('Insights', { screen: 'InsightsMain', params: { openHabitId: habit.id } })}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Open ${habit.name}`}
-                >
-                  <View style={styles.habitIcon}>
-                    <MaterialCommunityIcons name={categoryIcon(habit.category)} size={18} color={colors.accent} />
-                  </View>
-                  <View style={styles.habitInfo}>
-                    <Text style={styles.habitName} numberOfLines={1}>
-                      {habit.name}
-                    </Text>
-                    <Text style={styles.habitMeta}>{habit.progressLabel}</Text>
-                    <View style={styles.progressTrack}>
-                      <View style={[styles.progressFill, { width: `${Math.max(4, percent)}%` }]} />
-                    </View>
-                  </View>
-                  <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textMuted} />
-                </Pressable>
-              );
-            })
-          )}
-        </Card>
-
-        <Card
-          title="Challenges"
-          actionLabel="See all"
-          onAction={() => navigation.navigate('Community', { scrollToChallenges: true })}
+          colors={colors}
+          testID="profile-friends-row"
+        />
+        <SettingsRow
+          icon="weather-partly-cloudy"
+          label="Sky and weather"
+          onPress={() => navigation.navigate('SkyWeatherSettings')}
           styles={styles}
-        >
-          {challenges.length === 0 ? (
-            <Text style={styles.emptyNote}>Join or start a challenge on the Community tab to see it here.</Text>
-          ) : (
-            challenges.slice(0, CHALLENGE_SUMMARY_LIMIT).map((challenge) => {
-              const accentColor = challenge.color || colors.accent;
-              const percent = challenge.progressPercent || 0;
-              return (
-                <Pressable
-                  key={challenge.id}
-                  style={styles.habitRow}
-                  onPress={() => navigation.navigate('Community', { openChallengeId: challenge.id })}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Open ${challenge.name}`}
-                >
-                  <View style={[styles.habitIcon, { backgroundColor: `${accentColor}22` }]}>
-                    <MaterialCommunityIcons name={challenge.icon || 'trophy-outline'} size={18} color={accentColor} />
-                  </View>
-                  <View style={styles.habitInfo}>
-                    <Text style={styles.habitName} numberOfLines={1}>
-                      {challenge.name}
-                    </Text>
-                    <Text style={styles.habitMeta}>
-                      {challenge.myProgress}/{challenge.targetCount} this period
-                    </Text>
-                    <View style={styles.progressTrack}>
-                      <View style={[styles.progressFill, { width: `${Math.max(4, percent)}%`, backgroundColor: accentColor }]} />
-                    </View>
-                  </View>
-                  <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textMuted} />
-                </Pressable>
-              );
-            })
-          )}
-        </Card>
-
-        <Pressable style={styles.settingsRow} onPress={() => navigation.navigate('SkylineSettings')} testID="profile-skyline-row">
-          <View style={styles.settingsRowIcon}>
-            <MaterialCommunityIcons name="office-building-outline" size={18} color={colors.accent} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.settingsRowLabel}>Skyline</Text>
-            <Text style={styles.settingsRowSublabel}>Finished towers: {showFinishedTowers ? 'Shown' : 'Hidden'}</Text>
-          </View>
-          <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textMuted} />
-        </Pressable>
-
-        <Pressable style={styles.settingsRow} onPress={() => navigation.navigate('AccountSettings')}>
-          <View style={styles.settingsRowIcon}>
-            <MaterialCommunityIcons name="cog-outline" size={18} color={colors.accent} />
-          </View>
-          <Text style={styles.settingsRowLabel}>Account Settings</Text>
-          <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textMuted} />
-        </Pressable>
+          colors={colors}
+          testID="profile-sky-weather-row"
+        />
+        <SettingsRow
+          icon="office-building-outline"
+          label="Skyline"
+          sublabel={`Finished towers: ${showFinishedTowers ? 'Shown' : 'Hidden'}`}
+          onPress={() => navigation.navigate('SkylineSettings')}
+          styles={styles}
+          colors={colors}
+          testID="profile-skyline-row"
+        />
+        <SettingsRow
+          icon="gesture-tap"
+          label="Accessibility"
+          sublabel={`Tap to build: ${tapToBuild ? 'On' : 'Off'}`}
+          onPress={() => navigation.navigate('Accessibility')}
+          styles={styles}
+          colors={colors}
+        />
+        <SettingsRow
+          icon="bell-outline"
+          label="Notifications"
+          sublabel="Reminders and weekly recap"
+          onPress={() => navigation.navigate('NotificationSettings')}
+          styles={styles}
+          colors={colors}
+        />
+        <SettingsRow
+          icon="lock-outline"
+          label="Privacy"
+          sublabel={`Profile visibility: ${profileVisibility === 'PUBLIC' ? 'Public' : 'Private'}`}
+          onPress={() => navigation.navigate('Privacy')}
+          styles={styles}
+          colors={colors}
+        />
+        <SettingsRow
+          icon="cog-outline"
+          label="Account"
+          onPress={() => navigation.navigate('AccountSettings')}
+          styles={styles}
+          colors={colors}
+        />
 
         <Pressable style={styles.signOutBtn} onPress={handleSignOut}>
           <MaterialCommunityIcons name="logout" size={16} color={colors.atRisk} />
@@ -222,9 +252,34 @@ export default function ProfileScreen() {
 
       <EditProfileModal visible={editVisible} onClose={() => setEditVisible(false)} />
       <MyStatsModal visible={myStatsVisible} onClose={() => setMyStatsVisible(false)} />
+      <AddFriendModal visible={friendsVisible} onClose={() => setFriendsVisible(false)} />
       <ConfirmModal request={request} onRespond={respond} />
       <Toast toast={toast} onHide={hideToast} />
     </SafeAreaView>
+  );
+}
+
+function StatChip({ value, label, styles }) {
+  return (
+    <View style={styles.statChip}>
+      <Text style={styles.statChipValue}>{value}</Text>
+      <Text style={styles.statChipLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function SettingsRow({ icon, label, sublabel, onPress, styles, colors, testID }) {
+  return (
+    <Pressable style={styles.settingsRow} onPress={onPress} accessibilityRole="button" accessibilityLabel={label} testID={testID}>
+      <View style={styles.settingsRowIcon}>
+        <MaterialCommunityIcons name={icon} size={18} color={colors.accent} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.settingsRowLabel}>{label}</Text>
+        {sublabel ? <Text style={styles.settingsRowSublabel}>{sublabel}</Text> : null}
+      </View>
+      <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textMuted} />
+    </Pressable>
   );
 }
 
@@ -236,87 +291,47 @@ function makeStyles(colors, typography) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: spacing.xl,
+      marginBottom: spacing.lg,
     },
-    headerText: { flex: 1 },
     title: { ...typography.screenTitle },
-    subtitle: { ...typography.meta, marginTop: 2 },
     editBtn: {
-      width: 40,
-      height: 40,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.sm,
       borderRadius: radii.pill,
-      alignItems: 'center',
-      justifyContent: 'center',
       backgroundColor: colors.surface,
       ...shadow,
     },
-    heroCard: {
+    editBtnText: { fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary },
+    identityRow: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.md,
+      marginBottom: spacing.lg,
+    },
+    identityName: { fontFamily: fonts.extraBold, fontSize: 20, color: colors.textPrimary },
+    identityMeta: { ...typography.meta, marginTop: 2 },
+    heroCard: {
       backgroundColor: colors.surface,
       borderRadius: radii.lg,
       padding: spacing.lg,
       marginBottom: spacing.lg,
       ...shadow,
     },
-    avatarLg: {
-      width: 52,
-      height: 52,
-      borderRadius: radii.pill,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: colors.accentSoft,
-    },
-    avatarLgText: { fontSize: 18, fontWeight: '700', color: colors.accent },
-    heroText: { flex: 1 },
-    heroTitle: { fontSize: 15, fontWeight: '700', color: colors.textPrimary },
-    heroSubtitle: { ...typography.meta, marginTop: 2 },
-    card: {
-      backgroundColor: colors.surface,
-      borderRadius: radii.lg,
-      padding: spacing.lg,
-      marginBottom: spacing.lg,
-      ...shadow,
-    },
-    cardHeader: {
+    heroTitle: { ...typography.cardTitle, marginBottom: spacing.md },
+    previewRow: {
       flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
+      alignItems: 'flex-end',
+      gap: spacing.sm,
+      height: 86,
       marginBottom: spacing.md,
     },
-    cardTitle: { ...typography.cardTitle },
-    cardAction: { fontSize: 13, fontWeight: '600', color: colors.accent },
-    cardNote: { ...typography.meta, marginBottom: spacing.md },
-    emptyNote: { ...typography.meta },
-    habitRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-      paddingVertical: spacing.sm,
-    },
-    habitIcon: {
-      width: 36,
-      height: 36,
-      borderRadius: radii.md,
-      backgroundColor: colors.accentSoft,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    habitInfo: { flex: 1 },
-    habitName: { fontSize: 14, fontWeight: '700', color: colors.textPrimary },
-    habitMeta: { ...typography.meta, marginTop: 1, marginBottom: spacing.xs },
-    progressTrack: {
-      height: 6,
-      borderRadius: radii.pill,
-      backgroundColor: colors.ringTrack,
-      overflow: 'hidden',
-    },
-    progressFill: {
-      height: '100%',
-      borderRadius: radii.pill,
-      backgroundColor: colors.safe,
-    },
+    previewTowerWrap: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
+    previewFlag: { marginBottom: 2 },
+    previewTower: { width: '100%', borderTopLeftRadius: radii.sm, borderTopRightRadius: radii.sm },
+    statsRow: { flexDirection: 'row', justifyContent: 'space-between' },
+    statChip: { alignItems: 'center', flex: 1 },
+    statChipValue: { fontFamily: fonts.extraBold, fontSize: 18, color: colors.textPrimary },
+    statChipLabel: { ...typography.meta, fontSize: 11, marginTop: 1 },
     settingsRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -325,7 +340,7 @@ function makeStyles(colors, typography) {
       borderRadius: radii.lg,
       paddingHorizontal: spacing.lg,
       paddingVertical: spacing.md,
-      marginBottom: spacing.lg,
+      marginBottom: spacing.sm,
       ...shadow,
     },
     settingsRowIcon: {
@@ -336,7 +351,7 @@ function makeStyles(colors, typography) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    settingsRowLabel: { flex: 1, fontSize: 14, fontWeight: '600', color: colors.textPrimary },
+    settingsRowLabel: { fontSize: 14, fontWeight: '600', color: colors.textPrimary },
     settingsRowSublabel: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
     signOutBtn: {
       flexDirection: 'row',

@@ -16,10 +16,13 @@ import java.time.Instant;
  * pattern CheckInCheer uses for its own unique pair. The proposer's own YES
  * is inserted automatically when the vote opens (ChallengeEndVoteService.
  * openVote) — "starting the vote is their yes" (owner decision).
+ *
+ * Named "Ballot" rather than "Response" so it can't be confused with the
+ * ChallengeVoteResponse REST DTO sitting right next to it in this package.
  */
 @Entity
 @Table(name = "challenge_end_vote_responses", uniqueConstraints = @UniqueConstraint(columnNames = {"vote_id", "user_id"}))
-public class ChallengeEndVoteResponse {
+public class ChallengeEndVoteBallot {
 
     public static final String YES = "YES";
     public static final String NO = "NO";
@@ -40,10 +43,10 @@ public class ChallengeEndVoteResponse {
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
-    public ChallengeEndVoteResponse() {
+    public ChallengeEndVoteBallot() {
     }
 
-    public ChallengeEndVoteResponse(Long voteId, String userId, String response) {
+    public ChallengeEndVoteBallot(Long voteId, String userId, String response) {
         this.voteId = voteId;
         this.userId = userId;
         this.response = response;

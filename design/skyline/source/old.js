@@ -339,6 +339,15 @@ if(S3==='ts-repaired'){
 }
 if(S3==='ts-count'){
   R.innerHTML=sheetBase(tsHead('Drink water','Daily · An amount · Floor 18'),`
+  <div style="margin-top:10px;font-size:26px;font-weight:800;color:#F2C14E;line-height:1.1">6 day run</div><div style="color:#A3ADB8;font-size:13px;margin-top:2px">A floor counts at 8.</div>
+  <div style="margin-top:12px;background:#1B2128;border-radius:18px;padding:14px"><div style="display:flex;justify-content:space-between;align-items:baseline"><b style="font-size:16px">Today</b><span style="font-size:15px;font-weight:800">3 of 8</span></div>
+   <div style="margin-top:10px;height:22px;border-radius:7px;background:#232b34;overflow:hidden;position:relative"><div style="width:37.5%;height:100%;background:#38BDF8"></div></div>
+   <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px"><div style="display:flex;align-items:center;gap:12px"><div style="width:44px;height:44px;border-radius:22px;border:1.5px solid #2F3944;display:flex;align-items:center;justify-content:center;font-size:22px">−</div><b style="font-size:22px;min-width:28px;text-align:center">3</b><div style="width:44px;height:44px;border-radius:22px;background:#F2C14E;color:#1b1608;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800">+</div></div><span style="color:#A3ADB8;font-size:12.5px;max-width:130px;text-align:right;line-height:1.3">Holding the tower adds 1.</span></div>
+   <div style="display:flex;gap:8px;margin-top:12px"><div style="flex:1;height:44px;border-radius:14px;background:#161B21;border:1px solid #2A333D;display:flex;align-items:center;justify-content:space-between;padding:0 14px"><span style="color:#7C8794;font-size:14px">Add an amount</span></div><div style="height:44px;padding:0 20px;border-radius:22px;background:#F2C14E;color:#1b1608;font-weight:800;font-size:14.5px;display:flex;align-items:center">Add</div></div></div>
+  ${capRow}${gridBtns}`);
+}
+if(S3==='ts-count-unit'){
+  R.innerHTML=sheetBase(tsHead('Drink water','Daily · An amount · Floor 18'),`
   <div style="margin-top:10px;font-size:26px;font-weight:800;color:#F2C14E;line-height:1.1">6 day run</div><div style="color:#A3ADB8;font-size:13px;margin-top:2px">A floor counts at 8 glasses.</div>
   <div style="margin-top:12px;background:#1B2128;border-radius:18px;padding:14px"><div style="display:flex;justify-content:space-between;align-items:baseline"><b style="font-size:16px">Today</b><span style="font-size:15px;font-weight:800">3 of 8 glasses</span></div>
    <div style="margin-top:10px;height:22px;border-radius:7px;background:#232b34;overflow:hidden;position:relative"><div style="width:37.5%;height:100%;background:#38BDF8"></div></div>

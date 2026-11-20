@@ -31,3 +31,6 @@ No half sizes. Never disable font scaling; cap with maxFontSizeMultiplier 1.3 on
 
 ## theme.js changes
 screenTitle 28, sectionTitle 18; add heroNumber 36, sheetTitle 22, message 16, eyebrow 12; radii add 14, 20, 28; button heights 54/48/44/32; spacing 24 and 32.
+
+## Font decision (2026-11-21, Opus research)
+Keep Nunito (`@expo-google-fonts/nunito`, 400/600/700/800). Compared with Plus Jakarta Sans, Manrope and Figtree: Nunito has the warmest rounded tone, even-width digits at every weight, and the widest language coverage (Latin Extended, Cyrillic, Vietnamese). Cost is about 528 KB for four weights. No font change in code or boards. Small-size rule: Nunito reads soft at 12dp on dark, so 400 weight is only for 12dp meta text that is not essential; use 600 for anything the user must read at 12 to 13dp. Not verified on a device.

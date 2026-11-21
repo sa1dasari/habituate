@@ -201,6 +201,7 @@ public class HabitService {
             habit.setTopOutThresholdDays(requireValidCap(request.topOutThresholdDays()));
         }
         habit.setColor(normalizeColor(request.color()));
+        habit.setUnit(blankToNull(request.unit()));
         return toResponse(habitRepository.save(habit));
     }
 
@@ -281,6 +282,10 @@ public class HabitService {
         // null leaves the colour unchanged; "" clears it back to the category colour.
         if (request.color() != null) {
             habit.setColor(normalizeColor(request.color()));
+        }
+        // Same null-vs-blank convention as colour: null leaves it unchanged, "" clears it.
+        if (request.unit() != null) {
+            habit.setUnit(blankToNull(request.unit()));
         }
 
         return toResponse(habitRepository.save(habit));

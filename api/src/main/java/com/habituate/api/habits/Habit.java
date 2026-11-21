@@ -98,6 +98,11 @@ public class Habit {
     @Column(length = 20)
     private String color;
 
+    /** Optional unit for a COUNT-mode habit's amount (e.g. "glasses", "pages", "words").
+     * Display-only — never used in any calculation; a BOOLEAN habit ignores this entirely. */
+    @Column(length = 30)
+    private String unit;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -249,6 +254,14 @@ public class Habit {
 
     public void setColor(String color) {
         this.color = color;
+    }
+
+    public String getUnit() {
+        return unit;
+    }
+
+    public void setUnit(String unit) {
+        this.unit = unit;
     }
 
     public Instant getCreatedAt() {

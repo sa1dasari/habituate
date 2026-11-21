@@ -44,6 +44,7 @@ function emptyForm() {
     motivation: '',
     topOutThresholdDays: null,
     color: null,
+    unit: '',
   };
 }
 
@@ -78,6 +79,7 @@ function formFromHabit(habit) {
     motivation: habit.motivation || '',
     topOutThresholdDays: habit.topOutThresholdDays != null ? Math.min(35, habit.topOutThresholdDays) : null,
     color: habit.color || null,
+    unit: habit.unit || '',
   };
 }
 
@@ -200,6 +202,10 @@ export default function TowerForm({ visible, onClose, habit, theme, towerTheme, 
       topOutThresholdDays: filled.topOutThresholdDays ?? null,
       // A palette key, or null (create: no pick; update: leave as is).
       color: filled.color ?? null,
+      // A stale unit from a prior COUNT selection shouldn't survive a
+      // switch back to Check-off — same reasoning already applied to
+      // featuredGoal when the last period target is removed.
+      unit: filled.trackingMode === 'COUNT' ? filled.unit.trim() : '',
     };
 
     setBusy(true);
@@ -402,6 +408,24 @@ export default function TowerForm({ visible, onClose, habit, theme, towerTheme, 
                 min={1}
                 max={200}
                 label="times/day"
+              />
+            </Field>
+          )}
+
+          {form.trackingMode === 'COUNT' && (
+            <Field
+              label="Unit (optional)"
+              theme={theme}
+              sublabel={'Shown next to amounts, like "300 words". Leave it empty for a plain number.'}
+            >
+              <TextInput
+                value={form.unit}
+                onChangeText={(v) => setField('unit', v)}
+                placeholder="words"
+                placeholderTextColor={theme.muted}
+                maxLength={30}
+                style={[styles.input, { color: theme.text, borderColor: theme.border || 'rgba(128,128,128,0.3)' }]}
+                testID="tower-form-unit"
               />
             </Field>
           )}

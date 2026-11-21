@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -82,7 +82,7 @@ export default function TowerSheet({
   onOpenInsideView,
   onEdit,
 }) {
-  const { toggleShield, updateHabit, topOutHabit, shieldsAvailable, toggleCheckIn, addCheckIn, removeCheckIn } =
+  const { toggleShield, updateHabit, topOutHabit, shieldsAvailable, toggleCheckIn, addCheckIn, removeCheckIn, removeLastCheckIn, repairStreak } =
     useHabits();
   const { toast, showToast, hideToast } = useToast();
   const { request, confirm, respond } = useConfirm();
@@ -405,6 +405,75 @@ export default function TowerSheet({
     }
   };
 
+  // Amount entry for COUNT-mode towers (boards 76/77) — the +/- stepper
+  // mirrors HabitCard.js's own stepper exactly (+1 via addCheckIn, same as
+  // a hold; -1 via removeLastCheckIn, today's most recent entry), since
+  // holding the tower itself only ever adds exactly 1 (SKYLINE.md section
+  // 14 #20) and had no way to log a specific amount in one action before.
+  const [amountInput, setAmountInput] = useState('');
+  const handleStepperAdd = async () => {
+    try {
+      await addCheckIn(habit.id, 1);
+    } catch (err) {
+      showToast(`Could not log progress — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+    }
+  };
+  const handleStepperRemove = async () => {
+    try {
+      await removeLastCheckIn(habit.id);
+    } catch (err) {
+      showToast(`Could not undo — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+    }
+  };
+  const handleAddAmount = async () => {
+    const amount = Number(amountInput);
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    try {
+      await addCheckIn(habit.id, Math.round(amount));
+      setAmountInput('');
+    } catch (err) {
+      showToast(`Could not log progress — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+    }
+  };
+
+  // Repair preview (boards 74/75): the server's repairStreak only computes
+  // the repairable day *inside* the write itself (api/.../HabitService.java
+  // repairStreak), so this is a client-side approximation of the same
+  // backward scan purely for the preview text — the server's own 48h/once-
+  // a-month rules remain the real gate; a stale/wrong preview here just
+  // means the button's own error toast (err.message) corrects it.
+  const repairPreview = useMemo(() => {
+    if (!habit || (habit.streak || 0) !== 0 || !(habit.checkIns || []).length) return null;
+    const zoneDays = new Set((habit.checkIns || []).map((ci) => toDateKey(ci.occurredAt)));
+    const today = new Date();
+    for (let daysAgo = 1; daysAgo <= 2; daysAgo += 1) {
+      const candidate = new Date(today.getTime() - daysAgo * MS_PER_DAY);
+      const candidateKey = toDateKey(candidate);
+      if (zoneDays.has(candidateKey)) continue;
+      // Count the run that ended right before this gap.
+      let run = 0;
+      for (let back = daysAgo + 1; ; back += 1) {
+        const d = toDateKey(new Date(today.getTime() - back * MS_PER_DAY));
+        if (!zoneDays.has(d)) break;
+        run += 1;
+      }
+      if (run > 0) {
+        return { dateLabel: candidate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), lastRun: run };
+      }
+    }
+    return null;
+  }, [habit]);
+
+  const handleRepair = async () => {
+    const expectedRun = repairPreview?.lastRun || 0;
+    try {
+      await repairStreak(habit.id);
+      showToast(`Your run is back at ${expectedRun} day${expectedRun === 1 ? '' : 's'}.`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not repair this run', 'error');
+    }
+  };
+
   const backdateGridWidth = Math.max(200, windowWidth - 40 - 28);
   const backdateGridCellSize = (backdateGridWidth - GRID_PAD * 2 - GRID_GAP * (GRID_COLS - 1)) / GRID_COLS;
   const backdateGridHeight = GRID_PAD * 2 + (backdateGridCellSize + GRID_LABEL_H);
@@ -519,6 +588,100 @@ export default function TowerSheet({
             </View>
           );
 
+          const repairCard = repairPreview ? (
+            <View style={[styles.topOutCard, { backgroundColor: 'transparent', borderColor: theme.border || 'rgba(128,128,128,0.3)' }]}>
+              <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
+                <View style={[styles.glassSwatch, { backgroundColor: towerTheme?.shieldFill, borderColor: towerTheme?.shieldEdge }]}>
+                  <MaterialCommunityIcons name="shield" size={9} color={towerTheme?.shieldIcon} />
+                </View>
+                <View style={styles.topOutTextWrap}>
+                  <Text style={[styles.topOutLabel, { color: theme.text }]}>Pick your run back up</Text>
+                  <Text style={[styles.topOutBody, { color: theme.muted }]}>
+                    Restore the day you missed ({repairPreview.dateLabel}). It shows as a glass Shield Day floor. Once a month for each tower.
+                  </Text>
+                </View>
+              </View>
+              <Pressable
+                onPress={handleRepair}
+                style={[styles.topOutButton, { backgroundColor: theme.amber, marginTop: 12, alignSelf: 'flex-start' }]}
+                testID="tower-sheet-repair"
+                accessibilityRole="button"
+                accessibilityLabel={`Pick it back up, restore ${repairPreview.dateLabel}`}
+              >
+                <Text style={styles.topOutButtonText}>Pick it back up</Text>
+              </Pressable>
+            </View>
+          ) : null;
+
+          const amountCard = countMode ? (
+            <View style={[styles.topOutCard, { backgroundColor: 'transparent', borderColor: theme.border || 'rgba(128,128,128,0.3)' }]}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                <Text style={[styles.topOutLabel, { color: theme.text }]}>Today</Text>
+                <Text style={[styles.topOutLabel, { color: theme.text }]}>
+                  {displayHabit.todayCount || 0} of {displayHabit.cadenceTarget || 1}{displayHabit.unit ? ` ${displayHabit.unit}` : ''}
+                </Text>
+              </View>
+              <View style={{ height: 8, borderRadius: 4, backgroundColor: theme.muted + '33', overflow: 'hidden', marginBottom: 12 }}>
+                <View
+                  style={{
+                    height: '100%',
+                    borderRadius: 4,
+                    backgroundColor: towerColor,
+                    width: `${Math.max(4, Math.min(100, Math.round(((displayHabit.todayCount || 0) / (displayHabit.cadenceTarget || 1)) * 100)))}%`,
+                  }}
+                />
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                <Pressable
+                  onPress={handleStepperRemove}
+                  disabled={!displayHabit.todayCount}
+                  style={[styles.topOutButton, { width: 44, height: 44, borderRadius: 22, backgroundColor: 'transparent', borderWidth: 1, borderColor: theme.border || 'rgba(128,128,128,0.3)' }]}
+                  testID="tower-sheet-amount-minus"
+                  accessibilityRole="button"
+                  accessibilityLabel="Remove one"
+                >
+                  <MaterialCommunityIcons name="minus" size={20} color={theme.text} />
+                </Pressable>
+                <Text style={[styles.runHeadline, { color: theme.text, fontSize: 20 }]}>{displayHabit.todayCount || 0}</Text>
+                <Pressable
+                  onPress={handleStepperAdd}
+                  style={[styles.topOutButton, { width: 44, height: 44, borderRadius: 22, backgroundColor: theme.amber }]}
+                  testID="tower-sheet-amount-plus"
+                  accessibilityRole="button"
+                  accessibilityLabel="Add one"
+                >
+                  <MaterialCommunityIcons name="plus" size={20} color="#1A1300" />
+                </Pressable>
+                <Text style={[styles.topOutBody, { color: theme.muted, flex: 1 }]}>
+                  Holding the tower adds 1{displayHabit.unit ? ` ${displayHabit.unit}` : ''}.
+                </Text>
+              </View>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: theme.border || 'rgba(128,128,128,0.3)', borderRadius: 16, paddingHorizontal: 12 }}>
+                  <TextInput
+                    value={amountInput}
+                    onChangeText={(v) => setAmountInput(v.replace(/[^0-9]/g, ''))}
+                    keyboardType="number-pad"
+                    placeholder="Add an amount"
+                    placeholderTextColor={theme.muted}
+                    style={{ flex: 1, color: theme.text, paddingVertical: 12 }}
+                    testID="tower-sheet-amount-input"
+                  />
+                  {displayHabit.unit ? <Text style={{ color: theme.muted }}>{displayHabit.unit}</Text> : null}
+                </View>
+                <Pressable
+                  onPress={handleAddAmount}
+                  style={[styles.topOutButton, { backgroundColor: theme.amber, alignSelf: 'center' }]}
+                  testID="tower-sheet-amount-add"
+                  accessibilityRole="button"
+                  accessibilityLabel="Add amount"
+                >
+                  <Text style={styles.topOutButtonText}>Add</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : null;
+
           const actions = [
             { key: 'shield', label: shieldLabel, a11yLabel: shieldA11yLabel, onPress: handleShieldToggle, disabled: shieldDisabled, testID: 'tower-sheet-shield' },
             { key: 'backdate', label: 'Add another day', onPress: () => setShowBackdate((v) => !v), testID: 'tower-sheet-backdate-toggle' },
@@ -551,6 +714,8 @@ export default function TowerSheet({
                   </Text>
                 )}
 
+                {repairCard}
+                {amountCard}
                 {topOutCard(false)}
 
                 <View style={styles.grid}>
@@ -588,6 +753,8 @@ export default function TowerSheet({
                     </Text>
                   )}
 
+                  {repairCard}
+                  {amountCard}
                   {topOutCard(true)}
 
                   <View style={styles.actionList}>

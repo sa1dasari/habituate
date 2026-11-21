@@ -22,15 +22,26 @@ public record CreateHabitRequest(
         @Max(value = 35, message = "Top out after must be between 1 and 35 days")
         Integer topOutThresholdDays,
         // Tower colour palette key (TowerColors); null/blank = category fallback.
-        @Size(max = 20) String color
+        @Size(max = 20) String color,
+        // Optional unit for a COUNT-mode habit's amount (e.g. "glasses"); display-only.
+        @Size(max = 30) String unit
 ) {
+    /** Shape before the unit field — keeps existing call sites compiling. */
+    public CreateHabitRequest(
+            String name, String category, String cadenceType, Integer cadenceTarget, Integer weeklyTarget,
+            Integer monthlyTarget, String trackingMode, Boolean featuredGoal, String scheduledTime,
+            Boolean reminderEnabled, String motivation, Integer topOutThresholdDays, String color) {
+        this(name, category, cadenceType, cadenceTarget, weeklyTarget, monthlyTarget, trackingMode,
+                featuredGoal, scheduledTime, reminderEnabled, motivation, topOutThresholdDays, color, null);
+    }
+
     /** Shape before per-habit colour — keeps existing call sites compiling. */
     public CreateHabitRequest(
             String name, String category, String cadenceType, Integer cadenceTarget, Integer weeklyTarget,
             Integer monthlyTarget, String trackingMode, Boolean featuredGoal, String scheduledTime,
             Boolean reminderEnabled, String motivation, Integer topOutThresholdDays) {
         this(name, category, cadenceType, cadenceTarget, weeklyTarget, monthlyTarget, trackingMode,
-                featuredGoal, scheduledTime, reminderEnabled, motivation, topOutThresholdDays, null);
+                featuredGoal, scheduledTime, reminderEnabled, motivation, topOutThresholdDays, null, null);
     }
 
     /** The create form's original shape, without a cap — keeps every existing

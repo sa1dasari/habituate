@@ -42,7 +42,9 @@ public record HabitResponse(
         // tower aren't the personal-habit ones.
         boolean shared,
         // Per-habit tower colour palette key; null = use the category colour.
-        String color
+        String color,
+        // Optional unit for a COUNT-mode habit's amount (e.g. "glasses"); display-only.
+        String unit
 ) {
     public static HabitResponse from(
             Habit habit,
@@ -81,7 +83,8 @@ public record HabitResponse(
                 closedSegmentCount,
                 recentClosedSegments,
                 shared,
-                habit.getColor()
+                habit.getColor(),
+                habit.getUnit()
         );
     }
 }

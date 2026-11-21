@@ -22,7 +22,7 @@ const legend=()=>`<div style="display:flex;flex-wrap:wrap;gap:6px 14px;margin-to
 const gearBtn=`<div style="position:absolute;right:20px;top:34px;width:44px;height:44px;border-radius:22px;background:#1E252D;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#A3ADB8" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.3 1a7 7 0 0 0-2-1.2L14 3h-4l-.6 2.7a7 7 0 0 0-2 1.2l-2.3-1-2 3.4 2 1.5A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 2 1.2L10 21h4l.6-2.7a7 7 0 0 0 2-1.2l2.3 1 2-3.4-2-1.5c.1-.4.1-.8.1-1.2Z"/></svg></div>`;
 const tabsBar=`<div style="position:absolute;left:0;right:0;bottom:0;height:76px;border-top:1px solid #222a33;background:#0F1216;display:flex">${[['Skyline',0],['Insights',1],['Community',0],['Profile',0]].map(([t,on])=>`<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:12px;font-weight:${on?800:600};color:${on?'#F2C14E':'#A3ADB8'}"><div style="width:22px;height:22px;border:2px solid currentColor;border-radius:6px"></div>${t}</div>`).join('')}</div>`;
 const seg=(labels,on)=>`<div style="display:flex;background:#1A2027;border-radius:24px;padding:4px;height:48px;margin:0">${labels.map((l,i)=>`<div style="flex:1;display:flex;align-items:center;justify-content:center;border-radius:20px;font-weight:700;font-size:16px;${i===on?'background:#F2F4F6;color:#0F1216':'color:#A3ADB8'}">${l}</div>`).join('')}</div>`;
-const chips=(on)=>`<div style="display:flex;gap:8px;align-items:center;overflow:hidden;white-space:nowrap"><span style="font-size:12px;font-weight:700;color:#A3ADB8">Habits</span><div style="height:34px;border-radius:17px;padding:0 13px;display:flex;align-items:center;font-size:13px;font-weight:700;background:#2B2717;border:1.5px solid #F2C14E;color:#F2F4F6">All</div>${HAB.map(h=>`<div style="height:34px;border-radius:17px;padding:0 13px;display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700;background:#1E252D;color:#C9CED4"><i style="width:9px;height:9px;border-radius:50%;background:${h.c};display:block"></i>${h.n}</div>`).join('')}</div>`;
+const chips=(on)=>`<div style="display:flex;gap:8px;align-items:center;overflow:hidden;white-space:nowrap"><span style="font-size:12px;font-weight:700;color:#A3ADB8">Habits</span><div style="height:36px;border-radius:18px;padding:0 13px;display:flex;align-items:center;font-size:13px;font-weight:700;background:#2B2717;border:1.5px solid #F2C14E;color:#F2F4F6">All</div>${HAB.map(h=>`<div style="height:36px;border-radius:18px;padding:0 13px;display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700;background:#1E252D;color:#C9CED4"><i style="width:9px;height:9px;border-radius:50%;background:${h.c};display:block"></i>${h.n}</div>`).join('')}</div>`;
 
 const WEEKS=[[5,6,3,4,2],[6,5,2,3,3],[4,6,3,5,2],[6,7,4,4,3],[5,6,2,3,4],[6,7,3,5,3],[7,6,4,4,3],[4,5,2,3,4]];
 const WL=['9/21','9/28','10/5','10/12','10/19','10/26','11/2','Now'];
@@ -39,7 +39,7 @@ if(S==='main'){
   el.innerHTML=`<div style="padding:34px 20px 0"><h1 style="font-size:28px;margin-bottom:16px">Insights</h1>
   ${seg(['Weeks','Months','Years'],tab)}<div style="margin-top:12px">${chips()}</div>
   <div style="margin-top:12px;display:flex;align-items:center;justify-content:center;gap:28px"><div style="width:44px;height:44px;border-radius:22px;background:#1E252D;display:flex;align-items:center;justify-content:center;font-size:22px">‹</div><b style="font-size:16px;min-width:96px;text-align:center">${cfg.nav}</b><div style="width:44px;height:44px;border-radius:22px;background:#1E252D;display:flex;align-items:center;justify-content:center;font-size:22px;color:#5B6472">›</div></div>
-  <div style="margin-top:10px;background:#161B21;border-radius:22px;padding:18px 18px 16px">
+  <div style="margin-top:10px;background:#161B21;border-radius:20px;padding:18px 18px 16px">
     <div style="display:flex;justify-content:space-between;align-items:baseline"><b style="font-size:18px">Floors built</b><span style="font-size:13px;color:#A3ADB8">Towers and lots</span></div>
     <div style="margin-top:8px;display:flex;align-items:baseline;gap:8px"><span style="font-size:36px;font-weight:800">${cfg.head[0]}</span><span style="color:#A3ADB8;font-size:16px">${cfg.head[1]}</span></div>
     <div style="color:#C9CED4;font-size:13px;margin-top:2px">${cfg.head[2]}</div><div style="color:#A3ADB8;font-size:13px;margin-top:1px">${cfg.head[3]}</div>
@@ -47,7 +47,7 @@ if(S==='main'){
     ${legend()}
     <div style="margin-top:12px;padding-top:11px;border-top:1px solid #232b34;display:flex;justify-content:space-between;align-items:center;color:#F2C14E;font-weight:800;font-size:13px"><span>Tap a bar to see everything for that ${['week','month','year'][tab]}</span><span>›</span></div>
   </div>
-  <div style="margin-top:12px;background:#161B21;border-radius:22px;padding:18px"><b style="font-size:18px">Runs</b><span style="float:right;font-size:13px;color:#A3ADB8">Current and best</span></div>
+  <div style="margin-top:12px;background:#161B21;border-radius:20px;padding:18px"><b style="font-size:18px">Runs</b><span style="float:right;font-size:13px;color:#A3ADB8">Current and best</span></div>
   </div>${tabsBar}`;
 }
 

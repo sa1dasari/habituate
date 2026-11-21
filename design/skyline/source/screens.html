@@ -79,7 +79,7 @@ if(screen==='towersheet'){
   <div style="position:absolute;top:64px;left:0;right:0;bottom:76px;background:var(--s1);border-radius:28px 28px 0 0;padding:0 20px">
     <div style="width:40px;height:4px;border-radius:2px;background:#3A4552;margin:10px auto 12px"></div>
     <div style="display:flex;gap:14px;align-items:center">
-      <div style="width:14px;height:34px;border-radius:5px;background:${C.front}"></div>
+      <div style="width:14px;height:36px;border-radius:5px;background:${C.front}"></div>
       <div><div style="color:var(--muted);font-size:12px;font-weight:800;letter-spacing:.8px">TOWER DETAILS</div><h1 style="font-size:22px;line-height:1.15">Write 300 words</h1>
       <div style="color:var(--muted);font-size:13px;margin-top:1px">Daily · Floor 24 · Under construction</div><div style="color:#C9CED4;font-size:13px;font-style:italic;margin-top:3px">“So the book gets finished”</div></div>
     </div>
@@ -94,7 +94,7 @@ if(screen==='towersheet'){
         <div class="legend"><div class="sw"><svg width="24" height="16"><rect x=".5" y=".5" width="23" height="15" fill="none" stroke="${C.open}" stroke-dasharray="0"/></svg></div><div><b>Open floor</b><span>An outline you can see through. Floors never come down.</span></div></div>
       </div>
     </div>
-    <div style="margin-top:10px;border:1.5px solid var(--amber);background:#2B2717;border-radius:18px;padding:14px 16px;display:flex;gap:12px;align-items:center">
+    <div style="margin-top:10px;border:1.5px solid var(--amber);background:#2B2717;border-radius:20px;padding:14px 16px;display:flex;gap:12px;align-items:center">
       <div style="flex:1"><div style="font-weight:800;font-size:16px">Tops out at 30 days</div>
       <div style="color:var(--muted);font-size:13px;line-height:1.35;margin-top:3px">12 days to go. It tops out on its own, or you can top it out now.</div></div>
       <div style="background:var(--amber);color:#1b1608;font-weight:800;border-radius:22px;height:44px;padding:0 18px;display:flex;align-items:center;white-space:nowrap">Top out now</div>
@@ -264,14 +264,14 @@ if(screen==='lotcallout'){
   <div style="position:absolute;top:50px;left:0;right:0;bottom:76px;background:var(--s1);border-radius:28px 28px 0 0;padding:0 20px;overflow:hidden">
     <div style="width:40px;height:4px;border-radius:2px;background:#3A4552;margin:10px auto 12px"></div>
     <div style="font-size:22px;font-weight:800">Run 5 km</div><div style="color:var(--muted);font-size:13px;margin-top:2px">November · 3 of 8, 5 to go</div>
-    <div style="border:1.5px solid #FF8A5C;border-radius:18px;padding:12px;margin-top:12px">${row(1,7)}${row(8,14)}<div style="font-size:12px;color:var(--muted);margin-top:6px">Rows 15 to 30 not built yet.</div></div>
+    <div style="border:1.5px solid #FF8A5C;border-radius:20px;padding:12px;margin-top:12px">${row(1,7)}${row(8,14)}<div style="font-size:12px;color:var(--muted);margin-top:6px">Rows 15 to 30 not built yet.</div></div>
     <div style="margin-top:16px;font-weight:800;font-size:16px">Check-ins per day</div>
     <div style="position:relative;margin-top:44px;height:92px;display:flex;gap:3px;align-items:flex-end;border-bottom:1px solid #2A333D">${bars}
       <div style="position:absolute;left:${(9.5/30)*100}%;top:-46px;transform:translateX(-50%);background:var(--s2);border-radius:12px;padding:7px 11px;white-space:nowrap;text-align:center"><div style="font-weight:800;font-size:13px">Tue, Nov 10</div><div style="color:var(--muted);font-size:12px">1 check-in · 3 so far</div></div>
       <div style="position:absolute;left:${(9.5/30)*100}%;top:-4px;height:4px;width:2px;background:#fff;transform:translateX(-50%)"></div></div>
     <div style="display:flex;justify-content:space-between;color:var(--muted);font-size:12px;margin-top:6px"><span>1</span><span>8</span><span>15</span><span>22</span><span>30</span></div>
     <div style="color:var(--muted);font-size:12px;margin-top:10px;line-height:1.4">Tap a day above to see its count. Counts show inside the squares and in the callout, not on every bar.</div>
-    <div style="margin-top:14px;height:52px;border-radius:26px;background:#FF8A5C;color:#1b1608;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:16px">Hold to build</div>
+    <div style="margin-top:14px;height:54px;border-radius:27px;background:#FF8A5C;color:#1b1608;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:16px">Hold to build</div>
   </div>${tabs}`;
 }
 </script><script src="ins.js"></script><script src="new.js"></script><script src="old.js"></script><script src="rd.js"></script></body></html>

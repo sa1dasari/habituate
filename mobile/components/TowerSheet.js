@@ -592,7 +592,7 @@ export default function TowerSheet({
           );
 
           const repairCard = repairPreview ? (
-            <View style={[styles.topOutCard, { backgroundColor: 'transparent', borderColor: theme.border || 'rgba(128,128,128,0.3)' }]}>
+            <View style={[styles.topOutCard, styles.topOutCardStacked, { backgroundColor: 'transparent', borderColor: theme.border || 'rgba(128,128,128,0.3)' }]}>
               <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
                 <View style={[styles.glassSwatch, { backgroundColor: towerTheme?.shieldFill, borderColor: towerTheme?.shieldEdge }]}>
                   <MaterialCommunityIcons name="shield" size={9} color={towerTheme?.shieldIcon} />
@@ -617,7 +617,7 @@ export default function TowerSheet({
           ) : null;
 
           const amountCard = countMode ? (
-            <View style={[styles.topOutCard, { backgroundColor: 'transparent', borderColor: theme.border || 'rgba(128,128,128,0.3)' }]}>
+            <View style={[styles.topOutCard, styles.topOutCardStacked, { backgroundColor: 'transparent', borderColor: theme.border || 'rgba(128,128,128,0.3)' }]}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
                 <Text style={[styles.topOutLabel, { color: theme.text }]}>Today</Text>
                 <Text style={[styles.topOutLabel, { color: theme.text }]}>

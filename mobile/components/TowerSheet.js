@@ -88,6 +88,33 @@ export default function TowerSheet({
   const { request, confirm, respond } = useConfirm();
   const { effectiveMode } = useAppTheme();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  // Both hooks below must stay unconditional (before the `if (!displayHabit)
+  // return null` guard further down) — this sheet stays permanently
+  // mounted with habit/displayHabit sometimes null, so a hook declared
+  // after that guard runs on some renders and not others (caught on
+  // device: "Rendered more hooks than during the previous render").
+  const [amountInput, setAmountInput] = useState('');
+  const repairPreview = useMemo(() => {
+    if (!habit || (habit.streak || 0) !== 0 || !(habit.checkIns || []).length) return null;
+    const zoneDays = new Set((habit.checkIns || []).map((ci) => toDateKey(ci.occurredAt)));
+    const today = new Date();
+    for (let daysAgo = 1; daysAgo <= 2; daysAgo += 1) {
+      const candidate = new Date(today.getTime() - daysAgo * MS_PER_DAY);
+      const candidateKey = toDateKey(candidate);
+      if (zoneDays.has(candidateKey)) continue;
+      // Count the run that ended right before this gap.
+      let run = 0;
+      for (let back = daysAgo + 1; ; back += 1) {
+        const d = toDateKey(new Date(today.getTime() - back * MS_PER_DAY));
+        if (!zoneDays.has(d)) break;
+        run += 1;
+      }
+      if (run > 0) {
+        return { dateLabel: candidate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), lastRun: run };
+      }
+    }
+    return null;
+  }, [habit]);
   // stageHeight is only measured while the daily view is mounted
   // (SkylineScreen.js's onLayout lives on that branch) — a user whose last
   // view was Weekly & Monthly (useSkylineView restores it from storage) can
@@ -410,7 +437,11 @@ export default function TowerSheet({
   // a hold; -1 via removeLastCheckIn, today's most recent entry), since
   // holding the tower itself only ever adds exactly 1 (SKYLINE.md section
   // 14 #20) and had no way to log a specific amount in one action before.
-  const [amountInput, setAmountInput] = useState('');
+  // (amountInput/repairPreview hooks themselves live above, before the
+  // `if (!displayHabit) return null` guard — Rules of Hooks, caught on
+  // device: this component stays permanently mounted with habit/displayHabit
+  // sometimes null, so a hook declared after that guard runs on some
+  // renders and not others.)
   const handleStepperAdd = async () => {
     try {
       await addCheckIn(habit.id, 1);
@@ -435,34 +466,6 @@ export default function TowerSheet({
       showToast(`Could not log progress — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
     }
   };
-
-  // Repair preview (boards 74/75): the server's repairStreak only computes
-  // the repairable day *inside* the write itself (api/.../HabitService.java
-  // repairStreak), so this is a client-side approximation of the same
-  // backward scan purely for the preview text — the server's own 48h/once-
-  // a-month rules remain the real gate; a stale/wrong preview here just
-  // means the button's own error toast (err.message) corrects it.
-  const repairPreview = useMemo(() => {
-    if (!habit || (habit.streak || 0) !== 0 || !(habit.checkIns || []).length) return null;
-    const zoneDays = new Set((habit.checkIns || []).map((ci) => toDateKey(ci.occurredAt)));
-    const today = new Date();
-    for (let daysAgo = 1; daysAgo <= 2; daysAgo += 1) {
-      const candidate = new Date(today.getTime() - daysAgo * MS_PER_DAY);
-      const candidateKey = toDateKey(candidate);
-      if (zoneDays.has(candidateKey)) continue;
-      // Count the run that ended right before this gap.
-      let run = 0;
-      for (let back = daysAgo + 1; ; back += 1) {
-        const d = toDateKey(new Date(today.getTime() - back * MS_PER_DAY));
-        if (!zoneDays.has(d)) break;
-        run += 1;
-      }
-      if (run > 0) {
-        return { dateLabel: candidate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), lastRun: run };
-      }
-    }
-    return null;
-  }, [habit]);
 
   const handleRepair = async () => {
     const expectedRun = repairPreview?.lastRun || 0;

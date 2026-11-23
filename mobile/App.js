@@ -37,6 +37,7 @@ import { TOUR_SCOPES, TOUR_TARGETS } from './constants/onboardingTour';
 import api from './api/client';
 import { scrollToTop } from './utils/scrollToTopRegistry';
 import { navigateToTab, navigationRef } from './utils/navigationRef';
+import { COMMUNITY_ENABLED } from './constants/featureFlags';
 import {
   ChooseUsernameScreen,
   CommunityScreen,
@@ -114,14 +115,16 @@ function Tabs() {
         component={InsightsStack}
         listeners={{ tabPress: () => scrollToTop('Insights') }}
       />
-      <Tab.Screen
-        name="Community"
-        component={CommunityScreen}
-        options={{
-          tabBarButton: (props) => <TourTabButton {...props} targetKey={TOUR_TARGETS.TAB_COMMUNITY} />,
-        }}
-        listeners={{ tabPress: () => scrollToTop('Community') }}
-      />
+      {COMMUNITY_ENABLED && (
+        <Tab.Screen
+          name="Community"
+          component={CommunityScreen}
+          options={{
+            tabBarButton: (props) => <TourTabButton {...props} targetKey={TOUR_TARGETS.TAB_COMMUNITY} />,
+          }}
+          listeners={{ tabPress: () => scrollToTop('Community') }}
+        />
+      )}
       <Tab.Screen
         name="Profile"
         component={ProfileStack}
@@ -264,7 +267,7 @@ function PushNotificationTapBridge() {
       if (!data) return;
       if (data.habitId != null) {
         navigateToTab('Today', { highlightHabitId: Number(data.habitId) });
-      } else if (data.challengeId != null) {
+      } else if (data.challengeId != null && COMMUNITY_ENABLED) {
         navigateToTab('Community', { openChallengeId: Number(data.challengeId) });
       }
     };

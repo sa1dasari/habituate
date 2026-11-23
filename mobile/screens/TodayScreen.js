@@ -26,6 +26,7 @@ import TowerForm from '../components/TowerForm';
 import ProtectionInfoModal from '../components/ProtectionInfoModal';
 import { useToast } from '../hooks/useToast';
 import { TOUR_SCOPES } from '../constants/onboardingTour';
+import { COACH_ENABLED } from '../constants/featureFlags';
 import { useAuth } from '../hooks/useAuth';
 import { useCelebration } from '../hooks/useCelebration';
 import { useRegisterScrollToTop } from '../hooks/useRegisterScrollToTop';
@@ -587,17 +588,19 @@ export default function TodayScreen() {
             </Pressable>
           ) : null}
 
-          <Pressable
-            style={styles.coachIconBtn}
-            accessibilityRole="button"
-            accessibilityLabel="Open AI coach chat"
-            onPress={() => {
-              setCoachInitialQuestion(null);
-              setCoachVisible(true);
-            }}
-          >
-            <MaterialCommunityIcons name="chat-processing-outline" size={20} color={colors.accent} />
-          </Pressable>
+          {COACH_ENABLED ? (
+            <Pressable
+              style={styles.coachIconBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Open AI coach chat"
+              onPress={() => {
+                setCoachInitialQuestion(null);
+                setCoachVisible(true);
+              }}
+            >
+              <MaterialCommunityIcons name="chat-processing-outline" size={20} color={colors.accent} />
+            </Pressable>
+          ) : null}
 
           <Pressable
             style={styles.avatar}
@@ -645,19 +648,21 @@ export default function TodayScreen() {
 
         <FeaturedTargetsSummaryCard items={goalItems} />
 
-        <Pressable
-          style={({ pressed }) => [styles.coachTeaser, pressed ? styles.coachTeaserPressed : null]}
-          accessibilityRole="button"
-          accessibilityLabel="Ask Habituate"
-          onPress={() => {
-            setCoachInitialQuestion(null);
-            setCoachVisible(true);
-          }}
-        >
-          <MaterialCommunityIcons name="chat-processing-outline" size={18} color={colors.accent} />
-          <Text style={styles.coachTeaserText}>Ask Habituate anything about your progress</Text>
-          <MaterialCommunityIcons name="chevron-right" size={18} color={colors.textMuted} />
-        </Pressable>
+        {COACH_ENABLED ? (
+          <Pressable
+            style={({ pressed }) => [styles.coachTeaser, pressed ? styles.coachTeaserPressed : null]}
+            accessibilityRole="button"
+            accessibilityLabel="Ask Habituate"
+            onPress={() => {
+              setCoachInitialQuestion(null);
+              setCoachVisible(true);
+            }}
+          >
+            <MaterialCommunityIcons name="chat-processing-outline" size={18} color={colors.accent} />
+            <Text style={styles.coachTeaserText}>Ask Habituate anything about your progress</Text>
+            <MaterialCommunityIcons name="chevron-right" size={18} color={colors.textMuted} />
+          </Pressable>
+        ) : null}
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 

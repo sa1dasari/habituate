@@ -37,13 +37,16 @@ export function getSkylineTabRoute(isDev) {
 
 export const SKYLINE_TAB_ROUTE = getSkylineTabRoute(typeof __DEV__ !== 'undefined' && __DEV__);
 
-export const TOUR_STEPS = [
+import { COMMUNITY_ENABLED } from './featureFlags';
+
+// Eyebrow ("N OF total") is computed below rather than hardcoded, so the
+// lean-v1 flag (no Community step) renumbers correctly without edits here.
+const ALL_STEPS = [
   {
     id: 'skyline',
     scope: TOUR_SCOPES.SKYLINE,
     tab: SKYLINE_TAB_ROUTE,
     targetKey: TOUR_TARGETS.SKYLINE_SCENE,
-    eyebrow: '1 OF 5',
     title: 'This is your skyline',
     body: 'Every habit is a tower. Build a floor each day and your tower grows.',
   },
@@ -52,7 +55,6 @@ export const TOUR_STEPS = [
     scope: TOUR_SCOPES.SKYLINE,
     tab: SKYLINE_TAB_ROUTE,
     targetKey: TOUR_TARGETS.SKYLINE_HOLD_TOWER,
-    eyebrow: '2 OF 5',
     title: 'Hold to build',
     body: 'Press and hold the top of a tower for about a second. Let go early and nothing is built.',
   },
@@ -61,24 +63,29 @@ export const TOUR_STEPS = [
     scope: TOUR_SCOPES.SKYLINE,
     tab: SKYLINE_TAB_ROUTE,
     targetKey: TOUR_TARGETS.SKYLINE_SHEET,
-    eyebrow: '3 OF 5',
     title: 'Tap a tower for more',
     body: 'See its run, edit it, add a day you missed, or ask about it. Tap a tower to open its sheet.',
   },
+  // Community step (SKYLINE.md Phase 8a): filtered out below, not deleted,
+  // when COMMUNITY_ENABLED is false — the tab it spotlights doesn't exist
+  // in that build, and this tour has no "skip if target missing" fallback.
   {
     id: 'community',
     scope: TOUR_SCOPES.TABS,
     targetKey: TOUR_TARGETS.TAB_COMMUNITY,
-    eyebrow: '4 OF 5',
     title: 'Build with friends',
     body: 'Share a habit with friends, or raise a landmark together in Community.',
+    requires: 'community',
   },
   {
     id: 'profile',
     scope: TOUR_SCOPES.TABS,
     targetKey: TOUR_TARGETS.TAB_PROFILE,
-    eyebrow: '5 OF 5',
     title: 'Your settings',
     body: 'Accessibility, privacy and notifications live in Profile. Change them any time.',
   },
 ];
+
+export const TOUR_STEPS = ALL_STEPS.filter(
+  (step) => step.requires !== 'community' || COMMUNITY_ENABLED
+).map((step, i, arr) => ({ ...step, eyebrow: `${i + 1} OF ${arr.length}` }));

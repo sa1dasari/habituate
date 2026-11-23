@@ -1,15 +1,13 @@
 import { TOUR_STEPS, TOUR_SCOPES, TOUR_TARGETS, getSkylineTabRoute } from './onboardingTour';
+import { COMMUNITY_ENABLED } from './featureFlags';
 
 describe('onboarding tour', () => {
-  test('has the five approved steps in order', () => {
-    expect(TOUR_STEPS.map((s) => s.id)).toEqual([
-      'skyline',
-      'hold-to-build',
-      'tap-a-tower',
-      'community',
-      'profile',
-    ]);
-    TOUR_STEPS.forEach((s, i) => expect(s.eyebrow).toBe(`${i + 1} OF 5`));
+  test('has the approved steps in order, Community included only when enabled', () => {
+    const expectedIds = COMMUNITY_ENABLED
+      ? ['skyline', 'hold-to-build', 'tap-a-tower', 'community', 'profile']
+      : ['skyline', 'hold-to-build', 'tap-a-tower', 'profile'];
+    expect(TOUR_STEPS.map((s) => s.id)).toEqual(expectedIds);
+    TOUR_STEPS.forEach((s, i) => expect(s.eyebrow).toBe(`${i + 1} OF ${TOUR_STEPS.length}`));
   });
 
   test('every step has a known scope and a registered target key', () => {

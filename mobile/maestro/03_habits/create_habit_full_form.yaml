@@ -1,23 +1,43 @@
 appId: com.habituate.mobile
-# Exercises the full create form, not the template shortcut — name, category,
-# weekly target, and the optional "why" motivation field added this session.
+# Rewritten 2026-11-20 — the old flow was built around the deleted
+# HabitsScreen.js ("Habits" tab, "+ New"). Entry point is now the Skyline
+# tab's header "+" icon (today-add-habit, added this session to close a real
+# gap: adding a 2nd habit was impossible once a user already had one),
+# through FoundationTemplates' "Custom" option into TowerForm.js's full
+# create form. Exercises name, category, a weekly target, and the
+# motivation field. testIDs/copy confirmed against the actual running app
+# this session (create_habit flow manually verified end-to-end on-device,
+# this file itself has NOT been run through Maestro — flagged per SKYLINE.md
+# section 14 #19, no Maestro available in this environment).
 ---
 - runFlow: ../_shared/login.yaml
-- tapOn: "Habits"
-- tapOn: "+ New"
-- assertVisible: "New habit"
-- tapOn: "e.g. Morning walk"
+- tapOn:
+    id: "today-add-habit"
+- assertVisible: "Lay a foundation"
+- tapOn:
+    id: "foundation-template-custom"
+- assertVisible: "Lay a foundation"
+- tapOn:
+    id: "tower-form-name"
 - inputText: "Evening stretch"
 - hideKeyboard
-- tapOn: "Choose a category"
-- tapOn: "Health"
-- tapOn: "Why does this matter to you? (optional)"
+- tapOn:
+    id: "tower-form-category-Fitness"
+- tapOn:
+    id: "tower-form-weekly-target"
+- inputText: "3"
+- hideKeyboard
+- tapOn:
+    id: "tower-form-motivation"
 - inputText: "So I sleep better"
 - hideKeyboard
-- tapOn: "Add habit"
+- tapOn:
+    id: "tower-form-submit"
 - assertVisible: "Evening stretch"
-# Re-open it and confirm the motivation field round-tripped.
+# Re-open it (pencil icon, accessibilityLabel "Edit {name}" — HabitCard.js has
+# no testID on this control) and confirm the motivation and category round-tripped.
 - tapOn:
     text: "Edit Evening stretch"
+- assertVisible: "Edit tower"
 - assertVisible: "So I sleep better"
 - tapOn: "Cancel"

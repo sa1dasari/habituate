@@ -1,20 +1,32 @@
 appId: com.habituate.mobile
+# Rewritten 2026-11-20 — same HabitsScreen.js staleness as
+# create_habit_full_form.yaml. Edit is reached via HabitCard.js's pencil icon
+# (accessibilityLabel "Edit {name}", no testID) on the Skyline tab, wired this
+# session (previously had no entry point at all — TowerForm was hardcoded to
+# habit={null}). Not run through Maestro in this environment — flagged per
+# SKYLINE.md section 14 #19.
 ---
 - runFlow: ../_shared/login.yaml
-- tapOn: "Habits"
-- tapOn: "+ New"
-- tapOn: "e.g. Morning walk"
+- tapOn:
+    id: "today-add-habit"
+- tapOn:
+    id: "foundation-template-custom"
+- tapOn:
+    id: "tower-form-name"
 - inputText: "Read before bed"
 - hideKeyboard
-- tapOn: "Add habit"
+- tapOn:
+    id: "tower-form-submit"
 - assertVisible: "Read before bed"
 - tapOn:
     text: "Edit Read before bed"
-- assertVisible: "Edit habit"
-- tapOn: "Read before bed"
+- assertVisible: "Edit tower"
+- tapOn:
+    id: "tower-form-name"
 - eraseText
 - inputText: "Read 20 pages"
 - hideKeyboard
-- tapOn: "Save changes"
+- tapOn:
+    id: "tower-form-submit"
 - assertVisible: "Read 20 pages"
 - assertNotVisible: "Read before bed"

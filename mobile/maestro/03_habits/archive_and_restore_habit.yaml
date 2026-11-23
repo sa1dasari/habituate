@@ -1,9 +1,19 @@
 appId: com.habituate.mobile
-# Regression check for this session's own fix: archiving/restoring used to
-# silently wipe weeklyTarget/motivation because the client sent a partial
-# {archived} body to an endpoint that applies optional fields
-# unconditionally. Sets a weekly target AND a motivation, archives,
-# restores, and confirms both are still there.
+# STILL BROKEN, NOT FIXED 2026-11-20 — unlike the other three flows in this
+# folder, this one genuinely cannot be rewritten yet: Retire (archive) and
+# Restore have no entry point anywhere in the live "Today" tab at all right
+# now (SKYLINE.md section 14 #20 — TowerSheet.js/ArchivedTowersSheet.js,
+# which carry Retire/Restore, are only reachable via the dev-only
+# SkylineReal tab, not what actually ships). create_habit_full_form.yaml,
+# edit_habit.yaml and delete_habit.yaml were rewritten this session against
+# the new Skyline-tab entry points; this one is left stale on purpose
+# rather than faked against a flow that doesn't exist in production.
+# Revisit once the SkylineScreen swap lands and Retire/Restore are reachable
+# from whatever screen ends up live.
+#
+# Below is the ORIGINAL (also stale, pre-rebuild) flow, kept for reference
+# only — do not run as-is, "Habits" tab and "+ New"/"Add habit" no longer
+# exist regardless of the Retire/Restore gap above.
 ---
 - runFlow: ../_shared/login.yaml
 - tapOn: "Habits"

@@ -1,25 +1,30 @@
 appId: com.habituate.mobile
-# Delete is only reachable from the Archived section (archive first, same
-# as confirmDelete's guard in HabitsScreen.js) — permanent, so this creates
-# a disposable habit rather than reusing one another flow depends on.
+# Rewritten 2026-11-20. Delete no longer requires archiving first — Part F's
+# split put permanent Delete directly in TowerForm.js's edit mode
+# (tower-form-delete), unconditional on archived state, reachable from the
+# Skyline tab's pencil-icon edit entry point wired this session. Retire
+# (the reversible, archive-first action) still has no entry point from this
+# screen at all (SKYLINE.md section 14 #20) — that flow stays blocked until
+# the SkylineScreen swap lands; this file only covers permanent delete.
+# Not run through Maestro in this environment — flagged per section 14 #19.
 ---
 - runFlow: ../_shared/login.yaml
-- tapOn: "Habits"
-- tapOn: "+ New"
-- tapOn: "e.g. Morning walk"
+- tapOn:
+    id: "today-add-habit"
+- tapOn:
+    id: "foundation-template-custom"
+- tapOn:
+    id: "tower-form-name"
 - inputText: "Throwaway habit"
 - hideKeyboard
-- tapOn: "Add habit"
+- tapOn:
+    id: "tower-form-submit"
 - assertVisible: "Throwaway habit"
 - tapOn:
     text: "Edit Throwaway habit"
-- scrollUntilVisible:
-    element: "Archive"
-    direction: DOWN
-- tapOn: "Archive"
-- tapOn: "Archive"
-- tapOn: "Archived.*"
-- tapOn: "Delete"
-- assertVisible: "permanently"
+- assertVisible: "Edit tower"
+- tapOn:
+    id: "tower-form-delete"
+- assertVisible: "Delete this tower?"
 - tapOn: "Delete"
 - assertNotVisible: "Throwaway habit"

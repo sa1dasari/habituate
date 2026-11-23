@@ -184,12 +184,57 @@ export function HabitsProvider({ children }) {
     refresh();
   }, [refresh]);
 
+  // Per-habit counterpart to refreshSeq above — addCheckIn deliberately
+  // allows concurrent calls for the *same* habit (see its own comment), so
+  // two targeted refreshes for that habit can land out of order; this
+  // guards the same way, just keyed per habit instead of globally.
+  const habitRefreshSeq = useRef(new Map());
+
+  // Re-syncs exactly one habit (fresh streak/shield fields via listHabits,
+  // its own check-ins via hydrate) instead of refresh()'s full
+  // listHabits+listArchivedHabits+every-active-habit's-listCheckIns round
+  // trip. Every check-in/shield/repair/top-out mutation only ever changes
+  // the one habit it targets (plus the shared banked-shields count, so that
+  // always comes along too) — refetching every other habit's check-ins on
+  // every single tap was pure waste, and the real cause of a reported lag
+  // after pressing the amount-card's +/- stepper. Falls back to silently
+  // doing nothing on failure, same "best effort, self-heals next real
+  // refresh" ethos as the optimistic patch this follows.
+  const refreshHabit = useCallback(async (habitId) => {
+    const seq = (habitRefreshSeq.current.get(habitId) || 0) + 1;
+    habitRefreshSeq.current.set(habitId, seq);
+    try {
+      const [active, shields] = await Promise.all([
+        api.listHabits(),
+        api.getShields().catch(() => null),
+      ]);
+      const match = (active || []).find((h) => h.id === habitId);
+      if (!match) return;
+      const enriched = await hydrate(match);
+      if (habitRefreshSeq.current.get(habitId) !== seq) return; // a newer targeted refresh already landed
+      setHabits((prev) => {
+        const next = prev.map((h) => (h.id === habitId ? enriched : h));
+        syncHabitSnapshot(next).catch(() => {});
+        return next;
+      });
+      if (shields) setShieldsAvailable(shields.available || 0);
+    } catch {
+      // Best effort — the optimistic patch already applied; a failed
+      // targeted refresh just leaves this one habit's streak/shield fields
+      // stale until the next real refresh (focus, pull-to-refresh, etc.).
+    }
+  }, []);
+
+  // `habitId`, when given, re-syncs only that one habit (see refreshHabit)
+  // instead of every habit in the list — pass it for any mutation scoped to
+  // a single habit. Omit it for anything that can change the shape of the
+  // list itself (create/delete/archive), which still needs the full refresh.
   const run = useCallback(
-    async (action) => {
+    async (action, habitId) => {
       setBusy(true);
       try {
         await action();
-        await refresh();
+        await (habitId != null ? refreshHabit(habitId) : refresh());
       } catch (err) {
         // Reconciles with the server in the background rather than
         // awaiting it here — necessary now that some actions (the check-in
@@ -201,13 +246,17 @@ export function HabitsProvider({ children }) {
         // show the error toast a beat later — confusing on its own.
         // Firing it without awaiting keeps the error (and the caller's
         // toast) immediate while refresh() still catches up right after.
-        refresh();
+        if (habitId != null) {
+          refreshHabit(habitId);
+        } else {
+          refresh();
+        }
         throw err;
       } finally {
         setBusy(false);
       }
     },
-    [refresh]
+    [refresh, refreshHabit]
   );
 
   // `busy` alone isn't enough to stop a double-fire from racing itself: it's
@@ -229,7 +278,7 @@ export function HabitsProvider({ children }) {
         return Promise.resolve();
       }
       pendingHabitIds.current.add(habitId);
-      return run(action).finally(() => {
+      return run(action, habitId).finally(() => {
         pendingHabitIds.current.delete(habitId);
       });
     },
@@ -305,7 +354,7 @@ export function HabitsProvider({ children }) {
           source: 'manual',
           ...(isToday ? {} : { occurredAt: instantForDayKey(dayKey) }),
         });
-      }),
+      }, habitId),
     [run]
   );
 

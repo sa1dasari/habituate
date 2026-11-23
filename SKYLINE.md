@@ -419,7 +419,8 @@ Everything below needs a real device to confirm. Check items off as they're veri
 
 **Blocking, reported by the owner directly:**
 - [ ] Stepper minus button visibility fix (`TowerSheet.js` amount card) — fixed and was confirmed visible on-device before the adb link dropped; re-confirm it still holds.
-- [ ] Stepper responsiveness/lag after pressing +/- — owner-reported, root cause not found (checked `useHabits.js`'s `run()`/busy-flag, didn't explain it in `TowerSheet.js`). Needs to be watched happen live.
+- [ ] Stepper responsiveness/lag after pressing +/- — owner-reported. Root cause found and fixed: `useHabits.js`'s post-mutation `refresh()` was doing one `listCheckIns` network call per active habit on every single check-in/toggle/shield/repair, not just the one that changed. Replaced with a targeted `refreshHabit(habitId)` for every per-habit mutation (`toggleCheckIn`, `removeLastCheckIn`, `removeCheckIn`, `toggleShield`, `repairStreak`, `topOutHabit`, `addCheckIn`); `createHabit`/`updateHabit`/`deleteHabit` still do a full `refresh()` since they can change the list's shape. Verified: jest (134/134) and `expo export --platform web` bundle clean. Not verified: that the actual on-device delay is gone — needs the evening pass.
+- [ ] Targeted refresh's widget sync — `refreshHabit` now calls `syncHabitSnapshot` on the merged list (added after advisor review caught the first draft skipped it, which would've made the home-screen widget go stale after any check-in). Not verified on-device: confirm a check-in still updates the widget.
 - [ ] "+" icon reportedly not visible — owner report, couldn't reproduce from code (every `+` in `TodayScreen.js`/`TowerSheet.js`/`HabitCard.js` looks correctly styled in source). Needs the owner to point at the exact screen/spot.
 
 **New this session, needs a Maestro run (not just a manual check):**

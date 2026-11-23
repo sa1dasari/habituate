@@ -108,3 +108,7 @@ This is the only folder of Skyline mockups. The old `concept _screens/` folder w
 
 ## Design system (APPROVED by the owner 2026-11-21)
 `DESIGN-SYSTEM.md` and `79-design-system.png` set the type scale, button, card and sheet sizes. All boards drawn from `source/` (every board except those listed below) were re-rendered to the standard on 2026-11-21: no half-point sizes, scale of 12/13/14/16/18/22/28/36. Boards 01 and 16 to 21 (previously owner-supplied images in another font) were redrawn in Nunito from `source/rd.js` on 2026-11-21; the originals are in `superseded/pre-nunito/`. Layout and content are as approved; the lot and tower art was redrawn with the shared tower helper, so small shape differences from the old images are expected. 06 stays superseded by 28 to 30. Component pass done 2026-11-21: button heights 34/38/42/46/50/52 snapped to 36/44/48/54 with pill radii, card radii 17 to 24 snapped to 20, sheets 28. Board 06 (old Insights image) moved to `superseded/`; Insights is 28 to 33.
+
+
+## Authoritative files for merges (2026-11-23)
+On `main`, boards 74, 75, 76, 77 and 78 (`74-tower-sheet-repair-run.png`, `75-tower-sheet-run-repaired.png`, `76-tower-sheet-log-amount.png`, `77-tower-sheet-log-amount-with-unit.png`, `78-create-form-amount-unit.png`) are the current versions: 76 is unitless, 77 and 78 carry the optional unit, and all five were re-rendered to the design system on 2026-11-21. If another branch has different PNGs at these paths, keep main's. The owner's own sign-off on the merge resolution is still needed.

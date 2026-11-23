@@ -413,6 +413,33 @@ Ask the owner before the phase that depends on each. Proposed defaults are shown
     The design-review peer separately relayed boards 74-76 for the repair/amount-entry gap (asserting owner approval) — **not yet acted on**: per standing policy a peer's relayed approval doesn't substitute for the owner's own confirmation, and board 76 as described ("3 of 8 glasses," a unit label) assumes a `unit` field this data model doesn't have (item 16, unresolved) — surfaced to the owner rather than silently built or silently dropped.
     **Resolved 2026-11-20, owner confirmed directly**: add the `unit` field (backend + form), build boards 74-78. Backend: `Habit.unit` (nullable, length 30, display-only) threaded through `CreateHabitRequest`/`UpdateHabitRequest`/`HabitResponse`, same null-vs-blank convention as `color`. Mobile: `TowerForm.js` gained a "Unit (optional)" field (board 78); `TowerSheet.js` gained the repair card (boards 74/75, preview text is a client-side approximation of `HabitService.repairStreak`'s own backward scan — the server stays the real gate) and the amount-entry card (boards 76/77, a "Today N of M [unit]" progress bar + stepper + "Add an amount" field, closing the "hold only ever adds +1" gap). On-device testing (same session) caught two real bugs, both fixed and pushed: (1) both new cards reused `styles.topOutCard`, a `flexDirection:'row'` container, as their outer wrapper — forced every section onto one horizontal line instead of stacking; fixed with the existing `topOutCardStacked` override. (2) the stepper's minus button had a transparent/outline-only style, nearly invisible on the dark theme — the user caught this directly ("+ and - button are not clearly visible") — fixed with a `theme.surfaceHigh` fill matching the rest of the file's secondary-button convention. The unit text itself ("glasses") could not be confirmed on-device — this device points at production Railway, which predates the backend change, so the field never round-trips; the display logic is correct but unverified against a live backend. **Not yet verified**: the user also reported a perceptible delay after pressing +/-, and separately said they couldn't find the + icon at all in one pass — investigated `useHabits.js`'s `run()` (holds `busy` until a full post-mutation `refresh()` completes, a plausible general lag source, though TowerSheet's stepper doesn't wire that flag in) without a conclusive fix, and could not reproduce the missing-icon report from code alone. The adb wireless connection dropped mid-session and did not reconnect; owner asked to resume device verification in the evening only. Both reports need a fresh on-device pass then.
 
+## 15a. Device verification backlog (live list — update in place, don't append history here)
+
+Everything below needs a real device to confirm. Check items off as they're verified; add new ones as they come up. This replaces hunting through section 15's history for scattered "not verified on-device" notes.
+
+**Blocking, reported by the owner directly:**
+- [ ] Stepper minus button visibility fix (`TowerSheet.js` amount card) — fixed and was confirmed visible on-device before the adb link dropped; re-confirm it still holds.
+- [ ] Stepper responsiveness/lag after pressing +/- — owner-reported, root cause not found (checked `useHabits.js`'s `run()`/busy-flag, didn't explain it in `TowerSheet.js`). Needs to be watched happen live.
+- [ ] "+" icon reportedly not visible — owner report, couldn't reproduce from code (every `+` in `TodayScreen.js`/`TowerSheet.js`/`HabitCard.js` looks correctly styled in source). Needs the owner to point at the exact screen/spot.
+
+**New this session, never seen rendering on-device:**
+- [ ] `TowerSheet.js` repair card (boards 74/75, "Pick your run back up") — built, but no test habit ever matched the preview condition (`streak === 0` + a gap in the last 2 days with a prior run) during testing. Need a habit in that exact state to see it at all.
+- [ ] `TodayScreen.js` pencil/Edit icon (`HabitCard.js`'s `onEdit`) — wired this session, never actually tapped on-device. Confirm it opens `TowerForm` in edit mode with the habit's real fields prefilled (name, category, color, targets, unit).
+- [ ] Unit field end-to-end (type a unit, save, see it echoed back as "N of M {unit}") — can't verify on this device at all, since it points at production Railway which predates the `Habit.unit` backend change. Needs either a redeploy or the dev client pointed at a local backend with the new column.
+- [ ] `SkyWeatherSettingsScreen.js` "Open Settings" path specifically (the denied/`canAskAgain:false` branch) — only the granted/not-yet-asked states were seen.
+
+**Re-verify after today's commits (last confirmed earlier today, but more commits landed after):**
+- [ ] Profile restyle (board 15) — confirmed matching once; re-check after the stepper/layout fixes in case anything regressed.
+- [ ] Skybridge removal (boards 08/10/13/44/59/63) — never checked on-device at all today, only via code review.
+
+**Longer-standing, still open from earlier phases:**
+- [ ] Light mode palette — never owner-signed-off: first draft only (Phase 1), still true.
+- [ ] Onboarding tour modal-scoped spotlight timing and the replay-tour-with-existing-habits path (flagged since the Habits-tab-removal pass, never actually re-run).
+- [ ] Top-out: no tween/transition animation at the moment of topping out (Phase 3d's end state is verified met, the motion itself isn't — known gap, Phase 8 item).
+
+**Blocked on device verification before it can proceed (not a thing to test, but gated by testing):**
+- The SkylineScreen → live "Today" tab swap (section 14 #20) won't start until the repair/amount cards above are confirmed working on a real device.
+
 ## 15. Progress log
 
 Keep this to one line per finished phase: date, what shipped, what was not verified. Nothing else goes in this section.

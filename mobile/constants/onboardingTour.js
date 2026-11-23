@@ -39,8 +39,8 @@ export const SKYLINE_TAB_ROUTE = getSkylineTabRoute(typeof __DEV__ !== 'undefine
 
 import { COMMUNITY_ENABLED } from './featureFlags';
 
-// Eyebrow ("N OF total") is computed below rather than hardcoded, so the
-// lean-v1 flag (no Community step) renumbers correctly without edits here.
+// Eyebrow ("N OF total") is computed below rather than hardcoded, in case a
+// step is ever filtered again.
 const ALL_STEPS = [
   {
     id: 'skyline',
@@ -66,16 +66,18 @@ const ALL_STEPS = [
     title: 'Tap a tower for more',
     body: 'See its run, edit it, add a day you missed, or ask about it. Tap a tower to open its sheet.',
   },
-  // Community step (SKYLINE.md Phase 8a): filtered out below, not deleted,
-  // when COMMUNITY_ENABLED is false — the tab it spotlights doesn't exist
-  // in that build, and this tour has no "skip if target missing" fallback.
+  // Community step (SKYLINE.md Phase 8a, revised 2026-11-23): the tab
+  // itself always exists now (it shows CommunityComingSoonScreen for v1
+  // instead of disappearing), so this step stays in the tour, but the copy
+  // no longer promises v1 functionality that isn't actually there.
   {
     id: 'community',
     scope: TOUR_SCOPES.TABS,
     targetKey: TOUR_TARGETS.TAB_COMMUNITY,
-    title: 'Build with friends',
-    body: 'Share a habit with friends, or raise a landmark together in Community.',
-    requires: 'community',
+    title: 'Community',
+    body: COMMUNITY_ENABLED
+      ? 'Share a habit with friends, or raise a landmark together in Community.'
+      : 'Community is on its way — check back for shared habits and landmarks in a future update.',
   },
   {
     id: 'profile',
@@ -86,6 +88,4 @@ const ALL_STEPS = [
   },
 ];
 
-export const TOUR_STEPS = ALL_STEPS.filter(
-  (step) => step.requires !== 'community' || COMMUNITY_ENABLED
-).map((step, i, arr) => ({ ...step, eyebrow: `${i + 1} OF ${arr.length}` }));
+export const TOUR_STEPS = ALL_STEPS.map((step, i, arr) => ({ ...step, eyebrow: `${i + 1} OF ${arr.length}` }));

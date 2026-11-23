@@ -55,6 +55,7 @@ import InsightsStack from './navigation/InsightsStack';
 // comment once Phase 3 closes that gap and the real tab takes over.
 import SkylineEngineScreen from './screens/dev/SkylineEngineScreen';
 import SkylineScreen from './screens/SkylineScreen';
+import CommunityComingSoonScreen from './screens/CommunityComingSoonScreen';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -115,16 +116,18 @@ function Tabs() {
         component={InsightsStack}
         listeners={{ tabPress: () => scrollToTop('Insights') }}
       />
-      {COMMUNITY_ENABLED && (
-        <Tab.Screen
-          name="Community"
-          component={CommunityScreen}
-          options={{
-            tabBarButton: (props) => <TourTabButton {...props} targetKey={TOUR_TARGETS.TAB_COMMUNITY} />,
-          }}
-          listeners={{ tabPress: () => scrollToTop('Community') }}
-        />
-      )}
+      <Tab.Screen
+        name="Community"
+        // v1 (COMMUNITY_ENABLED false): tab stays in the bar, but shows a
+        // "coming soon" stand-in rather than the real screen — unlike the
+        // coach entry points, which are removed outright. See
+        // CommunityComingSoonScreen.js / SKYLINE.md section 14 #21.
+        component={COMMUNITY_ENABLED ? CommunityScreen : CommunityComingSoonScreen}
+        options={{
+          tabBarButton: (props) => <TourTabButton {...props} targetKey={TOUR_TARGETS.TAB_COMMUNITY} />,
+        }}
+        listeners={{ tabPress: () => scrollToTop('Community') }}
+      />
       <Tab.Screen
         name="Profile"
         component={ProfileStack}
@@ -267,7 +270,9 @@ function PushNotificationTapBridge() {
       if (!data) return;
       if (data.habitId != null) {
         navigateToTab('Today', { highlightHabitId: Number(data.habitId) });
-      } else if (data.challengeId != null && COMMUNITY_ENABLED) {
+      } else if (data.challengeId != null) {
+        // Lands on CommunityComingSoonScreen when !COMMUNITY_ENABLED (no
+        // challenge to open, but the tab itself always exists — see above).
         navigateToTab('Community', { openChallengeId: Number(data.challengeId) });
       }
     };

@@ -29,6 +29,7 @@ import { TOUR_SCOPES } from '../constants/onboardingTour';
 import { COACH_ENABLED } from '../constants/featureFlags';
 import { useAuth } from '../hooks/useAuth';
 import { useCelebration } from '../hooks/useCelebration';
+import { useReviewPrompt } from '../hooks/useReviewPrompt';
 import { useRegisterScrollToTop } from '../hooks/useRegisterScrollToTop';
 import { useFeaturedGoalReviews } from '../hooks/useFeaturedGoalReviews';
 import { summarizeHabits, useHabits } from '../hooks/useHabits';
@@ -117,6 +118,7 @@ export default function TodayScreen() {
   const { user } = useAuth();
   const displayName = user?.displayName || 'there';
   const { celebrate: showCelebration } = useCelebration();
+  const maybePromptForReview = useReviewPrompt();
   const [expandedId, setExpandedId] = useState(null);
   const { toast, showToast, hideToast } = useToast();
   const [coachVisible, setCoachVisible] = useState(false);
@@ -343,9 +345,10 @@ export default function TodayScreen() {
         // gets the stronger "success" haptic rather than the light tap below.
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         showCelebration(payload);
+        maybePromptForReview(payload);
       }
     },
-    [summary, showCelebration, shieldsAvailable]
+    [summary, showCelebration, shieldsAvailable, maybePromptForReview]
   );
 
   const handleToggle = useCallback(

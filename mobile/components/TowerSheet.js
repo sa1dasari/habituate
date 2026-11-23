@@ -638,16 +638,28 @@ export default function TowerSheet({
                 <Pressable
                   onPress={handleStepperRemove}
                   disabled={!displayHabit.todayCount}
-                  style={[styles.topOutButton, { width: 44, height: 44, borderRadius: 22, backgroundColor: 'transparent', borderWidth: 1, borderColor: theme.border || 'rgba(128,128,128,0.3)' }]}
+                  hitSlop={10}
+                  style={[
+                    styles.topOutButton,
+                    {
+                      width: 44,
+                      height: 44,
+                      borderRadius: 22,
+                      backgroundColor: theme.surfaceHigh,
+                      opacity: displayHabit.todayCount ? 1 : 0.4,
+                    },
+                  ]}
                   testID="tower-sheet-amount-minus"
                   accessibilityRole="button"
                   accessibilityLabel="Remove one"
+                  accessibilityState={{ disabled: !displayHabit.todayCount }}
                 >
                   <MaterialCommunityIcons name="minus" size={20} color={theme.text} />
                 </Pressable>
                 <Text style={[styles.runHeadline, { color: theme.text, fontSize: 20 }]}>{displayHabit.todayCount || 0}</Text>
                 <Pressable
                   onPress={handleStepperAdd}
+                  hitSlop={10}
                   style={[styles.topOutButton, { width: 44, height: 44, borderRadius: 22, backgroundColor: theme.amber }]}
                   testID="tower-sheet-amount-plus"
                   accessibilityRole="button"

@@ -203,7 +203,13 @@ export default function ProfileScreen() {
           <SettingsRow
             icon="star-outline"
             label="Unlock everything"
-            sublabel="Lifetime purchase, pay once"
+            // Board 89 predates the lifetime+monthly pivot (2026-11-24) and
+            // still says "Lifetime purchase, pay once" — now false, since
+            // this row opens a sheet offering both. Judgment-call fix
+            // (mirrors the plan cards' own "Pay once"/"Cancel any time"
+            // framing) pending design confirmation, same as paywallCopy
+            // 'browse' below.
+            sublabel="Pay once or go monthly"
             onPress={() => setPaywallVisible(true)}
             styles={styles}
             colors={colors}

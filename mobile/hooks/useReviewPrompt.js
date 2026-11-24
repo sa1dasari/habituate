@@ -1,6 +1,5 @@
 import { useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as StoreReview from 'expo-store-review';
 import { isReviewMilestone } from '../utils/reviewPrompt';
 
 const STORAGE_KEY = '@habituate/hasPromptedReview';
@@ -21,6 +20,16 @@ export function useReviewPrompt() {
     try {
       const already = await AsyncStorage.getItem(STORAGE_KEY);
       if (already) return;
+      // Imported lazily, at call time, rather than as a static top-level
+      // import: expo-store-review resolves its native module binding as
+      // soon as its JS is required, not when a function is actually called,
+      // so a static import crashes app boot on any dev client built before
+      // this dependency was added (every current dev client, until the next
+      // EAS build) even though this path only ever runs once, on a real
+      // 7-day streak. Deferring the import until here means the rest of the
+      // app works fine on an un-rebuilt dev client; only this one feature is
+      // unavailable until the next rebuild, caught by the same try/catch.
+      const StoreReview = await import('expo-store-review');
       // Set only once the native dialog actually ran, not before — unlike
       // the onboarding tour's start(), isAvailableAsync() can legitimately
       // say no (iOS's per-year quota already hit, a sideloaded/TestFlight

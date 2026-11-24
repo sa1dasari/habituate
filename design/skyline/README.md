@@ -137,3 +137,6 @@ Free caps: 5 daily, 1 weekly, 1 monthly, 2 Shield Days. Ask Habituate is not par
 | 88 | `88-paywall-copy-by-cap.png` | Exact lines for daily, weekly, monthly and Shield Day. Nothing says "can't", "limit reached" or "locked". |
 | 89 | `89-profile-plan-and-unlock.png` | Quiet usage line inside the skyline card ("Free plan · 4 of 5 daily · 1 of 1 weekly · 0 of 1 monthly · 1 of 2 Shield Days", meta 12) and an amber "Unlock everything" row above "Share my skyline". Paid users see neither. |
 | 90 | `90-skyline-add-lot-near-and-at-cap.png` | Skyline tab: near the cap the label under the empty lot reads "1 left" in grey; at the cap the lot outline and label turn amber and read "Unlock". No banner. |
+
+
+**Update 2026-11-24 (owner decision):** board 87 now offers two plans, Lifetime (selected by default, "Best value" tag, $XX.XX one time) and Monthly ($X.XX / month, cancel any time). The button follows the selection ("Unlock lifetime for $XX.XX" or "Start monthly for $X.XX"). Body copy now ends "Choose a plan to keep growing your skyline." and the third benefit reads "Cancel monthly any time". Prices are placeholders from RevenueCat. Awaiting the owner's confirmation of the drawing.

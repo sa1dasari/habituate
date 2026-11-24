@@ -5,6 +5,7 @@ import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg from 'react-native-svg';
 import ConfirmModal from './ConfirmModal';
+import ShareSheet from './ShareSheet';
 import Toast from './Toast';
 import HoldPillButton from './HoldPillButton';
 import SkylineTower from './SkylineTower';
@@ -94,6 +95,7 @@ export default function TowerSheet({
   // after that guard runs on some renders and not others (caught on
   // device: "Rendered more hooks than during the previous render").
   const [amountInput, setAmountInput] = useState('');
+  const [shareSheetVisible, setShareSheetVisible] = useState(false);
   const repairPreview = useMemo(() => {
     if (!habit || (habit.streak || 0) !== 0 || !(habit.checkIns || []).length) return null;
     const zoneDays = new Set((habit.checkIns || []).map((ci) => toDateKey(ci.occurredAt)));
@@ -550,6 +552,16 @@ export default function TowerSheet({
               <Text style={[styles.motivation, { color: theme.muted }]}>“{displayHabit.motivation}”</Text>
             ) : null}
           </View>
+          <Pressable
+            onPress={() => setShareSheetVisible(true)}
+            hitSlop={10}
+            style={styles.shareIconBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Share tower"
+            testID="tower-sheet-share"
+          >
+            <MaterialCommunityIcons name="share-variant-outline" size={20} color={theme.text} />
+          </Pressable>
         </View>
 
         {(() => {
@@ -847,6 +859,7 @@ export default function TowerSheet({
 
       <Toast toast={toast} onHide={hideToast} />
       <ConfirmModal request={request} onRespond={respond} />
+      <ShareSheet visible={shareSheetVisible} onClose={() => setShareSheetVisible(false)} habit={displayHabit} />
     </Animated.View>
     </>
   );
@@ -921,6 +934,7 @@ const styles = StyleSheet.create({
   titleRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
   colorChip: { width: 6, borderRadius: 3, alignSelf: 'stretch' },
   titleTextWrap: { flex: 1 },
+  shareIconBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   eyebrow: { fontFamily: fonts.bold, fontSize: 11, letterSpacing: 0.6 },
   title: { fontFamily: fonts.extraBold, fontSize: 24, marginTop: 2 },
   meta: { fontFamily: fonts.regular, fontSize: 13, marginTop: 4 },

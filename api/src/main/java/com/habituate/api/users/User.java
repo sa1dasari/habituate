@@ -67,13 +67,22 @@ public class User {
     @Column(nullable = false)
     private Instant updatedAt;
 
-    /** The v1 free tier's lifetime unlock (SKYLINE.md Phase 8a, section 14 #21), granted by
-     * RevenueCatWebhookController when a NON_RENEWING_PURCHASE for the lifetime entitlement
-     * lands — not read from the client, since the whole point is a server-side source of
-     * truth the client can't spoof by hitting the API directly. Defaults false for every
-     * existing and new row (same app-layer-default convention as profileVisibility). */
+    /** The v1 paywall's one-time, non-expiring purchase path (SKYLINE.md Phase 8a, section 14
+     * #21), granted by RevenueCatWebhookController — not read from the client, since the whole
+     * point is a server-side source of truth the client can't spoof by hitting the API
+     * directly. Defaults false for every existing and new row (same app-layer-default
+     * convention as profileVisibility). See subscriptionActiveUntil for the other purchase
+     * path (owner added monthly alongside lifetime, 2026-11-24). */
     @Column(nullable = false, columnDefinition = "boolean not null default false")
     private boolean lifetimePurchased = false;
+
+    /** The v1 paywall's monthly-subscription path — null means no active subscription.
+     * Entitlement is a live check against "now" (EntitlementService.isEntitled), not a stored
+     * boolean: a RENEWAL event pushes this forward, and a lapsed subscription just stops
+     * passing the check on its own once this date is in the past — no explicit
+     * expiration/revoke handling needed. */
+    @Column
+    private Instant subscriptionActiveUntil;
 
     public User() {
     }
@@ -160,5 +169,13 @@ public class User {
 
     public void setLifetimePurchased(boolean lifetimePurchased) {
         this.lifetimePurchased = lifetimePurchased;
+    }
+
+    public Instant getSubscriptionActiveUntil() {
+        return subscriptionActiveUntil;
+    }
+
+    public void setSubscriptionActiveUntil(Instant subscriptionActiveUntil) {
+        this.subscriptionActiveUntil = subscriptionActiveUntil;
     }
 }

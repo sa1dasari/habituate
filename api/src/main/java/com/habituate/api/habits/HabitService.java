@@ -220,7 +220,7 @@ public class HabitService {
      * surfaces. Pro users (EntitlementService) are never capped.
      */
     private void requireUnderFreeTierCap(String userId, Habit candidate) {
-        if (entitlementService.isLifetimeUnlocked(userId)) {
+        if (entitlementService.isEntitled(userId)) {
             return;
         }
         List<Habit> existing = habitRepository.findByUserIdAndArchivedFalseOrderByCreatedAtDesc(userId);

@@ -13,6 +13,10 @@ public record RevenueCatWebhookEvent(
         @JsonProperty("app_user_id") String appUserId,
         @JsonProperty("original_app_user_id") String originalAppUserId,
         @JsonProperty("aliases") List<String> aliases,
-        @JsonProperty("entitlement_ids") List<String> entitlementIds
+        @JsonProperty("entitlement_ids") List<String> entitlementIds,
+        // Present for a subscription (monthly) purchase/renewal, absent for the
+        // one-time lifetime purchase — that absence is exactly how
+        // EntitlementService tells the two purchase paths apart.
+        @JsonProperty("expiration_at_ms") Long expirationAtMs
 ) {
 }

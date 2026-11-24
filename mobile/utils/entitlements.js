@@ -43,7 +43,9 @@ export function isAtCap(cap, counts, isPro) {
 /** Board 88: same headline/benefits/CTA/footer for every cap — only the
  * eyebrow and body line change, and they're literal per the approved copy,
  * not generated, so a limit change later has to be a deliberate copy edit
- * here, not an automatic one. */
+ * here, not an automatic one. Updated 2026-11-24 when the owner added a
+ * monthly option alongside lifetime: every body now ends "Choose a plan to
+ * keep growing your skyline" instead of "Unlock lifetime...". */
 export function paywallCopy(cap, counts) {
   switch (cap) {
     // Voluntary entry point (Profile's "Unlock everything" row) — none of
@@ -55,23 +57,23 @@ export function paywallCopy(cap, counts) {
     case 'browse':
       return {
         eyebrow: 'FREE PLAN',
-        body: `The free plan holds ${FREE_TIER_LIMITS.daily} daily, ${FREE_TIER_LIMITS.weekly} weekly and ${FREE_TIER_LIMITS.monthly} monthly habit, plus ${FREE_SHIELD_BANK_LIMIT} Shield Days. Unlock lifetime to keep growing your skyline.`,
+        body: `The free plan holds ${FREE_TIER_LIMITS.daily} daily, ${FREE_TIER_LIMITS.weekly} weekly and ${FREE_TIER_LIMITS.monthly} monthly habit, plus ${FREE_SHIELD_BANK_LIMIT} Shield Days. Choose a plan to keep growing your skyline.`,
       };
     case 'monthly':
       return {
         eyebrow: `${counts.monthly} OF ${FREE_TIER_LIMITS.monthly} MONTHLY HABIT`,
-        body: `Your monthly lot is in use. The free plan holds ${FREE_TIER_LIMITS.monthly} monthly habit. Unlock lifetime to keep growing your skyline.`,
+        body: `Your monthly lot is in use. The free plan holds ${FREE_TIER_LIMITS.monthly} monthly habit. Choose a plan to keep growing your skyline.`,
       };
     case 'weekly':
       return {
         eyebrow: `${counts.weekly} OF ${FREE_TIER_LIMITS.weekly} WEEKLY HABIT`,
-        body: `Your weekly lot is in use. The free plan holds ${FREE_TIER_LIMITS.weekly} weekly habit. Unlock lifetime to keep growing your skyline.`,
+        body: `Your weekly lot is in use. The free plan holds ${FREE_TIER_LIMITS.weekly} weekly habit. Choose a plan to keep growing your skyline.`,
       };
     case 'daily':
     default:
       return {
         eyebrow: `${counts.daily} OF ${FREE_TIER_LIMITS.daily} DAILY HABITS`,
-        body: `You have ${counts.daily} daily towers standing, which is what the free plan holds. Unlock lifetime to keep growing your skyline.`,
+        body: `You have ${counts.daily} daily towers standing, which is what the free plan holds. Choose a plan to keep growing your skyline.`,
       };
   }
 }

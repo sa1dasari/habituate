@@ -1,8 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg from 'react-native-svg';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import SkylineTower from './SkylineTower';
 import TowerInsideView from './TowerInsideView';
+import ShareSheet from './ShareSheet';
 import { useHabits } from '../hooks/useHabits';
 import { useShowFinishedTowers } from '../hooks/useShowFinishedTowers';
 import { resolveHabitColor } from '../constants/towerColors';
@@ -30,6 +32,7 @@ export default function FinishedTowerSheet({ visible, row, onClose, theme, tower
   const { habits } = useHabits();
   const { isVisibleForHabit, setHabitOverride } = useShowFinishedTowers();
   const [insideVisible, setInsideVisible] = useState(false);
+  const [shareSheetVisible, setShareSheetVisible] = useState(false);
 
   const liveHabit = row ? habits.find((h) => h.id === row.habitId) : null;
 
@@ -65,7 +68,19 @@ export default function FinishedTowerSheet({ visible, row, onClose, theme, tower
       <Pressable style={styles.backdrop} onPress={onClose} testID="finished-tower-sheet-backdrop">
         <Pressable style={[styles.sheet, { backgroundColor: theme.surfaceHigh }]} onPress={() => {}} testID="finished-tower-sheet">
           <View style={[styles.handle, { backgroundColor: theme.muted }]} />
-          <Text style={[styles.eyebrow, { color: theme.muted }]}>FINISHED TOWER</Text>
+          <View style={styles.eyebrowRow}>
+            <Text style={[styles.eyebrow, { color: theme.muted }]}>FINISHED TOWER</Text>
+            <Pressable
+              onPress={() => setShareSheetVisible(true)}
+              hitSlop={10}
+              style={styles.shareIconBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Share tower"
+              testID="finished-tower-sheet-share"
+            >
+              <MaterialCommunityIcons name="share-variant-outline" size={20} color={theme.muted} />
+            </Pressable>
+          </View>
 
           <View style={styles.hero}>
             {illustration && (
@@ -150,6 +165,7 @@ export default function FinishedTowerSheet({ visible, row, onClose, theme, tower
         onAskAboutDay={onAskAboutDay}
       />
     )}
+    <ShareSheet visible={shareSheetVisible} onClose={() => setShareSheetVisible(false)} habit={null} row={row} />
     </>
   );
 }
@@ -158,6 +174,8 @@ const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(4, 7, 18, 0.55)', justifyContent: 'flex-end' },
   sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 28 },
   handle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, marginBottom: 18 },
+  eyebrowRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  shareIconBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', marginRight: -10 },
   eyebrow: { fontFamily: fonts.bold, fontSize: 13, letterSpacing: 1.4 },
   hero: { flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 14, marginBottom: 18 },
   heroText: { flex: 1 },

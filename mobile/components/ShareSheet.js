@@ -24,8 +24,14 @@ import { fonts, radii, shadowLg, spacing } from '../theme';
  * rather than requiring every call site to pass it. Clip is shown per the
  * approved board but not wired yet — tapping it surfaces that plainly
  * rather than silently doing nothing.
+ *
+ * Pass `row` (a FinishedTowerResponse, from FinishedTowerSheet.js) to share a
+ * single topped-out segment instead — there's no "This tower"/"My whole
+ * skyline" choice to offer here (a finished segment isn't part of either),
+ * so the sheet locks to subject='finished' and hides the radio rows
+ * entirely when `row` is given.
  */
-export default function ShareSheet({ visible, onClose, habit }) {
+export default function ShareSheet({ visible, onClose, habit, row }) {
   const { colors } = useAppTheme();
   const { user } = useAuth();
   const { habits } = useHabits();
@@ -33,15 +39,20 @@ export default function ShareSheet({ visible, onClose, habit }) {
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const towerHabits = useMemo(() => (habits || []).filter(hasDailyTarget), [habits]);
-  const [subject, setSubject] = useState(habit ? 'tower' : 'skyline');
+  const [subject, setSubject] = useState(row ? 'finished' : habit ? 'tower' : 'skyline');
   const [format, setFormat] = useState('square');
   const [showUsername, setShowUsername] = useState(true);
   const [username, setUsername] = useState(null);
   const shareCardRef = React.useRef(null);
 
   useEffect(() => {
-    if (visible) setSubject(habit ? 'tower' : 'skyline');
-  }, [visible, habit]);
+    if (!visible) return;
+    setSubject(row ? 'finished' : habit ? 'tower' : 'skyline');
+    // A finished tower only ever offers Square (no board covers a Story
+    // layout for it) — reset away from a Story/Clip pick left over from a
+    // previous tower/skyline share.
+    if (row) setFormat('square');
+  }, [visible, habit, row]);
 
   useEffect(() => {
     if (!visible) return undefined;
@@ -70,7 +81,7 @@ export default function ShareSheet({ visible, onClose, habit }) {
       }
       await Share.share(
         { url: `data:image/png;base64,${base64}` },
-        { dialogTitle: subject === 'skyline' ? 'Share your skyline' : 'Share your tower' }
+        { dialogTitle: subject === 'skyline' ? 'Share your skyline' : 'Share your tower' },
       );
     } catch (err) {
       if (err?.message !== 'User did not share') {
@@ -79,7 +90,7 @@ export default function ShareSheet({ visible, onClose, habit }) {
     }
   };
 
-  if (!habit && !towerHabits.length) return null;
+  if (!row && !habit && !towerHabits.length) return null;
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -89,47 +100,63 @@ export default function ShareSheet({ visible, onClose, habit }) {
         <Text style={styles.title}>Share</Text>
         <Text style={styles.subtitle}>Choose what to share and how.</Text>
 
-        {habit ? (
-          <Pressable
-            style={styles.row}
-            onPress={() => setSubject('tower')}
-            accessibilityRole="radio"
-            accessibilityState={{ checked: subject === 'tower' }}
-            accessibilityLabel={`This tower: ${habit.name}`}
-          >
+        {row ? (
+          <View style={styles.row}>
             <View style={styles.rowText}>
-              <Text style={styles.rowTitle}>{habit.name}</Text>
+              <Text style={styles.rowTitle}>{row.habitName}</Text>
               <Text style={styles.rowSubtitle} numberOfLines={1}>
-                {habit.streak ?? habit.currentRun ?? 0} day run
+                Finished tower
               </Text>
             </View>
-            <View style={[styles.radio, subject === 'tower' ? styles.radioSelected : null]} />
-          </Pressable>
-        ) : null}
-
-        <Pressable
-          style={styles.row}
-          onPress={() => setSubject('skyline')}
-          accessibilityRole="radio"
-          accessibilityState={{ checked: subject === 'skyline' }}
-          accessibilityLabel="My whole skyline"
-        >
-          <View style={styles.rowText}>
-            <Text style={styles.rowTitle}>My whole skyline</Text>
-            <Text style={styles.rowSubtitle} numberOfLines={1}>
-              {towerHabits.length} tower{towerHabits.length === 1 ? '' : 's'} standing
-            </Text>
           </View>
-          <View style={[styles.radio, subject === 'skyline' ? styles.radioSelected : null]} />
-        </Pressable>
+        ) : (
+          <>
+            {habit ? (
+              <Pressable
+                style={styles.row}
+                onPress={() => setSubject('tower')}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: subject === 'tower' }}
+                accessibilityLabel={`This tower: ${habit.name}`}
+              >
+                <View style={styles.rowText}>
+                  <Text style={styles.rowTitle}>{habit.name}</Text>
+                  <Text style={styles.rowSubtitle} numberOfLines={1}>
+                    {habit.streak ?? habit.currentRun ?? 0} day run
+                  </Text>
+                </View>
+                <View style={[styles.radio, subject === 'tower' ? styles.radioSelected : null]} />
+              </Pressable>
+            ) : null}
+
+            <Pressable
+              style={styles.row}
+              onPress={() => setSubject('skyline')}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: subject === 'skyline' }}
+              accessibilityLabel="My whole skyline"
+            >
+              <View style={styles.rowText}>
+                <Text style={styles.rowTitle}>My whole skyline</Text>
+                <Text style={styles.rowSubtitle} numberOfLines={1}>
+                  {towerHabits.length} tower{towerHabits.length === 1 ? '' : 's'} standing
+                </Text>
+              </View>
+              <View style={[styles.radio, subject === 'skyline' ? styles.radioSelected : null]} />
+            </Pressable>
+          </>
+        )}
 
         <Text style={styles.sectionLabel}>FORMAT</Text>
         <View style={styles.formatRow}>
-          {[
-            { key: 'square', label: 'Square' },
-            { key: 'story', label: 'Story' },
-            { key: 'clip', label: 'Clip' },
-          ].map((f) => (
+          {(row
+            ? [{ key: 'square', label: 'Square' }]
+            : [
+                { key: 'square', label: 'Square' },
+                { key: 'story', label: 'Story' },
+                { key: 'clip', label: 'Clip' },
+              ]
+          ).map((f) => (
             <Pressable
               key={f.key}
               onPress={() => {
@@ -183,6 +210,7 @@ export default function ShareSheet({ visible, onClose, habit }) {
               subject={subject}
               habit={subject === 'tower' ? habit : null}
               habits={subject === 'skyline' ? towerHabits : null}
+              row={subject === 'finished' ? row : null}
               format={format === 'story' ? 'story' : 'square'}
               showUsername={showUsername}
               username={username}

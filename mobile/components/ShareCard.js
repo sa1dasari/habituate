@@ -7,8 +7,9 @@ import SkylineTower from './SkylineTower';
 import AvatarImage from './AvatarImage';
 import { useWeatherSky } from '../hooks/useWeatherSky';
 import { skyKind } from '../utils/sky';
-import { buildScene } from '../utils/skylineScene';
+import { buildScene, finishedTowerIllustration } from '../utils/skylineScene';
 import { buildShareSceneHabit, buildShareSkylineHabits } from '../utils/shareCard';
+import { resolveHabitColor } from '../constants/towerColors';
 import { buildCategoryTowerColors, fonts, skyGradients, skylineTowerTheme, skylineUI, spacing, radii } from '../theme';
 import { HABIT_CATEGORY_COLORS } from '../constants/habitCategories';
 
@@ -69,6 +70,7 @@ function CityBackdrop({ centerX, groundY }) {
 export default function ShareCard({
   habit,
   habits,
+  row,
   subject = 'tower',
   format = 'square',
   showUsername = true,
@@ -81,6 +83,7 @@ export default function ShareCard({
   const ui = skylineUI[mode];
   const dims = format === 'story' ? STORY : SQUARE;
   const isSkyline = subject === 'skyline';
+  const isFinished = subject === 'finished';
   const styles = useMemo(() => makeStyles(ui, dims), [ui, dims]);
 
   const today = useMemo(() => new Date(), []);
@@ -89,7 +92,37 @@ export default function ShareCard({
 
   const empty = { shapes: [], crop: null, cityCenterX: 0, cityGroundY: 0 };
 
-  const { shapes, crop, cityCenterX, cityGroundY, run, floors } = useMemo(() => {
+  const { shapes, crop, cityCenterX, cityGroundY, run, floors, stood, bestRun } = useMemo(() => {
+    if (isFinished) {
+      if (!row) return { ...empty, run: 0, floors: 0, stood: 0, bestRun: 0 };
+      // categoryColors here is this module's own full {dark,light} map (line 16), unlike
+      // FinishedTowerSheet's same-named prop which is already mode-indexed — index it here.
+      const illustration = finishedTowerIllustration(row.floorCount, resolveHabitColor(row, mode, categoryColors[mode]), towerTheme);
+      const topPad = 20;
+      const groundPad = 16;
+      const sidePad = format === 'story' ? 90 : 140;
+      const centerX = illustration.width / 2;
+      const groundY = illustration.height;
+      // Same "stood N days" calc FinishedTowerSheet.js itself uses.
+      const stoodDays = row.startedAt && row.toppedOutAt
+        ? Math.max(1, Math.round((new Date(row.toppedOutAt) - new Date(row.startedAt)) / 86400000) + 1)
+        : row.floorCount || 0;
+      return {
+        shapes: illustration.shapes, // finishedTowerIllustration is already the "closed" look — nothing to strip
+        crop: {
+          x: centerX - illustration.width / 2 - sidePad,
+          y: -topPad,
+          width: illustration.width + sidePad * 2,
+          height: illustration.height + topPad + groundPad,
+        },
+        cityCenterX: centerX,
+        cityGroundY: groundY,
+        run: 0,
+        floors: row.floorCount || 0,
+        stood: stoodDays,
+        bestRun: row.bestRunInSegment || 0,
+      };
+    }
     if (isSkyline) {
       const { sceneHabits, towersStanding, bestRun, floorsBuilt } = buildShareSkylineHabits(
         habits,
@@ -145,7 +178,7 @@ export default function ShareCard({
       run: habit?.streak ?? habit?.currentRun ?? 0,
       floors: (habit?.checkIns || []).length,
     };
-  }, [isSkyline, habit, habits, mode, today, towerTheme, format]);
+  }, [isFinished, isSkyline, habit, habits, row, mode, today, towerTheme, format]);
 
   const towersStanding = isSkyline ? (habits || []).length : 0;
 
@@ -168,7 +201,11 @@ export default function ShareCard({
           }
         >
           <Svg width="100%" height="100%" viewBox={`${crop.x} ${crop.y} ${crop.width} ${crop.height}`}>
-            <CityBackdrop centerX={cityCenterX} groundY={cityGroundY} />
+            {/* No board exists for a finished-tower share card's backdrop, and the
+                fixed city silhouette (tallest building 92px) is sized for a
+                full-height active tower — behind a short closed segment it would
+                read as the subject, so skip it here rather than guess a scale. */}
+            {isFinished ? null : <CityBackdrop centerX={cityCenterX} groundY={cityGroundY} />}
             <G>
               <SkylineTower shapes={shapes} />
             </G>
@@ -183,12 +220,22 @@ export default function ShareCard({
       >
         <Text style={styles.eyebrow}>{isSkyline ? 'SKYLINE' : 'TOWER'}</Text>
         <Text style={styles.habitName} numberOfLines={2}>
-          {isSkyline ? `${towersStanding} tower${towersStanding === 1 ? '' : 's'} standing` : habit?.name || ''}
+          {isSkyline ? `${towersStanding} tower${towersStanding === 1 ? '' : 's'} standing` : isFinished ? row?.habitName || '' : habit?.name || ''}
         </Text>
-        <View style={styles.runRow}>
-          <Text style={styles.runNumber}>{run}</Text>
-          <Text style={styles.runWord}>{isSkyline ? ' day best run' : ' day run'}</Text>
-        </View>
+        {isFinished ? (
+          <>
+            <View style={styles.runRow}>
+              <Text style={styles.runNumber}>{stood}</Text>
+              <Text style={styles.runWord}>{` day${stood === 1 ? '' : 's'} stood`}</Text>
+            </View>
+            <Text style={styles.floorsLine}>{`Best run: ${bestRun} day${bestRun === 1 ? '' : 's'}`}</Text>
+          </>
+        ) : (
+          <View style={styles.runRow}>
+            <Text style={styles.runNumber}>{run}</Text>
+            <Text style={styles.runWord}>{isSkyline ? ' day best run' : ' day run'}</Text>
+          </View>
+        )}
         {format === 'square' ? <Text style={styles.floorsLine}>{floors} floor{floors === 1 ? '' : 's'} built</Text> : null}
       </View>
 

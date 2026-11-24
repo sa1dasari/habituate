@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import Purchases from 'react-native-purchases';
 
-/** Must match EntitlementService.LIFETIME_ENTITLEMENT_ID on the backend and
+/** Must match EntitlementService.PRO_ENTITLEMENT_ID on the backend and
  * the entitlement identifier configured in the RevenueCat dashboard. */
-export const LIFETIME_ENTITLEMENT_ID = 'lifetime';
+export const PRO_ENTITLEMENT_ID = 'pro';
 
 /**
  * Reads the client's own copy of entitlement state from the RevenueCat SDK
@@ -23,7 +23,7 @@ export function useEntitlement() {
 
     const applyCustomerInfo = (info) => {
       if (!mounted) return;
-      setIsPro(Boolean(info?.entitlements?.active?.[LIFETIME_ENTITLEMENT_ID]));
+      setIsPro(Boolean(info?.entitlements?.active?.[PRO_ENTITLEMENT_ID]));
       setReady(true);
     };
 

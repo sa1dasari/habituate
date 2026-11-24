@@ -45,7 +45,7 @@ public class ShieldAwardService {
     }
 
     private int maxBanked(String userId) {
-        return entitlementService.isLifetimeUnlocked(userId)
+        return entitlementService.isEntitled(userId)
                 ? Integer.MAX_VALUE
                 : EntitlementService.FREE_SHIELD_BANK_LIMIT;
     }

@@ -50,15 +50,15 @@ describe('paywallCopy', () => {
   test('matches board 88 literally for each cap, with the live count substituted', () => {
     expect(paywallCopy('daily', { daily: 5, weekly: 0, monthly: 0 })).toEqual({
       eyebrow: '5 OF 5 DAILY HABITS',
-      body: 'You have 5 daily towers standing, which is what the free plan holds. Unlock lifetime to keep growing your skyline.',
+      body: 'You have 5 daily towers standing, which is what the free plan holds. Choose a plan to keep growing your skyline.',
     });
     expect(paywallCopy('weekly', { daily: 0, weekly: 1, monthly: 0 })).toEqual({
       eyebrow: '1 OF 1 WEEKLY HABIT',
-      body: 'Your weekly lot is in use. The free plan holds 1 weekly habit. Unlock lifetime to keep growing your skyline.',
+      body: 'Your weekly lot is in use. The free plan holds 1 weekly habit. Choose a plan to keep growing your skyline.',
     });
     expect(paywallCopy('monthly', { daily: 0, weekly: 0, monthly: 1 })).toEqual({
       eyebrow: '1 OF 1 MONTHLY HABIT',
-      body: 'Your monthly lot is in use. The free plan holds 1 monthly habit. Unlock lifetime to keep growing your skyline.',
+      body: 'Your monthly lot is in use. The free plan holds 1 monthly habit. Choose a plan to keep growing your skyline.',
     });
   });
 });

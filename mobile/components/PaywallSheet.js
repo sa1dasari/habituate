@@ -34,7 +34,10 @@ const MONTHLY_PACKAGE_TYPE = 'MONTHLY';
  * always carries the "Best value" tag regardless of which is selected; the
  * CTA label and the actual purchase both follow whichever plan is selected.
  * `onUnlocked` fires after a successful purchase or restore so the caller
- * can retry the action that was blocked.
+ * can retry the action that was blocked. Board 91 (owner-confirmed): when
+ * opened from Profile's voluntary entry point (`cap="browse"`, no in-flight
+ * form to lose), the footer drops "Your form is saved." — everything else
+ * on the sheet is identical to the cap-hit boards.
  */
 export default function PaywallSheet({ visible, onClose, cap, counts, onUnlocked }) {
   const { colors } = useAppTheme();
@@ -193,7 +196,9 @@ export default function PaywallSheet({ visible, onClose, cap, counts, onUnlocked
           <Text style={styles.notNowText}>Not now</Text>
         </Pressable>
 
-        <Text style={styles.footerNote}>Your form is saved. Your towers stay exactly as they are.</Text>
+        <Text style={styles.footerNote}>
+          {cap === 'browse' ? 'Your towers stay exactly as they are.' : 'Your form is saved. Your towers stay exactly as they are.'}
+        </Text>
         <Pressable onPress={handleRestore} disabled={busy} accessibilityRole="button" accessibilityLabel="Restore purchase" testID="paywall-restore">
           <Text style={styles.restoreText}>Restore purchase</Text>
         </Pressable>

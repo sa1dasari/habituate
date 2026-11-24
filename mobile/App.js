@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
+import * as Sentry from '@sentry/react-native';
 import {
   Nunito_400Regular,
   Nunito_600SemiBold,
@@ -58,6 +59,20 @@ import SkylineScreen from './screens/SkylineScreen';
 import CommunityComingSoonScreen from './screens/CommunityComingSoonScreen';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
+
+// Launch readiness (SKYLINE.md Phase 8), owner picked Sentry 2026-11-24.
+// No-ops without a DSN (unset in local dev/this device, like the backend's
+// SENTRY_DSN) so nobody needs a Sentry account to run the app. DSNs are
+// meant to be public/client-embeddable — unlike the backend's secrets,
+// this is intentionally an EXPO_PUBLIC_* var, not something gitignored.
+// tracesSampleRate 0: error reporting only for v1, same reasoning as the
+// backend half.
+if (process.env.EXPO_PUBLIC_SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
+    tracesSampleRate: 0,
+  });
+}
 
 const Tab = createBottomTabNavigator();
 

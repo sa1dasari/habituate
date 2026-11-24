@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import Svg, { G } from 'react-native-svg';
+import Svg, { G, Rect } from 'react-native-svg';
 import SkyBackdrop from './SkyBackdrop';
 import SkylineTower from './SkylineTower';
 import AvatarImage from './AvatarImage';
@@ -30,6 +30,32 @@ function stripLifecycleShapes(shapes) {
   return shapes.filter((s) => !s.id.endsWith('-crane') && !s.id.endsWith('-flag') && !s.id.includes('-monument-'));
 }
 
+// Boards 80/81 show the tower standing on a dim, distant city silhouette —
+// the same atmospheric context as the Skyline tab's own background, not the
+// user's other real towers. There's no scene-engine primitive for this (it's
+// pure backdrop, never a hit target), so it's a small fixed decorative set
+// rendered behind the real tower, anchored to the same ground line.
+const CITY_SILHOUETTE = [
+  { dx: -170, w: 30, h: 56 },
+  { dx: -124, w: 24, h: 92 },
+  { dx: -80, w: 34, h: 40 },
+  { dx: 58, w: 26, h: 70 },
+  { dx: 96, w: 32, h: 46 },
+  { dx: 140, w: 22, h: 86 },
+  { dx: 172, w: 28, h: 52 },
+];
+const CITY_SILHOUETTE_COLOR = '#1E2636';
+
+function CityBackdrop({ centerX, groundY }) {
+  return (
+    <G opacity={0.6}>
+      {CITY_SILHOUETTE.map((b, i) => (
+        <Rect key={i} x={centerX + b.dx - b.w / 2} y={groundY - b.h} width={b.w} height={b.h} fill={CITY_SILHOUETTE_COLOR} />
+      ))}
+    </G>
+  );
+}
+
 /**
  * The actual shareable artwork (boards 80/81) for a single tower — sky,
  * tower, stats chip, username/wordmark footer. Reuses buildScene/
@@ -49,19 +75,29 @@ export default function ShareCard({ habit, format = 'square', showUsername = tru
   const currentSkyKind = useMemo(() => skyKind({ now: today, sunrise, sunset, weatherCode }), [today, sunrise, sunset, weatherCode]);
   const skyStops = skyGradients[mode][currentSkyKind];
 
-  const { shapes, crop } = useMemo(() => {
-    if (!habit) return { shapes: [], crop: null };
+  const { shapes, crop, cityCenterX, cityGroundY } = useMemo(() => {
+    if (!habit) return { shapes: [], crop: null, cityCenterX: 0, cityGroundY: 0 };
     const sceneHabit = buildShareSceneHabit(habit, categoryColors[mode], mode, today);
     const scene = buildScene([sceneHabit], { today, theme: towerTheme });
     const target = scene.hitTargets[0];
-    const pad = 14;
+    if (!target) return { shapes: stripLifecycleShapes(scene.shapes), crop: null, cityCenterX: 0, cityGroundY: 0 };
+    const topPad = 20;
+    const groundPad = 16;
+    const sidePad = format === 'story' ? 90 : 140;
+    const centerX = target.x + target.width / 2;
+    const groundY = target.y + target.height;
     return {
       shapes: stripLifecycleShapes(scene.shapes),
-      crop: target
-        ? { x: target.x - pad, y: target.y - pad, width: target.width + pad * 2, height: target.height + pad * 2 }
-        : null,
+      crop: {
+        x: centerX - target.width / 2 - sidePad,
+        y: target.y - topPad,
+        width: target.width + sidePad * 2,
+        height: target.height + topPad + groundPad,
+      },
+      cityCenterX: centerX,
+      cityGroundY: groundY,
     };
-  }, [habit, mode, today, towerTheme]);
+  }, [habit, mode, today, towerTheme, format]);
 
   const run = habit?.streak ?? habit?.currentRun ?? 0;
   const floors = (habit?.checkIns || []).length;
@@ -77,6 +113,7 @@ export default function ShareCard({ habit, format = 'square', showUsername = tru
       {crop ? (
         <View style={format === 'story' ? styles.towerWrapStory : styles.towerWrapSquare}>
           <Svg width="100%" height="100%" viewBox={`${crop.x} ${crop.y} ${crop.width} ${crop.height}`}>
+            <CityBackdrop centerX={cityCenterX} groundY={cityGroundY} />
             <G>
               <SkylineTower shapes={shapes} />
             </G>
@@ -127,17 +164,18 @@ function makeStyles(ui, dims) {
     cardStory: {},
     towerWrapSquare: {
       position: 'absolute',
-      left: 24,
+      left: 0,
       bottom: 44,
-      width: dims.width * 0.38,
-      height: dims.height * 0.62,
+      width: dims.width * 0.66,
+      height: dims.height * 0.78,
     },
     towerWrapStory: {
       position: 'absolute',
-      alignSelf: 'center',
+      left: 0,
+      right: 0,
       bottom: 60,
-      width: dims.width * 0.5,
-      height: dims.height * 0.38,
+      width: '100%',
+      height: dims.height * 0.5,
     },
     chipSquare: {
       position: 'absolute',

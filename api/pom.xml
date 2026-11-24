@@ -60,6 +60,16 @@
             <version>9.4.1</version>
         </dependency>
 
+        <!-- Crash/error reporting (SKYLINE.md Phase 8 launch readiness, owner
+             picked Sentry 2026-11-24). -jakarta variant matches Spring Boot
+             3.3.3's namespace. No-op with sentry.dsn unset (see
+             application.properties) so local dev and CI need no account. -->
+        <dependency>
+            <groupId>io.sentry</groupId>
+            <artifactId>sentry-spring-boot-starter-jakarta</artifactId>
+            <version>7.14.0</version>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>

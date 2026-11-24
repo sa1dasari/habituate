@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, View } from 'react-native';
+import { ActivityIndicator, Linking, Platform, Pressable, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Sentry from '@sentry/react-native';
+import Purchases from 'react-native-purchases';
 import {
   Nunito_400Regular,
   Nunito_600SemiBold,
@@ -72,6 +73,18 @@ if (process.env.EXPO_PUBLIC_SENTRY_DSN) {
     dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
     tracesSampleRate: 0,
   });
+}
+
+// RevenueCat (SKYLINE.md Phase 8a, IAP item). SDK plumbing only, added ahead
+// of the paywall design/entitlement work landing (owner go-ahead
+// 2026-11-24) — same no-op-without-a-key convention as Sentry's DSN, so
+// nobody needs a RevenueCat project to run the app. Deliberately does not
+// call Purchases.logIn with the Firebase uid yet; that, and every actual
+// entitlement check, lands with the real paywall UI, not before.
+const revenueCatApiKey =
+  Platform.OS === 'ios' ? process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY : process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY;
+if (revenueCatApiKey) {
+  Purchases.configure({ apiKey: revenueCatApiKey });
 }
 
 const Tab = createBottomTabNavigator();

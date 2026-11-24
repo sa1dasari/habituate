@@ -7,28 +7,41 @@ import ShareCard from './ShareCard';
 import Toast from './Toast';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useAuth } from '../hooks/useAuth';
+import { useHabits } from '../hooks/useHabits';
 import { useToast } from '../hooks/useToast';
+import { hasDailyTarget } from '../utils/cadence';
 import api from '../api/client';
 import { fonts, radii, shadowLg, spacing } from '../theme';
 
 /**
- * Board 86. Part 1 scope (SKYLINE.md Phase 8a): a single tower only — the
- * "My whole skyline" radio is a separate, not-yet-built mode (Part 2), so
- * this sheet only ever renders when opened with a `habit`. Format defaults
- * to Square; Story is fully built too (same ShareCard, taller layout);
- * Clip is shown per the approved board but not wired yet — tapping it
- * surfaces that plainly rather than silently doing nothing.
+ * Board 86: "This tower" vs "My whole skyline", format Square/Story/Clip, a
+ * Show-@username switch, preview, Share, Save to photos. Pass `habit` when
+ * opened from a specific tower (TowerSheet) — it's preselected but the
+ * skyline option is still offered, matching the board's persistent 2-row
+ * choice; pass `habit={null}` when opened from Profile's "Share my skyline"
+ * row, which preselects the skyline option instead (board 15). The full
+ * active-tower list for the skyline option is fetched here via useHabits()
+ * rather than requiring every call site to pass it. Clip is shown per the
+ * approved board but not wired yet — tapping it surfaces that plainly
+ * rather than silently doing nothing.
  */
 export default function ShareSheet({ visible, onClose, habit }) {
   const { colors } = useAppTheme();
   const { user } = useAuth();
+  const { habits } = useHabits();
   const { toast, showToast, hideToast } = useToast();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
+  const towerHabits = useMemo(() => (habits || []).filter(hasDailyTarget), [habits]);
+  const [subject, setSubject] = useState(habit ? 'tower' : 'skyline');
   const [format, setFormat] = useState('square');
   const [showUsername, setShowUsername] = useState(true);
   const [username, setUsername] = useState(null);
   const shareCardRef = React.useRef(null);
+
+  useEffect(() => {
+    if (visible) setSubject(habit ? 'tower' : 'skyline');
+  }, [visible, habit]);
 
   useEffect(() => {
     if (!visible) return undefined;
@@ -57,7 +70,7 @@ export default function ShareSheet({ visible, onClose, habit }) {
       }
       await Share.share(
         { url: `data:image/png;base64,${base64}` },
-        { dialogTitle: 'Share your tower' }
+        { dialogTitle: subject === 'skyline' ? 'Share your skyline' : 'Share your tower' }
       );
     } catch (err) {
       if (err?.message !== 'User did not share') {
@@ -66,7 +79,7 @@ export default function ShareSheet({ visible, onClose, habit }) {
     }
   };
 
-  if (!habit) return null;
+  if (!habit && !towerHabits.length) return null;
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -76,14 +89,39 @@ export default function ShareSheet({ visible, onClose, habit }) {
         <Text style={styles.title}>Share</Text>
         <Text style={styles.subtitle}>Choose what to share and how.</Text>
 
-        <View style={styles.row}>
+        {habit ? (
+          <Pressable
+            style={styles.row}
+            onPress={() => setSubject('tower')}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: subject === 'tower' }}
+            accessibilityLabel={`This tower: ${habit.name}`}
+          >
+            <View style={styles.rowText}>
+              <Text style={styles.rowTitle}>{habit.name}</Text>
+              <Text style={styles.rowSubtitle} numberOfLines={1}>
+                {habit.streak ?? habit.currentRun ?? 0} day run
+              </Text>
+            </View>
+            <View style={[styles.radio, subject === 'tower' ? styles.radioSelected : null]} />
+          </Pressable>
+        ) : null}
+
+        <Pressable
+          style={styles.row}
+          onPress={() => setSubject('skyline')}
+          accessibilityRole="radio"
+          accessibilityState={{ checked: subject === 'skyline' }}
+          accessibilityLabel="My whole skyline"
+        >
           <View style={styles.rowText}>
-            <Text style={styles.rowTitle}>{habit.name}</Text>
+            <Text style={styles.rowTitle}>My whole skyline</Text>
             <Text style={styles.rowSubtitle} numberOfLines={1}>
-              {habit.streak ?? habit.currentRun ?? 0} day run
+              {towerHabits.length} tower{towerHabits.length === 1 ? '' : 's'} standing
             </Text>
           </View>
-        </View>
+          <View style={[styles.radio, subject === 'skyline' ? styles.radioSelected : null]} />
+        </Pressable>
 
         <Text style={styles.sectionLabel}>FORMAT</Text>
         <View style={styles.formatRow}>
@@ -141,7 +179,14 @@ export default function ShareSheet({ visible, onClose, habit }) {
               height: format === 'story' ? 1920 : 1080,
             }}
           >
-            <ShareCard habit={habit} format={format === 'story' ? 'story' : 'square'} showUsername={showUsername} username={username} />
+            <ShareCard
+              subject={subject}
+              habit={subject === 'tower' ? habit : null}
+              habits={subject === 'skyline' ? towerHabits : null}
+              format={format === 'story' ? 'story' : 'square'}
+              showUsername={showUsername}
+              username={username}
+            />
           </ViewShot>
         </View>
 
@@ -199,6 +244,18 @@ function makeStyles(colors) {
     rowText: { flex: 1, paddingRight: spacing.md },
     rowTitle: { fontFamily: fonts.extraBold, fontSize: 16, color: colors.textPrimary },
     rowSubtitle: { fontFamily: fonts.regular, fontSize: 13, color: colors.textMuted, marginTop: 2 },
+    radio: {
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+      borderWidth: 2,
+      borderColor: colors.border,
+    },
+    radioSelected: {
+      borderWidth: 6,
+      borderColor: colors.accent,
+      backgroundColor: colors.background,
+    },
     sectionLabel: {
       fontFamily: fonts.extraBold,
       fontSize: 11,

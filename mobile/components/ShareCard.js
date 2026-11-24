@@ -8,7 +8,7 @@ import AvatarImage from './AvatarImage';
 import { useWeatherSky } from '../hooks/useWeatherSky';
 import { skyKind } from '../utils/sky';
 import { buildScene } from '../utils/skylineScene';
-import { buildShareSceneHabit } from '../utils/shareCard';
+import { buildShareSceneHabit, buildShareSkylineHabits } from '../utils/shareCard';
 import { buildCategoryTowerColors, fonts, skyGradients, skylineTowerTheme, skylineUI, spacing, radii } from '../theme';
 import { HABIT_CATEGORY_COLORS } from '../constants/habitCategories';
 
@@ -57,30 +57,76 @@ function CityBackdrop({ centerX, groundY }) {
 }
 
 /**
- * The actual shareable artwork (boards 80/81) for a single tower — sky,
- * tower, stats chip, username/wordmark footer. Reuses buildScene/
- * SkylineTower on a synthesized gap-free run (utils/shareCard.js) so this
- * matches the in-app tower's real rendering (window pips, best-run ledge)
- * rather than a hand-drawn approximation, and follows the Skyline tab's own
- * sky/weather rule rather than a fixed "always night" sky.
+ * The actual shareable artwork (boards 80/81/83/84) for either a single
+ * tower (`subject="tower"`, default — pass `habit`) or the whole skyline
+ * (`subject="skyline"` — pass `habits`, the full active daily-habit list).
+ * Reuses buildScene/SkylineTower on synthesized gap-free runs
+ * (utils/shareCard.js) so this matches the in-app towers' real rendering
+ * (window pips, best-run ledge) rather than a hand-drawn approximation, and
+ * follows the Skyline tab's own sky/weather rule rather than a fixed
+ * "always night" sky.
  */
-export default function ShareCard({ habit, format = 'square', showUsername = true, username, avatarUri, mode = 'dark' }) {
+export default function ShareCard({
+  habit,
+  habits,
+  subject = 'tower',
+  format = 'square',
+  showUsername = true,
+  username,
+  avatarUri,
+  mode = 'dark',
+}) {
   const { weatherCode, sunrise, sunset } = useWeatherSky();
   const towerTheme = skylineTowerTheme[mode];
   const ui = skylineUI[mode];
   const dims = format === 'story' ? STORY : SQUARE;
+  const isSkyline = subject === 'skyline';
   const styles = useMemo(() => makeStyles(ui, dims), [ui, dims]);
 
   const today = useMemo(() => new Date(), []);
   const currentSkyKind = useMemo(() => skyKind({ now: today, sunrise, sunset, weatherCode }), [today, sunrise, sunset, weatherCode]);
   const skyStops = skyGradients[mode][currentSkyKind];
 
-  const { shapes, crop, cityCenterX, cityGroundY } = useMemo(() => {
-    if (!habit) return { shapes: [], crop: null, cityCenterX: 0, cityGroundY: 0 };
+  const empty = { shapes: [], crop: null, cityCenterX: 0, cityGroundY: 0 };
+
+  const { shapes, crop, cityCenterX, cityGroundY, run, floors } = useMemo(() => {
+    if (isSkyline) {
+      const { sceneHabits, towersStanding, bestRun, floorsBuilt } = buildShareSkylineHabits(
+        habits,
+        categoryColors[mode],
+        mode,
+        today,
+      );
+      if (!sceneHabits.length) return { ...empty, run: 0, floors: 0 };
+      const scene = buildScene(sceneHabits, { today, theme: towerTheme });
+      const targets = scene.hitTargets;
+      const topPad = 20;
+      const groundPad = 16;
+      const sidePad = format === 'story' ? 60 : 30;
+      const minX = Math.min(...targets.map((t) => t.x));
+      const maxX = Math.max(...targets.map((t) => t.x + t.width));
+      const minY = Math.min(...targets.map((t) => t.y));
+      const maxY = Math.max(...targets.map((t) => t.y + t.height));
+      return {
+        shapes: stripLifecycleShapes(scene.shapes),
+        crop: {
+          x: minX - sidePad,
+          y: minY - topPad,
+          width: maxX - minX + sidePad * 2,
+          height: maxY - minY + topPad + groundPad,
+        },
+        cityCenterX: (minX + maxX) / 2,
+        cityGroundY: maxY,
+        run: bestRun,
+        floors: floorsBuilt,
+        towersStanding,
+      };
+    }
+    if (!habit) return { ...empty, run: 0, floors: 0 };
     const sceneHabit = buildShareSceneHabit(habit, categoryColors[mode], mode, today);
     const scene = buildScene([sceneHabit], { today, theme: towerTheme });
     const target = scene.hitTargets[0];
-    if (!target) return { shapes: stripLifecycleShapes(scene.shapes), crop: null, cityCenterX: 0, cityGroundY: 0 };
+    if (!target) return { ...empty, shapes: stripLifecycleShapes(scene.shapes), run: 0, floors: 0 };
     const topPad = 20;
     const groundPad = 16;
     const sidePad = format === 'story' ? 90 : 140;
@@ -96,11 +142,12 @@ export default function ShareCard({ habit, format = 'square', showUsername = tru
       },
       cityCenterX: centerX,
       cityGroundY: groundY,
+      run: habit?.streak ?? habit?.currentRun ?? 0,
+      floors: (habit?.checkIns || []).length,
     };
-  }, [habit, mode, today, towerTheme, format]);
+  }, [isSkyline, habit, habits, mode, today, towerTheme, format]);
 
-  const run = habit?.streak ?? habit?.currentRun ?? 0;
-  const floors = (habit?.checkIns || []).length;
+  const towersStanding = isSkyline ? (habits || []).length : 0;
 
   return (
     <View style={[styles.card, format === 'story' ? styles.cardStory : styles.cardSquare]}>
@@ -111,7 +158,15 @@ export default function ShareCard({ habit, format = 'square', showUsername = tru
       </View>
 
       {crop ? (
-        <View style={format === 'story' ? styles.towerWrapStory : styles.towerWrapSquare}>
+        <View
+          style={
+            format === 'story'
+              ? styles.towerWrapStory
+              : isSkyline
+                ? styles.towerWrapSquareSkyline
+                : styles.towerWrapSquare
+          }
+        >
           <Svg width="100%" height="100%" viewBox={`${crop.x} ${crop.y} ${crop.width} ${crop.height}`}>
             <CityBackdrop centerX={cityCenterX} groundY={cityGroundY} />
             <G>
@@ -121,14 +176,18 @@ export default function ShareCard({ habit, format = 'square', showUsername = tru
         </View>
       ) : null}
 
-      <View style={format === 'story' ? styles.chipStory : styles.chipSquare}>
-        <Text style={styles.eyebrow}>TOWER</Text>
+      <View
+        style={
+          format === 'story' ? styles.chipStory : isSkyline ? styles.chipSquareSkyline : styles.chipSquare
+        }
+      >
+        <Text style={styles.eyebrow}>{isSkyline ? 'SKYLINE' : 'TOWER'}</Text>
         <Text style={styles.habitName} numberOfLines={2}>
-          {habit?.name || ''}
+          {isSkyline ? `${towersStanding} tower${towersStanding === 1 ? '' : 's'} standing` : habit?.name || ''}
         </Text>
         <View style={styles.runRow}>
           <Text style={styles.runNumber}>{run}</Text>
-          <Text style={styles.runWord}> day run</Text>
+          <Text style={styles.runWord}>{isSkyline ? ' day best run' : ' day run'}</Text>
         </View>
         {format === 'square' ? <Text style={styles.floorsLine}>{floors} floor{floors === 1 ? '' : 's'} built</Text> : null}
       </View>
@@ -176,6 +235,26 @@ function makeStyles(ui, dims) {
       bottom: 60,
       width: '100%',
       height: dims.height * 0.5,
+    },
+    // Board 83: the whole-skyline card spans several towers side by side
+    // across the full width, so (unlike the single-tower square layout) the
+    // chip sits top-left clear of the art, rather than beside it.
+    towerWrapSquareSkyline: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: 44,
+      width: '100%',
+      height: dims.height * 0.55,
+    },
+    chipSquareSkyline: {
+      position: 'absolute',
+      top: dims.height * 0.1,
+      left: 20,
+      right: 20,
+      backgroundColor: 'rgba(10,12,20,0.82)',
+      borderRadius: radii.lg,
+      padding: spacing.md,
     },
     chipSquare: {
       position: 'absolute',

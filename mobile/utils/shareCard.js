@@ -30,3 +30,20 @@ export function buildShareSceneHabit(habit, categoryColors, mode, today = new Da
     shieldDays: [], // no glass floors on the card either — same "no gaps drawn" rule
   };
 }
+
+/**
+ * Board 83/84's "whole skyline" card: every currently active daily-cadence
+ * habit (period lots aren't drawn as towers, so they're excluded — matches
+ * SkylineScreen.js's own towerHabits filter), each synthesized clean via
+ * buildShareSceneHabit so the multi-tower card never draws a gap either.
+ * Aggregate stats mirror the board's own copy: "N towers standing", the best
+ * current run across them, and total floors across all of them.
+ */
+export function buildShareSkylineHabits(habits, categoryColors, mode, today = new Date()) {
+  const list = habits || [];
+  const sceneHabits = list.map((h) => buildShareSceneHabit(h, categoryColors, mode, today));
+  const towersStanding = list.length;
+  const bestRun = sceneHabits.reduce((max, h) => Math.max(max, h.currentRun), 0);
+  const floorsBuilt = list.reduce((sum, h) => sum + (h.checkIns || []).length, 0);
+  return { sceneHabits, towersStanding, bestRun, floorsBuilt };
+}

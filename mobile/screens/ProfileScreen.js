@@ -6,6 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AvatarImage from '../components/AvatarImage';
 import EditProfileModal from '../components/EditProfileModal';
 import MyStatsModal from '../components/MyStatsModal';
+import ShareSheet from '../components/ShareSheet';
 import AddFriendModal from '../components/AddFriendModal';
 import ConfirmModal from '../components/ConfirmModal';
 import Toast from '../components/Toast';
@@ -53,6 +54,7 @@ export default function ProfileScreen() {
   const [editVisible, setEditVisible] = useState(false);
   const [myStatsVisible, setMyStatsVisible] = useState(false);
   const [friendsVisible, setFriendsVisible] = useState(false);
+  const [shareSheetVisible, setShareSheetVisible] = useState(false);
   const { toast, hideToast } = useToast();
   const { request, confirm, respond } = useConfirm();
 
@@ -187,6 +189,15 @@ export default function ProfileScreen() {
         </Pressable>
 
         <SettingsRow
+          icon="share-variant-outline"
+          label="Share my skyline"
+          sublabel="Square, Story or short clip"
+          onPress={() => setShareSheetVisible(true)}
+          styles={styles}
+          colors={colors}
+          testID="profile-share-skyline-row"
+        />
+        <SettingsRow
           icon="account-group-outline"
           label="Friends"
           sublabel={`${friends.length} ${friends.length === 1 ? 'friend' : 'friends'}${pendingRequests.length > 0 ? ` · ${pendingRequests.length} requests` : ''}`}
@@ -252,6 +263,7 @@ export default function ProfileScreen() {
 
       <EditProfileModal visible={editVisible} onClose={() => setEditVisible(false)} />
       <MyStatsModal visible={myStatsVisible} onClose={() => setMyStatsVisible(false)} />
+      <ShareSheet visible={shareSheetVisible} onClose={() => setShareSheetVisible(false)} habit={null} />
       <AddFriendModal visible={friendsVisible} onClose={() => setFriendsVisible(false)} />
       <ConfirmModal request={request} onRespond={respond} />
       <Toast toast={toast} onHide={hideToast} />

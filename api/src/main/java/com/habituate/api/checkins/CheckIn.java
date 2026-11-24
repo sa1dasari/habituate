@@ -5,13 +5,35 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 
 import java.time.Instant;
 
+/**
+ * Launch-readiness indexes (SKYLINE.md Phase 8), matched to
+ * CheckInRepository's actual query methods rather than guessed: user_id +
+ * habit_id for findByUserIdAndHabitId* (the hot path — every hydrate() call)
+ * and findByUserId/deleteByUserId; habit_id + occurred_at for the
+ * exists/count-between queries (group-period qualification, duplicate
+ * check); group_id + occurred_at for the friend-activity feed. Deliberately
+ * not indexed: findDistinctUserIdsSince's plain occurred_at filter — it's
+ * the nightly insights batch job, not a per-request path, lower priority.
+ * `ddl-auto=update` is known to be inconsistent about adding indexes to an
+ * existing table on some Hibernate/dialect combinations — not verified
+ * against a live database this session (confirm with `\d check_ins` in
+ * psql after the next deploy).
+ */
 @Entity
-@Table(name = "check_ins")
+@Table(
+        name = "check_ins",
+        indexes = {
+                @Index(name = "idx_checkins_user_habit", columnList = "userId, habitId"),
+                @Index(name = "idx_checkins_habit_occurred", columnList = "habitId, occurredAt"),
+                @Index(name = "idx_checkins_group_occurred", columnList = "groupId, occurredAt")
+        }
+)
 public class CheckIn {
 
     @Id

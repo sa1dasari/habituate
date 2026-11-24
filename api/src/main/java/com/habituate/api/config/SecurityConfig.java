@@ -14,10 +14,13 @@ import org.springframework.web.cors.CorsConfigurationSource;
 public class SecurityConfig {
 
     private final FirebaseAuthFilter firebaseAuthFilter;
+    private final RateLimitFilter rateLimitFilter;
     private final CorsConfigurationSource corsConfigurationSource;
 
-    public SecurityConfig(FirebaseAuthFilter firebaseAuthFilter, CorsConfigurationSource corsConfigurationSource) {
+    public SecurityConfig(FirebaseAuthFilter firebaseAuthFilter, RateLimitFilter rateLimitFilter,
+                           CorsConfigurationSource corsConfigurationSource) {
         this.firebaseAuthFilter = firebaseAuthFilter;
+        this.rateLimitFilter = rateLimitFilter;
         this.corsConfigurationSource = corsConfigurationSource;
     }
 
@@ -31,7 +34,9 @@ public class SecurityConfig {
                 .requestMatchers("/api/health", "/actuator/**").permitAll()
                 .anyRequest().permitAll()  // FirebaseAuthFilter handles 401s; Spring Security stays permissive
             )
-            .addFilterBefore(firebaseAuthFilter, UsernamePasswordAuthenticationFilter.class);
+            .addFilterBefore(firebaseAuthFilter, UsernamePasswordAuthenticationFilter.class)
+            // After, not before — needs USER_ID_ATTRIBUTE already set for the coach case.
+            .addFilterAfter(rateLimitFilter, FirebaseAuthFilter.class);
 
         return http.build();
     }

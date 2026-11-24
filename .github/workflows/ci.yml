@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  backend-test:
+    runs-on: ubuntu-latest
+    # Matches docker-compose.yml's local Postgres exactly (db/user/password
+    # and port 5432), which is also what application.properties's datasource
+    # is hardcoded to — no env override needed for this to just work.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: habituate
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      # No Firebase credentials set — FirebaseConfig.java falls back to demo
+      # mode (logs a warning, skips token verification) rather than failing
+      # context load, and no test sends real mail or calls the real
+      # Anthropic API (CLAUDE.md section 5), so neither needs CI secrets.
+      # Invoked via `sh`, not `./mvnw` directly — the file is tracked in git
+      # without the executable bit (mode 100644), so a direct invocation on
+      # a Linux runner would fail with "Permission denied".
+      - name: Run backend tests
+        working-directory: api
+        run: sh mvnw -B test
+
+  mobile-bundle-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - name: Install dependencies
+        working-directory: mobile
+        run: npm ci
+      - name: Run unit tests
+        working-directory: mobile
+        run: npx jest
+      - name: Type-check
+        working-directory: mobile
+        run: npx tsc --noEmit
+      - name: Web bundle check
+        working-directory: mobile
+        run: npx expo export --platform web

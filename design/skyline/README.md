@@ -108,3 +108,23 @@ This is the only folder of Skyline mockups. The old `concept _screens/` folder w
 
 ## Design system (APPROVED by the owner 2026-11-21)
 `DESIGN-SYSTEM.md` and `79-design-system.png` set the type scale, button, card and sheet sizes. All boards drawn from `source/` (every board except those listed below) were re-rendered to the standard on 2026-11-21: no half-point sizes, scale of 12/13/14/16/18/22/28/36. Boards 01 and 16 to 21 (previously owner-supplied images in another font) were redrawn in Nunito from `source/rd.js` on 2026-11-21; the originals are in `superseded/pre-nunito/`. Layout and content are as approved; the lot and tower art was redrawn with the shared tower helper, so small shape differences from the old images are expected. 06 stays superseded by 28 to 30. Component pass done 2026-11-21: button heights 34/38/42/46/50/52 snapped to 36/44/48/54 with pill radii, card radii 17 to 24 snapped to 20, sheets 28. Board 06 (old Insights image) moved to `superseded/`; Insights is 28 to 33.
+
+
+## Authoritative files for merges (2026-11-23)
+On `main`, boards 74, 75, 76, 77 and 78 (`74-tower-sheet-repair-run.png`, `75-tower-sheet-run-repaired.png`, `76-tower-sheet-log-amount.png`, `77-tower-sheet-log-amount-with-unit.png`, `78-create-form-amount-unit.png`) are the current versions: 76 is unitless, 77 and 78 carry the optional unit, and all five were re-rendered to the design system on 2026-11-21. If another branch has different PNGs at these paths, keep main's. The owner's own sign-off on the merge resolution is still needed.
+
+
+## Share (owner said "everything looks good" 2026-11-24 with two fixes, now applied: richer footer with avatar, and the text chip never overlaps the towers; final look to be confirmed by the owner)
+Opened from the tower sheet and from a Share entry for the whole skyline. The card shows the habit name (or "4 towers standing" for the skyline), run length, floors built, the tower or towers in the habit colour on the user's own sky (same sky and weather rules as the Skyline tab), the @username (a switch in the share sheet) and a small Habituate wordmark. Text sits on a dark chip so it never overlaps the art or the sky. No check-in dates; no open or missed floors are drawn.
+| Board | File | Notes |
+|---|---|---|
+| 80 | `80-share-card-square.png` | one tower, 1:1 feed post, export 1080 x 1080 |
+| 81 | `81-share-card-story.png` | one tower, 9:16 Stories and Reels, export 1080 x 1920; keep content between 14% and 80% of the height |
+| 82 | `82-share-clip-storyboard.png` | 9:16 clip, 5 seconds, no sound needed; Reduce Motion exports the static card |
+| 83 | `83-share-skyline-square.png` | whole skyline, 1:1 |
+| 84 | `84-share-skyline-story.png` | whole skyline, 9:16 |
+| 85 | `85-share-sky-and-colour-variants.png` | night, clear day, dusk, rain; tower uses the habit colour |
+| 86 | `86-share-sheet.png` | choose This tower or My whole skyline, format Square / Story / Clip, Show @username switch, preview, Share, Save to photos |
+
+## Share entry points (PROPOSAL 2026-11-24)
+Board 03 (tower sheet): a 44 round share icon at the right of the sheet header opens the share sheet (86) for that tower. Apply the same header icon to the other tower sheets (24, 56, 74 to 77). Board 15 (Profile): a "Share my skyline" row, first in the list under the skyline card, opens the share sheet (86) with "My whole skyline" selected.

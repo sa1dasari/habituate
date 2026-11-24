@@ -114,7 +114,7 @@ This is the only folder of Skyline mockups. The old `concept _screens/` folder w
 On `main`, boards 74, 75, 76, 77 and 78 (`74-tower-sheet-repair-run.png`, `75-tower-sheet-run-repaired.png`, `76-tower-sheet-log-amount.png`, `77-tower-sheet-log-amount-with-unit.png`, `78-create-form-amount-unit.png`) are the current versions: 76 is unitless, 77 and 78 carry the optional unit, and all five were re-rendered to the design system on 2026-11-21. If another branch has different PNGs at these paths, keep main's. The owner's own sign-off on the merge resolution is still needed.
 
 
-## Share (PROPOSAL v2 2026-11-24, owner feedback applied, awaiting final approval)
+## Share (owner said "everything looks good" 2026-11-24 with two fixes, now applied: richer footer with avatar, and the text chip never overlaps the towers; final look to be confirmed by the owner)
 Opened from the tower sheet and from a Share entry for the whole skyline. The card shows the habit name (or "4 towers standing" for the skyline), run length, floors built, the tower or towers in the habit colour on the user's own sky (same sky and weather rules as the Skyline tab), the @username (a switch in the share sheet) and a small Habituate wordmark. Text sits on a dark chip so it never overlaps the art or the sky. No check-in dates; no open or missed floors are drawn.
 | Board | File | Notes |
 |---|---|---|

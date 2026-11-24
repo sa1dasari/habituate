@@ -67,6 +67,14 @@ public class User {
     @Column(nullable = false)
     private Instant updatedAt;
 
+    /** The v1 free tier's lifetime unlock (SKYLINE.md Phase 8a, section 14 #21), granted by
+     * RevenueCatWebhookController when a NON_RENEWING_PURCHASE for the lifetime entitlement
+     * lands — not read from the client, since the whole point is a server-side source of
+     * truth the client can't spoof by hitting the API directly. Defaults false for every
+     * existing and new row (same app-layer-default convention as profileVisibility). */
+    @Column(nullable = false, columnDefinition = "boolean not null default false")
+    private boolean lifetimePurchased = false;
+
     public User() {
     }
 
@@ -144,5 +152,13 @@ public class User {
 
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public boolean isLifetimePurchased() {
+        return lifetimePurchased;
+    }
+
+    public void setLifetimePurchased(boolean lifetimePurchased) {
+        this.lifetimePurchased = lifetimePurchased;
     }
 }

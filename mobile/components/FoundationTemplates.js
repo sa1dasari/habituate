@@ -3,6 +3,9 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { HABIT_TEMPLATES } from './TemplateHabitsPicker';
+import { useHabits } from '../hooks/useHabits';
+import { useEntitlement } from '../hooks/useEntitlement';
+import { countByCap, FREE_SHIELD_BANK_LIMIT, FREE_TIER_LIMITS } from '../utils/entitlements';
 import { fonts } from '../theme';
 
 // Per-template icon + tint, as drawn on design-review board 35. Tints are
@@ -25,6 +28,10 @@ const TEMPLATE_LOOK = {
  * its own step of the first-run flow.
  */
 export default function FoundationTemplates({ visible, onClose, onSelectTemplate, onCustom, theme, busy }) {
+  const { habits, shieldsAvailable } = useHabits();
+  const { isPro } = useEntitlement();
+  const counts = countByCap(habits);
+
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
@@ -41,9 +48,14 @@ export default function FoundationTemplates({ visible, onClose, onSelectTemplate
           </Pressable>
 
           <Text style={[styles.title, { color: theme.text }]}>Lay a foundation</Text>
-          <Text style={[styles.subtitle, { color: theme.muted }]}>
+          <Text style={[styles.subtitle, isPro ? styles.subtitleNoPlanLine : null, { color: theme.muted }]}>
             Pick one to start, or make your own. You can change anything later.
           </Text>
+          {!isPro ? (
+            <Text style={[styles.planLine, { color: theme.muted }]} testID="foundation-templates-plan-line">
+              {`Free plan · ${counts.daily} of ${FREE_TIER_LIMITS.daily} daily · ${counts.weekly} of ${FREE_TIER_LIMITS.weekly} weekly · ${counts.monthly} of ${FREE_TIER_LIMITS.monthly} monthly · ${shieldsAvailable} of ${FREE_SHIELD_BANK_LIMIT} Shield Days`}
+            </Text>
+          ) : null}
 
           <View style={styles.grid}>
             {HABIT_TEMPLATES.map((template) => {
@@ -91,7 +103,9 @@ const styles = StyleSheet.create({
   cancelBtn: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center' },
   cancelText: { fontFamily: fonts.semiBold, fontSize: 15 },
   title: { fontFamily: fonts.extraBold, fontSize: 32, marginTop: 8 },
-  subtitle: { fontFamily: fonts.regular, fontSize: 15, marginTop: 8, marginBottom: 20, lineHeight: 22 },
+  subtitle: { fontFamily: fonts.regular, fontSize: 15, marginTop: 8, marginBottom: 8, lineHeight: 22 },
+  planLine: { fontFamily: fonts.regular, fontSize: 12, marginBottom: 20 },
+  subtitleNoPlanLine: { marginBottom: 20 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   tile: {
     width: '48%',

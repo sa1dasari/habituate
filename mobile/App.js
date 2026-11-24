@@ -366,6 +366,18 @@ function AppGate() {
 
   usePushToken(!!user);
 
+  // Ties RevenueCat's app_user_id to the Firebase uid so EntitlementService's
+  // webhook can look the purchaser up by it (SKYLINE.md Phase 8a) — a no-op
+  // if Purchases.configure() never ran (no RevenueCat key this build), same
+  // defensive-catch convention as useEntitlement.js.
+  useEffect(() => {
+    if (user?.uid) {
+      Purchases.logIn(user.uid).catch(() => {});
+    } else {
+      Purchases.logOut().catch(() => {});
+    }
+  }, [user?.uid]);
+
   useEffect(() => {
     if (!user) {
       setUsername(undefined);

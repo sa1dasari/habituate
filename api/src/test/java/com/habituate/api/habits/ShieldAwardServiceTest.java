@@ -1,7 +1,10 @@
 package com.habituate.api.habits;
 
+import com.habituate.api.billing.EntitlementService;
 import com.habituate.api.groups.StreakFreeze;
 import com.habituate.api.groups.StreakFreezeRepository;
+import com.habituate.api.users.User;
+import com.habituate.api.users.UserRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +26,9 @@ class ShieldAwardServiceTest {
     @Autowired
     private StreakFreezeRepository streakFreezeRepository;
 
+    @Autowired
+    private UserRepository userRepository;
+
     private String userId;
 
     // Deletes one by one via each repository's base deleteById (transactional
@@ -38,6 +44,7 @@ class ShieldAwardServiceTest {
             streakFreezeRepository.findAll().stream()
                     .filter(f -> userId.equals(f.getUserId()))
                     .forEach(f -> streakFreezeRepository.deleteById(f.getId()));
+            userRepository.findById(userId).ifPresent(u -> userRepository.deleteById(userId));
         }
     }
 
@@ -64,13 +71,25 @@ class ShieldAwardServiceTest {
     }
 
     @Test
-    void awardIfEligible_capsBankedShields() {
+    void awardIfEligible_capsBankedShieldsAtTheFreeTierLimit() {
         userId = "shield-award-test-user-4";
         shieldAwardService.awardIfEligible(userId, 100L, 7);
         shieldAwardService.awardIfEligible(userId, 100L, 14);
-        shieldAwardService.awardIfEligible(userId, 100L, 21);
-        shieldAwardService.awardIfEligible(userId, 100L, 28); // would be a 4th — over the cap of 3
-        assertThat(shieldAwardService.getAvailable(userId)).isEqualTo(ShieldAwardService.MAX_BANKED);
+        shieldAwardService.awardIfEligible(userId, 100L, 21); // would be a 3rd — over the free-tier cap of 2
+        assertThat(shieldAwardService.getAvailable(userId)).isEqualTo(EntitlementService.FREE_SHIELD_BANK_LIMIT);
+    }
+
+    @Test
+    void awardIfEligible_lifetimeUnlockedUserHasNoCap() {
+        userId = "shield-award-test-user-6";
+        User user = new User(userId, null);
+        user.setLifetimePurchased(true);
+        userRepository.save(user);
+
+        shieldAwardService.awardIfEligible(userId, 100L, 7);
+        shieldAwardService.awardIfEligible(userId, 100L, 14);
+        shieldAwardService.awardIfEligible(userId, 100L, 21); // would be capped at 2 on the free tier, not here
+        assertThat(shieldAwardService.getAvailable(userId)).isEqualTo(3);
     }
 
     @Test

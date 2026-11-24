@@ -8,11 +8,14 @@ import TimePicker from './TimePicker';
 import SkylineTower from './SkylineTower';
 import Toast from './Toast';
 import ConfirmModal from './ConfirmModal';
+import PaywallSheet from './PaywallSheet';
 import { useToast } from '../hooks/useToast';
 import { useConfirm } from '../hooks/useConfirm';
 import { useHabits } from '../hooks/useHabits';
+import { useEntitlement } from '../hooks/useEntitlement';
 import { HABIT_CATEGORIES, HABIT_CATEGORY_OPTIONS, DEFAULT_HABIT_CATEGORY, categoryColor } from '../constants/habitCategories';
 import { effectiveWeeklyTarget, effectiveMonthlyTarget } from '../utils/cadence';
+import { countByCap, isAtCap } from '../utils/entitlements';
 import { buildScene, X0, TOWER_W, DX, CRANE_HEIGHT, FLOOR_H, BASE_Y } from '../utils/skylineScene';
 import TowerColorPicker from './TowerColorPicker';
 import { useAppTheme } from '../hooks/useAppTheme';
@@ -117,13 +120,15 @@ function formFromHabit(habit) {
  * submit time. The visible toggle and the persisted value never disagree.
  */
 export default function TowerForm({ visible, onClose, habit, theme, towerTheme, categoryColors }) {
-  const { createHabit, updateHabit, deleteHabit } = useHabits();
+  const { habits, createHabit, updateHabit, deleteHabit } = useHabits();
   const { effectiveMode } = useAppTheme();
   const { showFinishedTowers: globalShowFinishedTowers, habitOverrides, setHabitOverride } = useShowFinishedTowers();
   const { toast, showToast, hideToast } = useToast();
   const { request, confirm, respond } = useConfirm();
+  const { isPro } = useEntitlement();
   const [form, setForm] = useState(() => (habit ? formFromHabit(habit) : emptyForm()));
   const [busy, setBusy] = useState(false);
+  const [paywallCap, setPaywallCap] = useState(null);
   const isEditing = form.id != null;
 
   const setField = (key, value) => setForm((f) => ({ ...f, [key]: value }));
@@ -176,6 +181,34 @@ export default function TowerForm({ visible, onClose, habit, theme, towerTheme, 
       showToast('Give the tower a name first.', 'error');
       return;
     }
+
+    // Free-tier cap (SKYLINE.md section 14 #21, boards 87/88/90) — create
+    // mode only, keyed off the cadence tab the user actually picked (the
+    // clearest signal of intent for a draft that isn't saved yet; an
+    // already-saved habit's classification — see utils/entitlements.js —
+    // handles the ambiguous legacy cases this doesn't need to). The server
+    // enforces this too (HabitService.requireUnderFreeTierCap) as a
+    // backstop; this check is purely so the paywall shows immediately
+    // instead of after a round trip.
+    //
+    // performSubmit (below) is the part that actually saves — PaywallSheet's
+    // onUnlocked calls that directly, not this gate. Right after a purchase
+    // succeeds, useEntitlement's isPro hasn't necessarily updated yet (it
+    // depends on a RevenueCat listener firing), and this closure's own
+    // `isPro` is whatever it was when submit() was created — re-running the
+    // gate here could re-open the paywall immediately after a successful
+    // unlock. The purchase success itself is the proof; no need to re-check.
+    if (!isEditing) {
+      const cap = form.cadence === 'MONTHLY' ? 'monthly' : form.cadence === 'WEEKLY' ? 'weekly' : 'daily';
+      if (isAtCap(cap, countByCap(habits), isPro)) {
+        setPaywallCap(cap);
+        return;
+      }
+    }
+    await performSubmit();
+  };
+
+  const performSubmit = async () => {
     const cadenceMeta = CADENCE_OPTIONS.find((c) => c.value === form.cadence);
     const filled = { ...form };
     // Seed a default of 1 for the chosen cadence's own target field only if
@@ -249,6 +282,7 @@ export default function TowerForm({ visible, onClose, habit, theme, towerTheme, 
   };
 
   return (
+    <>
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
         <View style={styles.header}>
@@ -580,6 +614,17 @@ export default function TowerForm({ visible, onClose, habit, theme, towerTheme, 
         <ConfirmModal request={request} onRespond={respond} />
       </SafeAreaView>
     </Modal>
+    <PaywallSheet
+      visible={!!paywallCap}
+      cap={paywallCap}
+      counts={countByCap(habits)}
+      onClose={() => setPaywallCap(null)}
+      onUnlocked={() => {
+        setPaywallCap(null);
+        performSubmit();
+      }}
+    />
+    </>
   );
 }
 

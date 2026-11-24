@@ -6,6 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AvatarImage from '../components/AvatarImage';
 import EditProfileModal from '../components/EditProfileModal';
 import MyStatsModal from '../components/MyStatsModal';
+import PaywallSheet from '../components/PaywallSheet';
 import ShareSheet from '../components/ShareSheet';
 import AddFriendModal from '../components/AddFriendModal';
 import ConfirmModal from '../components/ConfirmModal';
@@ -15,6 +16,7 @@ import { resolveHabitColor } from '../constants/towerColors';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useAuth } from '../hooks/useAuth';
 import { useConfirm } from '../hooks/useConfirm';
+import { useEntitlement } from '../hooks/useEntitlement';
 import { useFriends } from '../hooks/useFriends';
 import { useHabits } from '../hooks/useHabits';
 import { useShowFinishedTowers } from '../hooks/useShowFinishedTowers';
@@ -24,6 +26,7 @@ import { useRegisterScrollToTop } from '../hooks/useRegisterScrollToTop';
 import { useToast } from '../hooks/useToast';
 import api from '../api/client';
 import { buildCategoryTowerColors, fonts, radii, shadow, spacing } from '../theme';
+import { countByCap, FREE_SHIELD_BANK_LIMIT, FREE_TIER_LIMITS } from '../utils/entitlements';
 
 const PREVIEW_TOWER_LIMIT = 6;
 const towerColorsByMode = buildCategoryTowerColors(HABIT_CATEGORY_COLORS);
@@ -49,12 +52,15 @@ export default function ProfileScreen() {
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const scrollRef = useRegisterScrollToTop('Profile');
   const { user, signOut } = useAuth();
-  const { habits, archivedHabits } = useHabits();
+  const { habits, archivedHabits, shieldsAvailable } = useHabits();
+  const { isPro } = useEntitlement();
+  const capCounts = useMemo(() => countByCap(habits), [habits]);
 
   const [editVisible, setEditVisible] = useState(false);
   const [myStatsVisible, setMyStatsVisible] = useState(false);
   const [friendsVisible, setFriendsVisible] = useState(false);
   const [shareSheetVisible, setShareSheetVisible] = useState(false);
+  const [paywallVisible, setPaywallVisible] = useState(false);
   const { toast, hideToast } = useToast();
   const { request, confirm, respond } = useConfirm();
 
@@ -186,8 +192,25 @@ export default function ProfileScreen() {
             <StatChip value={archivedHabits.length} label="monument" styles={styles} />
             <StatChip value={bestRun ?? 0} label="best run" styles={styles} />
           </View>
+          {!isPro ? (
+            <Text style={styles.planLine} testID="profile-plan-usage-line">
+              {`Free plan · ${capCounts.daily} of ${FREE_TIER_LIMITS.daily} daily · ${capCounts.weekly} of ${FREE_TIER_LIMITS.weekly} weekly · ${capCounts.monthly} of ${FREE_TIER_LIMITS.monthly} monthly · ${shieldsAvailable} of ${FREE_SHIELD_BANK_LIMIT} Shield Days`}
+            </Text>
+          ) : null}
         </Pressable>
 
+        {!isPro ? (
+          <SettingsRow
+            icon="star-outline"
+            label="Unlock everything"
+            sublabel="Lifetime purchase, pay once"
+            onPress={() => setPaywallVisible(true)}
+            styles={styles}
+            colors={colors}
+            amber
+            testID="profile-unlock-row"
+          />
+        ) : null}
         <SettingsRow
           icon="share-variant-outline"
           label="Share my skyline"
@@ -264,6 +287,13 @@ export default function ProfileScreen() {
       <EditProfileModal visible={editVisible} onClose={() => setEditVisible(false)} />
       <MyStatsModal visible={myStatsVisible} onClose={() => setMyStatsVisible(false)} />
       <ShareSheet visible={shareSheetVisible} onClose={() => setShareSheetVisible(false)} habit={null} />
+      <PaywallSheet
+        visible={paywallVisible}
+        cap="browse"
+        counts={capCounts}
+        onClose={() => setPaywallVisible(false)}
+        onUnlocked={() => setPaywallVisible(false)}
+      />
       <AddFriendModal visible={friendsVisible} onClose={() => setFriendsVisible(false)} />
       <ConfirmModal request={request} onRespond={respond} />
       <Toast toast={toast} onHide={hideToast} />
@@ -280,17 +310,23 @@ function StatChip({ value, label, styles }) {
   );
 }
 
-function SettingsRow({ icon, label, sublabel, onPress, styles, colors, testID }) {
+function SettingsRow({ icon, label, sublabel, onPress, styles, colors, testID, amber }) {
   return (
-    <Pressable style={styles.settingsRow} onPress={onPress} accessibilityRole="button" accessibilityLabel={label} testID={testID}>
-      <View style={styles.settingsRowIcon}>
-        <MaterialCommunityIcons name={icon} size={18} color={colors.accent} />
+    <Pressable
+      style={[styles.settingsRow, amber ? styles.settingsRowAmber : null]}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      testID={testID}
+    >
+      <View style={[styles.settingsRowIcon, amber ? styles.settingsRowIconAmber : null]}>
+        <MaterialCommunityIcons name={icon} size={18} color={amber ? colors.amber || '#F2C14E' : colors.accent} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={styles.settingsRowLabel}>{label}</Text>
+        <Text style={amber ? styles.settingsRowLabelAmber : styles.settingsRowLabel}>{label}</Text>
         {sublabel ? <Text style={styles.settingsRowSublabel}>{sublabel}</Text> : null}
       </View>
-      <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textMuted} />
+      <MaterialCommunityIcons name="chevron-right" size={20} color={amber ? colors.amber || '#F2C14E' : colors.textMuted} />
     </Pressable>
   );
 }
@@ -344,6 +380,7 @@ function makeStyles(colors, typography) {
     statChip: { alignItems: 'center', flex: 1 },
     statChipValue: { fontFamily: fonts.extraBold, fontSize: 18, color: colors.textPrimary },
     statChipLabel: { ...typography.meta, fontSize: 11, marginTop: 1 },
+    planLine: { ...typography.meta, fontSize: 12, marginTop: spacing.sm },
     settingsRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -355,6 +392,11 @@ function makeStyles(colors, typography) {
       marginBottom: spacing.sm,
       ...shadow,
     },
+    settingsRowAmber: {
+      borderWidth: 1,
+      borderColor: colors.amber || '#F2C14E',
+      backgroundColor: 'rgba(242, 193, 78, 0.08)',
+    },
     settingsRowIcon: {
       width: 32,
       height: 32,
@@ -363,7 +405,9 @@ function makeStyles(colors, typography) {
       alignItems: 'center',
       justifyContent: 'center',
     },
+    settingsRowIconAmber: { backgroundColor: 'rgba(242, 193, 78, 0.16)' },
     settingsRowLabel: { fontSize: 14, fontWeight: '600', color: colors.textPrimary },
+    settingsRowLabelAmber: { fontFamily: fonts.extraBold, fontSize: 14, color: colors.amber || '#F2C14E' },
     settingsRowSublabel: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
     signOutBtn: {
       flexDirection: 'row',

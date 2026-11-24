@@ -44,9 +44,13 @@ public class FirebaseAuthFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
         // Health check is always public. username-email is too, deliberately — it's how the
         // login screen turns a typed username into the email Firebase's own sign-in call
-        // needs, so it has to be reachable *before* the user has a token to send.
+        // needs, so it has to be reachable *before* the user has a token to send. The
+        // RevenueCat webhook is server-to-server (no Firebase token exists for it) and
+        // authenticates itself instead via a static secret header, checked in
+        // RevenueCatWebhookController — owner go-ahead 2026-11-24.
         return path.equals("/api/health") || path.startsWith("/actuator/")
-                || path.equals("/api/auth/username-email");
+                || path.equals("/api/auth/username-email")
+                || path.equals("/api/webhooks/revenuecat");
     }
 
     @Override

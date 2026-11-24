@@ -1,5 +1,6 @@
 package com.habituate.api.habits;
 
+import com.habituate.api.billing.EntitlementService;
 import com.habituate.api.checkins.CheckIn;
 import com.habituate.api.checkins.CheckInRepository;
 import com.habituate.api.checkins.CheckInRequest;
@@ -50,6 +51,7 @@ public class HabitService {
     private final AppNotificationService appNotificationService;
     private final HabitTowerRepository habitTowerRepository;
     private final HabitTowerService habitTowerService;
+    private final EntitlementService entitlementService;
 
     public HabitService(
             HabitRepository habitRepository,
@@ -62,12 +64,14 @@ public class HabitService {
             UserLookupService userLookupService,
             AppNotificationService appNotificationService,
             HabitTowerRepository habitTowerRepository,
-            HabitTowerService habitTowerService) {
+            HabitTowerService habitTowerService,
+            EntitlementService entitlementService) {
         this.habitRepository = habitRepository;
         this.checkInRepository = checkInRepository;
         this.groupMemberRepository = groupMemberRepository;
         this.groupStreakUpdater = groupStreakUpdater;
         this.streakFreezeRepository = streakFreezeRepository;
+        this.entitlementService = entitlementService;
         this.shieldAwardService = shieldAwardService;
         this.shieldAwardRepository = shieldAwardRepository;
         this.userLookupService = userLookupService;
@@ -202,7 +206,62 @@ public class HabitService {
         }
         habit.setColor(normalizeColor(request.color()));
         habit.setUnit(blankToNull(request.unit()));
+
+        requireUnderFreeTierCap(userId, habit);
         return toResponse(habitRepository.save(habit));
+    }
+
+    /**
+     * Backstop for the free-tier habit-count caps (SKYLINE.md section 14
+     * #21) — the mobile client pre-checks this and shows the paywall before
+     * ever calling this endpoint, so hitting this exception in practice means
+     * a stale client-side count or a direct API call bypassing the UI. The
+     * message mirrors board 88's own copy so it reads the same wherever it
+     * surfaces. Pro users (EntitlementService) are never capped.
+     */
+    private void requireUnderFreeTierCap(String userId, Habit candidate) {
+        if (entitlementService.isLifetimeUnlocked(userId)) {
+            return;
+        }
+        List<Habit> existing = habitRepository.findByUserIdAndArchivedFalseOrderByCreatedAtDesc(userId);
+        boolean candidateHasDailyTarget = hasDailyTarget(candidate);
+        boolean candidateIsMonthly = !candidateHasDailyTarget
+                && candidate.getMonthlyTarget() != null && candidate.getMonthlyTarget() > 0;
+        boolean candidateIsWeekly = !candidateHasDailyTarget && !candidateIsMonthly
+                && candidate.getWeeklyTarget() != null && candidate.getWeeklyTarget() > 0;
+
+        if (candidateIsMonthly) {
+            long count = existing.stream().filter(h -> isMonthlyLot(h)).count();
+            if (count >= EntitlementService.FREE_MONTHLY_HABIT_LIMIT) {
+                throw new IllegalArgumentException(
+                        "Your monthly lot is in use. The free plan holds " + EntitlementService.FREE_MONTHLY_HABIT_LIMIT
+                                + " monthly habit. Unlock lifetime to keep growing your skyline.");
+            }
+        } else if (candidateIsWeekly) {
+            long count = existing.stream().filter(h -> isWeeklyLot(h)).count();
+            if (count >= EntitlementService.FREE_WEEKLY_HABIT_LIMIT) {
+                throw new IllegalArgumentException(
+                        "Your weekly lot is in use. The free plan holds " + EntitlementService.FREE_WEEKLY_HABIT_LIMIT
+                                + " weekly habit. Unlock lifetime to keep growing your skyline.");
+            }
+        } else {
+            long count = existing.stream().filter(this::hasDailyTarget).count();
+            if (count >= EntitlementService.FREE_DAILY_HABIT_LIMIT) {
+                throw new IllegalArgumentException(
+                        "You have " + count + " daily towers standing, which is what the free plan holds."
+                                + " Unlock lifetime to keep growing your skyline.");
+            }
+        }
+    }
+
+    /** Same monthly-over-weekly priority as mobile's cadenceProgress when both targets are set. */
+    private boolean isMonthlyLot(Habit habit) {
+        return !hasDailyTarget(habit) && habit.getMonthlyTarget() != null && habit.getMonthlyTarget() > 0;
+    }
+
+    private boolean isWeeklyLot(Habit habit) {
+        return !hasDailyTarget(habit) && !isMonthlyLot(habit)
+                && habit.getWeeklyTarget() != null && habit.getWeeklyTarget() > 0;
     }
 
     /** The cap is 1..35 days; anything else is a specific, user-facing 400. */

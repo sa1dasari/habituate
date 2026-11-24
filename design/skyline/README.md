@@ -128,3 +128,12 @@ Opened from the tower sheet and from a Share entry for the whole skyline. The ca
 
 ## Share entry points (PROPOSAL 2026-11-24)
 Board 03 (tower sheet): a 44 round share icon at the right of the sheet header opens the share sheet (86) for that tower. Apply the same header icon to the other tower sheets (24, 56, 74 to 77). Board 15 (Profile): a "Share my skyline" row, first in the list under the skyline card, opens the share sheet (86) with "My whole skyline" selected.
+
+## Free plan and lifetime unlock (PROPOSAL 2026-11-24, awaiting the owner's approval of the drawings)
+Free caps: 5 daily, 1 weekly, 1 monthly, 2 Shield Days. Ask Habituate is not part of any of this and is never named in upgrade copy. Price shown as `$XX.XX`, to be read from RevenueCat at run time (placeholder, not decided).
+| Board | File | Notes |
+|---|---|---|
+| 87 | `87-paywall-cap-hit.png` | Sheet over the filled-in create form when Save hits a cap. Headline "Room for more towers", a line naming the cap, three benefits, Unlock for $XX.XX (54), Not now (48) which returns to the form with everything still filled in, and Restore purchase (store requirement). |
+| 88 | `88-paywall-copy-by-cap.png` | Exact lines for daily, weekly, monthly and Shield Day. Nothing says "can't", "limit reached" or "locked". |
+| 89 | `89-profile-plan-and-unlock.png` | Quiet usage line inside the skyline card ("Free plan · 4 of 5 daily · 1 of 1 weekly · 0 of 1 monthly · 1 of 2 Shield Days", meta 12) and an amber "Unlock everything" row above "Share my skyline". Paid users see neither. |
+| 90 | `90-skyline-add-lot-near-and-at-cap.png` | Skyline tab: near the cap the label under the empty lot reads "1 left" in grey; at the cap the lot outline and label turn amber and read "Unlock". No banner. |

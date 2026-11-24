@@ -114,10 +114,14 @@ This is the only folder of Skyline mockups. The old `concept _screens/` folder w
 On `main`, boards 74, 75, 76, 77 and 78 (`74-tower-sheet-repair-run.png`, `75-tower-sheet-run-repaired.png`, `76-tower-sheet-log-amount.png`, `77-tower-sheet-log-amount-with-unit.png`, `78-create-form-amount-unit.png`) are the current versions: 76 is unitless, 77 and 78 carry the optional unit, and all five were re-rendered to the design system on 2026-11-21. If another branch has different PNGs at these paths, keep main's. The owner's own sign-off on the merge resolution is still needed.
 
 
-## Share tower (PROPOSAL 2026-11-24, awaiting the owner's own approval)
-Opened from the tower sheet. Static card in two sizes plus a short clip, same content: habit name, run length, floors built, the tower on a night skyline, small Habituate wordmark. No username, no friends, no check-in dates (profiles default to private). No open or missed floors shown; the tower is drawn clean. Day sky variants follow the sky rules in `SKYLINE.md`.
+## Share (PROPOSAL v2 2026-11-24, owner feedback applied, awaiting final approval)
+Opened from the tower sheet and from a Share entry for the whole skyline. The card shows the habit name (or "4 towers standing" for the skyline), run length, floors built, the tower or towers in the habit colour on the user's own sky (same sky and weather rules as the Skyline tab), the @username (a switch in the share sheet) and a small Habituate wordmark. Text sits on a dark chip so it never overlaps the art or the sky. No check-in dates; no open or missed floors are drawn.
 | Board | File | Notes |
 |---|---|---|
-| 80 | `80-share-card-square.png` | 1:1 feed post, export 1080 x 1080. Tower left, text right. |
-| 81 | `81-share-card-story.png` | 9:16 Stories and Reels, export 1080 x 1920. Text above the tower, wordmark at about 80% height; keep everything between 14% and 80% of the height clear of the app overlays. |
-| 82 | `82-share-clip-storyboard.png` | 9:16 clip, 5 seconds, no sound needed: empty lot, floors rise one at a time, the latest floor lights up, then name and run fade in and hold 1 second. Honour Reduce Motion by exporting the static card instead. |
+| 80 | `80-share-card-square.png` | one tower, 1:1 feed post, export 1080 x 1080 |
+| 81 | `81-share-card-story.png` | one tower, 9:16 Stories and Reels, export 1080 x 1920; keep content between 14% and 80% of the height |
+| 82 | `82-share-clip-storyboard.png` | 9:16 clip, 5 seconds, no sound needed; Reduce Motion exports the static card |
+| 83 | `83-share-skyline-square.png` | whole skyline, 1:1 |
+| 84 | `84-share-skyline-story.png` | whole skyline, 9:16 |
+| 85 | `85-share-sky-and-colour-variants.png` | night, clear day, dusk, rain; tower uses the habit colour |
+| 86 | `86-share-sheet.png` | choose This tower or My whole skyline, format Square / Story / Clip, Show @username switch, preview, Share, Save to photos |

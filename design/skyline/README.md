@@ -112,3 +112,12 @@ This is the only folder of Skyline mockups. The old `concept _screens/` folder w
 
 ## Authoritative files for merges (2026-11-23)
 On `main`, boards 74, 75, 76, 77 and 78 (`74-tower-sheet-repair-run.png`, `75-tower-sheet-run-repaired.png`, `76-tower-sheet-log-amount.png`, `77-tower-sheet-log-amount-with-unit.png`, `78-create-form-amount-unit.png`) are the current versions: 76 is unitless, 77 and 78 carry the optional unit, and all five were re-rendered to the design system on 2026-11-21. If another branch has different PNGs at these paths, keep main's. The owner's own sign-off on the merge resolution is still needed.
+
+
+## Share tower (PROPOSAL 2026-11-24, awaiting the owner's own approval)
+Opened from the tower sheet. Static card in two sizes plus a short clip, same content: habit name, run length, floors built, the tower on a night skyline, small Habituate wordmark. No username, no friends, no check-in dates (profiles default to private). No open or missed floors shown; the tower is drawn clean. Day sky variants follow the sky rules in `SKYLINE.md`.
+| Board | File | Notes |
+|---|---|---|
+| 80 | `80-share-card-square.png` | 1:1 feed post, export 1080 x 1080. Tower left, text right. |
+| 81 | `81-share-card-story.png` | 9:16 Stories and Reels, export 1080 x 1920. Text above the tower, wordmark at about 80% height; keep everything between 14% and 80% of the height clear of the app overlays. |
+| 82 | `82-share-clip-storyboard.png` | 9:16 clip, 5 seconds, no sound needed: empty lot, floors rise one at a time, the latest floor lights up, then name and run fade in and hold 1 second. Honour Reduce Motion by exporting the static card instead. |

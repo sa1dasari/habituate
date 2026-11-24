@@ -125,3 +125,6 @@ Opened from the tower sheet and from a Share entry for the whole skyline. The ca
 | 84 | `84-share-skyline-story.png` | whole skyline, 9:16 |
 | 85 | `85-share-sky-and-colour-variants.png` | night, clear day, dusk, rain; tower uses the habit colour |
 | 86 | `86-share-sheet.png` | choose This tower or My whole skyline, format Square / Story / Clip, Show @username switch, preview, Share, Save to photos |
+
+## Share entry points (PROPOSAL 2026-11-24)
+Board 03 (tower sheet): a 44 round share icon at the right of the sheet header opens the share sheet (86) for that tower. Apply the same header icon to the other tower sheets (24, 56, 74 to 77). Board 15 (Profile): a "Share my skyline" row, first in the list under the skyline card, opens the share sheet (86) with "My whole skyline" selected.

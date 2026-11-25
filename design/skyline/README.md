@@ -142,3 +142,10 @@ Free caps: 5 daily, 1 weekly, 1 monthly, 2 Shield Days. Ask Habituate is not par
 **Update 2026-11-24 (owner decision):** board 87 now offers two plans, Lifetime (selected by default, "Best value" tag, $XX.XX one time) and Monthly ($X.XX / month, cancel any time). The button follows the selection ("Unlock lifetime for $XX.XX" or "Start monthly for $X.XX"). Body copy now ends "Choose a plan to keep growing your skyline." and the third benefit reads "Cancel monthly any time". Prices are placeholders from RevenueCat. Awaiting the owner's confirmation of the drawing.
 
 **Paywall opened from Profile (PROPOSAL 2026-11-24):** board 91 `91-paywall-from-profile.png`. Same sheet as 87, opened from the "Unlock everything" row without a cap hit. Eyebrow "FREE PLAN"; body "The free plan holds 5 daily, 1 weekly and 1 monthly habit, plus 2 Shield Days. Choose a plan to keep growing your skyline." The footer drops "Your form is saved" (there is no form) and reads "Your towers stay exactly as they are." Not now returns to Profile. Board 88 has the new copy card.
+
+## Login and Create account (PROPOSAL 2026-11-25, direction chosen by the owner: skyline hero)
+| Board | File | Notes |
+|---|---|---|
+| 92 | `92-login.png` | Night skyline hero with five towers, "habituate" wordmark and the tagline "Build habits that stick — together." A sheet-style card below: "Welcome back", Username or email, Password (inputs 56), Sign in (54), "or", Google, Facebook, Apple (black, iOS only), Face ID (only when biometrics are set up), "New here? Create an account". An error message (from `err.message`) shows as meta text under the Password field. |
+| 93 | `93-create-account.png` | Same look, shorter hero. "Create your account", Name (optional), Email, Password, Create account, the three social sign-ups, "Already have an account? Sign in". Tagline "Start building — no pressure." |
+Same fields, order and actions as today's LoginScreen and SignupScreen; only the look changes. Third-party buttons follow each provider's brand rules in the build.

@@ -3,6 +3,8 @@ import { AppState, Pressable, StyleSheet, Text, useWindowDimensions, View } from
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
+import { useRoute } from '@react-navigation/native';
 import { useHabits } from '../hooks/useHabits';
 import { useAuth } from '../hooks/useAuth';
 import { useAppTheme } from '../hooks/useAppTheme';
@@ -11,6 +13,15 @@ import { useShowFinishedTowers } from '../hooks/useShowFinishedTowers';
 import { useWindowCount } from '../hooks/useWindowCount';
 import { useWeatherSky } from '../hooks/useWeatherSky';
 import { useToast } from '../hooks/useToast';
+import { useCelebration } from '../hooks/useCelebration';
+import { useReviewPrompt } from '../hooks/useReviewPrompt';
+import {
+  buildAllDoneCelebration,
+  buildCheckInCelebration,
+  buildHabitMilestone,
+  buildStreakMilestone,
+} from '../utils/celebration';
+import { COACH_ENABLED } from '../constants/featureFlags';
 import Toast from '../components/Toast';
 import LocationPermissionModal from '../components/LocationPermissionModal';
 import AskHabituateModal from '../components/AskHabituateModal';
@@ -51,11 +62,14 @@ function hexToRgba(hex, alpha) {
 
 /**
  * The real Skyline screen (SKYLINE.md Phase 2), wired to the existing
- * useHabits hook — unlike screens/dev/SkylineEngineScreen.js, which only
- * ever renders fixtures. Not yet registered as the live "Today"/"Skyline"
- * tab: Shield Day toggle and streak repair live in the tower sheet, which
- * is Phase 3, so renaming the tab now would lose capability versus the old
- * TodayScreen. Reachable for now via the __DEV__ tab in App.js.
+ * useHabits hook. This is the live "Today"-route/"Skyline"-tab screen as of
+ * the 2026-11-25 swap (section 14 #20) — TodayScreen.js and the dev-only
+ * SkylineEngineScreen/SkylineReal preview tabs are deleted. Celebration
+ * (useCelebration/useReviewPrompt), the coach entry points (gated by
+ * COACH_ENABLED, unlike TodayScreen's icon which was already gated), and
+ * habit-reminder-notification handling (route.params.highlightHabitId,
+ * opening that habit's sheet) were all ported in as part of this swap —
+ * none of them existed here before, since this screen was dev-only.
  *
  * Layout matches design/skyline/01-skyline.png: header (title, date +
  * built count, chat/profile icons), the sky+towers scene, then a persistent
@@ -73,12 +87,16 @@ function formatHeaderDate(date) {
 export default function SkylineScreen({ navigation }) {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const { habits, loading, toggleCheckIn, addCheckIn, removeCheckIn, createHabit, topOutHabit } = useHabits();
+  const route = useRoute();
+  const { habits, loading, toggleCheckIn, addCheckIn, removeCheckIn, createHabit, topOutHabit, shieldsAvailable } =
+    useHabits();
   const { user } = useAuth();
   const { effectiveMode } = useAppTheme();
   const { tapToBuild } = useTapToBuild();
   const { windowCount } = useWindowCount();
   const { toast, showToast, hideToast } = useToast();
+  const { celebrate: showCelebration } = useCelebration();
+  const maybePromptForReview = useReviewPrompt();
   const { needsLocationPrompt, weatherCode, sunrise, sunset, requestLocation, skipLocationPrompt } =
     useWeatherSky();
   const [today, setToday] = useState(() => new Date());
@@ -201,6 +219,34 @@ export default function SkylineScreen({ navigation }) {
   // rather than the x-of-y pair.
   const dailyOpenToday = dueTodayCount.total - dueTodayCount.done;
 
+  // Ported from TodayScreen.js's own `celebrate` (SkylineScreen never had
+  // this wired in — it was dev-only, so nothing noticed). Same priority
+  // order and the same `wasChecked`/COUNT-always-eligible split as there;
+  // `dueTodayCount` is this screen's equivalent of TodayScreen's
+  // `summary` (both are daily-due-habits-only {total, done}). Logging
+  // progress gets a celebration; undoing stays silent — handleBuild below
+  // never calls this on the undo path, so there is no separate guard here.
+  const celebrate = useCallback(
+    (habit, delta = 1) => {
+      const previousDone = dueTodayCount.done;
+      const todayDone = habit.dueToday ? Math.min(dueTodayCount.total, previousDone + delta) : previousDone;
+
+      const payload =
+        buildStreakMilestone(habit, { shieldsAvailable }) ||
+        buildHabitMilestone(habit, delta, { todayDone, todayTotal: dueTodayCount.total }) ||
+        buildAllDoneCelebration(previousDone, todayDone, dueTodayCount.total) ||
+        (habit.checkedInToday
+          ? null
+          : buildCheckInCelebration(habit, delta, { todayDone, todayTotal: dueTodayCount.total }));
+      if (payload) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        showCelebration(payload);
+        maybePromptForReview(payload);
+      }
+    },
+    [dueTodayCount, showCelebration, shieldsAvailable, maybePromptForReview],
+  );
+
   // The one correctness-critical rule in this screen: a BOOLEAN habit
   // already checked in today can't be held again — toggleCheckIn is a
   // toggle, and allowing a second hold would delete today's check-in. COUNT
@@ -223,15 +269,17 @@ export default function SkylineScreen({ navigation }) {
       try {
         if (isCountMode(habit)) {
           await addCheckIn(habitId, 1);
+          celebrate(habit, 1);
         } else if (!habit.checkedInToday) {
           await toggleCheckIn(habitId);
+          celebrate(habit, 1);
         }
         setHasBuiltOnce(true);
       } catch (err) {
         showToast(`Could not update check-in — ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
       }
     },
-    [habitsById, addCheckIn, toggleCheckIn, showToast],
+    [habitsById, addCheckIn, toggleCheckIn, showToast, celebrate],
   );
 
   // Opened by SkylineHoldLayer's composed gesture (a tap, or a long press
@@ -239,6 +287,33 @@ export default function SkylineScreen({ navigation }) {
   const handleOpenTowerSheet = useCallback((habitId) => setTowerSheetHabitId(habitId), []);
   const closeTowerSheet = useCallback(() => setTowerSheetHabitId(null), []);
   const towerSheetHabit = towerSheetHabitId ? habitsById[towerSheetHabitId] : null;
+
+  // Reached from a habit-reminder notification tap (NotificationCenterModal,
+  // the real OS push listener — App.js's PushNotificationTapBridge —
+  // navigateToTab('Today', { highlightHabitId })). TodayScreen.js scrolled
+  // to and rang the habit's card; SkylineScreen has no equivalent card list
+  // to scroll to, so this opens that habit's sheet directly instead — a
+  // judgment call (no new visual design), not a pixel-identical port. A
+  // tower habit opens TowerSheet; a weekly/monthly habit switches to the
+  // Lots view and opens its current period's LotSheet. Param is cleared
+  // immediately so re-focusing this screen later doesn't replay it.
+  useEffect(() => {
+    const incoming = route.params?.highlightHabitId;
+    if (incoming == null) return;
+    navigation.setParams({ highlightHabitId: undefined });
+    const habit = habitsById[incoming];
+    if (!habit) return;
+    if (hasDailyTarget(habit)) {
+      setTowerSheetHabitId(incoming);
+    } else {
+      const row = lots.rows.find((r) => r.habitId === incoming);
+      const period = row?.periods.find((p) => p.isCurrent) || row?.periods[row.periods.length - 1];
+      if (row && period) {
+        setView('lots');
+        setLotSheetKey({ habitId: incoming, periodKey: period.key });
+      }
+    }
+  }, [route.params?.highlightHabitId, navigation, habitsById, lots, setView]);
 
   // Phase 3c's inside view, opened from the tower sheet's "Look inside" row.
   const handleOpenInsideView = useCallback((habit) => setInsideViewHabitId(habit.id), []);
@@ -402,6 +477,7 @@ export default function SkylineScreen({ navigation }) {
             <MaterialCommunityIcons name="archive-outline" size={20} color={ui.text} />
           </Pressable>
           )}
+          {COACH_ENABLED && (
           <Pressable
             style={styles.iconBtn}
             accessibilityRole="button"
@@ -417,6 +493,7 @@ export default function SkylineScreen({ navigation }) {
           >
             <MaterialCommunityIcons name="chat-processing-outline" size={20} color={ui.text} />
           </Pressable>
+          )}
           <Pressable
             style={styles.iconBtn}
             accessibilityRole="button"
@@ -604,7 +681,7 @@ export default function SkylineScreen({ navigation }) {
                 tapToBuild={tapToBuild}
                 categoryColors={categoryColors}
                 stageHeight={stageHeight}
-                onAskAboutTower={handleAskAboutTower}
+                onAskAboutTower={COACH_ENABLED ? handleAskAboutTower : undefined}
                 onOpenInsideView={handleOpenInsideView}
                 onEdit={handleOpenTowerForm}
               />
@@ -617,8 +694,8 @@ export default function SkylineScreen({ navigation }) {
                 uiTheme={ui}
                 towerTheme={towerTheme}
                 tapToBuild={tapToBuild}
-                onAskAboutTower={handleAskAboutTower}
-                onAskAboutDay={handleAskAboutDay}
+                onAskAboutTower={COACH_ENABLED ? handleAskAboutTower : undefined}
+                onAskAboutDay={COACH_ENABLED ? handleAskAboutDay : undefined}
               />
               <ArchivedTowersSheet
                 visible={archivedTowersVisible}
@@ -627,8 +704,8 @@ export default function SkylineScreen({ navigation }) {
                 towerTheme={towerTheme}
                 effectiveMode={effectiveMode}
                 categoryColors={categoryColors}
-                onAskAboutTower={handleAskAboutTower}
-                onAskAboutDay={handleAskAboutDay}
+                onAskAboutTower={COACH_ENABLED ? handleAskAboutTower : undefined}
+                onAskAboutDay={COACH_ENABLED ? handleAskAboutDay : undefined}
               />
               <TowerForm
                 key={towerFormHabitId ?? 'new'}

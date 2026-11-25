@@ -45,17 +45,12 @@ import {
   CommunityScreen,
   LoginScreen,
   SignupScreen,
-  TodayScreen,
 } from './screens';
 import ProfileStack from './navigation/ProfileStack';
 import InsightsStack from './navigation/InsightsStack';
-// Skyline rebuild dev screens only (SKYLINE.md section 11) — __DEV__-gated
-// below, never shown in a release build. SkylineEngineScreen is the Phase 1
-// fixture-only render check; SkylineScreen is Phase 2's real-data screen,
-// not yet the live tab (TowerSheet-only actions like Shield Day and streak
-// repair aren't reachable until Phase 3). Delete both dev entries and this
-// comment once Phase 3 closes that gap and the real tab takes over.
-import SkylineEngineScreen from './screens/dev/SkylineEngineScreen';
+// SkylineScreen is now the live 'Today'-route/"Skyline"-tab screen (SKYLINE.md
+// section 14 #20, 2026-11-25) — TodayScreen.js and the __DEV__-only
+// SkylineEngine/SkylineReal preview tabs are deleted, not just hidden.
 import SkylineScreen from './screens/SkylineScreen';
 import CommunityComingSoonScreen from './screens/CommunityComingSoonScreen';
 
@@ -130,14 +125,19 @@ function Tabs() {
     >
       <Tab.Screen
         name="Today"
-        component={TodayScreen}
+        component={SkylineScreen}
         // Route name stays 'Today' (code name, same as habit/check-in/
         // streak elsewhere — every navigation.navigate('Today', ...) call
         // site keeps working unchanged). Only the visible label changes,
         // per CLAUDE.md's UI-wording table and the design-review-approved
-        // small fixes (2026-11-13).
+        // small fixes (2026-11-13). SkylineScreen replaces TodayScreen as
+        // this route's component 2026-11-25 (section 14 #20) — no
+        // tabPress scroll-to-top listener here: SkylineScreen's root is a
+        // fixed stage + draggable sheet, not a ScrollView, so there is
+        // nothing for scrollToTop('Today') to do (TodayScreen's own
+        // listener was a no-op the instant nothing registered under that
+        // key, same safe-no-op as this absence).
         options={{ tabBarLabel: 'Skyline' }}
-        listeners={{ tabPress: () => scrollToTop('Today') }}
       />
       <Tab.Screen
         name="Insights"
@@ -175,24 +175,6 @@ function Tabs() {
         }}
         listeners={{ tabPress: () => scrollToTop('Profile') }}
       />
-      {__DEV__ && (
-        <Tab.Screen
-          name="SkylineEngine"
-          component={SkylineEngineScreen}
-          options={{ title: 'Engine', tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="flask-outline" size={size} color={color} />
-          ) }}
-        />
-      )}
-      {__DEV__ && (
-        <Tab.Screen
-          name="SkylineReal"
-          component={SkylineScreen}
-          options={{ title: 'Skyline2', tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="office-building" size={size} color={color} />
-          ) }}
-        />
-      )}
     </Tab.Navigator>
     {/* Hosts tour steps 4-5, which spotlight the tab bar buttons. */}
     <TourHighlight scope={TOUR_SCOPES.TABS} />

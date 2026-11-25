@@ -713,10 +713,16 @@ export default function TowerSheet({
             { key: 'shield', label: shieldLabel, a11yLabel: shieldA11yLabel, onPress: handleShieldToggle, disabled: shieldDisabled, testID: 'tower-sheet-shield' },
             { key: 'backdate', label: 'Add another day', onPress: () => setShowBackdate((v) => !v), testID: 'tower-sheet-backdate-toggle' },
             { key: 'inside', label: 'See inside', onPress: handleOpenInsideView, testID: 'tower-sheet-inside' },
-            { key: 'ask', label: 'Ask about tower', onPress: handleAskAboutTower, testID: 'tower-sheet-ask' },
+            // Only a real pill when the caller actually passed a handler —
+            // onAskAboutTower is omitted entirely when COACH_ENABLED is
+            // false (SkylineScreen.js), so this stays hidden rather than a
+            // button that silently does nothing when tapped.
+            onAskAboutTower
+              ? { key: 'ask', label: 'Ask about tower', onPress: handleAskAboutTower, testID: 'tower-sheet-ask' }
+              : null,
             { key: 'edit', label: 'Edit', onPress: handleEdit, testID: 'tower-sheet-edit' },
             { key: 'retire', label: 'Retire', onPress: handleRetire, testID: 'tower-sheet-retire' },
-          ];
+          ].filter(Boolean);
 
           if (!isTallTower) {
             return (

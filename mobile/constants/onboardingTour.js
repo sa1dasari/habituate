@@ -26,16 +26,17 @@ export const TOUR_TARGETS = {
 };
 
 /**
- * The tab route that renders SkylineScreen. In release builds the Skyline
- * tab is still the route named 'Today' (old TodayScreen until the rebuild's
- * swap); in __DEV__ SkylineScreen is the dev tab 'SkylineReal'. When App.js
- * points the 'Today' route at SkylineScreen, return 'Today' for both.
+ * The tab route that renders SkylineScreen. Always 'Today' since the
+ * 2026-11-25 swap (SKYLINE.md section 14 #20) — App.js now points that
+ * route at SkylineScreen in every build, dev or release; the old dev-only
+ * 'SkylineReal' tab is deleted. Kept as a named export/function (rather than
+ * inlining the literal) since several call sites already import it.
  */
-export function getSkylineTabRoute(isDev) {
-  return isDev ? 'SkylineReal' : 'Today';
+export function getSkylineTabRoute() {
+  return 'Today';
 }
 
-export const SKYLINE_TAB_ROUTE = getSkylineTabRoute(typeof __DEV__ !== 'undefined' && __DEV__);
+export const SKYLINE_TAB_ROUTE = getSkylineTabRoute();
 
 import { COMMUNITY_ENABLED } from './featureFlags';
 

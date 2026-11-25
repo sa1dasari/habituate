@@ -152,4 +152,4 @@ Same fields, order and actions as today's LoginScreen and SignupScreen; only the
 
 **Login v2 (2026-11-25), full-screen layout (no sheet handle, footer pinned to the bottom):** redrawn to the design system after the owner said v1 was not good. Hero wordmark 36/800 and tagline 16/400 (message), sheet title 22/800, labels 13/600, inputs 56 radius 16, Sign in 54, three equal 48 pills for Google, Facebook and Apple under "or continue with", Face ID as a compact link, footer 14. Towers sit clear of the text. Awaiting the owner's approval.
 
-**Login v3 (2026-11-25):** the skyline is now a faded full-screen background (about 16% opacity behind a night sky), with no hero block and no card; the form sits directly on the screen and the sign-up link is pinned to the bottom. Awaiting the owner's approval.
+**Login v4 (2026-11-25), skyline removed at the owner's choice:** plain dark background, wordmark and tagline at the top, no hero block and no card; the form sits directly on the screen and the sign-up link is pinned to the bottom. Awaiting the owner's approval.

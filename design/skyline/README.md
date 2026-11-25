@@ -155,3 +155,5 @@ Same fields, order and actions as today's LoginScreen and SignupScreen; only the
 **Login v4 (2026-11-25), skyline removed at the owner's choice:** plain dark background, wordmark and tagline at the top, no hero block and no card; the form sits directly on the screen and the sign-up link is pinned to the bottom. Awaiting the owner's approval.
 
 **Light mode for 92 and 93 (2026-11-25):** `92-login-light.png` and `93-create-account-light.png`, using the light skyline tokens in theme.js (background #EAF0F7, white inputs, text #15202B, muted #5B6B7A, primary button #B45309 with white text). The Apple button stays black with white text in both modes. Contrast of the muted text and the primary button was not measured; check before build.
+
+**Taglines (owner choice 2026-11-25):** Login "Your skyline is waiting."; Create account "Build habits that stick, together." (the old login line). Replaces "Build habits that stick — together." and "Start building — no pressure."

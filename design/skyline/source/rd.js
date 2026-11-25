@@ -141,7 +141,7 @@ if(S==='rd-li'||S==='rd-su'){const su=S==='rd-su';const HH=su?280:352;
  const sky=skyArt('night',390,HH+30,HH).replace(/<circle[^>]*fill="#F4EFD8"[^>]*\/>/,'<circle cx="352" cy="44" r="14" fill="#F4EFD8"/>').replace(/<circle[^>]*fill="#171E45"[^>]*\/>/,'<circle cx="358" cy="39" r="12" fill="#171E45"/>');
  const TB=su?[['#14B8A6',34,12,6],['#FF8A5C',24,10,80],['#F2C14E',40,14,154],['#A78BFA',30,9,228],['#22C55E',20,10,302]]:[['#14B8A6',34,12,6],['#FF8A5C',24,10,80],['#F2C14E',40,14,154],['#A78BFA',30,9,228],['#22C55E',20,10,302]];
  const H=`<div style="position:absolute;inset:0;overflow:hidden;background:#0F1216;color:#F2F4F6">
- <div style="position:absolute;left:20px;right:20px;top:92px"><div style="font-size:36px;line-height:40px;font-weight:800">habituate</div><div style="font-size:16px;line-height:24px;color:#C9CED4;margin-top:4px">${su?'Start building — no pressure.':'Build habits that stick — together.'}</div></div>
+ <div style="position:absolute;left:20px;right:20px;top:92px"><div style="font-size:36px;line-height:40px;font-weight:800">habituate</div><div style="font-size:16px;line-height:24px;color:#C9CED4;margin-top:4px">${su?'Build habits that stick, together.':'Your skyline is waiting.'}</div></div>
  <div style="position:absolute;top:216px;left:0;right:0;bottom:0;padding:0 20px 30px;display:flex;flex-direction:column">
  <div style="font-size:22px;line-height:28px;font-weight:800;margin-top:12px">${su?'Create your account':'Welcome back'}</div>
  ${su?fld('Name (optional)','Your name')+fld('Email','you@example.com')+fld('Password','At least 6 characters'):fld('Username or email','yourname or you@example.com')+fld('Password','••••••••')}

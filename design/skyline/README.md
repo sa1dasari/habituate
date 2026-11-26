@@ -169,4 +169,20 @@ Pattern basis: iOS Settings per-category coloured icon chips and Linear/Notion s
 
 **Update 2026-11-26 (owner feedback on 94):** more clouds, in three layers. Back layer: clouds behind the header card text and above the towers, so the translucent header card lets them show through. Front layer: two translucent clouds (about 55% opacity) that pass over the tallest towers, with the towers still visible through them. Applies to every weather state: board 96 `96-skyline-all-weather-cloud-layers.png` shows Dawn, Clear day, Overcast, Rain, Snow and Clear night. Cloud colours: dawn pink, day white, overcast light grey, rain dark grey, snow white, night dark blue at 70%.
 
+**Update 2026-11-26 (owner: too many clouds):** each sky now has 5 clouds at most: 3 back clouds (two behind the header card, one above the towers) and 2 translucent front clouds over the tallest towers. Replaces the seven-back-cloud version in 94 and 96.
+
+**Update 2026-11-26 (owner: no more than 2 clouds below the text boxes):** each sky has 2 clouds behind the header card and 2 below it (one above the towers, one translucent over the tallest towers), 4 in all. Replaces the 5-cloud version.
+
 **APPROVED by the owner 2026-11-26 — boards 95, 94 and 96, all three.** Board 94/96's full spec (cloud layer counts, opacities, hex colours, which lines get #E4E7EB) was relayed to the build session directly rather than retyped here; see the build session's own notes once built. Board 01's header region is superseded for weather states — board 01 remains the reference for the non-weather chrome (title, date line, tab switcher, icons).
+
+## Floating tab bar (2026-11-26)
+Owner decisions (2026-11-26): floating bar is the DEFAULT; plain translucent fill, no blur and no new dependency; the setting lives in Profile > Skyline as the first switch, "Floating tab bar".
+| Board | File | Notes |
+|---|---|---|
+| 97 | `97-floating-tab-bar-dark.png` | Skyline tab in rain with the floating bar over the list sheet; list rows scroll under the bar |
+| 98 | `98-floating-tab-bar-light.png` | Same in light mode over the clear day sky |
+| 99 / 100 | `99-skyline-settings-floating-toggle-dark.png`, `100-...-light.png` | Profile > Skyline settings with the new switch above "Show finished towers". Copy: "Floating tab bar" / "The tab bar floats above your skyline with space around it. Turn off for a bar fixed to the bottom of the screen." Supersedes board 57. |
+| 101 | `101-tab-bar-docked-vs-floating-spec.png` | Docked vs floating side by side with the measurements |
+Spec: 16 side margin, 12 above the safe-area inset, 64 high, radius 32. Dark fill rgba(22,27,33,.82), 1px rgba(255,255,255,.08) border, soft shadow; light fill rgba(255,255,255,.84), border rgba(15,23,42,.1). Active tab: 48 high amber pill (rgba(242,193,78,.16) dark, rgba(180,83,9,.12) light) with amber icon and 12/800 label; inactive icon and 12/600 label in muted. Each tab 48 high and at least 48 wide. Every screen adds 64 + 12 + the safe-area inset of bottom padding so the last row scrolls clear; on the Skyline tab the sheet peek height grows by the same amount, so the sheet never rests under the bar. The docked bar (today's) stays for users who switch the setting off.
+
+**APPROVED by the owner 2026-11-26 — boards 97-101, all five.**

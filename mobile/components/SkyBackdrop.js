@@ -107,13 +107,17 @@ function pseudoRandom(seed) {
 }
 
 // A fixed field (not Math.random, same reasoning as STARS) spanning the
-// full width and reaching down near the list sheet, so rain/snow fill the
-// whole skyline instead of stopping at the clouds' own footprint. Positions
+// full width and reaching nearly the full screen height, so rain/snow fill
+// the whole skyline instead of stopping partway down — an earlier version
+// capped this at 62% of the height (meant to stay clear of the Daily view's
+// opaque draggable sheet, which hides anything behind it regardless), but
+// the Weekly & Monthly view has no such sheet, just a plain scrolling list,
+// so the lower part of that screen showed no rain/snow at all. Positions
 // are scattered via pseudoRandom rather than laid out in a column/row grid
 // — real rain/snow doesn't fall in neat columns. `mark` draws one streak or
 // flake at (x, y, index) — index lets `mark` vary length/size per item.
-function fullBleedField({ width, height, top, mark, count = 70 }) {
-  const bottom = Math.max(top + 80, height * 0.62);
+function fullBleedField({ width, height, top, mark, count = 110 }) {
+  const bottom = Math.max(top + 80, height - 16);
   const items = [];
   for (let i = 0; i < count; i += 1) {
     const x = pseudoRandom(i * 3.73 + 1.1) * width;

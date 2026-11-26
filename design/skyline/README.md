@@ -166,3 +166,5 @@ Same fields, order and actions as today's LoginScreen and SignupScreen; only the
 Pattern basis: iOS Settings per-category coloured icon chips and Linear/Notion style coloured squares, from knowledge, not a fresh web search.
 
 **Update 2026-11-26 (owner feedback on 94):** more clouds, in three layers. Back layer: clouds behind the header card text and above the towers, so the translucent header card lets them show through. Front layer: two translucent clouds (about 55% opacity) that pass over the tallest towers, with the towers still visible through them. Applies to every weather state: board 96 `96-skyline-all-weather-cloud-layers.png` shows Dawn, Clear day, Overcast, Rain, Snow and Clear night. Cloud colours: dawn pink, day white, overcast light grey, rain dark grey, snow white, night dark blue at 70%. **Board 95 approved by the owner 2026-11-26.** 94 and 96 await approval.
+
+**Update 2026-11-26 (owner: too many clouds):** each sky now has 5 clouds at most: 3 back clouds (two behind the header card, one above the towers) and 2 translucent front clouds over the tallest towers. Replaces the seven-back-cloud version in 94 and 96.

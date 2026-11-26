@@ -164,7 +164,7 @@ const skyScreen=(k)=>{const P=SKY[k];const T=[['Read',28,'#14B8A6',20,13],['Run'
  if(k==='night')fx+=`<circle cx="318" cy="150" r="18" fill="#F4EFD8"/><circle cx="325" cy="145" r="16" fill="#1A2150"/>`;
  if(k==='day')fx+=`<circle cx="320" cy="150" r="36" fill="#FFFFFF" opacity=".35"/><circle cx="320" cy="150" r="22" fill="#FFD25E"/>`;
  if(k==='dawn')fx+=`<circle cx="70" cy="520" r="46" fill="#FFC38A" opacity=".8"/>`;
- const back=[[-30,20,1.5],[130,70,1.5],[240,10,1.25],[10,190,1.2],[190,215,1.35],[290,150,1.0],[80,330,1.1]].map(([x,y,sc])=>cloud(x,y,sc,P[2])).join('');
+ const back=[[-20,22,1.5],[210,64,1.4],[110,290,1.25]].map(([x,y,sc])=>cloud(x,y,sc,P[2])).join('');
  const front=[[-10,372,1.4],[190,404,1.5]].map(([x,y,sc])=>`<g opacity=".55">${cloud(x,y,sc,P[3])}</g>`).join('');
  const dk=P[4]==='dark';
  return `<div style="position:absolute;inset:0;overflow:hidden;background:#0F1216"><svg width="390" height="844" style="position:absolute;top:0;left:0"><defs><linearGradient id="g${k}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${P[0]}"/><stop offset="1" stop-color="${P[1]}"/></linearGradient></defs><rect width="390" height="844" fill="url(#g${k})"/>${fx}${k==='night'?'':''}<g opacity="${k==='night'?.7:1}">${back}</g>

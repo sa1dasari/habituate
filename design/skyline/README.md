@@ -157,3 +157,10 @@ Same fields, order and actions as today's LoginScreen and SignupScreen; only the
 **Light mode for 92 and 93 (2026-11-25):** `92-login-light.png` and `93-create-account-light.png`, using the light skyline tokens in theme.js (background #EAF0F7, white inputs, text #15202B, muted #5B6B7A, primary button #B45309 with white text). The Apple button stays black with white text in both modes. Contrast of the muted text and the primary button was not measured; check before build.
 
 **Taglines (owner choice 2026-11-25):** Login "Your skyline is waiting."; Create account "Build habits that stick, together." (the old login line). Replaces "Build habits that stick — together." and "Start building — no pressure."
+
+## Live-build requests (PROPOSAL 2026-11-26, awaiting the owner)
+| Board | File | Notes |
+|---|---|---|
+| 94 | `94-skyline-rain-full-bleed-header.png` | Rain state with the sky running edge to edge behind everything: clouds sit in the header area, the header card is a translucent dark card (about 42% opacity, radius 20) so clouds show through, and rain streaks cover the whole screen down to the list sheet with no visible edge. The date and "N built today" lines are the lighter #E4E7EB for legibility on the sky. Departs from board 01, where the header sits on a solid background. |
+| 95 | `95-profile-icon-chips.png`, `95-profile-icon-chips-light.png` | Settings rows get iOS Settings style 36 colour chips (radius 10, white glyph, dark glyph on amber): Share coral, Friends blue, Sky and weather teal, Skyline amber, Accessibility purple, Notifications pink, Privacy green, Account slate. The plan line is now a "FREE PLAN" amber chip plus 13/700 text in the main text colour (was 12 grey), split from the stats by a divider. "Unlock everything" keeps the amber border only, no tint. |
+Pattern basis: iOS Settings per-category coloured icon chips and Linear/Notion style coloured squares, from knowledge, not a fresh web search.

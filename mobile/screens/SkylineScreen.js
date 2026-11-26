@@ -60,6 +60,14 @@ function hexToRgba(hex, alpha) {
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
 }
 
+// Boards 94/96: the header card's opacity depends on the sky's own
+// brightness, not the app's light/dark theme — dawn/rain/night are dark
+// skies (42% card opacity reads clearly); day/overcast/snow are bright
+// skies (55%, a touch more opaque so text stays legible).
+const DARK_SKY_KINDS = new Set(['dawn', 'rain', 'night']);
+const HEADER_TITLE_COLOR = '#F2F4F6';
+const HEADER_TEXT_COLOR = '#E4E7EB';
+
 /**
  * The real Skyline screen (SKYLINE.md Phase 2), wired to the existing
  * useHabits hook. This is the live "Today"-route/"Skyline"-tab screen as of
@@ -448,20 +456,34 @@ export default function SkylineScreen({ navigation }) {
           width={windowWidth}
           height={windowHeight}
           iconY={headerAreaHeight > 0 ? insets.top + headerAreaHeight + 55 : undefined}
+          headerTop={insets.top}
+          headerHeight={headerAreaHeight}
+          clouds={view === 'daily'}
         />
       </View>
       <SafeAreaView style={styles.root} edges={['top']}>
         <View onLayout={(e) => setHeaderAreaHeight(e.nativeEvent.layout.height)}>
-        <View style={[styles.header, { backgroundColor: hexToRgba(ui.background, 0.55) }]}>
+        {/* Boards 94/96 (design/skyline/, owner-approved 2026-11-26): the
+            header card is always a dark translucent card regardless of the
+            app's light/dark theme — clouds from SkyBackdrop show through it
+            — not the theme's own background color. Opacity is lighter on
+            light skies (day/overcast/snow) than dark ones (dawn/rain/night)
+            so it still reads against a brighter sky. */}
+        <View
+          style={[
+            styles.header,
+            { backgroundColor: hexToRgba(skylineUI.dark.background, DARK_SKY_KINDS.has(currentSkyKind) ? 0.42 : 0.55) },
+          ]}
+        >
           <View style={styles.headerText}>
-            <Text style={[styles.title, { color: ui.text }]} numberOfLines={1}>Skyline</Text>
+            <Text style={[styles.title, { color: HEADER_TITLE_COLOR }]} numberOfLines={1}>Skyline</Text>
             {/* Boards 01/16: two lines on Daily (date, then the built count),
                 one line (date only) on Weekly & monthly. */}
-            <Text style={[styles.subtitle, { color: ui.muted }]} numberOfLines={1}>
+            <Text style={[styles.subtitle, { color: HEADER_TEXT_COLOR }]} numberOfLines={1}>
               {isEmpty ? 'Your skyline starts here' : formatHeaderDate(today)}
             </Text>
             {view === 'daily' && !isEmpty && (
-              <Text style={[styles.subtitleLine2, { color: ui.muted }]} numberOfLines={1}>
+              <Text style={[styles.subtitleLine2, { color: HEADER_TEXT_COLOR }]} numberOfLines={1}>
                 {dueTodayCount.done} of {dueTodayCount.total} built today
               </Text>
             )}
@@ -474,7 +496,7 @@ export default function SkylineScreen({ navigation }) {
             onPress={() => setArchivedTowersVisible(true)}
             testID="skyline-archived-towers-icon"
           >
-            <MaterialCommunityIcons name="archive-outline" size={20} color={ui.text} />
+            <MaterialCommunityIcons name="archive-outline" size={20} color={HEADER_TITLE_COLOR} />
           </Pressable>
           )}
           {COACH_ENABLED && (
@@ -491,7 +513,7 @@ export default function SkylineScreen({ navigation }) {
               setChatVisible(true);
             }}
           >
-            <MaterialCommunityIcons name="chat-processing-outline" size={20} color={ui.text} />
+            <MaterialCommunityIcons name="chat-processing-outline" size={20} color={HEADER_TITLE_COLOR} />
           </Pressable>
           )}
           <Pressable

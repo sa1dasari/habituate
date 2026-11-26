@@ -33,7 +33,10 @@ function shieldIconPath(cx, cy, w = 11, h = 12) {
  * "Nov 3" or "Nov"), then the done/target caption.
  */
 
-const SIZE = 76;
+// Exported so LotsView.js's horizontal strip can snap/align scroll offsets
+// to exact tile boundaries instead of guessing this pixel value separately.
+export const SIZE = 76;
+export const TILE_GAP = 10; // matches wrap's marginRight below
 const PAD = 6;
 const GAP = 3;
 const COLS = 7;

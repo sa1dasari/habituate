@@ -165,7 +165,7 @@ const skyScreen=(k)=>{const P=SKY[k];const T=[['Read',28,'#14B8A6',20,13],['Run'
  if(k==='day')fx+=`<circle cx="320" cy="150" r="36" fill="#FFFFFF" opacity=".35"/><circle cx="320" cy="150" r="22" fill="#FFD25E"/>`;
  if(k==='dawn')fx+=`<circle cx="70" cy="520" r="46" fill="#FFC38A" opacity=".8"/>`;
  const back=[[-20,22,1.5],[210,64,1.4],[110,290,1.25]].map(([x,y,sc])=>cloud(x,y,sc,P[2])).join('');
- const front=[[-10,372,1.4],[190,404,1.5]].map(([x,y,sc])=>`<g opacity=".55">${cloud(x,y,sc,P[3])}</g>`).join('');
+ const front=[[170,384,1.6]].map(([x,y,sc])=>`<g opacity=".55">${cloud(x,y,sc,P[3])}</g>`).join('');
  const dk=P[4]==='dark';
  return `<div style="position:absolute;inset:0;overflow:hidden;background:#0F1216"><svg width="390" height="844" style="position:absolute;top:0;left:0"><defs><linearGradient id="g${k}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${P[0]}"/><stop offset="1" stop-color="${P[1]}"/></linearGradient></defs><rect width="390" height="844" fill="url(#g${k})"/>${fx}${k==='night'?'':''}<g opacity="${k==='night'?.7:1}">${back}</g>
  <rect y="500" width="390" height="40" fill="${dk?'#1D242C':'#3C4A5A'}" opacity=".9"/>${T.map(([n,x,c,f,l])=>tw(c,{x,base:520,w:44,fh:7,dx:13,dy:8,floors:fl(f,l),windows:2,today:false})+`<text x="${x+30}" y="546" text-anchor="middle" font-size="12" font-weight="700" fill="#F2F4F6" font-family="Nunito">${n}</text>`).join('')}${front}</svg>

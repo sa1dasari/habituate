@@ -36,6 +36,19 @@ function hexToRgba(hex, alpha) {
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
 }
 
+// Board 95 (design/skyline/): per-row chip colors, fixed across light/dark
+// — only the Skyline row's amber chip shifts with theme (colors.warning,
+// with a dark glyph on dark mode's brighter gold instead of white).
+const SETTINGS_CHIP_COLORS = {
+  share: '#F2784E',
+  friends: '#4FA3E3',
+  sky: '#2DBE9E',
+  accessibility: '#9B6BD9',
+  notifications: '#F472B6',
+  privacy: '#22C55E',
+  account: '#64748B',
+};
+
 /**
  * Restyled per design-review board 15 (owner-approved, confirmed 2026-11-20):
  * a "Your skyline so far" hero (a flat-color tower-count preview, not a real
@@ -54,7 +67,7 @@ export default function ProfileScreen() {
   const { showFinishedTowers } = useShowFinishedTowers();
   const { tapToBuild } = useTapToBuild();
   const { friends, pendingRequests } = useFriends();
-  const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
+  const styles = useMemo(() => makeStyles(colors, typography, effectiveMode), [colors, typography, effectiveMode]);
   const scrollRef = useRegisterScrollToTop('Profile');
   const { user, signOut } = useAuth();
   const { habits, archivedHabits, shieldsAvailable } = useHabits();
@@ -198,9 +211,17 @@ export default function ProfileScreen() {
             <StatChip value={bestRun ?? 0} label="best run" styles={styles} />
           </View>
           {!isPro ? (
-            <Text style={styles.planLine} testID="profile-plan-usage-line">
-              {`Free plan · ${capCounts.daily} of ${FREE_TIER_LIMITS.daily} daily · ${capCounts.weekly} of ${FREE_TIER_LIMITS.weekly} weekly · ${capCounts.monthly} of ${FREE_TIER_LIMITS.monthly} monthly · ${shieldsAvailable} of ${FREE_SHIELD_BANK_LIMIT} Shield Days`}
-            </Text>
+            <>
+              <View style={styles.planDivider} />
+              <View style={styles.planRow}>
+                <View style={styles.planChip}>
+                  <Text style={styles.planChipText}>FREE PLAN</Text>
+                </View>
+                <Text style={styles.planLine} testID="profile-plan-usage-line">
+                  {`${capCounts.daily} of ${FREE_TIER_LIMITS.daily} daily · ${capCounts.weekly} of ${FREE_TIER_LIMITS.weekly} weekly · ${capCounts.monthly} of ${FREE_TIER_LIMITS.monthly} monthly · ${shieldsAvailable} of ${FREE_SHIELD_BANK_LIMIT} Shield Days`}
+                </Text>
+              </View>
+            </>
           ) : null}
         </Pressable>
 
@@ -229,6 +250,7 @@ export default function ProfileScreen() {
           onPress={() => setShareSheetVisible(true)}
           styles={styles}
           colors={colors}
+          chipColor={SETTINGS_CHIP_COLORS.share}
           testID="profile-share-skyline-row"
         />
         <SettingsRow
@@ -238,6 +260,7 @@ export default function ProfileScreen() {
           onPress={() => setFriendsVisible(true)}
           styles={styles}
           colors={colors}
+          chipColor={SETTINGS_CHIP_COLORS.friends}
           testID="profile-friends-row"
         />
         <SettingsRow
@@ -246,6 +269,7 @@ export default function ProfileScreen() {
           onPress={() => navigation.navigate('SkyWeatherSettings')}
           styles={styles}
           colors={colors}
+          chipColor={SETTINGS_CHIP_COLORS.sky}
           testID="profile-sky-weather-row"
         />
         <SettingsRow
@@ -255,6 +279,8 @@ export default function ProfileScreen() {
           onPress={() => navigation.navigate('SkylineSettings')}
           styles={styles}
           colors={colors}
+          chipColor={colors.warning}
+          chipIconColor={effectiveMode === 'dark' ? '#15202B' : '#FFFFFF'}
           testID="profile-skyline-row"
         />
         <SettingsRow
@@ -264,6 +290,7 @@ export default function ProfileScreen() {
           onPress={() => navigation.navigate('Accessibility')}
           styles={styles}
           colors={colors}
+          chipColor={SETTINGS_CHIP_COLORS.accessibility}
         />
         <SettingsRow
           icon="bell-outline"
@@ -272,6 +299,7 @@ export default function ProfileScreen() {
           onPress={() => navigation.navigate('NotificationSettings')}
           styles={styles}
           colors={colors}
+          chipColor={SETTINGS_CHIP_COLORS.notifications}
         />
         <SettingsRow
           icon="lock-outline"
@@ -280,6 +308,7 @@ export default function ProfileScreen() {
           onPress={() => navigation.navigate('Privacy')}
           styles={styles}
           colors={colors}
+          chipColor={SETTINGS_CHIP_COLORS.privacy}
         />
         <SettingsRow
           icon="cog-outline"
@@ -287,6 +316,7 @@ export default function ProfileScreen() {
           onPress={() => navigation.navigate('AccountSettings')}
           styles={styles}
           colors={colors}
+          chipColor={SETTINGS_CHIP_COLORS.account}
         />
 
         <Pressable style={styles.signOutBtn} onPress={handleSignOut}>
@@ -321,7 +351,7 @@ function StatChip({ value, label, styles }) {
   );
 }
 
-function SettingsRow({ icon, label, sublabel, onPress, styles, colors, testID, amber }) {
+function SettingsRow({ icon, label, sublabel, onPress, styles, colors, testID, amber, chipColor, chipIconColor }) {
   return (
     <Pressable
       style={[styles.settingsRow, amber ? styles.settingsRowAmber : null]}
@@ -330,9 +360,15 @@ function SettingsRow({ icon, label, sublabel, onPress, styles, colors, testID, a
       accessibilityLabel={label}
       testID={testID}
     >
-      <View style={[styles.settingsRowIcon, amber ? styles.settingsRowIconAmber : null]}>
-        <MaterialCommunityIcons name={icon} size={18} color={amber ? colors.warning : colors.accent} />
-      </View>
+      {chipColor ? (
+        <View style={[styles.settingsRowChip, { backgroundColor: chipColor }]}>
+          <MaterialCommunityIcons name={icon} size={18} color={chipIconColor || '#FFFFFF'} />
+        </View>
+      ) : (
+        <View style={[styles.settingsRowIcon, amber ? styles.settingsRowIconAmber : null]}>
+          <MaterialCommunityIcons name={icon} size={18} color={amber ? colors.warning : colors.accent} />
+        </View>
+      )}
       <View style={{ flex: 1 }}>
         <Text style={amber ? styles.settingsRowLabelAmber : styles.settingsRowLabel}>{label}</Text>
         {sublabel ? <Text style={styles.settingsRowSublabel}>{sublabel}</Text> : null}
@@ -342,7 +378,7 @@ function SettingsRow({ icon, label, sublabel, onPress, styles, colors, testID, a
   );
 }
 
-function makeStyles(colors, typography) {
+function makeStyles(colors, typography, effectiveMode) {
   return StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: colors.background },
     container: { padding: spacing.xl, paddingBottom: spacing.xxl },
@@ -391,7 +427,23 @@ function makeStyles(colors, typography) {
     statChip: { alignItems: 'center', flex: 1 },
     statChipValue: { fontFamily: fonts.extraBold, fontSize: 18, color: colors.textPrimary },
     statChipLabel: { ...typography.meta, fontSize: 11, marginTop: 1 },
-    planLine: { ...typography.meta, fontSize: 12, marginTop: spacing.sm },
+    // Board 95: split from the stats row by a divider, a "FREE PLAN" chip,
+    // and 13/700 text in the main text color (was a 12px meta/grey line).
+    planDivider: { height: 1, backgroundColor: colors.border, marginTop: spacing.md, marginBottom: spacing.md },
+    planRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing.sm },
+    planChip: {
+      backgroundColor: colors.warning,
+      borderRadius: radii.pill,
+      paddingHorizontal: spacing.md,
+      paddingVertical: 4,
+    },
+    planChipText: {
+      fontFamily: fonts.extraBold,
+      fontSize: 12,
+      letterSpacing: 0.5,
+      color: effectiveMode === 'dark' ? '#15202B' : '#FFFFFF',
+    },
+    planLine: { fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary, flexShrink: 1 },
     settingsRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -416,6 +468,15 @@ function makeStyles(colors, typography) {
       justifyContent: 'center',
     },
     settingsRowIconAmber: { backgroundColor: hexToRgba(colors.warning, 0.16) },
+    // Board 95 (design/skyline/): per-row coloured chips, 36dp square,
+    // radius 10 — replaces the old uniform blue circle for every row.
+    settingsRowChip: {
+      width: 36,
+      height: 36,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     settingsRowLabel: { fontSize: 14, fontWeight: '600', color: colors.textPrimary },
     settingsRowLabelAmber: { fontFamily: fonts.extraBold, fontSize: 14, color: colors.warning },
     settingsRowSublabel: { fontSize: 12, color: colors.textMuted, marginTop: 2 },

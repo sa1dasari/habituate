@@ -31,6 +31,11 @@ import { countByCap, FREE_SHIELD_BANK_LIMIT, FREE_TIER_LIMITS } from '../utils/e
 const PREVIEW_TOWER_LIMIT = 6;
 const towerColorsByMode = buildCategoryTowerColors(HABIT_CATEGORY_COLORS);
 
+function hexToRgba(hex, alpha) {
+  const n = parseInt(hex.replace('#', ''), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
+}
+
 /**
  * Restyled per design-review board 15 (owner-approved, confirmed 2026-11-20):
  * a "Your skyline so far" hero (a flat-color tower-count preview, not a real
@@ -326,13 +331,13 @@ function SettingsRow({ icon, label, sublabel, onPress, styles, colors, testID, a
       testID={testID}
     >
       <View style={[styles.settingsRowIcon, amber ? styles.settingsRowIconAmber : null]}>
-        <MaterialCommunityIcons name={icon} size={18} color={amber ? colors.amber || '#F2C14E' : colors.accent} />
+        <MaterialCommunityIcons name={icon} size={18} color={amber ? colors.warning : colors.accent} />
       </View>
       <View style={{ flex: 1 }}>
         <Text style={amber ? styles.settingsRowLabelAmber : styles.settingsRowLabel}>{label}</Text>
         {sublabel ? <Text style={styles.settingsRowSublabel}>{sublabel}</Text> : null}
       </View>
-      <MaterialCommunityIcons name="chevron-right" size={20} color={amber ? colors.amber || '#F2C14E' : colors.textMuted} />
+      <MaterialCommunityIcons name="chevron-right" size={20} color={amber ? colors.warning : colors.textMuted} />
     </Pressable>
   );
 }
@@ -400,8 +405,8 @@ function makeStyles(colors, typography) {
     },
     settingsRowAmber: {
       borderWidth: 1,
-      borderColor: colors.amber || '#F2C14E',
-      backgroundColor: 'rgba(242, 193, 78, 0.08)',
+      borderColor: colors.warning,
+      backgroundColor: hexToRgba(colors.warning, 0.08),
     },
     settingsRowIcon: {
       width: 32,
@@ -411,9 +416,9 @@ function makeStyles(colors, typography) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    settingsRowIconAmber: { backgroundColor: 'rgba(242, 193, 78, 0.16)' },
+    settingsRowIconAmber: { backgroundColor: hexToRgba(colors.warning, 0.16) },
     settingsRowLabel: { fontSize: 14, fontWeight: '600', color: colors.textPrimary },
-    settingsRowLabelAmber: { fontFamily: fonts.extraBold, fontSize: 14, color: colors.amber || '#F2C14E' },
+    settingsRowLabelAmber: { fontFamily: fonts.extraBold, fontSize: 14, color: colors.warning },
     settingsRowSublabel: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
     signOutBtn: {
       flexDirection: 'row',

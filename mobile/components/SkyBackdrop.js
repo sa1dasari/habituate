@@ -76,18 +76,48 @@ function DriftCloud({ width, height, color }) {
   return <CloudGlyph cx={cx} cy={cy} color={color} scale={0.6} opacity={0.75} />;
 }
 
-function RainGlyph({ cx, cy, cloudColor, dropColor }) {
+// Board 05 (design/skyline/) draws rain as several cloud tufts spread across
+// the whole width, each dripping streaks, with the rain itself reading as
+// filling the sky rather than one cluster — not a single cloud+streaks icon
+// in one spot. Clouds sit at the same safe `iconCy` height the other weather
+// glyphs use (measured clear of the header), not a raw height fraction —
+// using a fraction of the full page height here landed clouds on top of the
+// header card on taller devices. [xFraction, scale] of the box, at iconCy.
+const RAIN_CLOUD_SLOTS = [
+  [0.14, 0.85],
+  [0.5, 1],
+  [0.83, 0.8],
+];
+
+function RainScene({ width, height, iconCy, cloudColor, dropColor }) {
+  const clouds = RAIN_CLOUD_SLOTS.map(([xf, scale], i) => (
+    <CloudGlyph key={`rain-cloud-${i}`} cx={xf * width} cy={iconCy} color={cloudColor} scale={scale} />
+  ));
+
+  // A fixed streak field (not Math.random, same reasoning as STARS) spanning
+  // the full width and reaching well down the screen, so rain fills the
+  // whole skyline instead of stopping at the clouds' own narrow footprint.
+  const top = iconCy + 30;
+  const bottom = Math.max(top + 80, height * 0.6);
+  const cols = 10;
+  const rowsPerCol = 6;
+  const rowGap = (bottom - top) / rowsPerCol;
   const drops = [];
-  for (let col = 0; col < 5; col += 1) {
-    for (let row = 0; row < 3; row += 1) {
-      const x = cx - 40 + col * 22 + (row % 2) * 6;
-      const y = cy + 30 + row * 16;
-      drops.push(<Line key={`${col}-${row}`} x1={x} y1={y} x2={x - 5} y2={y + 12} stroke={dropColor} strokeWidth={2} strokeLinecap="round" />);
+  for (let col = 0; col < cols; col += 1) {
+    const x0 = ((col + 0.5) / cols) * width;
+    const colJitter = (col % 3) * 6;
+    for (let row = 0; row < rowsPerCol; row += 1) {
+      const y = top + colJitter + row * rowGap;
+      const x = x0 + (row % 2) * 8;
+      drops.push(
+        <Line key={`drop-${col}-${row}`} x1={x} y1={y} x2={x - 6} y2={y + 14} stroke={dropColor} strokeWidth={2} strokeLinecap="round" />,
+      );
     }
   }
+
   return (
     <>
-      <CloudGlyph cx={cx} cy={cy} color={cloudColor} />
+      {clouds}
       {drops}
     </>
   );
@@ -164,9 +194,11 @@ export default function SkyBackdrop({ stops, kind = 'day', now, width = VIEW_W, 
         />
       )}
       {kind === 'overcast' && <CloudGlyph cx={iconCx} cy={iconCy} color={cloudColorFor(kind)} />}
-      {kind === 'rain' && <RainGlyph cx={iconCx} cy={iconCy} cloudColor={cloudColorFor(kind)} dropColor="#8FA3B8" />}
+      {kind === 'rain' && (
+        <RainScene width={width} height={height} iconCy={iconCy} cloudColor={cloudColorFor(kind)} dropColor="#8FA3B8" />
+      )}
       {kind === 'snow' && <SnowGlyph cx={iconCx} cy={iconCy} cloudColor={cloudColorFor(kind)} flakeColor="#BCD3E6" />}
-      {(kind === 'overcast' || kind === 'rain' || kind === 'snow') && (
+      {(kind === 'overcast' || kind === 'snow') && (
         <DriftCloud width={width} height={height} color={cloudColorFor(kind)} />
       )}
     </Svg>

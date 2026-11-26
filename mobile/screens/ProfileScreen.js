@@ -406,7 +406,6 @@ function makeStyles(colors, typography) {
     settingsRowAmber: {
       borderWidth: 1,
       borderColor: colors.warning,
-      backgroundColor: hexToRgba(colors.warning, 0.08),
     },
     settingsRowIcon: {
       width: 32,

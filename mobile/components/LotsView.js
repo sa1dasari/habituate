@@ -1,15 +1,12 @@
 import React, { useMemo, useRef } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import LotTile, { LotLegend, SIZE as TILE_SIZE, TILE_GAP } from './LotTile';
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import LotTile, { LotLegend, SIZE as DEFAULT_TILE_SIZE, TILE_GAP } from './LotTile';
 import HoldPillButton from './HoldPillButton';
 import { fonts } from '../theme';
 
-// A tile's full horizontal pitch (its own width plus the gap to the next
-// one) — used below to land the default "scrolled to the newest period"
-// position on a tile boundary instead of wherever scrollToEnd's raw content
-// width happens to land, which cut a sliver of a tile off at the left edge
-// whenever the strip's pixel width wasn't an exact multiple of a tile.
-const TILE_PITCH = TILE_SIZE + TILE_GAP;
+// Must match `styles.list`'s paddingHorizontal below — kept as one constant
+// so the tile-fill math and the actual padding can't drift apart.
+const LIST_PADDING = 20;
 
 /**
  * The Weekly/monthly ("lots") view (SKYLINE.md section 4a) — one row per
@@ -24,6 +21,25 @@ const TILE_PITCH = TILE_SIZE + TILE_GAP;
  * a second same-day hold and a COUNT one isn't, with no extra plumbing.
  */
 export default function LotsView({ rows, habitsById, getCanBuild, onBuild, onOpenSheet, tapToBuild, theme, towerTheme }) {
+  // Each tile's square size (LotTile.js's SIZE) is a fixed 76dp regardless of
+  // device width, so the strip almost never divides evenly into whole tiles
+  // — scrolled to the newest period, the leftmost tile was sliced by
+  // whatever fraction was left over, reading as a cut-off edge rather than
+  // flush against the screen. Computing the tile size from the real,
+  // measured screen width instead — keeping the tile count close to what
+  // the fixed 76dp default would have shown — makes a whole number of tiles
+  // exactly fill the strip, on every device, so there is never a partial
+  // tile at either edge: scrolled fully right, the first visible tile's
+  // left edge lands exactly at the strip's left edge and the last tile's
+  // right edge exactly at its right edge, by construction.
+  const { width: windowWidth } = useWindowDimensions();
+  const tileSize = useMemo(() => {
+    const availableWidth = windowWidth - LIST_PADDING * 2;
+    const defaultPitch = DEFAULT_TILE_SIZE + TILE_GAP;
+    const tileCount = Math.max(3, Math.round((availableWidth + TILE_GAP) / defaultPitch));
+    return (availableWidth - (tileCount - 1) * TILE_GAP) / tileCount;
+  }, [windowWidth]);
+
   return (
     <ScrollView contentContainerStyle={styles.list}>
       {rows.map((row) => (
@@ -37,6 +53,7 @@ export default function LotsView({ rows, habitsById, getCanBuild, onBuild, onOpe
           tapToBuild={tapToBuild}
           theme={theme}
           towerTheme={towerTheme}
+          tileSize={tileSize}
         />
       ))}
       {rows.length === 0 && (
@@ -49,22 +66,8 @@ export default function LotsView({ rows, habitsById, getCanBuild, onBuild, onOpe
   );
 }
 
-const LotRow = React.memo(function LotRow({ row, habit, getCanBuild, onBuild, onOpenSheet, tapToBuild, theme, towerTheme }) {
+const LotRow = React.memo(function LotRow({ row, habit, getCanBuild, onBuild, onOpenSheet, tapToBuild, theme, towerTheme, tileSize }) {
   const stripRef = useRef(null);
-  // Both the strip's own rendered width and its scrollable content width are
-  // needed to land on a tile-aligned offset, and onLayout/onContentSizeChange
-  // can fire in either order — refs (not state) so whichever fires second
-  // always has the other's latest value without an extra render.
-  const stripWidthRef = useRef(0);
-  const contentWidthRef = useRef(0);
-  const snapToNewest = () => {
-    const stripW = stripWidthRef.current;
-    const contentW = contentWidthRef.current;
-    if (!stripW || !contentW) return;
-    const maxOffset = Math.max(0, contentW - stripW);
-    const aligned = Math.floor(maxOffset / TILE_PITCH) * TILE_PITCH;
-    stripRef.current?.scrollTo({ x: aligned, animated: false });
-  };
   const canBuild = habit ? getCanBuild(habit.id) : false;
   // `row.periods` can reach back years (the lot sheet's own backdating
   // range) — the horizontal strip only ever shows the recent default
@@ -101,16 +104,9 @@ const LotRow = React.memo(function LotRow({ row, habit, getCanBuild, onBuild, on
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.strip}
-        snapToInterval={TILE_PITCH}
+        snapToInterval={tileSize + TILE_GAP}
         decelerationRate="fast"
-        onLayout={(e) => {
-          stripWidthRef.current = e.nativeEvent.layout.width;
-          snapToNewest();
-        }}
-        onContentSizeChange={(contentWidth) => {
-          contentWidthRef.current = contentWidth;
-          snapToNewest();
-        }}
+        onContentSizeChange={() => stripRef.current?.scrollToEnd({ animated: false })}
       >
         {stripPeriods.map((period, i) => (
           <LotTile
@@ -120,6 +116,8 @@ const LotRow = React.memo(function LotRow({ row, habit, getCanBuild, onBuild, on
             theme={theme}
             towerTheme={towerTheme}
             onPress={pressHandlers[i]}
+            size={tileSize}
+            last={i === stripPeriods.length - 1}
           />
         ))}
       </ScrollView>
@@ -153,14 +151,17 @@ const LotRow = React.memo(function LotRow({ row, habit, getCanBuild, onBuild, on
 });
 
 const styles = StyleSheet.create({
-  list: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 24 },
+  list: { paddingHorizontal: LIST_PADDING, paddingTop: 16, paddingBottom: 24 },
   row: { marginBottom: 20 },
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   dot: { width: 14, height: 14, borderRadius: 4, marginRight: 10 },
   headerText: { flex: 1 },
   name: { fontFamily: fonts.bold, fontSize: 17 },
   meta: { fontFamily: fonts.regular, fontSize: 13, marginTop: 2 },
-  strip: { paddingRight: 8 },
+  // No paddingRight here (there was an 8px one before) — any trailing
+  // padding would throw off the "N whole tiles exactly fill the strip"
+  // math above, reintroducing a partial tile at the edge.
+  strip: {},
   pillRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
   pillLabel: { fontFamily: fonts.semiBold, fontSize: 13 },
   addAnotherDay: { fontFamily: fonts.semiBold, fontSize: 13, marginTop: 10 },

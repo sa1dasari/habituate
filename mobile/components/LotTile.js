@@ -192,23 +192,27 @@ export function DayGrid({
 // actually change. Requires the caller to pass a referentially stable
 // `onPress` (LotsView.js memoizes one per tile) — a fresh arrow function
 // every render would defeat this by always comparing unequal.
-const LotTile = React.memo(function LotTile({ period, color, theme, towerTheme, onPress }) {
+// `size` defaults to the fixed SIZE (LotSheet.js/TowerSheet.js's own use of
+// DayGrid is untouched either way) but LotsView.js now passes a computed
+// size so a whole number of tiles exactly fills the screen width — see
+// LotsView.js's TILE_GAP/tileSize comment for why.
+const LotTile = React.memo(function LotTile({ period, color, theme, towerTheme, onPress, size = SIZE, last = false }) {
   const bg = theme.surfaceHigh;
   return (
     <Pressable
       onPress={onPress}
-      style={styles.wrap}
+      style={[styles.wrap, { width: size, marginRight: last ? 0 : TILE_GAP }]}
       testID={`lot-tile-${period.key}`}
       accessible
       accessibilityRole={onPress ? 'button' : undefined}
       accessibilityLabel={period.accessibilityLabel}
     >
-      <Svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`}>
+      <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
         <Rect
           x={1}
           y={1}
-          width={SIZE - 2}
-          height={SIZE - 2}
+          width={size - 2}
+          height={size - 2}
           rx={14}
           fill={period.shielded ? theme.surfaceHigh : bg}
           stroke={period.met && !period.shielded ? theme.amber : 'transparent'}
@@ -222,18 +226,18 @@ const LotTile = React.memo(function LotTile({ period, color, theme, towerTheme, 
             <Rect
               x={10}
               y={10}
-              width={SIZE - 20}
-              height={SIZE - 20}
+              width={size - 20}
+              height={size - 20}
               rx={8}
               fill={towerTheme.shieldFill}
               opacity={0.45}
               stroke={towerTheme.shieldEdge}
               strokeWidth={1.2}
             />
-            <Path d={shieldIconPath(SIZE / 2, SIZE / 2)} fill={towerTheme.shieldIcon} />
+            <Path d={shieldIconPath(size / 2, size / 2)} fill={towerTheme.shieldIcon} />
           </>
         ) : (
-          <DayGrid days={period.days} color={color} />
+          <DayGrid days={period.days} color={color} size={size} />
         )}
       </Svg>
       <Text numberOfLines={1} style={[styles.periodLabel, { color: theme.text }]}>
@@ -302,7 +306,9 @@ function LegendSwatch({ level, theme, label }) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { width: SIZE, alignItems: 'center', marginRight: 10 },
+  // width is applied inline per-instance now (see LotTile's `size` prop) —
+  // this is just the fallback/default shape.
+  wrap: { alignItems: 'center', marginRight: TILE_GAP },
   periodLabel: { fontSize: 11, fontWeight: '700', marginTop: 4 },
   caption: { fontSize: 11, marginTop: 1 },
   legend: { borderRadius: 14, padding: 14, marginTop: 8 },

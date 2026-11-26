@@ -142,3 +142,18 @@ Free caps: 5 daily, 1 weekly, 1 monthly, 2 Shield Days. Ask Habituate is not par
 **Update 2026-11-24 (owner decision):** board 87 now offers two plans, Lifetime (selected by default, "Best value" tag, $XX.XX one time) and Monthly ($X.XX / month, cancel any time). The button follows the selection ("Unlock lifetime for $XX.XX" or "Start monthly for $X.XX"). Body copy now ends "Choose a plan to keep growing your skyline." and the third benefit reads "Cancel monthly any time". Prices are placeholders from RevenueCat. Awaiting the owner's confirmation of the drawing.
 
 **Paywall opened from Profile (PROPOSAL 2026-11-24):** board 91 `91-paywall-from-profile.png`. Same sheet as 87, opened from the "Unlock everything" row without a cap hit. Eyebrow "FREE PLAN"; body "The free plan holds 5 daily, 1 weekly and 1 monthly habit, plus 2 Shield Days. Choose a plan to keep growing your skyline." The footer drops "Your form is saved" (there is no form) and reads "Your towers stay exactly as they are." Not now returns to Profile. Board 88 has the new copy card.
+
+## Login and Create account (PROPOSAL 2026-11-25, direction chosen by the owner: skyline hero)
+| Board | File | Notes |
+|---|---|---|
+| 92 | `92-login.png` | Night skyline hero with five towers, "habituate" wordmark and the tagline "Build habits that stick — together." A sheet-style card below: "Welcome back", Username or email, Password (inputs 56), Sign in (54), "or", Google, Facebook, Apple (black, iOS only), Face ID (only when biometrics are set up), "New here? Create an account". An error message (from `err.message`) shows as meta text under the Password field. |
+| 93 | `93-create-account.png` | Same look, shorter hero. "Create your account", Name (optional), Email, Password, Create account, the three social sign-ups, "Already have an account? Sign in". Tagline "Start building — no pressure." |
+Same fields, order and actions as today's LoginScreen and SignupScreen; only the look changes. Third-party buttons follow each provider's brand rules in the build.
+
+**Login v2 (2026-11-25), full-screen layout (no sheet handle, footer pinned to the bottom):** redrawn to the design system after the owner said v1 was not good. Hero wordmark 36/800 and tagline 16/400 (message), sheet title 22/800, labels 13/600, inputs 56 radius 16, Sign in 54, three equal 48 pills for Google, Facebook and Apple under "or continue with", Face ID as a compact link, footer 14. Towers sit clear of the text. Awaiting the owner's approval.
+
+**Login v4 (2026-11-25), skyline removed at the owner's choice:** plain dark background, wordmark and tagline at the top, no hero block and no card; the form sits directly on the screen and the sign-up link is pinned to the bottom. Awaiting the owner's approval.
+
+**Light mode for 92 and 93 (2026-11-25):** `92-login-light.png` and `93-create-account-light.png`, using the light skyline tokens in theme.js (background #EAF0F7, white inputs, text #15202B, muted #5B6B7A, primary button #B45309 with white text). The Apple button stays black with white text in both modes. Contrast of the muted text and the primary button was not measured; check before build.
+
+**Taglines (owner choice 2026-11-25):** Login "Your skyline is waiting."; Create account "Build habits that stick, together." (the old login line). Replaces "Build habits that stick — together." and "Start building — no pressure."

@@ -387,6 +387,27 @@ export default function SkylineScreen({ navigation }) {
   const lotSheetRow = lotSheetKey ? lots.rows.find((r) => r.habitId === lotSheetKey.habitId) : null;
   const lotSheetPeriod = lotSheetRow ? lotSheetRow.periods.find((p) => p.key === lotSheetKey.periodKey) : null;
 
+  // Re-tapping the already-focused Skyline tab should land back on the main
+  // scene wherever the user currently is, same as React Navigation's default
+  // tab bar popping a stack to its root — FloatingTabBar.js re-implements
+  // the event wiring but not this reset, since it has no notion of what
+  // "root" means for any given tab. Closes every overlay this screen can
+  // have open; it does not reset the Daily/Weekly & Monthly toggle, since
+  // that's a view choice, not a navigation stack.
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('tabPress', () => {
+      if (!navigation.isFocused()) return;
+      closeTowerSheet();
+      closeInsideView();
+      closeTowerForm();
+      closeChat();
+      closeLotSheet();
+      setArchivedTowersVisible(false);
+      setAddHabitVisible(false);
+    });
+    return unsubscribe;
+  }, [navigation, closeTowerSheet, closeInsideView, closeTowerForm, closeChat, closeLotSheet]);
+
   // Same sensible-defaults template flow as TodayScreen's own empty state —
   // the Skyline's empty-lot tap doesn't need the full "Lay a foundation"
   // form to offer a fast first habit (that form is Phase 4 scope).

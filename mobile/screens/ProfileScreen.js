@@ -28,6 +28,7 @@ import { useToast } from '../hooks/useToast';
 import api from '../api/client';
 import { buildCategoryTowerColors, fonts, radii, shadow, spacing } from '../theme';
 import { countByCap, FREE_SHIELD_BANK_LIMIT, FREE_TIER_LIMITS } from '../utils/entitlements';
+import { towerCapInfo } from '../utils/towerAge';
 
 const PREVIEW_TOWER_LIMIT = 6;
 const towerColorsByMode = buildCategoryTowerColors(HABIT_CATEGORY_COLORS);
@@ -53,9 +54,12 @@ const SETTINGS_CHIP_COLORS = {
 /**
  * Restyled per design-review board 15 (owner-approved, confirmed 2026-11-20):
  * a "Your skyline so far" hero (a flat-color tower-count preview, not a real
- * buildScene render — these bars only need to convey relative current run
- * and which tower holds the best run, not the full window/floor detail a
- * real tower scene carries) replacing the old "Hi {name}, you're doing
+ * buildScene render — bar height tracks relative total floor count, i.e.
+ * each tower's actual size on the real skyline, scaled to fit this preview
+ * rather than 1:1 (owner direction 2026-11-27, revised from the original
+ * current-run metric); flag marks whichever tower holds the best run, not
+ * the full window/floor detail a real tower scene carries) replacing the
+ * old "Hi {name}, you're doing
  * great" habit-list card, then flat settings rows instead of the old nested
  * "Account Settings" single entry point. Friends/Accessibility/Notifications/
  * Privacy/Skyline are now direct top-level rows; AccountSettingsScreen itself
@@ -133,7 +137,17 @@ export default function ProfileScreen() {
 
   const categoryColors = towerColorsByMode[effectiveMode];
   const previewHabits = habits.slice(0, PREVIEW_TOWER_LIMIT);
-  const maxRun = Math.max(1, ...previewHabits.map((h) => h.currentRun || 0));
+  // Bar height tracks the tower's actual size — one floor per local
+  // calendar day the current tower has stood (towerCapInfo, the same clock
+  // the real skyline and the top-out gate use) — not the current run. Two
+  // habits with the same broken streak (run = 0) can still be very
+  // different heights on the real skyline, and this preview should read
+  // that way too (owner direction 2026-11-27, revised from current-run).
+  const previewFloorCounts = useMemo(
+    () => previewHabits.map((h) => towerCapInfo(h).daysStood + 1),
+    [previewHabits],
+  );
+  const maxFloorCount = Math.max(1, ...previewFloorCounts);
   const flagHabitId = previewHabits.length
     ? previewHabits.reduce((best, h) => ((h.bestRun || 0) > (best.bestRun || 0) ? h : best), previewHabits[0]).id
     : null;
@@ -187,9 +201,8 @@ export default function ProfileScreen() {
           <Text style={styles.heroTitle}>Your skyline so far</Text>
           {previewHabits.length > 0 ? (
             <View style={styles.previewRow}>
-              {previewHabits.map((h) => {
-                const run = h.currentRun || 0;
-                const heightPct = Math.max(0.18, run / maxRun);
+              {previewHabits.map((h, i) => {
+                const heightPct = Math.max(0.18, previewFloorCounts[i] / maxFloorCount);
                 return (
                   <View key={h.id} style={styles.previewTowerWrap}>
                     {h.id === flagHabitId ? (

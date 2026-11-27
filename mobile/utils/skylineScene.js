@@ -495,36 +495,6 @@ function lifecycleShapes(habit, x, topY, theme) {
   return shapes;
 }
 
-function bestRunLedge(habit, x, days, visible, topY, theme) {
-  if (!habit.bestRun || !habit.bestRun.endDate) return [];
-  // Same day-string rule as startDate above — no Date round-trip.
-  const endKey = String(habit.bestRun.endDate).slice(0, 10);
-  const visibleIndex = visible.findIndex((d) => d.day === endKey);
-
-  let ledgeY;
-  if (visibleIndex >= 0) {
-    // visible[] is oldest-last appended going up, so its screen position
-    // was computed top-down in towerBodyShapes — recompute the same way.
-    ledgeY = BASE_Y - (days.length > visible.length ? TIER_HEIGHT : 0) - (visible.length - visibleIndex) * FLOOR_H;
-  } else if (endKey < (visible[0] && visible[0].day)) {
-    // best run ends inside the collapsed tier — ledge sits at the tier top.
-    ledgeY = topY + (days.length > visible.length ? 0 : -TIER_HEIGHT);
-  } else {
-    return [];
-  }
-
-  return [
-    {
-      id: `${habit.id}-ledge`,
-      kind: 'path',
-      d: `M${x - 1},${ledgeY}L${x + TOWER_W + DX + 1},${ledgeY + DY}`,
-      fill: 'none',
-      stroke: theme.ledgeColor,
-      strokeWidth: 2,
-    },
-  ];
-}
-
 function accessibilityLabel(habit, days) {
   const last14 = days.slice(-14);
   const setCount = last14.filter((d) => d.state === 'set').length;
@@ -547,13 +517,12 @@ export function buildScene(habits, options) {
   (habits || []).forEach((habit, index) => {
     const x = X0 + index * STEP;
     const days = classifyDays(habit, todayKey);
-    const { shapes: bodyShapes, topY, visible, hidden } = towerBodyShapes(habit, x, days, theme, windowCount);
+    const { shapes: bodyShapes, topY, hidden } = towerBodyShapes(habit, x, days, theme, windowCount);
 
     const towerShapes = [
       ...closedSegmentShapes(habit, x, theme),
       ...bodyShapes,
       ...lifecycleShapes(habit, x, topY, theme),
-      ...bestRunLedge(habit, x, days, visible, topY, theme),
     ].map((s) => ({ towerId: habit.id, floorIndex: null, ...s }));
     shapes.push(...towerShapes);
 

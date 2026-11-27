@@ -44,7 +44,7 @@ import { useSkylineView } from '../hooks/useSkylineView';
 import SkylineView from '../components/SkylineView';
 import SkyBackdrop from '../components/SkyBackdrop';
 import SkylineHoldLayer from '../components/SkylineHoldLayer';
-import SkylineHabitSheet, { SHEET_PEEK_HEIGHT } from '../components/SkylineHabitSheet';
+import SkylineHabitSheet, { useSheetPeekHeight } from '../components/SkylineHabitSheet';
 import TowerSheet from '../components/TowerSheet';
 import TowerInsideView from '../components/TowerInsideView';
 import TowerForm from '../components/TowerForm';
@@ -126,6 +126,7 @@ export default function SkylineScreen({ navigation }) {
   const [archivedTowersVisible, setArchivedTowersVisible] = useState(false);
   const [addHabitVisible, setAddHabitVisible] = useState(false);
   const [stageHeight, setStageHeight] = useState(0);
+  const sheetPeekHeight = useSheetPeekHeight();
   // Measured, not guessed — design/skyline/01-skyline.png shows the
   // sun/moon clearly below the header, not behind or crowding it. A flat
   // fraction of the full window height would sit right under the header on
@@ -622,13 +623,14 @@ export default function SkylineScreen({ navigation }) {
             >
               {/* Cropped from the top (sky), never the bottom — a short screen
                   shows less sky above the towers, not a tower's base/labels
-                  clipped off behind the collapsed sheet (see SHEET_PEEK_HEIGHT). */}
+                  clipped off behind the collapsed sheet (see sheetPeekHeight,
+                  which grows when the floating tab bar is on). */}
               <View
                 ref={tourSceneRef}
                 collapsable={false}
                 style={[
                   styles.sceneWrap,
-                  stageHeight > 0 && { height: Math.min(560, stageHeight - SHEET_PEEK_HEIGHT) },
+                  stageHeight > 0 && { height: Math.min(560, stageHeight - sheetPeekHeight) },
                 ]}
               >
                 <View style={styles.sceneAnchorBottom}>
@@ -675,6 +677,7 @@ export default function SkylineScreen({ navigation }) {
                 habits={sceneHabits}
                 getCanBuild={getCanBuild}
                 onBuild={handleBuild}
+                onOpenSheet={handleOpenTowerSheet}
                 tapToBuild={tapToBuild}
                 theme={ui}
                 stageHeight={stageHeight}
@@ -684,7 +687,7 @@ export default function SkylineScreen({ navigation }) {
                 ref={tourSheetRef}
                 collapsable={false}
                 pointerEvents="none"
-                style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: SHEET_PEEK_HEIGHT }}
+                style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: sheetPeekHeight }}
               />
               {showFirstHoldHint && <FirstHoldHint theme={ui} />}
               <TowerSheet

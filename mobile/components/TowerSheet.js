@@ -13,6 +13,7 @@ import { DayGrid } from './LotTile';
 import { useConfirm } from '../hooks/useConfirm';
 import { useToast } from '../hooks/useToast';
 import { useHabits } from '../hooks/useHabits';
+import { useTabBarOverlayInset } from '../hooks/useFloatingTabBar';
 import { isCountMode } from '../utils/cadence';
 import { buildDays } from '../utils/lots';
 import { categoryColor } from '../constants/habitCategories';
@@ -89,6 +90,7 @@ export default function TowerSheet({
   const { request, confirm, respond } = useConfirm();
   const { effectiveMode } = useAppTheme();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const overlayInset = useTabBarOverlayInset();
   // Both hooks below must stay unconditional (before the `if (!displayHabit)
   // return null` guard further down) — this sheet stays permanently
   // mounted with habit/displayHabit sometimes null, so a hook declared
@@ -532,7 +534,11 @@ export default function TowerSheet({
         </View>
       </GestureDetector>
 
-      <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={[styles.scroll, { paddingBottom: 32 + overlayInset }]}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.titleRow}>
           <View style={[styles.colorChip, { backgroundColor: towerColor }]} />
           <View style={styles.titleTextWrap} accessible accessibilityLabel={`Tower details, ${displayHabit.name}`}>

@@ -23,6 +23,7 @@ import { useShowFinishedTowers } from '../hooks/useShowFinishedTowers';
 import { useTapToBuild } from '../hooks/useTapToBuild';
 import { unregisterPushToken } from '../hooks/usePushToken';
 import { useRegisterScrollToTop } from '../hooks/useRegisterScrollToTop';
+import { useTabBarOverlayInset } from '../hooks/useFloatingTabBar';
 import { useToast } from '../hooks/useToast';
 import api from '../api/client';
 import { buildCategoryTowerColors, fonts, radii, shadow, spacing } from '../theme';
@@ -64,6 +65,7 @@ const SETTINGS_CHIP_COLORS = {
 export default function ProfileScreen() {
   const navigation = useNavigation();
   const { colors, typography, effectiveMode } = useAppTheme();
+  const overlayInset = useTabBarOverlayInset();
   const { showFinishedTowers } = useShowFinishedTowers();
   const { tapToBuild } = useTapToBuild();
   const { friends, pendingRequests } = useFriends();
@@ -150,7 +152,10 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <ScrollView ref={scrollRef} contentContainerStyle={styles.container}>
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={[styles.container, { paddingBottom: spacing.xxl + overlayInset }]}
+      >
         <View style={styles.header}>
           <Text style={styles.title}>Profile</Text>
           <Pressable
@@ -381,7 +386,7 @@ function SettingsRow({ icon, label, sublabel, onPress, styles, colors, testID, a
 function makeStyles(colors, typography, effectiveMode) {
   return StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: colors.background },
-    container: { padding: spacing.xl, paddingBottom: spacing.xxl },
+    container: { padding: spacing.xl },
     header: {
       flexDirection: 'row',
       alignItems: 'center',

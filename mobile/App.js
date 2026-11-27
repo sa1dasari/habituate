@@ -11,7 +11,7 @@ import {
   Nunito_800ExtraBold,
   useFonts,
 } from '@expo-google-fonts/nunito';
-import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { DarkTheme, DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -27,6 +27,8 @@ import { CelebrationProvider } from './hooks/useCelebration';
 import { ThemeProvider, useAppTheme } from './hooks/useAppTheme';
 import { TapToBuildProvider } from './hooks/useTapToBuild';
 import { ShowFinishedTowersProvider } from './hooks/useShowFinishedTowers';
+import { FloatingTabBarProvider } from './hooks/useFloatingTabBar';
+import FloatingTabBar from './components/FloatingTabBar';
 import { WindowCountProvider } from './hooks/useWindowCount';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { isExpoGo, usePushToken, usePushPermissionPrompt } from './hooks/usePushToken';
@@ -91,16 +93,22 @@ const TAB_ICONS = {
   Profile: 'account-circle-outline',
 };
 
-const TAB_BAR_CONTENT_HEIGHT = 58;
-
 function Tabs() {
-  const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
   const { user } = useAuth();
 
   return (
     <>
     <Tab.Navigator
+      // Boards 97/98/101 (owner-approved 2026-11-26): FloatingTabBar fully
+      // replaces the default bar so it can render either docked (today's
+      // look) or a floating, translucent, position:absolute bar off the
+      // useFloatingTabBar setting. tabBarStyle/tabBarIconStyle/
+      // tabBarLabelStyle below are no longer read by anything (the default
+      // renderer they targeted is gone) but tabBarIcon/tabBarActiveTintColor/
+      // tabBarInactiveTintColor stay — FloatingTabBar reads those straight
+      // off each route's resolved options, same as the default bar did.
+      tabBar={(props) => <FloatingTabBar {...props} />}
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarIcon: ({ color, size }) => (
@@ -112,15 +120,6 @@ function Tabs() {
         ),
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.textMuted,
-        tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopColor: colors.border,
-          height: TAB_BAR_CONTENT_HEIGHT + insets.bottom,
-          paddingTop: 6,
-          paddingBottom: insets.bottom,
-        },
-        tabBarIconStyle: { marginBottom: 0 },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600', lineHeight: 14 },
       })}
     >
       <Tab.Screen
@@ -430,18 +429,20 @@ function AppGate() {
                 <CelebrationProvider>
                   <TapToBuildProvider>
                     <ShowFinishedTowersProvider>
-                      <WindowCountProvider>
-                        <TourProvider>
-                          <WidgetDeepLinkBridge />
-                          <PushNotificationTapBridge />
-                          <PushPromptHost enabled={!!user}>
-                            <NavigationContainer ref={navigationRef} theme={navigationTheme}>
-                              <Tabs />
-                            </NavigationContainer>
-                          </PushPromptHost>
-                          <TourAutoStart />
-                        </TourProvider>
-                      </WindowCountProvider>
+                      <FloatingTabBarProvider>
+                        <WindowCountProvider>
+                          <TourProvider>
+                            <WidgetDeepLinkBridge />
+                            <PushNotificationTapBridge />
+                            <PushPromptHost enabled={!!user}>
+                              <NavigationContainer ref={navigationRef} theme={navigationTheme}>
+                                <Tabs />
+                              </NavigationContainer>
+                            </PushPromptHost>
+                            <TourAutoStart />
+                          </TourProvider>
+                        </WindowCountProvider>
+                      </FloatingTabBarProvider>
                     </ShowFinishedTowersProvider>
                   </TapToBuildProvider>
                 </CelebrationProvider>

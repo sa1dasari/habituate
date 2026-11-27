@@ -2,6 +2,7 @@ import React, { useMemo, useRef } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import LotTile, { LotLegend, SIZE as DEFAULT_TILE_SIZE, TILE_GAP } from './LotTile';
 import HoldPillButton from './HoldPillButton';
+import { useTabBarOverlayInset } from '../hooks/useFloatingTabBar';
 import { fonts } from '../theme';
 
 // Must match `styles.list`'s paddingHorizontal below — kept as one constant
@@ -40,8 +41,10 @@ export default function LotsView({ rows, habitsById, getCanBuild, onBuild, onOpe
     return (availableWidth - (tileCount - 1) * TILE_GAP) / tileCount;
   }, [windowWidth]);
 
+  const overlayInset = useTabBarOverlayInset();
+
   return (
-    <ScrollView contentContainerStyle={styles.list}>
+    <ScrollView contentContainerStyle={[styles.list, { paddingBottom: 24 + overlayInset }]}>
       {rows.map((row) => (
         <LotRow
           key={row.habitId}
@@ -151,7 +154,7 @@ const LotRow = React.memo(function LotRow({ row, habit, getCanBuild, onBuild, on
 });
 
 const styles = StyleSheet.create({
-  list: { paddingHorizontal: LIST_PADDING, paddingTop: 16, paddingBottom: 24 },
+  list: { paddingHorizontal: LIST_PADDING, paddingTop: 16 },
   row: { marginBottom: 20 },
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   dot: { width: 14, height: 14, borderRadius: 4, marginRight: 10 },

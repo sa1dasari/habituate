@@ -4,17 +4,20 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import StackHeader from '../components/StackHeader';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useShowFinishedTowers } from '../hooks/useShowFinishedTowers';
+import { useFloatingTabBar } from '../hooks/useFloatingTabBar';
 import { radii, shadow, spacing } from '../theme';
 
 /**
- * Board 57: the "Skyline" settings page, reached from the new Profile row
- * (board 15). One switch — "Show finished towers" — the global default
+ * Board 57/99/100: the "Skyline" settings page, reached from the Profile
+ * row (board 15). "Floating tab bar" (board 99/100, owner-approved
+ * 2026-11-26) sits above "Show finished towers" — the global default
  * `useShowFinishedTowers` resolves a habit's live-skyline visibility to when
  * it has no per-habit override (board 45's edit-form toggle).
  */
 export default function SkylineSettingsScreen({ navigation }) {
   const { colors, typography } = useAppTheme();
   const { showFinishedTowers, setShowFinishedTowers } = useShowFinishedTowers();
+  const { floatingTabBar, setFloatingTabBar } = useFloatingTabBar();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
 
   return (
@@ -22,6 +25,24 @@ export default function SkylineSettingsScreen({ navigation }) {
       <StackHeader title="Skyline" onBack={() => navigation.goBack()} />
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.card}>
+          <View style={styles.switchRow}>
+            <View style={styles.switchLabelWrap}>
+              <Text style={styles.cardTitle}>Floating tab bar</Text>
+              <Text style={styles.cardNote}>
+                The tab bar floats above your skyline with space around it. Turn off for a bar fixed to the
+                bottom of the screen.
+              </Text>
+            </View>
+            <Switch
+              value={floatingTabBar}
+              onValueChange={setFloatingTabBar}
+              accessibilityLabel="Floating tab bar"
+              accessibilityRole="switch"
+              testID="skyline-settings-floating-tab-bar"
+            />
+          </View>
+        </View>
+        <View style={[styles.card, styles.cardSpacing]}>
           <View style={styles.switchRow}>
             <View style={styles.switchLabelWrap}>
               <Text style={styles.cardTitle}>Show finished towers</Text>
@@ -58,6 +79,7 @@ function makeStyles(colors, typography) {
       padding: spacing.lg,
       ...shadow,
     },
+    cardSpacing: { marginTop: spacing.md },
     cardTitle: { ...typography.cardTitle, marginBottom: spacing.xs },
     cardNote: { ...typography.meta },
     switchRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },

@@ -11,7 +11,7 @@ import {
   Nunito_800ExtraBold,
   useFonts,
 } from '@expo-google-fonts/nunito';
-import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { DarkTheme, DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -27,6 +27,8 @@ import { CelebrationProvider } from './hooks/useCelebration';
 import { ThemeProvider, useAppTheme } from './hooks/useAppTheme';
 import { TapToBuildProvider } from './hooks/useTapToBuild';
 import { ShowFinishedTowersProvider } from './hooks/useShowFinishedTowers';
+import { FloatingTabBarProvider } from './hooks/useFloatingTabBar';
+import FloatingTabBar from './components/FloatingTabBar';
 import { WindowCountProvider } from './hooks/useWindowCount';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { isExpoGo, usePushToken, usePushPermissionPrompt } from './hooks/usePushToken';
@@ -45,17 +47,12 @@ import {
   CommunityScreen,
   LoginScreen,
   SignupScreen,
-  TodayScreen,
 } from './screens';
 import ProfileStack from './navigation/ProfileStack';
 import InsightsStack from './navigation/InsightsStack';
-// Skyline rebuild dev screens only (SKYLINE.md section 11) — __DEV__-gated
-// below, never shown in a release build. SkylineEngineScreen is the Phase 1
-// fixture-only render check; SkylineScreen is Phase 2's real-data screen,
-// not yet the live tab (TowerSheet-only actions like Shield Day and streak
-// repair aren't reachable until Phase 3). Delete both dev entries and this
-// comment once Phase 3 closes that gap and the real tab takes over.
-import SkylineEngineScreen from './screens/dev/SkylineEngineScreen';
+// SkylineScreen is now the live 'Today'-route/"Skyline"-tab screen (SKYLINE.md
+// section 14 #20, 2026-11-25) — TodayScreen.js and the __DEV__-only
+// SkylineEngine/SkylineReal preview tabs are deleted, not just hidden.
 import SkylineScreen from './screens/SkylineScreen';
 import CommunityComingSoonScreen from './screens/CommunityComingSoonScreen';
 
@@ -96,16 +93,22 @@ const TAB_ICONS = {
   Profile: 'account-circle-outline',
 };
 
-const TAB_BAR_CONTENT_HEIGHT = 58;
-
 function Tabs() {
-  const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
   const { user } = useAuth();
 
   return (
     <>
     <Tab.Navigator
+      // Boards 97/98/101 (owner-approved 2026-11-26): FloatingTabBar fully
+      // replaces the default bar so it can render either docked (today's
+      // look) or a floating, translucent, position:absolute bar off the
+      // useFloatingTabBar setting. tabBarStyle/tabBarIconStyle/
+      // tabBarLabelStyle below are no longer read by anything (the default
+      // renderer they targeted is gone) but tabBarIcon/tabBarActiveTintColor/
+      // tabBarInactiveTintColor stay — FloatingTabBar reads those straight
+      // off each route's resolved options, same as the default bar did.
+      tabBar={(props) => <FloatingTabBar {...props} />}
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarIcon: ({ color, size }) => (
@@ -117,27 +120,23 @@ function Tabs() {
         ),
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.textMuted,
-        tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopColor: colors.border,
-          height: TAB_BAR_CONTENT_HEIGHT + insets.bottom,
-          paddingTop: 6,
-          paddingBottom: insets.bottom,
-        },
-        tabBarIconStyle: { marginBottom: 0 },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600', lineHeight: 14 },
       })}
     >
       <Tab.Screen
         name="Today"
-        component={TodayScreen}
+        component={SkylineScreen}
         // Route name stays 'Today' (code name, same as habit/check-in/
         // streak elsewhere — every navigation.navigate('Today', ...) call
         // site keeps working unchanged). Only the visible label changes,
         // per CLAUDE.md's UI-wording table and the design-review-approved
-        // small fixes (2026-11-13).
+        // small fixes (2026-11-13). SkylineScreen replaces TodayScreen as
+        // this route's component 2026-11-25 (section 14 #20) — no
+        // tabPress scroll-to-top listener here: SkylineScreen's root is a
+        // fixed stage + draggable sheet, not a ScrollView, so there is
+        // nothing for scrollToTop('Today') to do (TodayScreen's own
+        // listener was a no-op the instant nothing registered under that
+        // key, same safe-no-op as this absence).
         options={{ tabBarLabel: 'Skyline' }}
-        listeners={{ tabPress: () => scrollToTop('Today') }}
       />
       <Tab.Screen
         name="Insights"
@@ -175,24 +174,6 @@ function Tabs() {
         }}
         listeners={{ tabPress: () => scrollToTop('Profile') }}
       />
-      {__DEV__ && (
-        <Tab.Screen
-          name="SkylineEngine"
-          component={SkylineEngineScreen}
-          options={{ title: 'Engine', tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="flask-outline" size={size} color={color} />
-          ) }}
-        />
-      )}
-      {__DEV__ && (
-        <Tab.Screen
-          name="SkylineReal"
-          component={SkylineScreen}
-          options={{ title: 'Skyline2', tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="office-building" size={size} color={color} />
-          ) }}
-        />
-      )}
     </Tab.Navigator>
     {/* Hosts tour steps 4-5, which spotlight the tab bar buttons. */}
     <TourHighlight scope={TOUR_SCOPES.TABS} />
@@ -448,18 +429,20 @@ function AppGate() {
                 <CelebrationProvider>
                   <TapToBuildProvider>
                     <ShowFinishedTowersProvider>
-                      <WindowCountProvider>
-                        <TourProvider>
-                          <WidgetDeepLinkBridge />
-                          <PushNotificationTapBridge />
-                          <PushPromptHost enabled={!!user}>
-                            <NavigationContainer ref={navigationRef} theme={navigationTheme}>
-                              <Tabs />
-                            </NavigationContainer>
-                          </PushPromptHost>
-                          <TourAutoStart />
-                        </TourProvider>
-                      </WindowCountProvider>
+                      <FloatingTabBarProvider>
+                        <WindowCountProvider>
+                          <TourProvider>
+                            <WidgetDeepLinkBridge />
+                            <PushNotificationTapBridge />
+                            <PushPromptHost enabled={!!user}>
+                              <NavigationContainer ref={navigationRef} theme={navigationTheme}>
+                                <Tabs />
+                              </NavigationContainer>
+                            </PushPromptHost>
+                            <TourAutoStart />
+                          </TourProvider>
+                        </WindowCountProvider>
+                      </FloatingTabBarProvider>
                     </ShowFinishedTowersProvider>
                   </TapToBuildProvider>
                 </CelebrationProvider>

@@ -23,20 +23,43 @@ import { useShowFinishedTowers } from '../hooks/useShowFinishedTowers';
 import { useTapToBuild } from '../hooks/useTapToBuild';
 import { unregisterPushToken } from '../hooks/usePushToken';
 import { useRegisterScrollToTop } from '../hooks/useRegisterScrollToTop';
+import { useTabBarOverlayInset } from '../hooks/useFloatingTabBar';
 import { useToast } from '../hooks/useToast';
 import api from '../api/client';
 import { buildCategoryTowerColors, fonts, radii, shadow, spacing } from '../theme';
 import { countByCap, FREE_SHIELD_BANK_LIMIT, FREE_TIER_LIMITS } from '../utils/entitlements';
+import { towerCapDays, towerCapInfo } from '../utils/towerAge';
 
 const PREVIEW_TOWER_LIMIT = 6;
 const towerColorsByMode = buildCategoryTowerColors(HABIT_CATEGORY_COLORS);
 
+function hexToRgba(hex, alpha) {
+  const n = parseInt(hex.replace('#', ''), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
+}
+
+// Board 95 (design/skyline/): per-row chip colors, fixed across light/dark
+// — only the Skyline row's amber chip shifts with theme (colors.warning,
+// with a dark glyph on dark mode's brighter gold instead of white).
+const SETTINGS_CHIP_COLORS = {
+  share: '#F2784E',
+  friends: '#4FA3E3',
+  sky: '#2DBE9E',
+  accessibility: '#9B6BD9',
+  notifications: '#F472B6',
+  privacy: '#22C55E',
+  account: '#64748B',
+};
+
 /**
  * Restyled per design-review board 15 (owner-approved, confirmed 2026-11-20):
  * a "Your skyline so far" hero (a flat-color tower-count preview, not a real
- * buildScene render — these bars only need to convey relative current run
- * and which tower holds the best run, not the full window/floor detail a
- * real tower scene carries) replacing the old "Hi {name}, you're doing
+ * buildScene render — bar height tracks relative total floor count, i.e.
+ * each tower's actual size on the real skyline, scaled to fit this preview
+ * rather than 1:1 (owner direction 2026-11-27, revised from the original
+ * current-run metric); flag marks whichever tower holds the best run, not
+ * the full window/floor detail a real tower scene carries) replacing the
+ * old "Hi {name}, you're doing
  * great" habit-list card, then flat settings rows instead of the old nested
  * "Account Settings" single entry point. Friends/Accessibility/Notifications/
  * Privacy/Skyline are now direct top-level rows; AccountSettingsScreen itself
@@ -46,10 +69,11 @@ const towerColorsByMode = buildCategoryTowerColors(HABIT_CATEGORY_COLORS);
 export default function ProfileScreen() {
   const navigation = useNavigation();
   const { colors, typography, effectiveMode } = useAppTheme();
+  const overlayInset = useTabBarOverlayInset();
   const { showFinishedTowers } = useShowFinishedTowers();
   const { tapToBuild } = useTapToBuild();
   const { friends, pendingRequests } = useFriends();
-  const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
+  const styles = useMemo(() => makeStyles(colors, typography, effectiveMode), [colors, typography, effectiveMode]);
   const scrollRef = useRegisterScrollToTop('Profile');
   const { user, signOut } = useAuth();
   const { habits, archivedHabits, shieldsAvailable } = useHabits();
@@ -113,7 +137,17 @@ export default function ProfileScreen() {
 
   const categoryColors = towerColorsByMode[effectiveMode];
   const previewHabits = habits.slice(0, PREVIEW_TOWER_LIMIT);
-  const maxRun = Math.max(1, ...previewHabits.map((h) => h.currentRun || 0));
+  // Bar height tracks the tower's actual size — one floor per local
+  // calendar day the current tower has stood (towerCapInfo, the same clock
+  // the real skyline and the top-out gate use) — not the current run. Two
+  // habits with the same broken streak (run = 0) can still be very
+  // different heights on the real skyline, and this preview should read
+  // that way too (owner direction 2026-11-27, revised from current-run).
+  // Clamped to the habit's own cap: a weekly/monthly-target habit never
+  // tops out (section 6), so its segment age grows unbounded and would
+  // otherwise swamp every daily tower's bar at the shared scale.
+  const previewFloorCounts = previewHabits.map((h) => Math.min(towerCapInfo(h).daysStood + 1, towerCapDays(h)));
+  const maxFloorCount = Math.max(1, ...previewFloorCounts);
   const flagHabitId = previewHabits.length
     ? previewHabits.reduce((best, h) => ((h.bestRun || 0) > (best.bestRun || 0) ? h : best), previewHabits[0]).id
     : null;
@@ -132,7 +166,10 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <ScrollView ref={scrollRef} contentContainerStyle={styles.container}>
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={[styles.container, { paddingBottom: spacing.xxl + overlayInset }]}
+      >
         <View style={styles.header}>
           <Text style={styles.title}>Profile</Text>
           <Pressable
@@ -164,9 +201,8 @@ export default function ProfileScreen() {
           <Text style={styles.heroTitle}>Your skyline so far</Text>
           {previewHabits.length > 0 ? (
             <View style={styles.previewRow}>
-              {previewHabits.map((h) => {
-                const run = h.currentRun || 0;
-                const heightPct = Math.max(0.18, run / maxRun);
+              {previewHabits.map((h, i) => {
+                const heightPct = Math.max(0.18, previewFloorCounts[i] / maxFloorCount);
                 return (
                   <View key={h.id} style={styles.previewTowerWrap}>
                     {h.id === flagHabitId ? (
@@ -193,9 +229,17 @@ export default function ProfileScreen() {
             <StatChip value={bestRun ?? 0} label="best run" styles={styles} />
           </View>
           {!isPro ? (
-            <Text style={styles.planLine} testID="profile-plan-usage-line">
-              {`Free plan · ${capCounts.daily} of ${FREE_TIER_LIMITS.daily} daily · ${capCounts.weekly} of ${FREE_TIER_LIMITS.weekly} weekly · ${capCounts.monthly} of ${FREE_TIER_LIMITS.monthly} monthly · ${shieldsAvailable} of ${FREE_SHIELD_BANK_LIMIT} Shield Days`}
-            </Text>
+            <>
+              <View style={styles.planDivider} />
+              <View style={styles.planRow}>
+                <View style={styles.planChip}>
+                  <Text style={styles.planChipText}>FREE PLAN</Text>
+                </View>
+                <Text style={styles.planLine} testID="profile-plan-usage-line">
+                  {`${capCounts.daily} of ${FREE_TIER_LIMITS.daily} daily · ${capCounts.weekly} of ${FREE_TIER_LIMITS.weekly} weekly · ${capCounts.monthly} of ${FREE_TIER_LIMITS.monthly} monthly · ${shieldsAvailable} of ${FREE_SHIELD_BANK_LIMIT} Shield Days`}
+                </Text>
+              </View>
+            </>
           ) : null}
         </Pressable>
 
@@ -224,6 +268,7 @@ export default function ProfileScreen() {
           onPress={() => setShareSheetVisible(true)}
           styles={styles}
           colors={colors}
+          chipColor={SETTINGS_CHIP_COLORS.share}
           testID="profile-share-skyline-row"
         />
         <SettingsRow
@@ -233,6 +278,7 @@ export default function ProfileScreen() {
           onPress={() => setFriendsVisible(true)}
           styles={styles}
           colors={colors}
+          chipColor={SETTINGS_CHIP_COLORS.friends}
           testID="profile-friends-row"
         />
         <SettingsRow
@@ -241,6 +287,7 @@ export default function ProfileScreen() {
           onPress={() => navigation.navigate('SkyWeatherSettings')}
           styles={styles}
           colors={colors}
+          chipColor={SETTINGS_CHIP_COLORS.sky}
           testID="profile-sky-weather-row"
         />
         <SettingsRow
@@ -250,6 +297,8 @@ export default function ProfileScreen() {
           onPress={() => navigation.navigate('SkylineSettings')}
           styles={styles}
           colors={colors}
+          chipColor={colors.warning}
+          chipIconColor={effectiveMode === 'dark' ? '#15202B' : '#FFFFFF'}
           testID="profile-skyline-row"
         />
         <SettingsRow
@@ -259,6 +308,7 @@ export default function ProfileScreen() {
           onPress={() => navigation.navigate('Accessibility')}
           styles={styles}
           colors={colors}
+          chipColor={SETTINGS_CHIP_COLORS.accessibility}
         />
         <SettingsRow
           icon="bell-outline"
@@ -267,6 +317,7 @@ export default function ProfileScreen() {
           onPress={() => navigation.navigate('NotificationSettings')}
           styles={styles}
           colors={colors}
+          chipColor={SETTINGS_CHIP_COLORS.notifications}
         />
         <SettingsRow
           icon="lock-outline"
@@ -275,6 +326,7 @@ export default function ProfileScreen() {
           onPress={() => navigation.navigate('Privacy')}
           styles={styles}
           colors={colors}
+          chipColor={SETTINGS_CHIP_COLORS.privacy}
         />
         <SettingsRow
           icon="cog-outline"
@@ -282,6 +334,7 @@ export default function ProfileScreen() {
           onPress={() => navigation.navigate('AccountSettings')}
           styles={styles}
           colors={colors}
+          chipColor={SETTINGS_CHIP_COLORS.account}
         />
 
         <Pressable style={styles.signOutBtn} onPress={handleSignOut}>
@@ -316,7 +369,7 @@ function StatChip({ value, label, styles }) {
   );
 }
 
-function SettingsRow({ icon, label, sublabel, onPress, styles, colors, testID, amber }) {
+function SettingsRow({ icon, label, sublabel, onPress, styles, colors, testID, amber, chipColor, chipIconColor }) {
   return (
     <Pressable
       style={[styles.settingsRow, amber ? styles.settingsRowAmber : null]}
@@ -325,22 +378,28 @@ function SettingsRow({ icon, label, sublabel, onPress, styles, colors, testID, a
       accessibilityLabel={label}
       testID={testID}
     >
-      <View style={[styles.settingsRowIcon, amber ? styles.settingsRowIconAmber : null]}>
-        <MaterialCommunityIcons name={icon} size={18} color={amber ? colors.amber || '#F2C14E' : colors.accent} />
-      </View>
+      {chipColor ? (
+        <View style={[styles.settingsRowChip, { backgroundColor: chipColor }]}>
+          <MaterialCommunityIcons name={icon} size={18} color={chipIconColor || '#FFFFFF'} />
+        </View>
+      ) : (
+        <View style={[styles.settingsRowIcon, amber ? styles.settingsRowIconAmber : null]}>
+          <MaterialCommunityIcons name={icon} size={18} color={amber ? colors.warning : colors.accent} />
+        </View>
+      )}
       <View style={{ flex: 1 }}>
         <Text style={amber ? styles.settingsRowLabelAmber : styles.settingsRowLabel}>{label}</Text>
         {sublabel ? <Text style={styles.settingsRowSublabel}>{sublabel}</Text> : null}
       </View>
-      <MaterialCommunityIcons name="chevron-right" size={20} color={amber ? colors.amber || '#F2C14E' : colors.textMuted} />
+      <MaterialCommunityIcons name="chevron-right" size={20} color={amber ? colors.warning : colors.textMuted} />
     </Pressable>
   );
 }
 
-function makeStyles(colors, typography) {
+function makeStyles(colors, typography, effectiveMode) {
   return StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: colors.background },
-    container: { padding: spacing.xl, paddingBottom: spacing.xxl },
+    container: { padding: spacing.xl },
     header: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -386,7 +445,23 @@ function makeStyles(colors, typography) {
     statChip: { alignItems: 'center', flex: 1 },
     statChipValue: { fontFamily: fonts.extraBold, fontSize: 18, color: colors.textPrimary },
     statChipLabel: { ...typography.meta, fontSize: 11, marginTop: 1 },
-    planLine: { ...typography.meta, fontSize: 12, marginTop: spacing.sm },
+    // Board 95: split from the stats row by a divider, a "FREE PLAN" chip,
+    // and 13/700 text in the main text color (was a 12px meta/grey line).
+    planDivider: { height: 1, backgroundColor: colors.border, marginTop: spacing.md, marginBottom: spacing.md },
+    planRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing.sm },
+    planChip: {
+      backgroundColor: colors.warning,
+      borderRadius: radii.pill,
+      paddingHorizontal: spacing.md,
+      paddingVertical: 4,
+    },
+    planChipText: {
+      fontFamily: fonts.extraBold,
+      fontSize: 12,
+      letterSpacing: 0.5,
+      color: effectiveMode === 'dark' ? '#15202B' : '#FFFFFF',
+    },
+    planLine: { fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary, flexShrink: 1 },
     settingsRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -400,8 +475,7 @@ function makeStyles(colors, typography) {
     },
     settingsRowAmber: {
       borderWidth: 1,
-      borderColor: colors.amber || '#F2C14E',
-      backgroundColor: 'rgba(242, 193, 78, 0.08)',
+      borderColor: colors.warning,
     },
     settingsRowIcon: {
       width: 32,
@@ -411,9 +485,18 @@ function makeStyles(colors, typography) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    settingsRowIconAmber: { backgroundColor: 'rgba(242, 193, 78, 0.16)' },
+    settingsRowIconAmber: { backgroundColor: hexToRgba(colors.warning, 0.16) },
+    // Board 95 (design/skyline/): per-row coloured chips, 36dp square,
+    // radius 10 — replaces the old uniform blue circle for every row.
+    settingsRowChip: {
+      width: 36,
+      height: 36,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     settingsRowLabel: { fontSize: 14, fontWeight: '600', color: colors.textPrimary },
-    settingsRowLabelAmber: { fontFamily: fonts.extraBold, fontSize: 14, color: colors.amber || '#F2C14E' },
+    settingsRowLabelAmber: { fontFamily: fonts.extraBold, fontSize: 14, color: colors.warning },
     settingsRowSublabel: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
     signOutBtn: {
       flexDirection: 'row',

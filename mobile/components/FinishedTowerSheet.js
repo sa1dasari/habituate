@@ -1,5 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import Svg from 'react-native-svg';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import SkylineTower from './SkylineTower';
@@ -12,6 +14,8 @@ import { toSceneHabit } from '../utils/skylineAdapter';
 import { finishedTowerIllustration, DX } from '../utils/skylineScene';
 import { toDateKey } from '../utils/date';
 import { fonts } from '../theme';
+
+const DISMISS_DISTANCE = 100; // drag-down distance that counts as "let go of the sheet" (TowerSheet.js uses the same idea)
 
 function dateLabel(value) {
   if (!value) return '-';
@@ -34,40 +38,85 @@ export default function FinishedTowerSheet({ visible, row, onClose, theme, tower
   const [insideVisible, setInsideVisible] = useState(false);
   const [shareSheetVisible, setShareSheetVisible] = useState(false);
 
-  const liveHabit = row ? habits.find((h) => h.id === row.habitId) : null;
+  // Kept around through the close animation (same reason as TowerSheet.js's
+  // `lastHabit`): the caller nulls `row` the instant onClose fires, and this
+  // sheet needs its content to keep rendering while the drag/slide-down
+  // animation plays rather than popping blank mid-exit.
+  const [lastRow, setLastRow] = useState(null);
+  useEffect(() => {
+    if (row) setLastRow(row);
+  }, [row]);
+  const displayRow = row || lastRow;
+
+  const translateY = useSharedValue(0);
+  useEffect(() => {
+    if (visible) translateY.value = 0;
+  }, [visible, translateY]);
+  const dismiss = () => onClose();
+  const dragGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .onUpdate((event) => {
+          translateY.value = Math.max(0, event.translationY);
+        })
+        .onEnd((event) => {
+          if (event.translationY > DISMISS_DISTANCE || event.velocityY > 800) {
+            // Snap back to 0 immediately and let the Modal's own "slide"
+            // animationType play the actual exit, rather than stacking a
+            // second animation on top of it.
+            translateY.value = 0;
+            runOnJS(dismiss)();
+          } else {
+            translateY.value = withSpring(0, { damping: 50, stiffness: 400 });
+          }
+        }),
+    [],
+  );
+  const dragAnimatedStyle = useAnimatedStyle(() => ({ transform: [{ translateY: translateY.value }] }));
+
+  const liveHabit = displayRow ? habits.find((h) => h.id === displayRow.habitId) : null;
 
   const illustration = useMemo(
-    () => (row ? finishedTowerIllustration(row.floorCount, resolveHabitColor(row, mode, categoryColors), towerTheme) : null),
-    [row, mode, categoryColors, towerTheme],
+    () => (displayRow ? finishedTowerIllustration(displayRow.floorCount, resolveHabitColor(displayRow, mode, categoryColors), towerTheme) : null),
+    [displayRow, mode, categoryColors, towerTheme],
   );
 
   const insideSceneHabit = useMemo(() => {
-    if (!liveHabit || !row?.startedAt) return null;
-    return { ...toSceneHabit(liveHabit, categoryColors, mode), startDate: toDateKey(row.startedAt), currentRun: 0, bestRun: null };
-  }, [liveHabit, row, categoryColors, mode]);
-  const insideToday = row?.toppedOutAt ? new Date(`${toDateKey(row.toppedOutAt)}T12:00:00`) : null;
+    if (!liveHabit || !displayRow?.startedAt) return null;
+    return { ...toSceneHabit(liveHabit, categoryColors, mode), startDate: toDateKey(displayRow.startedAt), currentRun: 0, bestRun: null };
+  }, [liveHabit, displayRow, categoryColors, mode]);
+  const insideToday = displayRow?.toppedOutAt ? new Date(`${toDateKey(displayRow.toppedOutAt)}T12:00:00`) : null;
 
-  if (!row) return null;
+  if (!displayRow) return null;
 
-  const bestRun = row.bestRunInSegment || 0;
-  const stood = row.startedAt && row.toppedOutAt
-    ? Math.max(1, Math.round((new Date(row.toppedOutAt) - new Date(row.startedAt)) / 86400000) + 1)
-    : row.floorCount || 0;
+  const bestRun = displayRow.bestRunInSegment || 0;
+  const stood = displayRow.startedAt && displayRow.toppedOutAt
+    ? Math.max(1, Math.round((new Date(displayRow.toppedOutAt) - new Date(displayRow.startedAt)) / 86400000) + 1)
+    : displayRow.floorCount || 0;
   const stats = [
-    { key: 'total', value: String(row.floorCount || 0), label: 'Total built' },
+    { key: 'total', value: String(displayRow.floorCount || 0), label: 'Total built' },
     { key: 'best', value: `${bestRun} ${bestRun === 1 ? 'day' : 'days'}`, label: 'Best run here' },
-    { key: 'started', value: dateLabel(row.startedAt), label: 'Started' },
+    { key: 'started', value: dateLabel(displayRow.startedAt), label: 'Started' },
   ];
 
-  const shown = isVisibleForHabit(row.habitId);
-  const toggleLabel = `${shown ? 'Hide' : 'Show'} finished towers for ${row.habitName}`;
+  const shown = isVisibleForHabit(displayRow.habitId);
+  const toggleLabel = `${shown ? 'Hide' : 'Show'} finished towers for ${displayRow.habitName}`;
 
   return (
     <>
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      {/* The handle's GestureDetector needs its own root — the one wrapping
+          App.js can't reach into a Modal's separate native surface (same
+          reason LotSheet.js nests one; see its comment). */}
+      <GestureHandlerRootView style={{ flex: 1 }}>
       <Pressable style={styles.backdrop} onPress={onClose} testID="finished-tower-sheet-backdrop">
-        <Pressable style={[styles.sheet, { backgroundColor: theme.surfaceHigh }]} onPress={() => {}} testID="finished-tower-sheet">
-          <View style={[styles.handle, { backgroundColor: theme.muted }]} />
+        <Animated.View style={[styles.sheet, { backgroundColor: theme.surfaceHigh }, dragAnimatedStyle]}>
+        <Pressable onPress={() => {}} testID="finished-tower-sheet">
+          <GestureDetector gesture={dragGesture}>
+            <View style={styles.handleZone} testID="finished-tower-sheet-handle">
+              <View style={[styles.handle, { backgroundColor: theme.muted }]} />
+            </View>
+          </GestureDetector>
           <View style={styles.eyebrowRow}>
             <Text style={[styles.eyebrow, { color: theme.muted }]}>FINISHED TOWER</Text>
             <Pressable
@@ -90,14 +139,14 @@ export default function FinishedTowerSheet({ visible, row, onClose, theme, tower
             )}
             <View style={styles.heroText}>
               <Text style={[styles.title, { color: theme.text }]} testID="finished-tower-sheet-title">
-                {row.habitName}
+                {displayRow.habitName}
               </Text>
               <Text style={[styles.meta, { color: theme.muted }]}>
-                {`Topped out ${dateLabel(row.toppedOutAt)} · stood ${stood} ${stood === 1 ? 'day' : 'days'}`}
+                {`Topped out ${dateLabel(displayRow.toppedOutAt)} · stood ${stood} ${stood === 1 ? 'day' : 'days'}`}
               </Text>
               <View style={[styles.chip, { backgroundColor: theme.background }]}>
                 <Text style={[styles.chipText, { color: theme.amber }]}>
-                  {row.autoToppedOut ? 'Topped out on its own at the cap' : 'You topped it out'}
+                  {displayRow.autoToppedOut ? 'Topped out on its own at the cap' : 'You topped it out'}
                 </Text>
               </View>
             </View>
@@ -130,13 +179,13 @@ export default function FinishedTowerSheet({ visible, row, onClose, theme, tower
             style={[styles.seeInside, { backgroundColor: theme.amber, opacity: insideSceneHabit ? 1 : 0.5 }]}
             testID="finished-tower-see-inside"
             accessibilityRole="button"
-            accessibilityLabel={`See inside ${row.habitName}`}
+            accessibilityLabel={`See inside ${displayRow.habitName}`}
           >
             <Text style={styles.seeInsideText}>See inside</Text>
           </Pressable>
 
           <Pressable
-            onPress={() => setHabitOverride(row.habitId, !shown)}
+            onPress={() => setHabitOverride(displayRow.habitId, !shown)}
             style={styles.linkRow}
             testID="finished-tower-toggle-habit"
             accessibilityRole="button"
@@ -149,7 +198,9 @@ export default function FinishedTowerSheet({ visible, row, onClose, theme, tower
             <Text style={[styles.link, { color: theme.muted }]}>Close</Text>
           </Pressable>
         </Pressable>
+        </Animated.View>
       </Pressable>
+      </GestureHandlerRootView>
     </Modal>
     {insideSceneHabit && (
       <TowerInsideView
@@ -173,6 +224,7 @@ export default function FinishedTowerSheet({ visible, row, onClose, theme, tower
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(4, 7, 18, 0.55)', justifyContent: 'flex-end' },
   sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 28 },
+  handleZone: { alignItems: 'center', paddingVertical: 10 },
   handle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, marginBottom: 18 },
   eyebrowRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   shareIconBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', marginRight: -10 },

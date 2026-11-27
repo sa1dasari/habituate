@@ -11,6 +11,7 @@ import { useAppTheme } from '../hooks/useAppTheme';
 import { useHabits } from '../hooks/useHabits';
 import { useToast } from '../hooks/useToast';
 import { useRegisterScrollToTop } from '../hooks/useRegisterScrollToTop';
+import { useTabBarOverlayInset } from '../hooks/useFloatingTabBar';
 import { CONSISTENCY_PERIODS, isCurrentPeriod, periodRangeLabel, shiftAnchor, totalFloorsHistory } from '../utils/consistency';
 import { hasDailyTarget } from '../utils/cadence';
 import { startOfWeek, toDateKey } from '../utils/date';
@@ -65,6 +66,7 @@ export default function InsightsScreen({ navigation, route }) {
   const amber = skylineUI[effectiveMode].amber;
   const styles = useMemo(() => makeStyles(colors, typography, amber), [colors, typography, amber]);
   const insets = useSafeAreaInsets();
+  const overlayInset = useTabBarOverlayInset();
   const scrollRef = useRegisterScrollToTop('Insights');
   const habitCategoryColors = towerColorsByMode[effectiveMode];
   const habitColor = useCallback(
@@ -214,7 +216,7 @@ export default function InsightsScreen({ navigation, route }) {
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView
         ref={scrollRef}
-        contentContainerStyle={[styles.container, { paddingBottom: spacing.xl + insets.bottom }]}
+        contentContainerStyle={[styles.container, { paddingBottom: spacing.xl + insets.bottom + overlayInset }]}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
         }

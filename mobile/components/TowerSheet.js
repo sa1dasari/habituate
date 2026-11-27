@@ -13,6 +13,7 @@ import { DayGrid } from './LotTile';
 import { useConfirm } from '../hooks/useConfirm';
 import { useToast } from '../hooks/useToast';
 import { useHabits } from '../hooks/useHabits';
+import { useTabBarOverlayInset } from '../hooks/useFloatingTabBar';
 import { isCountMode } from '../utils/cadence';
 import { buildDays } from '../utils/lots';
 import { categoryColor } from '../constants/habitCategories';
@@ -89,6 +90,7 @@ export default function TowerSheet({
   const { request, confirm, respond } = useConfirm();
   const { effectiveMode } = useAppTheme();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const overlayInset = useTabBarOverlayInset();
   // Both hooks below must stay unconditional (before the `if (!displayHabit)
   // return null` guard further down) — this sheet stays permanently
   // mounted with habit/displayHabit sometimes null, so a hook declared
@@ -532,7 +534,11 @@ export default function TowerSheet({
         </View>
       </GestureDetector>
 
-      <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={[styles.scroll, { paddingBottom: 32 + overlayInset }]}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.titleRow}>
           <View style={[styles.colorChip, { backgroundColor: towerColor }]} />
           <View style={styles.titleTextWrap} accessible accessibilityLabel={`Tower details, ${displayHabit.name}`}>
@@ -567,7 +573,7 @@ export default function TowerSheet({
         {(() => {
           const legendItems = (
             <>
-              <LegendRow swatch={<View style={[styles.ledgeSwatch, { backgroundColor: towerTheme?.ledgeColor || '#FFFFFF' }]} />} title={`Best run: ${bestRun} days`} body="The white ledge. It stays even if the run restarts." theme={theme} />
+              <LegendRow swatch={<View style={[styles.ledgeSwatch, { backgroundColor: towerTheme?.ledgeColor || '#FFFFFF' }]} />} title={`Best run: ${bestRun} days`} body="Marked in See inside's day-by-day list. It stays even if the run restarts." theme={theme} />
               <LegendRow swatch={<View style={[styles.windowSwatch, { backgroundColor: towerColor }]}><View style={[styles.windowPip, { backgroundColor: towerTheme?.windowDark }]} /></View>} title="Dark windows" body="Earlier floors. Past check-ins stay." theme={theme} />
               <LegendRow
                 swatch={
@@ -713,10 +719,16 @@ export default function TowerSheet({
             { key: 'shield', label: shieldLabel, a11yLabel: shieldA11yLabel, onPress: handleShieldToggle, disabled: shieldDisabled, testID: 'tower-sheet-shield' },
             { key: 'backdate', label: 'Add another day', onPress: () => setShowBackdate((v) => !v), testID: 'tower-sheet-backdate-toggle' },
             { key: 'inside', label: 'See inside', onPress: handleOpenInsideView, testID: 'tower-sheet-inside' },
-            { key: 'ask', label: 'Ask about tower', onPress: handleAskAboutTower, testID: 'tower-sheet-ask' },
+            // Only a real pill when the caller actually passed a handler —
+            // onAskAboutTower is omitted entirely when COACH_ENABLED is
+            // false (SkylineScreen.js), so this stays hidden rather than a
+            // button that silently does nothing when tapped.
+            onAskAboutTower
+              ? { key: 'ask', label: 'Ask about tower', onPress: handleAskAboutTower, testID: 'tower-sheet-ask' }
+              : null,
             { key: 'edit', label: 'Edit', onPress: handleEdit, testID: 'tower-sheet-edit' },
             { key: 'retire', label: 'Retire', onPress: handleRetire, testID: 'tower-sheet-retire' },
-          ];
+          ].filter(Boolean);
 
           if (!isTallTower) {
             return (

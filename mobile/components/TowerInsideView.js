@@ -439,9 +439,11 @@ export default function TowerInsideView({
                   )
                 ) : null}
 
-                <Pressable onPress={handleAsk} hitSlop={8} testID="tower-inside-ask-day">
-                  <Text style={[styles.askDayLabel, { color: uiTheme.amber || uiTheme.text }]}>Ask about this day</Text>
-                </Pressable>
+                {onAskAboutTower && (
+                  <Pressable onPress={handleAsk} hitSlop={8} testID="tower-inside-ask-day">
+                    <Text style={[styles.askDayLabel, { color: uiTheme.amber || uiTheme.text }]}>Ask about this day</Text>
+                  </Pressable>
+                )}
               </View>
             )}
           </ScrollView>
@@ -493,17 +495,19 @@ export default function TowerInsideView({
           <DayListFallback renderDays={renderDays} target={target} uiTheme={uiTheme} towerTheme={towerTheme} loading={loading} />
         )}
 
-        <Pressable
-          onPress={() => {
-            onClose();
-            onAskAboutTower?.(habit);
-          }}
-          style={[styles.askRow, { borderTopColor: uiTheme.border || 'rgba(128,128,128,0.2)' }]}
-          testID="tower-inside-ask"
-        >
-          <MaterialCommunityIcons name="chat-processing-outline" size={20} color={uiTheme.amber || uiTheme.text} />
-          <Text style={[styles.askLabel, { color: uiTheme.amber || uiTheme.text }]}>Ask about this tower</Text>
-        </Pressable>
+        {onAskAboutTower && (
+          <Pressable
+            onPress={() => {
+              onClose();
+              onAskAboutTower?.(habit);
+            }}
+            style={[styles.askRow, { borderTopColor: uiTheme.border || 'rgba(128,128,128,0.2)' }]}
+            testID="tower-inside-ask"
+          >
+            <MaterialCommunityIcons name="chat-processing-outline" size={20} color={uiTheme.amber || uiTheme.text} />
+            <Text style={[styles.askLabel, { color: uiTheme.amber || uiTheme.text }]}>Ask about this tower</Text>
+          </Pressable>
+        )}
 
         <Toast toast={toast} onHide={hideToast} />
       </SafeAreaView>

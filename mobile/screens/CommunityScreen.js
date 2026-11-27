@@ -27,6 +27,7 @@ import { useGroupActivity } from '../hooks/useGroupActivity';
 import { useFriends } from '../hooks/useFriends';
 import { useNotifications } from '../hooks/useNotifications';
 import { useRegisterScrollToTop } from '../hooks/useRegisterScrollToTop';
+import { useTabBarOverlayInset } from '../hooks/useFloatingTabBar';
 import { useToast } from '../hooks/useToast';
 import { radii, spacing } from '../theme';
 
@@ -34,6 +35,7 @@ const AVATAR_COLORS = ['#2563EB', '#7C3AED', '#0891B2', '#DB2777', '#EA580C'];
 
 export default function CommunityScreen({ navigation, route }) {
   const { colors, typography } = useAppTheme();
+  const overlayInset = useTabBarOverlayInset();
   const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
   const scrollRef = useRegisterScrollToTop('Community');
 
@@ -157,7 +159,7 @@ export default function CommunityScreen({ navigation, route }) {
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView
         ref={scrollRef}
-        contentContainerStyle={styles.container}
+        contentContainerStyle={[styles.container, { paddingBottom: spacing.xxl + overlayInset }]}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} />}
       >
         <View style={styles.header}>
@@ -450,7 +452,7 @@ function EmptyCard({ icon, iconColor, title, body, onPress, styles }) {
 function makeStyles(colors, typography) {
   return StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: colors.background },
-    container: { padding: spacing.xl, paddingBottom: spacing.xxl },
+    container: { padding: spacing.xl },
     header: {
       flexDirection: 'row',
       alignItems: 'center',

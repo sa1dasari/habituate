@@ -39,8 +39,7 @@ describe('onboarding tour', () => {
     TOUR_STEPS.filter((s) => s.scope === TOUR_SCOPES.TABS).forEach((s) => expect(s.tab).toBeUndefined());
   });
 
-  test('skyline tab route is the dev tab in dev, Today in release', () => {
-    expect(getSkylineTabRoute(true)).toBe('SkylineReal');
-    expect(getSkylineTabRoute(false)).toBe('Today');
+  test('skyline tab route is always Today, since SkylineScreen is the live tab', () => {
+    expect(getSkylineTabRoute()).toBe('Today');
   });
 });

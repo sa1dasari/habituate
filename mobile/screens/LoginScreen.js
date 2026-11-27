@@ -11,14 +11,21 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { AppleAuthenticationButton, AppleAuthenticationButtonStyle, AppleAuthenticationButtonType } from 'expo-apple-authentication';
+import GoogleIcon from '../components/GoogleIcon';
 import { useAuth } from '../hooks/useAuth';
 import { useAppTheme } from '../hooks/useAppTheme';
-import { fonts, radii, spacing } from '../theme';
+import { fonts, radii, skylineUI, spacing } from '../theme';
 
+// Boards 92/92-light (design/skyline/, owner-approved 2026-11-25): full-screen,
+// no skyline hero, no card — see design/skyline/README.md's "Login and
+// Create account" section for the full spec this follows.
 export default function LoginScreen({ onGoToSignup }) {
-  const { colors, typography } = useAppTheme();
-  const styles = useMemo(() => makeStyles(colors, typography), [colors, typography]);
+  const { colors, effectiveMode } = useAppTheme();
+  const ui = skylineUI[effectiveMode];
+  const buttonTextColor = effectiveMode === 'dark' ? '#15202B' : '#FFFFFF';
+  const styles = useMemo(() => makeStyles(ui, colors, effectiveMode), [ui, colors, effectiveMode]);
   const {
     signIn,
     signInWithGoogle,
@@ -56,201 +63,254 @@ export default function LoginScreen({ onGoToSignup }) {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <ScrollView
-          contentContainerStyle={styles.container}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={styles.header}>
-            <Text style={styles.wordmark}>habituate</Text>
-            <Text style={styles.tagline}>Build habits that stick — together.</Text>
-          </View>
-
-          <View style={styles.form}>
-            <Text style={styles.label}>Username or email</Text>
-            <TextInput
-              style={styles.input}
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="email-address"
-              returnKeyType="next"
-              placeholder="yourname or you@example.com"
-              placeholderTextColor={colors.textMuted}
-            />
-
-            <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={styles.input}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              returnKeyType="done"
-              onSubmitEditing={handleSignIn}
-              placeholder="••••••••"
-              placeholderTextColor={colors.textMuted}
-            />
-
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-            <Pressable
-              style={[styles.button, (loading || anyOauthLoading) && styles.buttonDisabled]}
-              onPress={handleSignIn}
-              disabled={loading || anyOauthLoading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.buttonText}>Sign in</Text>
-              )}
-            </Pressable>
-
-            <View style={styles.divider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or</Text>
-              <View style={styles.dividerLine} />
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+          <View>
+            <View style={styles.header}>
+              <Text style={styles.wordmark}>habituate</Text>
+              <Text style={styles.tagline}>Your skyline is waiting.</Text>
             </View>
 
-            <Pressable
-              style={[styles.googleButton, googleLoading && styles.buttonDisabled]}
-              onPress={signInWithGoogle}
-              disabled={loading || anyOauthLoading}
-            >
-              {googleLoading ? (
-                <ActivityIndicator color={colors.accent} />
-              ) : (
-                <Text style={styles.googleButtonText}>Sign in with Google</Text>
-              )}
-            </Pressable>
+            <View style={styles.form}>
+              <Text style={styles.heading}>Welcome back</Text>
 
-            <Pressable
-              style={[styles.googleButton, facebookLoading && styles.buttonDisabled]}
-              onPress={signInWithFacebook}
-              disabled={loading || anyOauthLoading}
-            >
-              {facebookLoading ? (
-                <ActivityIndicator color={colors.accent} />
-              ) : (
-                <Text style={styles.googleButtonText}>Continue with Facebook</Text>
-              )}
-            </Pressable>
-
-            {appleAvailable ? (
-              <AppleAuthenticationButton
-                buttonType={AppleAuthenticationButtonType.SIGN_IN}
-                buttonStyle={AppleAuthenticationButtonStyle.BLACK}
-                cornerRadius={radii.md}
-                style={styles.appleButton}
-                onPress={signInWithApple}
+              <Text style={styles.label}>Username or email</Text>
+              <TextInput
+                style={styles.input}
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="email-address"
+                returnKeyType="next"
+                placeholder="yourname or you@example.com"
+                placeholderTextColor={ui.muted}
               />
-            ) : null}
 
-            {biometricAvailable ? (
+              <Text style={styles.label}>Password</Text>
+              <TextInput
+                style={styles.input}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                returnKeyType="done"
+                onSubmitEditing={handleSignIn}
+                placeholder="••••••••"
+                placeholderTextColor={ui.muted}
+              />
+
+              {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
               <Pressable
-                style={[styles.googleButton, biometricLoading && styles.buttonDisabled]}
-                onPress={signInWithBiometrics}
+                style={[styles.button, (loading || anyOauthLoading) && styles.buttonDisabled]}
+                onPress={handleSignIn}
                 disabled={loading || anyOauthLoading}
               >
-                {biometricLoading ? (
-                  <ActivityIndicator color={colors.accent} />
+                {loading ? (
+                  <ActivityIndicator color={buttonTextColor} />
                 ) : (
-                  <Text style={styles.googleButtonText}>Sign in with {biometricLabel}</Text>
+                  <Text style={styles.buttonText}>Sign in</Text>
                 )}
               </Pressable>
-            ) : null}
 
-            <Pressable style={styles.switchLink} onPress={onGoToSignup}>
-              <Text style={styles.switchText}>
-                New here?{' '}
-                <Text style={styles.switchAction}>Create an account</Text>
-              </Text>
-            </Pressable>
+              <View style={styles.divider}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>or continue with</Text>
+                <View style={styles.dividerLine} />
+              </View>
+
+              <View style={styles.socialRow}>
+                <Pressable
+                  style={[styles.pill, googleLoading && styles.buttonDisabled]}
+                  onPress={signInWithGoogle}
+                  disabled={loading || anyOauthLoading}
+                  accessibilityRole="button"
+                  accessibilityLabel="Sign in with Google"
+                >
+                  {googleLoading ? (
+                    <ActivityIndicator color={ui.text} />
+                  ) : (
+                    <>
+                      <GoogleIcon size={18} />
+                      <Text style={styles.pillText} numberOfLines={1} ellipsizeMode="tail">
+                        Google
+                      </Text>
+                    </>
+                  )}
+                </Pressable>
+
+                <Pressable
+                  style={[styles.pill, facebookLoading && styles.buttonDisabled]}
+                  onPress={signInWithFacebook}
+                  disabled={loading || anyOauthLoading}
+                  accessibilityRole="button"
+                  accessibilityLabel="Continue with Facebook"
+                >
+                  {facebookLoading ? (
+                    <ActivityIndicator color={ui.text} />
+                  ) : (
+                    <>
+                      <Ionicons name="logo-facebook" size={18} color="#1877F2" />
+                      <Text style={styles.pillText} numberOfLines={1} ellipsizeMode="tail">
+                        Facebook
+                      </Text>
+                    </>
+                  )}
+                </Pressable>
+
+                {appleAvailable ? (
+                  <AppleAuthenticationButton
+                    buttonType={AppleAuthenticationButtonType.SIGN_IN}
+                    buttonStyle={AppleAuthenticationButtonStyle.BLACK}
+                    cornerRadius={24}
+                    style={styles.appleButton}
+                    onPress={signInWithApple}
+                  />
+                ) : null}
+              </View>
+
+              {biometricAvailable ? (
+                <Pressable
+                  style={styles.faceIdLink}
+                  onPress={signInWithBiometrics}
+                  disabled={loading || anyOauthLoading}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Sign in with ${biometricLabel}`}
+                >
+                  {biometricLoading ? (
+                    <ActivityIndicator color={ui.amber} />
+                  ) : (
+                    <>
+                      <Ionicons name="scan-outline" size={18} color={ui.amber} />
+                      <Text style={styles.faceIdText}>Sign in with {biometricLabel}</Text>
+                    </>
+                  )}
+                </Pressable>
+              ) : null}
+            </View>
           </View>
+
+          <Pressable style={styles.switchLink} onPress={onGoToSignup}>
+            <Text style={styles.switchText}>
+              New here? <Text style={styles.switchAction}>Create an account</Text>
+            </Text>
+          </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-function makeStyles(colors, typography) {
+function makeStyles(ui, colors, effectiveMode) {
+  const isDark = effectiveMode === 'dark';
+  const inputBg = isDark ? ui.surfaceHigh : ui.surfaceLow;
+  // Light-mode border reuses ui.muted rather than a paler gray — a paler
+  // border measures under 3:1 against ui.background (#EAF0F7), the WCAG
+  // non-text-contrast bar for an interactive control's boundary, and ui.muted
+  // clears it comfortably (~4.8:1). Dark mode's low-alpha hairline matches the
+  // approved board's own subtle divider and isn't changed.
+  const inputBorder = isDark ? 'transparent' : ui.muted;
+  const hairline = isDark ? 'rgba(255,255,255,0.12)' : ui.muted;
+  const buttonTextColor = isDark ? '#15202B' : '#FFFFFF';
+
   return StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
-  flex: { flex: 1 },
-  container: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.xxl,
-  },
-  header: { alignItems: 'center', marginBottom: spacing.xxl },
-  wordmark: {
-    fontFamily: fonts.extraBold,
-    fontSize: 36,
-    color: colors.accent,
-    letterSpacing: -1,
-  },
-  tagline: {
-    ...typography.body,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
-    textAlign: 'center',
-  },
-  form: { gap: spacing.sm },
-  label: {
-    ...typography.label,
-    color: colors.textSecondary,
-    marginBottom: 2,
-    marginTop: spacing.sm,
-  },
-  input: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    fontFamily: fonts.regular,
-    fontSize: 16,
-    color: colors.textPrimary,
-    minHeight: 48,
-  },
-  errorText: {
-    ...typography.body,
-    color: colors.atRisk,
-    marginTop: spacing.xs,
-  },
-  button: {
-    backgroundColor: colors.accent,
-    borderRadius: radii.md,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-    marginTop: spacing.md,
-    minHeight: 48,
-    justifyContent: 'center',
-  },
-  buttonDisabled: { opacity: 0.6 },
-  buttonText: { ...typography.cardTitle, color: '#fff' },
-  divider: { flexDirection: 'row', alignItems: 'center', marginVertical: spacing.lg },
-  dividerLine: { flex: 1, height: 1, backgroundColor: colors.border },
-  dividerText: { ...typography.meta, marginHorizontal: spacing.md, color: colors.textMuted },
-  googleButton: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.md,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-    minHeight: 48,
-    justifyContent: 'center',
-  },
-  googleButtonText: { fontFamily: fonts.semiBold, color: colors.textPrimary, fontSize: 16 },
-  appleButton: { height: 48, marginTop: spacing.sm },
-    switchLink: { alignItems: 'center', marginTop: spacing.lg },
-    switchText: { ...typography.body, color: colors.textSecondary },
-    switchAction: { fontFamily: fonts.semiBold, color: colors.accent },
+    safe: { flex: 1, backgroundColor: ui.background },
+    flex: { flex: 1 },
+    container: {
+      flexGrow: 1,
+      justifyContent: 'space-between',
+      paddingHorizontal: spacing.xl,
+      paddingTop: spacing.xxl,
+      paddingBottom: spacing.xl,
+    },
+    header: { marginBottom: 40 },
+    wordmark: {
+      fontFamily: fonts.extraBold,
+      fontSize: 36,
+      color: ui.text,
+      letterSpacing: -1,
+    },
+    tagline: {
+      fontFamily: fonts.regular,
+      fontSize: 16,
+      color: ui.muted,
+      marginTop: spacing.xs,
+    },
+    form: { gap: spacing.sm },
+    heading: {
+      fontFamily: fonts.extraBold,
+      fontSize: 22,
+      color: ui.text,
+      marginBottom: spacing.sm,
+    },
+    label: {
+      fontFamily: fonts.semiBold,
+      fontSize: 13,
+      color: ui.muted,
+      marginBottom: 2,
+      marginTop: spacing.sm,
+    },
+    input: {
+      backgroundColor: inputBg,
+      borderWidth: 1,
+      borderColor: inputBorder,
+      borderRadius: radii.lg,
+      height: 56,
+      paddingHorizontal: spacing.lg,
+      fontFamily: fonts.regular,
+      fontSize: 16,
+      color: ui.text,
+    },
+    errorText: {
+      fontFamily: fonts.regular,
+      fontSize: 12,
+      color: colors.atRisk,
+      marginTop: spacing.xs,
+    },
+    button: {
+      backgroundColor: ui.amber,
+      borderRadius: radii.pill,
+      height: 54,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: spacing.md,
+    },
+    buttonDisabled: { opacity: 0.6 },
+    buttonText: { fontFamily: fonts.extraBold, fontSize: 16, color: buttonTextColor },
+    divider: { flexDirection: 'row', alignItems: 'center', marginVertical: spacing.lg },
+    dividerLine: { flex: 1, height: 1, backgroundColor: hairline },
+    dividerText: {
+      fontFamily: fonts.regular,
+      fontSize: 12,
+      marginHorizontal: spacing.md,
+      color: ui.muted,
+    },
+    socialRow: { flexDirection: 'row', gap: spacing.sm },
+    pill: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.xs,
+      height: 48,
+      borderRadius: radii.pill,
+      borderWidth: 1,
+      borderColor: hairline,
+      backgroundColor: 'transparent',
+    },
+    pillText: { fontFamily: fonts.semiBold, fontSize: 14, color: ui.text },
+    appleButton: { flex: 1, height: 48 },
+    faceIdLink: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.xs,
+      marginTop: spacing.md,
+      minHeight: 48,
+    },
+    faceIdText: { fontFamily: fonts.semiBold, fontSize: 14, color: ui.amber },
+    switchLink: { alignItems: 'center', justifyContent: 'center', minHeight: 48, paddingTop: spacing.sm },
+    switchText: { fontFamily: fonts.regular, fontSize: 14, color: ui.muted },
+    switchAction: { fontFamily: fonts.bold, color: ui.amber },
   });
 }

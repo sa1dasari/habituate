@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import Svg from 'react-native-svg';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -105,6 +105,10 @@ export default function FinishedTowerSheet({ visible, row, onClose, theme, tower
   return (
     <>
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      {/* The handle's GestureDetector needs its own root — the one wrapping
+          App.js can't reach into a Modal's separate native surface (same
+          reason LotSheet.js nests one; see its comment). */}
+      <GestureHandlerRootView style={{ flex: 1 }}>
       <Pressable style={styles.backdrop} onPress={onClose} testID="finished-tower-sheet-backdrop">
         <Animated.View style={[styles.sheet, { backgroundColor: theme.surfaceHigh }, dragAnimatedStyle]}>
         <Pressable onPress={() => {}} testID="finished-tower-sheet">
@@ -196,6 +200,7 @@ export default function FinishedTowerSheet({ visible, row, onClose, theme, tower
         </Pressable>
         </Animated.View>
       </Pressable>
+      </GestureHandlerRootView>
     </Modal>
     {insideSceneHabit && (
       <TowerInsideView

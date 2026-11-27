@@ -28,7 +28,7 @@ import { useToast } from '../hooks/useToast';
 import api from '../api/client';
 import { buildCategoryTowerColors, fonts, radii, shadow, spacing } from '../theme';
 import { countByCap, FREE_SHIELD_BANK_LIMIT, FREE_TIER_LIMITS } from '../utils/entitlements';
-import { towerCapInfo } from '../utils/towerAge';
+import { towerCapDays, towerCapInfo } from '../utils/towerAge';
 
 const PREVIEW_TOWER_LIMIT = 6;
 const towerColorsByMode = buildCategoryTowerColors(HABIT_CATEGORY_COLORS);
@@ -143,8 +143,11 @@ export default function ProfileScreen() {
   // habits with the same broken streak (run = 0) can still be very
   // different heights on the real skyline, and this preview should read
   // that way too (owner direction 2026-11-27, revised from current-run).
+  // Clamped to the habit's own cap: a weekly/monthly-target habit never
+  // tops out (section 6), so its segment age grows unbounded and would
+  // otherwise swamp every daily tower's bar at the shared scale.
   const previewFloorCounts = useMemo(
-    () => previewHabits.map((h) => towerCapInfo(h).daysStood + 1),
+    () => previewHabits.map((h) => Math.min(towerCapInfo(h).daysStood + 1, towerCapDays(h))),
     [previewHabits],
   );
   const maxFloorCount = Math.max(1, ...previewFloorCounts);

@@ -42,7 +42,7 @@ User-facing text uses the skyline vocabulary. Code, API paths, database tables a
 | create habit | Lay a foundation |
 | check-in | build a floor |
 | streak | run ("9 day run") |
-| best streak | best run (a white ledge on the tower) |
+| best streak | best run (marked in the "See inside" day-by-day list with a white ledge; owner decision 2026-11-27 dropped the isometric main-tower ledge line — it rendered as a stray diagonal slash) |
 | Shield Day | Shield Day, shown as a glass floor with a small shield icon |
 | missed day | open floor |
 | archive | Retire (becomes a grey monument) |

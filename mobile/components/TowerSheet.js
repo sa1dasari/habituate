@@ -573,7 +573,7 @@ export default function TowerSheet({
         {(() => {
           const legendItems = (
             <>
-              <LegendRow swatch={<View style={[styles.ledgeSwatch, { backgroundColor: towerTheme?.ledgeColor || '#FFFFFF' }]} />} title={`Best run: ${bestRun} days`} body="The white ledge. It stays even if the run restarts." theme={theme} />
+              <LegendRow swatch={<View style={[styles.ledgeSwatch, { backgroundColor: towerTheme?.ledgeColor || '#FFFFFF' }]} />} title={`Best run: ${bestRun} days`} body="Marked in See inside's day-by-day list. It stays even if the run restarts." theme={theme} />
               <LegendRow swatch={<View style={[styles.windowSwatch, { backgroundColor: towerColor }]}><View style={[styles.windowPip, { backgroundColor: towerTheme?.windowDark }]} /></View>} title="Dark windows" body="Earlier floors. Past check-ins stay." theme={theme} />
               <LegendRow
                 swatch={

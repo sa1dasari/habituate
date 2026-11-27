@@ -146,10 +146,7 @@ export default function ProfileScreen() {
   // Clamped to the habit's own cap: a weekly/monthly-target habit never
   // tops out (section 6), so its segment age grows unbounded and would
   // otherwise swamp every daily tower's bar at the shared scale.
-  const previewFloorCounts = useMemo(
-    () => previewHabits.map((h) => Math.min(towerCapInfo(h).daysStood + 1, towerCapDays(h))),
-    [previewHabits],
-  );
+  const previewFloorCounts = previewHabits.map((h) => Math.min(towerCapInfo(h).daysStood + 1, towerCapDays(h)));
   const maxFloorCount = Math.max(1, ...previewFloorCounts);
   const flagHabitId = previewHabits.length
     ? previewHabits.reduce((best, h) => ((h.bestRun || 0) > (best.bestRun || 0) ? h : best), previewHabits[0]).id

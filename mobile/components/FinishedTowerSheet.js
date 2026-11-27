@@ -224,7 +224,7 @@ export default function FinishedTowerSheet({ visible, row, onClose, theme, tower
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(4, 7, 18, 0.55)', justifyContent: 'flex-end' },
   sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 28 },
-  handleZone: { alignItems: 'center' },
+  handleZone: { alignItems: 'center', paddingVertical: 10 },
   handle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, marginBottom: 18 },
   eyebrowRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   shareIconBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', marginRight: -10 },
